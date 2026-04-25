@@ -8,7 +8,6 @@ final class LibraryStore {
     private(set) var entries: [UInt64: PhotoEntry] = [:]
     private(set) var orderedIDs: [UInt64] = []
     private(set) var shotGroups: [UInt64: [UInt64]] = [:]
-    private(set) var representativeIDs: Set<UInt64> = []
 
     // @Observable state — UI が自動更新される
     private(set) var thumbnailImages: [UInt64: CGImage] = [:]
@@ -178,7 +177,9 @@ final class LibraryStore {
     // MARK: - Computed
 
     var visibleIDs: [UInt64] {
-        let reps = orderedIDs.filter { representativeIDs.contains($0) }
+        // Recompute representatives live from current exifData (updates as EXIF loads)
+        let liveReps = computeRepresentatives(groups: shotGroups, entries: entries)
+        let reps = orderedIDs.filter { liveReps.contains($0) }
         guard filter.isActive else { return reps }
         return reps.filter { id in
             guard let entry = entries[id] else { return false }
@@ -207,16 +208,22 @@ final class LibraryStore {
     }
 
     func applyReindexedGroups(_ groups: [UInt64: [UInt64]]) {
+        // Update each entry's shotId to match its reindexed group key
+        for (shotId, memberIds) in groups {
+            for memberId in memberIds {
+                entries[memberId]?.shotId = shotId
+            }
+        }
         shotGroups = groups
-        representativeIDs = computeRepresentatives(groups: groups, entries: entries)
     }
 
     private func reset() {
         entries = [:]
         orderedIDs = []
         shotGroups = [:]
-        representativeIDs = []
         thumbnailImages = [:]
+        exifData = [:]
+        xmpData = [:]
         selectedID = nil
         viewerMode = false
         lastImageList = nil
@@ -236,7 +243,6 @@ final class LibraryStore {
         entries = dict
         orderedIDs = ordered
         shotGroups = groups
-        representativeIDs = computeRepresentatives(groups: groups, entries: dict)
     }
 
     private func computeRepresentatives(
@@ -245,11 +251,21 @@ final class LibraryStore {
     ) -> Set<UInt64> {
         var reps = Set<UInt64>()
         for (_, members) in groups {
-            // 代表: DEV > JPG > RAW の優先順
-            // Phase E で exif/xmp ストアを参照して is_developed を判定
-            if let first = members.first {
-                reps.insert(first)
+            guard !members.isEmpty else { continue }
+
+            // Tier 1: developed (EXIF software tag matches known keywords)
+            let devs = members.filter { id in
+                guard let sw = exifData[id]?.software?.lowercased() else { return false }
+                return BridgeCoreConstants.developedKeywords.contains { sw.contains($0) }
             }
+            if let rep = devs.first { reps.insert(rep); continue }
+
+            // Tier 2: JPEG (non-RAW)
+            let jpgs = members.filter { entries[$0]?.isRaw == false }
+            if let rep = jpgs.first { reps.insert(rep); continue }
+
+            // Tier 3: first member (RAW)
+            reps.insert(members[0])
         }
         return reps
     }

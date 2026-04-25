@@ -25,22 +25,118 @@
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Filters" } }
       }
     },
+    "Camera" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "カメラ" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Camera" } }
+      }
+    },
     "Rating" : {
       "localizations" : {
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "レーティング" } },
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Rating" } }
       }
     },
-    "Reset" : {
+    "Label" : {
       "localizations" : {
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "リセット" } },
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reset" } }
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ラベル" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Label" } }
+      }
+    },
+    "Flag" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "フラグ" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Flag" } }
+      }
+    },
+    "ISO" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ISO" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "ISO" } }
+      }
+    },
+    "Reset Filters" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "フィルタをリセット" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reset Filters" } }
       }
     },
     "%d photos" : {
       "localizations" : {
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "%d 枚" } },
         "en" : { "stringUnit" : { "state" : "translated", "value" : "%d photos" } }
+      }
+    },
+    "EXIF" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "EXIF" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "EXIF" } }
+      }
+    },
+    "File" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ファイル" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "File" } }
+      }
+    },
+    "Size" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "サイズ" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Size" } }
+      }
+    },
+    "Type" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "形式" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Type" } }
+      }
+    },
+    "Date" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "撮影日時" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Date" } }
+      }
+    },
+    "Exposure" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "露出" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Exposure" } }
+      }
+    },
+    "F-Number" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "絞り" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "F-Number" } }
+      }
+    },
+    "Focal" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "焦点距離" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Focal" } }
+      }
+    },
+    "Resolution" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "解像度" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Resolution" } }
+      }
+    },
+    "Close" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "閉じる" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Close" } }
+      }
+    },
+    "Prev" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "前へ" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Prev" } }
+      }
+    },
+    "Next" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "次へ" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Next" } }
       }
     },
     "Red" : {
@@ -77,6 +173,60 @@
       "localizations" : {
         "ja" : { "stringUnit" : { "state" : "translated", "value" : "キャンセル" } },
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Cancelled" } }
+      }
+    },
+    "IO error: %@ (%@)" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "IO エラー: %@ (%@)" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "IO error: %@ (%@)" } }
+      }
+    },
+    "Unsupported format: %@" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "非対応形式: %@" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Unsupported format: %@" } }
+      }
+    },
+    "XMP error: %@" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "XMP エラー: %@" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "XMP error: %@" } }
+      }
+    },
+    "Write failed: %@" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "書き込み失敗: %@" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Write failed: %@" } }
+      }
+    },
+    "Database error: %@" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "DB エラー: %@" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Database error: %@" } }
+      }
+    },
+    "Cannot load: %@" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "読み込めません: %@" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Cannot load: %@" } }
+      }
+    },
+    "Not found: %@" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "見つかりません: %@" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Not found: %@" } }
+      }
+    },
+    "Open Folder…" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "フォルダを開く…" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Open Folder…" } }
+      }
+    },
+    "Metadata" : {
+      "localizations" : {
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "メタデータ" } },
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Metadata" } }
       }
     }
   },
