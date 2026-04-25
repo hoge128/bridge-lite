@@ -1,0 +1,56 @@
+[package]
+name = "xmp_toolkit"
+version = "1.12.1"
+description = "Rust-language bindings for Adobe's XMP Toolkit"
+license = "MIT OR Apache-2.0"
+repository = "https://github.com/adobe/xmp-toolkit-rs"
+documentation = "https://docs.rs/xmp_toolkit"
+readme = "README.md"
+authors = ["Eric Scouten <scouten@adobe.com>"]
+keywords = ["xmp", "metadata"]
+categories = ["api-bindings"]
+edition = "2021"
+rust-version = "1.88.0"
+links = "xmp_toolkit"
+exclude = [
+  ".github",
+  "external/libexpat/testdata",
+  "external/xmp_toolkit/docs",
+  "external/xmp_toolkit/samples",
+  "external/xmp_toolkit/third-party/zlib/ReadMe.txt",
+  "external/xmp_toolkit/third-party/zlib/README.md",
+  "external/xmp_toolkit/third-party/zlib/*.c",
+  "external/xmp_toolkit/third-party/zlib/*.h",
+  "external/xmp_toolkit/third-party/expat/lib",
+  "external/xmp_toolkit/XMPFilesPlugins/PDF_Handler",
+  "src/tests",
+]
+
+[package.metadata.docs.rs]
+all-features = true
+rustdoc-args = ["--cfg", "docsrs"]
+
+[features]
+chrono = ["dep:chrono"]
+crt_static = []
+
+[dependencies]
+chrono = { version = "0.4.42", default-features = false, optional = true }
+num_enum = "0.7.0"
+thiserror = "2.0"
+
+[build-dependencies]
+cc = { version = "1.2.44", features = ["parallel"] }
+fs_extra = "1.3"
+
+[dev-dependencies]
+anyhow = "1.0.72"
+futures = "0.3.30"
+pretty_assertions = "1.4.0"
+rand = "0.10.0"
+tempfile = "3.2"
+tokio = { version = "1.39", features = ["full"] }
+tokio-macros = "2.4"
+
+[target.'cfg(target_os = "ios")'.dev-dependencies]
+dinghy-test = "0.8"
