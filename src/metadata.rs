@@ -61,8 +61,12 @@ pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
     Some(ExifData {
         make: get_ascii(Tag::Make),
         model: get_ascii(Tag::Model),
-        datetime: get_ascii(Tag::DateTimeOriginal).or_else(|| get_ascii(Tag::DateTime)),
-        subsec: get_ascii(Tag::SubSecTimeOriginal).or_else(|| get_ascii(Tag::SubSecTime)),
+        datetime: get_ascii(Tag::DateTimeOriginal)
+            .or_else(|| get_ascii(Tag::DateTimeDigitized))
+            .or_else(|| get_ascii(Tag::DateTime)),
+        subsec: get_ascii(Tag::SubSecTimeOriginal)
+            .or_else(|| get_ascii(Tag::SubSecTimeDigitized))
+            .or_else(|| get_ascii(Tag::SubSecTime)),
         exposure_time: get_display(Tag::ExposureTime),
         fnumber: get_display(Tag::FNumber),
         iso,
