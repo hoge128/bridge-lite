@@ -19,7 +19,7 @@ chrono = { version = "0.4", default-features = false, features = ["std"] }
 dirs-next = "2.0.0"
 image_hasher = "3.1"
 libc = "0.2"
-iced = { version = "0.14.0", features = ["wgpu", "tokio", "image"] }
+iced = { version = "0.14.0", features = ["wgpu", "tokio", "image", "svg"] }
 image = "0.25.10"
 kamadak-exif = "0.6.1"
 muda = "0.17"

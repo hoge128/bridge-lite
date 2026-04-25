@@ -12,7 +12,7 @@ use crate::metadata::{parse_focal_mm, ExifData};
 use crate::scanner::ImageEntry;
 use crate::thumbnail::ThumbResult;
 use crate::xmp::{Flag, Label, XmpData};
-use crate::theme::{alpha, font_size, radius, spacing};
+use crate::theme::{self, alpha, font_size, radius, spacing};
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
@@ -1217,7 +1217,7 @@ fn view(state: &App) -> Element<'_, Message> {
         button(if state.show_sidebar { s.toolbar_sidebar_on } else { s.toolbar_sidebar_off })
             .on_press(Message::ToggleSidebar)
             .padding([spacing::SM, spacing::MD]),
-        button("⚙").on_press(Message::OpenSettings).padding([spacing::SM, spacing::MD]),
+        button(theme::icon(theme::ICON_SETTINGS, 16)).on_press(Message::OpenSettings).padding([spacing::SM, spacing::MD]),
     ]
     .spacing(spacing::SM)
     .padding(spacing::MD)
@@ -1306,13 +1306,17 @@ fn viewer_view(state: &App) -> Element<'_, Message> {
 
     let top_bar = container(
         row![
-            button(text(s.viewer_close).size(font_size::BODY))
+            button(
+                row![theme::icon(theme::ICON_X, 14), text(s.viewer_close).size(font_size::BODY)]
+                    .spacing(spacing::XS)
+                    .align_y(Alignment::Center)
+            )
                 .on_press(Message::ExitViewer)
                 .padding([spacing::XS + 2.0, spacing::MD]),
-            button(text("←").size(font_size::LABEL))
+            button(theme::icon(theme::ICON_CHEVRON_LEFT, 16))
                 .on_press(Message::NavigatePrev)
                 .padding([spacing::XS + 2.0, spacing::MD]),
-            button(text("→").size(font_size::LABEL))
+            button(theme::icon(theme::ICON_CHEVRON_RIGHT, 16))
                 .on_press(Message::NavigateNext)
                 .padding([spacing::XS + 2.0, spacing::MD]),
             column![

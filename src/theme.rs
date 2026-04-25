@@ -1,4 +1,4 @@
-use iced::{Color, Theme};
+use iced::{Color, Element, Theme};
 
 // ── Spacing tokens ────────────────────────────────────────────────────────
 pub mod spacing {
@@ -77,6 +77,39 @@ pub fn bridge_dark() -> Theme {
         },
     )
 }
+
+// ── SVG icon helper ───────────────────────────────────────────────────────
+
+/// Render a bundled SVG icon, tinted to match the current theme's text color.
+pub fn icon<'a, M: 'a>(bytes: &'static [u8], size: u16) -> Element<'a, M>
+where
+    M: Clone,
+{
+    iced::widget::svg(iced::widget::svg::Handle::from_memory(bytes))
+        .width(size as f32)
+        .height(size as f32)
+        .style(|theme: &Theme, _| iced::widget::svg::Style {
+            color: Some(theme.extended_palette().background.base.text),
+        })
+        .into()
+}
+
+// ── Bundled icon bytes ────────────────────────────────────────────────────
+
+pub const ICON_SETTINGS: &[u8]       = include_bytes!("../assets/icons/settings.svg");
+pub const ICON_X: &[u8]              = include_bytes!("../assets/icons/x.svg");
+pub const ICON_CHEVRON_LEFT: &[u8]   = include_bytes!("../assets/icons/chevron-left.svg");
+pub const ICON_CHEVRON_RIGHT: &[u8]  = include_bytes!("../assets/icons/chevron-right.svg");
+pub const ICON_CHEVRON_UP: &[u8]     = include_bytes!("../assets/icons/chevron-up.svg");
+pub const ICON_CHEVRON_DOWN: &[u8]   = include_bytes!("../assets/icons/chevron-down.svg");
+pub const ICON_FILTER: &[u8]         = include_bytes!("../assets/icons/filter.svg");
+pub const ICON_FOLDER: &[u8]         = include_bytes!("../assets/icons/folder.svg");
+pub const ICON_IMAGE: &[u8]          = include_bytes!("../assets/icons/image.svg");
+pub const ICON_INFO: &[u8]           = include_bytes!("../assets/icons/info.svg");
+pub const ICON_STAR: &[u8]           = include_bytes!("../assets/icons/star.svg");
+pub const ICON_FLAG: &[u8]           = include_bytes!("../assets/icons/flag.svg");
+pub const ICON_TAG: &[u8]            = include_bytes!("../assets/icons/tag.svg");
+pub const ICON_FULLSCREEN: &[u8]     = include_bytes!("../assets/icons/fullscreen.svg");
 
 pub fn bridge_light() -> Theme {
     Theme::custom(
