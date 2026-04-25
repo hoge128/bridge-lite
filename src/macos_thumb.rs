@@ -80,10 +80,10 @@ unsafe extern "C" {
 
 #[link(name = "ImageIO", kind = "framework")]
 unsafe extern "C" {
-    static kCGImageSourceThumbnailMaxPixelSize:          CFStringRef;
-    static kCGImageSourceCreateThumbnailFromImageAlways: CFStringRef;
-    static kCGImageSourceCreateThumbnailWithTransform:   CFStringRef;
-    static kCGImageSourceShouldCache:                    CFStringRef;
+    static kCGImageSourceThumbnailMaxPixelSize:            CFStringRef;
+    static kCGImageSourceCreateThumbnailFromImageIfAbsent: CFStringRef;
+    static kCGImageSourceCreateThumbnailWithTransform:     CFStringRef;
+    static kCGImageSourceShouldCache:                      CFStringRef;
     fn CGImageSourceCreateWithURL(
         url:     CFURLRef,
         options: CFDictionaryRef,
@@ -165,9 +165,14 @@ unsafe fn make_thumb_options(max_px: u32) -> CFDictionaryRef {
         std::ptr::null(), CF_NUMBER_SINT32,
         &max as *const i32 as *const c_void,
     );
+    // Prefer embedded previews (640×480 for most cameras) over a full decode.
+    // Full decode of a 6240×4160 JPEG uses ~104 MB; with 16 concurrent tasks
+    // that exceeds 1.6 GB and causes CGImageSource to return null under pressure.
+    // kCGImageSourceCreateThumbnailFromImageIfAbsent falls back to full decode
+    // only when no embedded thumbnail exists (e.g. DxO-output DNG).
     let keys:   [CFTypeRef; 4] = [
         kCGImageSourceThumbnailMaxPixelSize,
-        kCGImageSourceCreateThumbnailFromImageAlways,
+        kCGImageSourceCreateThumbnailFromImageIfAbsent,
         kCGImageSourceCreateThumbnailWithTransform,
         kCGImageSourceShouldCache,
     ];

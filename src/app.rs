@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use iced::keyboard::{self, key};
 use iced::widget::image::{Handle as ImageHandle, Image};
-use iced::widget::{button, checkbox, column, container, radio, row, scrollable, text, text_input, Row, Space};
+use iced::widget::{button, checkbox, column, container, mouse_area, radio, responsive, row, scrollable, text, text_input, Row, Space};
 use iced::{Alignment, ContentFit, Element, Length, Subscription, Task};
 
 use crate::config::{Settings, ThemeChoice};
@@ -12,12 +12,13 @@ use crate::metadata::{parse_focal_mm, ExifData};
 use crate::scanner::ImageEntry;
 use crate::thumbnail::ThumbResult;
 use crate::xmp::{Flag, Label, XmpData};
+use crate::theme::{self, alpha, font_size, radius, spacing};
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const THUMB_DISPLAY: f32 = 180.0;
 const FILTER_PANEL_WIDTH: f32 = 190.0;
-const SIDEBAR_WIDTH: f32 = 260.0;
+const SIDEBAR_WIDTH: f32 = 300.0;
 const GRID_COLUMNS: usize = 4;
 /// Max concurrent thumbnail generation tasks
 const THUMB_CONCURRENCY: usize = 16;
@@ -189,6 +190,8 @@ pub struct App {
     show_settings: bool,
     /// Whether the About screen is visible
     show_about: bool,
+    /// Currently hovered thumbnail id (at most one at a time)
+    hovered_thumb: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -252,6 +255,7 @@ pub enum Message {
     FlagFilterToggled(Flag),
     PhashBatchLoaded(HashMap<PathBuf, u64>),
     PhashIndexed { id: usize, phash: Option<u64> },
+    ThumbHovered(Option<usize>),
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────
@@ -261,6 +265,9 @@ pub fn run_with(settings: Settings) -> iced::Result {
         .title("bridge-lite")
         .theme(|state: &App| state.settings.theme.to_iced())
         .subscription(subscription)
+        .default_font(iced::Font::with_name("Inter"))
+        .font(include_bytes!("../assets/fonts/InterVariable.ttf").as_slice())
+        .font(include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf").as_slice())
         .window(iced::window::Settings {
             size: iced::Size::new(1400.0, 860.0),
             min_size: Some(iced::Size::new(800.0, 500.0)),
@@ -469,6 +476,13 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
                 &state.exif_data,
                 &state.phashes,
             );
+            Task::none()
+        }
+
+        Message::ThumbHovered(id) => {
+            if state.hovered_thumb != id {
+                state.hovered_thumb = id;
+            }
             Task::none()
         }
 
@@ -1202,28 +1216,48 @@ fn view(state: &App) -> Element<'_, Message> {
             .on_input(Message::DirInputChanged)
             .on_submit(Message::OpenDirectory)
             .width(Length::Fill)
-            .padding(8),
-        button(s.toolbar_open).on_press(Message::OpenDirectory).padding([8, 16]),
+            .padding(spacing::SM),
+        button(s.toolbar_open).on_press(Message::OpenDirectory).padding([spacing::SM, spacing::LG]),
         button(if state.show_filters { s.toolbar_filter_on } else { s.toolbar_filter_off })
             .on_press(Message::ToggleFilterPanel)
-            .padding([8, 12]),
+            .padding([spacing::SM, spacing::MD]),
         button(if state.show_grid { s.toolbar_grid_on } else { s.toolbar_grid_off })
             .on_press(Message::ToggleGridPanel)
-            .padding([8, 12]),
+            .padding([spacing::SM, spacing::MD]),
         button(if state.show_sidebar { s.toolbar_sidebar_on } else { s.toolbar_sidebar_off })
             .on_press(Message::ToggleSidebar)
-            .padding([8, 12]),
-        button("⚙").on_press(Message::OpenSettings).padding([8, 12]),
+            .padding([spacing::SM, spacing::MD]),
+        button(theme::icon(theme::ICON_SETTINGS, 16)).on_press(Message::OpenSettings).padding([spacing::SM, spacing::MD]),
     ]
-    .spacing(8)
-    .padding(12)
+    .spacing(spacing::SM)
+    .padding(spacing::MD)
     .align_y(Alignment::Center);
 
     let nav_hint = if state.selected.is_some() { s.nav_hint } else { "" };
+    let progress_text = if !state.images.is_empty() && state.indexed_count < state.images.len() {
+        format!("{} / {} ({:.0}%)", state.indexed_count, state.images.len(),
+            state.indexed_count as f32 / state.images.len() as f32 * 100.0)
+    } else {
+        String::new()
+    };
+    let short_dir = short_path(&state.dir_input);
     let status_bar = container(
-        text(format!("{}{}", &state.status, nav_hint)).size(12)
+        row![
+            text(format!("{}{}", &state.status, nav_hint))
+                .size(font_size::BODY)
+                .width(Length::Fill),
+            text(progress_text)
+                .size(font_size::BODY)
+                .style(|theme: &iced::Theme| crate::theme::faint_text_style(theme)),
+            text(short_dir)
+                .size(font_size::CAPTION)
+                .style(|theme: &iced::Theme| crate::theme::faint_text_style(theme))
+                .width(Length::Shrink),
+        ]
+        .spacing(spacing::MD)
+        .align_y(Alignment::Center)
     )
-    .padding([2, 12])
+    .padding([spacing::XS, spacing::MD])
     .width(Length::Fill);
 
     let content_area: Element<'_, Message> = if state.images.is_empty() {
@@ -1248,8 +1282,8 @@ fn view(state: &App) -> Element<'_, Message> {
             panes.push(
                 container(
                     text(s.all_panels_hidden)
-                        .size(14)
-                        .color(iced::Color::from_rgb(0.5, 0.5, 0.5)),
+                        .size(font_size::H3)
+                        .style(|theme: &iced::Theme| crate::theme::faint_text_style(theme)),
                 )
                 .width(Length::Fill)
                 .height(Length::Fill)
@@ -1302,32 +1336,30 @@ fn viewer_view(state: &App) -> Element<'_, Message> {
 
     let top_bar = container(
         row![
-            button(text(s.viewer_close).size(12))
+            button(
+                row![theme::icon(theme::ICON_X, 14), text(s.viewer_close).size(font_size::BODY)]
+                    .spacing(spacing::XS)
+                    .align_y(Alignment::Center)
+            )
                 .on_press(Message::ExitViewer)
-                .padding([6, 12]),
-            button(text("←").size(14))
+                .padding([spacing::XS + 2.0, spacing::MD]),
+            button(theme::icon(theme::ICON_CHEVRON_LEFT, 16))
                 .on_press(Message::NavigatePrev)
-                .padding([6, 12]),
-            button(text("→").size(14))
+                .padding([spacing::XS + 2.0, spacing::MD]),
+            button(theme::icon(theme::ICON_CHEVRON_RIGHT, 16))
                 .on_press(Message::NavigateNext)
-                .padding([6, 12]),
+                .padding([spacing::XS + 2.0, spacing::MD]),
             column![
-                text(filename).size(13),
-                text(exif_summary).size(10).style(|theme: &iced::Theme| {
-                    iced::widget::text::Style {
-                        color: {
-                            let mut c = theme.extended_palette().background.base.text;
-                            c.a *= 0.55;
-                            Some(c)
-                        }
-                    }
+                text(filename).size(font_size::LABEL),
+                text(exif_summary).size(font_size::CAPTION).style(|theme: &iced::Theme| {
+                    crate::theme::muted_text_style(theme)
                 }),
             ]
-            .spacing(2)
+            .spacing(spacing::XS / 2.0)
             .width(Length::Fill),
         ]
-        .spacing(8)
-        .padding([6, 12])
+        .spacing(spacing::SM)
+        .padding([spacing::XS + 2.0, spacing::MD])
         .align_y(Alignment::Center),
     )
     .width(Length::Fill)
@@ -1338,7 +1370,7 @@ fn viewer_view(state: &App) -> Element<'_, Message> {
             border: iced::Border {
                 color: pal.background.weak.color,
                 width: 1.0,
-                radius: iced::border::Radius::from(0.0),
+                radius: iced::border::Radius::from(radius::NONE),
             },
             ..Default::default()
         }
@@ -1381,17 +1413,11 @@ fn viewer_view(state: &App) -> Element<'_, Message> {
 fn filter_panel(state: &App) -> Element<'_, Message> {
     let tr = i18n::t(state.settings.language);
     let section = |s: &'static str| {
-        text(s).size(10).style(|theme: &iced::Theme| iced::widget::text::Style {
+        text(s).size(font_size::CAPTION).style(|theme: &iced::Theme| iced::widget::text::Style {
             color: Some(theme.extended_palette().primary.base.color),
         })
     };
-    let muted_style = |theme: &iced::Theme| iced::widget::text::Style {
-        color: {
-            let mut c = theme.extended_palette().background.base.text;
-            c.a *= 0.5;
-            Some(c)
-        }
-    };
+    let muted_style = |theme: &iced::Theme| crate::theme::faint_text_style(theme);
 
     // Camera checkboxes
     let mut cam_col: Vec<Element<'_, Message>> = vec![section(tr.filter_camera).into()];
@@ -1416,47 +1442,47 @@ fn filter_panel(state: &App) -> Element<'_, Message> {
     let iso_row = row![
         text_input(tr.filter_min, &state.filter.iso_min)
             .on_input(Message::IsoMinChanged)
-            .width(72).padding(4),
-        text("～").size(11).style(muted_style),
+            .width(72).padding(spacing::XS),
+        text("～").size(font_size::CAPTION + 1.0).style(muted_style),
         text_input(tr.filter_max, &state.filter.iso_max)
             .on_input(Message::IsoMaxChanged)
-            .width(72).padding(4),
+            .width(72).padding(spacing::XS),
     ]
-    .spacing(4)
+    .spacing(spacing::XS)
     .align_y(Alignment::Center);
 
     let focal_row = row![
         text_input(tr.filter_min, &state.filter.focal_min)
             .on_input(Message::FocalMinChanged)
-            .width(72).padding(4),
-        text("～").size(11).style(muted_style),
+            .width(72).padding(spacing::XS),
+        text("～").size(font_size::CAPTION + 1.0).style(muted_style),
         text_input(tr.filter_max, &state.filter.focal_max)
             .on_input(Message::FocalMaxChanged)
-            .width(72).padding(4),
+            .width(72).padding(spacing::XS),
     ]
-    .spacing(4)
+    .spacing(spacing::XS)
     .align_y(Alignment::Center);
 
     let date_col = column![
         section(tr.filter_date),
         row![
-            text(tr.filter_from).size(10).style(muted_style),
+            text(tr.filter_from).size(font_size::CAPTION).style(muted_style),
             text_input("YYYY-MM-DD", &state.filter.date_from)
                 .on_input(Message::DateFromChanged)
-                .width(Length::Fill).padding(4),
+                .width(Length::Fill).padding(spacing::XS),
         ]
-        .spacing(4)
+        .spacing(spacing::XS)
         .align_y(Alignment::Center),
         row![
-            text(tr.filter_to).size(10).style(muted_style),
+            text(tr.filter_to).size(font_size::CAPTION).style(muted_style),
             text_input("YYYY-MM-DD", &state.filter.date_to)
                 .on_input(Message::DateToChanged)
-                .width(Length::Fill).padding(4),
+                .width(Length::Fill).padding(spacing::XS),
         ]
-        .spacing(4)
+        .spacing(spacing::XS)
         .align_y(Alignment::Center),
     ]
-    .spacing(4);
+    .spacing(spacing::XS);
 
     // Rating filter (checkboxes: unrated / ★ / ★★ / ★★★ / ★★★★ / ★★★★★)
     let rating_entries: &[(u8, &str)] = &[
@@ -1538,17 +1564,17 @@ fn filter_panel(state: &App) -> Element<'_, Message> {
     } else {
         tr.filter_reset.to_string()
     };
-    let reset_btn = button(text(reset_label).size(11))
+    let reset_btn = button(text(reset_label).size(font_size::CAPTION + 1.0))
         .on_press_maybe(state.filter.is_active().then_some(Message::FilterReset))
         .width(Length::Fill)
-        .padding([5, 0]);
+        .padding([spacing::XS + 1.0, 0.0]);
 
     let mut items: Vec<Element<'_, Message>> = Vec::new();
     items.extend(cam_col);
     items.push(thin_divider());
-    items.push(column![section(tr.filter_iso), iso_row].spacing(4).into());
+    items.push(column![section(tr.filter_iso), iso_row].spacing(spacing::XS).into());
     items.push(thin_divider());
-    items.push(column![section(tr.filter_focal), focal_row].spacing(4).into());
+    items.push(column![section(tr.filter_focal), focal_row].spacing(spacing::XS).into());
     items.push(thin_divider());
     items.push(date_col.into());
     items.push(thin_divider());
@@ -1561,7 +1587,7 @@ fn filter_panel(state: &App) -> Element<'_, Message> {
     items.push(reset_btn.into());
 
     container(scrollable(
-        column(items).spacing(8).padding(10).width(Length::Fill),
+        column(items).spacing(spacing::SM).padding(spacing::MD).width(Length::Fill),
     ))
     .width(FILTER_PANEL_WIDTH)
     .height(Length::Fill)
@@ -1572,7 +1598,7 @@ fn filter_panel(state: &App) -> Element<'_, Message> {
             border: iced::Border {
                 color: pal.background.strong.color,
                 width: 1.0,
-                radius: iced::border::Radius::from(0.0),
+                radius: iced::border::Radius::from(radius::NONE),
             },
             ..Default::default()
         }
@@ -1595,8 +1621,8 @@ fn thumbnail_grid(state: &App) -> Element<'_, Message> {
     if visible.is_empty() {
         return container(
             text(i18n::t(state.settings.language).no_match)
-                .size(14)
-                .color(iced::Color::from_rgb(0.5, 0.5, 0.5)),
+                .size(font_size::H3)
+                .style(|theme: &iced::Theme| crate::theme::faint_text_style(theme)),
         )
         .width(Length::Fill)
         .height(Length::Fill)
@@ -1604,23 +1630,31 @@ fn thumbnail_grid(state: &App) -> Element<'_, Message> {
         .into();
     }
 
-    let rows: Vec<Element<'_, Message>> = visible
-        .chunks(GRID_COLUMNS)
-        .map(|chunk| {
-            let cells: Vec<Element<'_, Message>> =
-                chunk.iter().map(|e| thumb_cell(state, e)).collect();
-            row(cells).spacing(4).into()
-        })
-        .collect();
+    responsive(move |size| {
+        let inner = size.width - 2.0 * spacing::MD;
+        let cell  = THUMB_DISPLAY + spacing::SM;
+        let cols  = ((inner / cell).floor() as usize).clamp(2, 8).max(1);
 
-    scrollable(column(rows).spacing(4).padding(12))
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+        let rows: Vec<Element<'_, Message>> = visible
+            .chunks(cols)
+            .map(|chunk| {
+                let cells: Vec<Element<'_, Message>> =
+                    chunk.iter().map(|e| thumb_cell(state, e)).collect();
+                row(cells).spacing(spacing::XS).into()
+            })
+            .collect();
+
+        scrollable(column(rows).spacing(spacing::XS).padding(spacing::MD))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    })
+    .into()
 }
 
 fn thumb_cell<'a>(state: &'a App, entry: &'a ImageEntry) -> Element<'a, Message> {
     let is_selected = state.selected == Some(entry.id);
+    let is_hovered  = state.hovered_thumb == Some(entry.id);
 
     let thumb: Element<'a, Message> = match state.thumbnails.get(&entry.id) {
         Some(ThumbnailState::Loaded(handle)) => Image::new(handle.clone())
@@ -1651,33 +1685,48 @@ fn thumb_cell<'a>(state: &'a App, entry: &'a ImageEntry) -> Element<'a, Message>
     };
 
     let label = text(truncate(&entry.filename, 20))
-        .size(10)
+        .size(font_size::CAPTION)
         .width(THUMB_DISPLAY)
         .align_x(iced::alignment::Horizontal::Center);
 
     let cell = column![thumb, label]
-        .spacing(3)
+        .spacing(spacing::XS)
         .align_x(Alignment::Center)
-        .width(THUMB_DISPLAY + 8.0);
+        .width(THUMB_DISPLAY + spacing::SM);
 
-    let btn = button(container(cell).padding(2))
+    let btn = button(container(cell).padding(spacing::XS / 2.0))
         .on_press(Message::ImageSelected(entry.id))
-        .padding(2);
+        .padding(spacing::XS / 2.0);
 
-    if is_selected {
+    let bordered = if is_selected {
         container(btn)
             .style(|theme: &iced::Theme| container::Style {
                 border: iced::Border {
                     color: theme.extended_palette().primary.strong.color,
-                    width: 2.5,
-                    radius: iced::border::Radius::from(5.0),
+                    width: 1.5,
+                    radius: iced::border::Radius::from(radius::MD),
                 },
                 ..Default::default()
             })
-            .into()
+    } else if is_hovered {
+        container(btn)
+            .style(|theme: &iced::Theme| container::Style {
+                border: iced::Border {
+                    color: theme.extended_palette().primary.weak.color,
+                    width: 1.0,
+                    radius: iced::border::Radius::from(radius::MD),
+                },
+                ..Default::default()
+            })
     } else {
-        container(btn).into()
-    }
+        container(btn)
+    };
+
+    let id = entry.id;
+    mouse_area(bordered)
+        .on_enter(Message::ThumbHovered(Some(id)))
+        .on_exit(Message::ThumbHovered(None))
+        .into()
 }
 
 // ── Variant badge helper ───────────────────────────────────────────────────
@@ -1700,13 +1749,7 @@ fn variant_badge_for(
 
 fn sidebar(state: &App) -> Element<'_, Message> {
     let s = i18n::t(state.settings.language);
-    let muted_style = |theme: &iced::Theme| iced::widget::text::Style {
-        color: {
-            let mut c = theme.extended_palette().background.base.text;
-            c.a *= 0.5;
-            Some(c)
-        }
-    };
+    let muted_style = |theme: &iced::Theme| crate::theme::faint_text_style(theme);
     let mut items: Vec<Element<'_, Message>> = Vec::new();
 
     if let Some(id) = state.selected {
@@ -1721,14 +1764,8 @@ fn sidebar(state: &App) -> Element<'_, Message> {
             } else {
                 container(
                     text(if entry.is_raw { s.sidebar_raw_no_preview } else { s.loading })
-                        .size(11)
-                        .style(|theme: &iced::Theme| iced::widget::text::Style {
-                            color: {
-                                let mut c = theme.extended_palette().background.base.text;
-                                c.a *= 0.5;
-                                Some(c)
-                            }
-                        })
+                        .size(font_size::CAPTION + 1.0)
+                        .style(|theme: &iced::Theme| crate::theme::faint_text_style(theme))
                         .align_x(iced::alignment::Horizontal::Center),
                 )
                 .width(Length::Fill)
@@ -1742,10 +1779,10 @@ fn sidebar(state: &App) -> Element<'_, Message> {
             };
             items.push(preview);
             items.push(
-                button(text(s.sidebar_fullscreen).size(10))
+                button(text(s.sidebar_fullscreen).size(font_size::CAPTION))
                     .on_press(Message::EnterViewer)
                     .width(Length::Fill)
-                    .padding([4, 8])
+                    .padding([spacing::XS, spacing::SM])
                     .into(),
             );
 
@@ -1783,17 +1820,17 @@ fn sidebar(state: &App) -> Element<'_, Message> {
                                 let (letter, color_fn) = variant_badge_for(e, v_exif, v_xmp);
                                 container(
                                     container(
-                                        text(letter).size(8).style(|_: &iced::Theme| {
+                                        text(letter).size(font_size::CAPTION).style(|_: &iced::Theme| {
                                             iced::widget::text::Style {
                                                 color: Some(iced::Color::WHITE),
                                             }
                                         }),
                                     )
-                                    .padding([1, 3])
+                                    .padding([spacing::XS / 2.0, spacing::XS])
                                     .style(move |theme: &iced::Theme| container::Style {
                                         background: Some(color_fn(theme).into()),
                                         border: iced::Border {
-                                            radius: iced::border::Radius::from(2.0),
+                                            radius: iced::border::Radius::from(radius::SM),
                                             ..Default::default()
                                         },
                                         ..Default::default()
@@ -1803,7 +1840,7 @@ fn sidebar(state: &App) -> Element<'_, Message> {
                                 .height(Length::Fill)
                                 .align_x(iced::alignment::Horizontal::Right)
                                 .align_y(iced::alignment::Vertical::Top)
-                                .padding(2)
+                                .padding(spacing::XS / 2.0)
                                 .into()
                             } else {
                                 Space::new().into()
@@ -1813,7 +1850,7 @@ fn sidebar(state: &App) -> Element<'_, Message> {
 
                             button(stacked)
                                 .on_press(Message::ImageSelected(vid))
-                                .padding(if is_current { 2 } else { 1 })
+                                .padding(if is_current { spacing::XS / 2.0 } else { 1.0 })
                                 .style(if is_current {
                                     button::primary
                                 } else {
@@ -1824,8 +1861,8 @@ fn sidebar(state: &App) -> Element<'_, Message> {
                         .collect();
                     items.push(
                         Row::with_children(thumbs)
-                            .spacing(3)
-                            .padding([4, 4])
+                            .spacing(spacing::XS)
+                            .padding([spacing::XS, spacing::XS])
                             .into(),
                     );
                 }
@@ -1833,7 +1870,7 @@ fn sidebar(state: &App) -> Element<'_, Message> {
             items.push(thin_divider());
 
             // ── File info ────────────────────────────────────────────────
-            items.push(text(&entry.filename).size(12).into());
+            items.push(text(&entry.filename).size(font_size::BODY).into());
 
             // Variant position badge: "1/2 · RAW"
             if let Some(group) = state.shot_groups.get(&entry.shot_id) {
@@ -1849,7 +1886,7 @@ fn sidebar(state: &App) -> Element<'_, Message> {
                     };
                     items.push(
                         text(format!("{pos}/{n} · {vtype}"))
-                            .size(10)
+                            .size(font_size::CAPTION)
                             .style(muted_style)
                             .into(),
                     );
@@ -1858,7 +1895,7 @@ fn sidebar(state: &App) -> Element<'_, Message> {
 
             items.push(
                 text(i18n::format_file_size_kb(state.settings.language, entry.file_size))
-                    .size(10)
+                    .size(font_size::CAPTION)
                     .style(muted_style)
                     .into(),
             );
@@ -1907,14 +1944,8 @@ fn sidebar(state: &App) -> Element<'_, Message> {
         items.push(
             container(
                 text(s.select_hint)
-                    .size(12)
-                    .style(|theme: &iced::Theme| iced::widget::text::Style {
-                        color: {
-                            let mut c = theme.extended_palette().background.base.text;
-                            c.a *= 0.45;
-                            Some(c)
-                        }
-                    })
+                    .size(font_size::BODY)
+                    .style(|theme: &iced::Theme| crate::theme::faint_text_style(theme))
                     .align_x(iced::alignment::Horizontal::Center),
             )
             .center(Length::Fill)
@@ -1924,7 +1955,7 @@ fn sidebar(state: &App) -> Element<'_, Message> {
     }
 
     container(scrollable(
-        column(items).spacing(6).padding(12).width(Length::Fill),
+        column(items).spacing(spacing::SM).padding(spacing::LG).width(Length::Fill),
     ))
     .width(SIDEBAR_WIDTH)
     .height(Length::Fill)
@@ -1935,7 +1966,8 @@ fn sidebar(state: &App) -> Element<'_, Message> {
             border: iced::Border {
                 color: pal.background.strong.color,
                 width: 1.0,
-                radius: iced::border::Radius::from(0.0),
+                // Left side connects to grid; round bottom-left corner only
+                radius: iced::border::Radius::new(0.0).bottom_left(radius::LG),
             },
             ..Default::default()
         }
@@ -1947,6 +1979,12 @@ fn sidebar(state: &App) -> Element<'_, Message> {
 
 fn truncate(s: &str, max: usize) -> &str {
     if s.len() <= max { s } else { &s[..max] }
+}
+
+fn short_path(s: &str) -> String {
+    if s.is_empty() { return String::new(); }
+    let last = s.trim_end_matches('/').rsplit('/').next().unwrap_or(s);
+    if last == s { s.to_string() } else { format!("…/{last}") }
 }
 
 fn camera_name(exif: &ExifData) -> Option<String> {
@@ -1973,16 +2011,11 @@ fn push_row<'a>(items: &mut Vec<Element<'a, Message>>, label: &'a str, value: Op
     if let Some(v) = value {
         items.push(
             column![
-                text(label).size(10).style(|theme: &iced::Theme| iced::widget::text::Style {
-                    color: {
-                        let mut c = theme.extended_palette().background.base.text;
-                        c.a *= 0.55;
-                        Some(c)
-                    }
-                }),
-                text(v).size(12),
+                text(label).size(font_size::CAPTION)
+                    .style(|theme: &iced::Theme| crate::theme::muted_text_style(theme)),
+                text(v).size(font_size::BODY),
             ]
-            .spacing(1)
+            .spacing(spacing::XS / 4.0)
             .into(),
         );
     }
@@ -2001,24 +2034,14 @@ fn push_row_skeleton<'a>(
     let faint = !loaded || display == "—";
     items.push(
         column![
-            text(label).size(10).style(|theme: &iced::Theme| iced::widget::text::Style {
-                color: {
-                    let mut c = theme.extended_palette().background.base.text;
-                    c.a *= 0.55;
-                    Some(c)
-                }
-            }),
-            text(display).size(12).style(move |theme: &iced::Theme| iced::widget::text::Style {
-                color: if faint {
-                    let mut c = theme.extended_palette().background.base.text;
-                    c.a *= 0.3;
-                    Some(c)
-                } else {
-                    None
-                }
+            text(label).size(font_size::CAPTION)
+                .style(|theme: &iced::Theme| crate::theme::muted_text_style(theme)),
+            text(display).size(font_size::BODY).style(move |theme: &iced::Theme| {
+                if faint { crate::theme::disabled_text_style(theme) }
+                else { iced::widget::text::Style::default() }
             }),
         ]
-        .spacing(1)
+        .spacing(spacing::XS / 4.0)
         .into(),
     );
 }
@@ -2048,54 +2071,48 @@ fn settings_view(state: &App) -> Element<'_, Message> {
         })
         .collect();
 
-    let hint_style = |theme: &iced::Theme| iced::widget::text::Style {
-        color: {
-            let mut c = theme.extended_palette().background.base.text;
-            c.a *= 0.5;
-            Some(c)
-        }
-    };
+    let hint_style = |theme: &iced::Theme| crate::theme::faint_text_style(theme);
 
     let form = column![
-        text(s.settings_title).size(22),
+        text(s.settings_title).size(font_size::H2),
         thin_divider(),
         column![
-            text(s.settings_default_path).size(13),
+            text(s.settings_default_path).size(font_size::LABEL),
             text_input(
                 s.settings_default_path_hint,
                 &state.settings_draft.default_path,
             )
             .on_input(Message::SettingsDefaultPathChanged)
-            .padding(8),
-            text(s.settings_default_path_help).size(10).style(hint_style),
+            .padding(spacing::SM),
+            text(s.settings_default_path_help).size(font_size::CAPTION).style(hint_style),
         ]
-        .spacing(6),
+        .spacing(spacing::SM),
         thin_divider(),
         column![
-            text(s.settings_language).size(13),
-            column(lang_options).spacing(8),
+            text(s.settings_language).size(font_size::LABEL),
+            column(lang_options).spacing(spacing::SM),
         ]
-        .spacing(10),
+        .spacing(spacing::MD),
         thin_divider(),
         column![
-            text(s.settings_theme).size(13),
-            column(theme_options).spacing(8),
+            text(s.settings_theme).size(font_size::LABEL),
+            column(theme_options).spacing(spacing::SM),
         ]
-        .spacing(10),
+        .spacing(spacing::MD),
         thin_divider(),
         row![
             button(s.settings_cancel)
                 .on_press(Message::CloseSettings)
-                .padding([8, 16]),
+                .padding([spacing::SM, spacing::LG]),
             button(s.settings_save)
                 .on_press(Message::SettingsSave)
-                .padding([8, 16]),
+                .padding([spacing::SM, spacing::LG]),
         ]
-        .spacing(8),
+        .spacing(spacing::SM),
     ]
-    .spacing(20)
+    .spacing(spacing::XL)
     .max_width(500)
-    .padding([48, 0]);
+    .padding([spacing::XL * 2.0, 0.0]);
 
     container(form)
         .width(Length::Fill)
@@ -2109,19 +2126,13 @@ fn settings_view(state: &App) -> Element<'_, Message> {
 fn about_view(state: &App) -> Element<'_, Message> {
     let s = i18n::t(state.settings.language);
 
-    let muted = |theme: &iced::Theme| iced::widget::text::Style {
-        color: {
-            let mut c = theme.extended_palette().background.base.text;
-            c.a *= 0.55;
-            Some(c)
-        }
-    };
+    let muted = |theme: &iced::Theme| crate::theme::muted_text_style(theme);
 
     let content = column![
         // Icon placeholder (large monogram)
         container(
             text("B")
-                .size(56)
+                .size(font_size::DISPLAY)
                 .style(|theme: &iced::Theme| iced::widget::text::Style {
                     color: Some(theme.extended_palette().primary.strong.color),
                 })
@@ -2134,27 +2145,27 @@ fn about_view(state: &App) -> Element<'_, Message> {
             container::Style {
                 background: Some(pal.background.strong.color.into()),
                 border: iced::Border {
-                    radius: iced::border::Radius::from(18.0),
+                    radius: iced::border::Radius::from(radius::LG),
                     color: pal.background.weak.color,
                     width: 1.0,
                 },
                 ..Default::default()
             }
         }),
-        text(s.about_title).size(26),
-        text(s.about_version).size(13).style(muted),
+        text(s.about_title).size(font_size::H1),
+        text(s.about_version).size(font_size::LABEL).style(muted),
         thin_divider(),
-        text(s.about_desc).size(13).align_x(iced::alignment::Horizontal::Center),
+        text(s.about_desc).size(font_size::LABEL).align_x(iced::alignment::Horizontal::Center),
         thin_divider(),
-        text("© 2024 bridge-lite contributors").size(11).style(muted),
+        text("© 2024 bridge-lite contributors").size(font_size::CAPTION + 1.0).style(muted),
         button(s.about_close)
             .on_press(Message::CloseAbout)
-            .padding([8, 32]),
+            .padding([spacing::SM, spacing::XL]),
     ]
-    .spacing(12)
+    .spacing(spacing::MD)
     .align_x(Alignment::Center)
     .max_width(360)
-    .padding([48, 0]);
+    .padding([spacing::XL * 2.0, 0.0]);
 
     container(content)
         .width(Length::Fill)

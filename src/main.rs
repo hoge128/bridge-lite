@@ -4,6 +4,7 @@ mod config;
 mod db;
 mod i18n;
 mod menu;
+mod theme;
 #[cfg(target_os = "macos")]
 mod macos_thumb;
 mod metadata;
