@@ -3,7 +3,7 @@ use std::path::PathBuf;
 
 use iced::keyboard::{self, key};
 use iced::widget::image::{Handle as ImageHandle, Image};
-use iced::widget::{button, checkbox, column, container, radio, row, scrollable, text, text_input, Row, Space};
+use iced::widget::{button, checkbox, column, container, mouse_area, radio, responsive, row, scrollable, text, text_input, Row, Space};
 use iced::{Alignment, ContentFit, Element, Length, Subscription, Task};
 
 use crate::config::{Settings, ThemeChoice};
@@ -18,7 +18,7 @@ use crate::theme::{self, alpha, font_size, radius, spacing};
 
 const THUMB_DISPLAY: f32 = 180.0;
 const FILTER_PANEL_WIDTH: f32 = 190.0;
-const SIDEBAR_WIDTH: f32 = 260.0;
+const SIDEBAR_WIDTH: f32 = 300.0;
 const GRID_COLUMNS: usize = 4;
 /// Max concurrent thumbnail generation tasks
 const THUMB_CONCURRENCY: usize = 16;
@@ -190,6 +190,8 @@ pub struct App {
     show_settings: bool,
     /// Whether the About screen is visible
     show_about: bool,
+    /// Currently hovered thumbnail id (at most one at a time)
+    hovered_thumb: Option<usize>,
 }
 
 #[derive(Debug, Clone)]
@@ -253,6 +255,7 @@ pub enum Message {
     FlagFilterToggled(Flag),
     PhashBatchLoaded(HashMap<PathBuf, u64>),
     PhashIndexed { id: usize, phash: Option<u64> },
+    ThumbHovered(Option<usize>),
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────
@@ -473,6 +476,13 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
                 &state.exif_data,
                 &state.phashes,
             );
+            Task::none()
+        }
+
+        Message::ThumbHovered(id) => {
+            if state.hovered_thumb != id {
+                state.hovered_thumb = id;
+            }
             Task::none()
         }
 
@@ -1224,8 +1234,28 @@ fn view(state: &App) -> Element<'_, Message> {
     .align_y(Alignment::Center);
 
     let nav_hint = if state.selected.is_some() { s.nav_hint } else { "" };
+    let progress_text = if !state.images.is_empty() && state.indexed_count < state.images.len() {
+        format!("{} / {} ({:.0}%)", state.indexed_count, state.images.len(),
+            state.indexed_count as f32 / state.images.len() as f32 * 100.0)
+    } else {
+        String::new()
+    };
+    let short_dir = short_path(&state.dir_input);
     let status_bar = container(
-        text(format!("{}{}", &state.status, nav_hint)).size(font_size::BODY)
+        row![
+            text(format!("{}{}", &state.status, nav_hint))
+                .size(font_size::BODY)
+                .width(Length::Fill),
+            text(progress_text)
+                .size(font_size::BODY)
+                .style(|theme: &iced::Theme| crate::theme::faint_text_style(theme)),
+            text(short_dir)
+                .size(font_size::CAPTION)
+                .style(|theme: &iced::Theme| crate::theme::faint_text_style(theme))
+                .width(Length::Shrink),
+        ]
+        .spacing(spacing::MD)
+        .align_y(Alignment::Center)
     )
     .padding([spacing::XS, spacing::MD])
     .width(Length::Fill);
@@ -1600,23 +1630,31 @@ fn thumbnail_grid(state: &App) -> Element<'_, Message> {
         .into();
     }
 
-    let rows: Vec<Element<'_, Message>> = visible
-        .chunks(GRID_COLUMNS)
-        .map(|chunk| {
-            let cells: Vec<Element<'_, Message>> =
-                chunk.iter().map(|e| thumb_cell(state, e)).collect();
-            row(cells).spacing(spacing::XS).into()
-        })
-        .collect();
+    responsive(move |size| {
+        let inner = size.width - 2.0 * spacing::MD;
+        let cell  = THUMB_DISPLAY + spacing::SM;
+        let cols  = ((inner / cell).floor() as usize).clamp(2, 8).max(1);
 
-    scrollable(column(rows).spacing(spacing::XS).padding(spacing::MD))
-        .width(Length::Fill)
-        .height(Length::Fill)
-        .into()
+        let rows: Vec<Element<'_, Message>> = visible
+            .chunks(cols)
+            .map(|chunk| {
+                let cells: Vec<Element<'_, Message>> =
+                    chunk.iter().map(|e| thumb_cell(state, e)).collect();
+                row(cells).spacing(spacing::XS).into()
+            })
+            .collect();
+
+        scrollable(column(rows).spacing(spacing::XS).padding(spacing::MD))
+            .width(Length::Fill)
+            .height(Length::Fill)
+            .into()
+    })
+    .into()
 }
 
 fn thumb_cell<'a>(state: &'a App, entry: &'a ImageEntry) -> Element<'a, Message> {
     let is_selected = state.selected == Some(entry.id);
+    let is_hovered  = state.hovered_thumb == Some(entry.id);
 
     let thumb: Element<'a, Message> = match state.thumbnails.get(&entry.id) {
         Some(ThumbnailState::Loaded(handle)) => Image::new(handle.clone())
@@ -1660,7 +1698,7 @@ fn thumb_cell<'a>(state: &'a App, entry: &'a ImageEntry) -> Element<'a, Message>
         .on_press(Message::ImageSelected(entry.id))
         .padding(spacing::XS / 2.0);
 
-    if is_selected {
+    let bordered = if is_selected {
         container(btn)
             .style(|theme: &iced::Theme| container::Style {
                 border: iced::Border {
@@ -1670,10 +1708,25 @@ fn thumb_cell<'a>(state: &'a App, entry: &'a ImageEntry) -> Element<'a, Message>
                 },
                 ..Default::default()
             })
-            .into()
+    } else if is_hovered {
+        container(btn)
+            .style(|theme: &iced::Theme| container::Style {
+                border: iced::Border {
+                    color: theme.extended_palette().primary.weak.color,
+                    width: 1.0,
+                    radius: iced::border::Radius::from(radius::MD),
+                },
+                ..Default::default()
+            })
     } else {
-        container(btn).into()
-    }
+        container(btn)
+    };
+
+    let id = entry.id;
+    mouse_area(bordered)
+        .on_enter(Message::ThumbHovered(Some(id)))
+        .on_exit(Message::ThumbHovered(None))
+        .into()
 }
 
 // ── Variant badge helper ───────────────────────────────────────────────────
@@ -1902,7 +1955,7 @@ fn sidebar(state: &App) -> Element<'_, Message> {
     }
 
     container(scrollable(
-        column(items).spacing(spacing::SM).padding(spacing::MD).width(Length::Fill),
+        column(items).spacing(spacing::SM).padding(spacing::LG).width(Length::Fill),
     ))
     .width(SIDEBAR_WIDTH)
     .height(Length::Fill)
@@ -1913,7 +1966,8 @@ fn sidebar(state: &App) -> Element<'_, Message> {
             border: iced::Border {
                 color: pal.background.strong.color,
                 width: 1.0,
-                radius: iced::border::Radius::from(radius::NONE),
+                // Left side connects to grid; round bottom-left corner only
+                radius: iced::border::Radius::new(0.0).bottom_left(radius::LG),
             },
             ..Default::default()
         }
@@ -1925,6 +1979,12 @@ fn sidebar(state: &App) -> Element<'_, Message> {
 
 fn truncate(s: &str, max: usize) -> &str {
     if s.len() <= max { s } else { &s[..max] }
+}
+
+fn short_path(s: &str) -> String {
+    if s.is_empty() { return String::new(); }
+    let last = s.trim_end_matches('/').rsplit('/').next().unwrap_or(s);
+    if last == s { s.to_string() } else { format!("…/{last}") }
 }
 
 fn camera_name(exif: &ExifData) -> Option<String> {
