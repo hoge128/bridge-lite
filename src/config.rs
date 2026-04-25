@@ -6,6 +6,8 @@ use crate::i18n::Language;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum ThemeChoice {
+    BridgeDark,
+    BridgeLight,
     Dark,
     Light,
     Dracula,
@@ -18,6 +20,8 @@ pub enum ThemeChoice {
 
 impl ThemeChoice {
     pub const ALL: &'static [ThemeChoice] = &[
+        ThemeChoice::BridgeDark,
+        ThemeChoice::BridgeLight,
         ThemeChoice::Dark,
         ThemeChoice::Light,
         ThemeChoice::Dracula,
@@ -30,6 +34,8 @@ impl ThemeChoice {
 
     pub fn label(self) -> &'static str {
         match self {
+            ThemeChoice::BridgeDark => "Bridge Dark",
+            ThemeChoice::BridgeLight => "Bridge Light",
             ThemeChoice::Dark => "Dark",
             ThemeChoice::Light => "Light",
             ThemeChoice::Dracula => "Dracula",
@@ -43,6 +49,8 @@ impl ThemeChoice {
 
     pub fn to_iced(self) -> iced::Theme {
         match self {
+            ThemeChoice::BridgeDark => crate::theme::bridge_dark(),
+            ThemeChoice::BridgeLight => crate::theme::bridge_light(),
             ThemeChoice::Dark => iced::Theme::Dark,
             ThemeChoice::Light => iced::Theme::Light,
             ThemeChoice::Dracula => iced::Theme::Dracula,
@@ -53,13 +61,11 @@ impl ThemeChoice {
             ThemeChoice::TokyoNight => iced::Theme::TokyoNight,
         }
     }
-
-
 }
 
 impl Default for ThemeChoice {
     fn default() -> Self {
-        ThemeChoice::Dark
+        ThemeChoice::BridgeDark
     }
 }
 
