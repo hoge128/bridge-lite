@@ -2,6 +2,10 @@
 // Rust 2024: explicit unsafe{} inside unsafe fn – suppressed for this raw FFI module.
 #![allow(unsafe_op_in_unsafe_fn)]
 //!
+//! CGImageSourceCreate{Thumbnail,Image}AtIndex は `bl_*` shim 経由で呼び出す。
+//! macOS 26 で RawCamera framework が C++ 例外を投げる問題を shim 側で catch するため。
+//! 詳細: macos/cgimage_shim.cpp、前例: vendor/xmp_toolkit/src/ffi.cpp (コミット 8625d44)。
+//!
 //! CGImageSourceCreateThumbnailAtIndex() leverages JPEG subsampling and
 //! embedded camera previews → ~16ms per image (vs 100–300ms full decode).
 //! EXIF orientation is auto-applied via kCGImageSourceCreateThumbnailWithTransform.
@@ -88,12 +92,17 @@ unsafe extern "C" {
         url:     CFURLRef,
         options: CFDictionaryRef,
     ) -> CgiSourceRef;
-    fn CGImageSourceCreateThumbnailAtIndex(
+}
+
+// ── cgimage_shim (catch C++ exceptions from RawCamera on macOS 26) ───────────
+
+unsafe extern "C" {
+    fn bl_create_thumbnail_at_index(
         src:     CgiSourceRef,
         index:   usize,
         options: CFDictionaryRef,
     ) -> CgiRef;
-    fn CGImageSourceCreateImageAtIndex(
+    fn bl_create_image_at_index(
         src:     CgiSourceRef,
         index:   usize,
         options: CFDictionaryRef,
@@ -122,18 +131,43 @@ unsafe extern "C" {
     fn CGContextRelease(ctx: CGContextRef);
 }
 
+// ── Camera RAW skip (macOS 26 RawCamera crash workaround) ───────────────────
+//
+// macOS 26 で ImageIO がカメラ RAW を読むと、内部の RawCamera framework が
+// dispatch_once ブロック内で std::runtime_error を投げる。libdispatch は
+// -fno-exceptions でビルドされており unwind テーブルを持たないため、Rust 側
+// （あるいは下の cgimage_shim.cpp の catch(...)）で捕捉できず std::terminate
+// → abort() でプロセス全体が落ちる。これは C++ 例外機構では本質的に防げない。
+//
+// 唯一の確実な対策は、これらの API をカメラ RAW に対して呼ばないこと。
+// HEIC/HEIF は HEIF.framework 経由で安全なので除外しない。
+fn is_camera_raw_format(path: &Path) -> bool {
+    const CAMERA_RAW_EXTS: &[&str] = &[
+        "arw", "cr2", "cr3", "nef", "orf", "rw2", "raf", "3fr", "fff",
+        "iiq", "mos", "mrw", "nrw", "pef", "srw", "x3f", "dng",
+    ];
+    path.extension()
+        .and_then(|e| e.to_str())
+        .map(|e| CAMERA_RAW_EXTS.contains(&e.to_lowercase().as_str()))
+        .unwrap_or(false)
+}
+
 // ── Public API ──────────────────────────────────────────────────────────────
 
 /// Generate a thumbnail via CGImageSource (EXIF rotation included).
 /// `max_px` caps the long edge; aspect ratio is preserved (no center-crop).
 /// Returns `(width, height, rgba_bytes)` or `None` on failure.
+/// Returns `None` immediately for camera RAW formats (see is_camera_raw_format).
 pub fn create_thumbnail(path: &Path, max_px: u32) -> Option<(u32, u32, Vec<u8>)> {
+    if is_camera_raw_format(path) { return None; }
     unsafe { thumbnail_impl(path, max_px) }
 }
 
 /// Load a full-resolution image via CGImageSource (EXIF rotation included).
 /// `max_px` = 0 means no size limit (use full file resolution).
+/// Returns `None` immediately for camera RAW formats (see is_camera_raw_format).
 pub fn load_image(path: &Path, max_px: u32) -> Option<(u32, u32, Vec<u8>)> {
+    if is_camera_raw_format(path) { return None; }
     unsafe { image_impl(path, max_px) }
 }
 
@@ -233,7 +267,7 @@ unsafe fn thumbnail_impl(path: &Path, max_px: u32) -> Option<(u32, u32, Vec<u8>)
     if src.is_null() { return None; }
 
     let opts = make_thumb_options(max_px);
-    let cg = CGImageSourceCreateThumbnailAtIndex(src, 0, opts);
+    let cg = bl_create_thumbnail_at_index(src, 0, opts);
     CFRelease(src);
     CFRelease(opts);
     if cg.is_null() { return None; }
@@ -261,7 +295,7 @@ unsafe fn image_impl(path: &Path, max_px: u32) -> Option<(u32, u32, Vec<u8>)> {
             &kCFTypeDictionaryValueCallBacks as *const c_void,
         )
     };
-    let cg = CGImageSourceCreateImageAtIndex(src, 0, no_cache_dict);
+    let cg = bl_create_image_at_index(src, 0, no_cache_dict);
     CFRelease(src);
     CFRelease(no_cache_dict);
     if cg.is_null() { return None; }

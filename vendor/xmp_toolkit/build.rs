@@ -115,6 +115,10 @@ fn main() {
                 .flag("-Wno-int-in-bool-context")
                 .flag("-Wno-macro-redefined")
                 .flag("-Wno-null-conversion")
+                // TIFF_Support.hpp:941, PSIR_Support.hpp:289, WAVEBehavior.cpp:602,608 use
+                // memcpy/memset on non-trivially copyable types with an AUDIT comment confirming
+                // safety. Suppress to keep build output clean on macOS 26+ (clang 17+).
+                .flag("-Wno-nontrivial-memcall")
                 .flag("-Wno-unused-but-set-variable")
                 .include("external/xmp_toolkit/XMPCore/resource/mac")
                 .include("external/xmp_toolkit/XMPFiles/resource/mac")

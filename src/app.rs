@@ -13,14 +13,17 @@ use crate::scanner::ImageEntry;
 use crate::thumbnail::ThumbResult;
 use crate::xmp::{Flag, Label, XmpData};
 use crate::theme::{self, font_size, radius, spacing};
+// === MEMORY_GUARD: BEGIN ===
+use crate::memory_guard;
+// === MEMORY_GUARD: END ===
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const THUMB_DISPLAY: f32 = 180.0;
 const FILTER_PANEL_WIDTH: f32 = 190.0;
 const SIDEBAR_WIDTH: f32 = 300.0;
-/// Max concurrent thumbnail generation tasks
-const THUMB_CONCURRENCY: usize = 16;
+/// Max concurrent thumbnail generation tasks (kept low to limit memory pressure)
+const THUMB_CONCURRENCY: usize = 4;
 /// Max concurrent pHash computation tasks (separate pool to avoid CPU saturation)
 const PHASH_CONCURRENCY: usize = 4;
 /// Max long-edge for sidebar preview (pixels)
@@ -191,6 +194,9 @@ pub struct App {
     show_about: bool,
     /// Currently hovered thumbnail id (at most one at a time)
     hovered_thumb: Option<usize>,
+    // === MEMORY_GUARD: BEGIN ===
+    memory: memory_guard::State,
+    // === MEMORY_GUARD: END ===
 }
 
 #[derive(Debug, Clone)]
@@ -255,6 +261,9 @@ pub enum Message {
     PhashBatchLoaded(HashMap<PathBuf, u64>),
     PhashIndexed { id: usize, phash: Option<u64> },
     ThumbHovered(Option<usize>),
+    // === MEMORY_GUARD: BEGIN ===
+    Memory(memory_guard::Event),
+    // === MEMORY_GUARD: END ===
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────
@@ -305,6 +314,9 @@ fn subscription(_state: &App) -> Subscription<Message> {
     Subscription::batch([
         keyboard::listen().map(Message::KeyboardEvent),
         Subscription::run(crate::menu::event_stream).map(Message::MenuAction),
+        // === MEMORY_GUARD: BEGIN ===
+        memory_guard::subscription().map(Message::Memory),
+        // === MEMORY_GUARD: END ===
     ])
 }
 
@@ -387,29 +399,12 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
                 state.thumbnails.insert(entry.id, ThumbnailState::Loading);
             }
 
-            // Queue all entries; start only the first THUMB_CONCURRENCY tasks.
-            let mut queue: VecDeque<(usize, PathBuf)> = images
-                .iter()
-                .map(|e| (e.id, e.path.clone()))
-                .collect();
-            let initial: Vec<(usize, PathBuf)> = queue
-                .drain(..THUMB_CONCURRENCY.min(total))
-                .collect();
-            state.thumb_queue = queue;
+            // Fill queue but don't start thumbnail tasks yet.
+            // Thumbnails begin after ExifBatchLoaded to let EXIF/shot-grouping
+            // data land first, reducing peak memory and improving pair accuracy.
+            state.thumb_queue = images.iter().map(|e| (e.id, e.path.clone())).collect();
 
             let db_path = state.db_path.clone();
-            let thumb_tasks: Vec<Task<Message>> = initial
-                .into_iter()
-                .map(|(id, path)| {
-                    let dbp = db_path.clone();
-                    Task::perform(crate::thumbnail::generate(id, path, dbp), |r| match r {
-                        ThumbResult::Loaded { id, handle } => {
-                            Message::ThumbnailLoaded { id, handle }
-                        }
-                        ThumbResult::Failed(id) => Message::ThumbnailFailed(id),
-                    })
-                })
-                .collect();
 
             // Fetch all cached EXIF in one shot (single connection, one SELECT per
             // 500-path chunk). Only uncached paths trigger individual file reads later.
@@ -445,11 +440,7 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
             );
 
             state.images = images;
-            let mut all = thumb_tasks;
-            all.push(batch_task);
-            all.push(phash_batch_task);
-            all.push(xmp_task);
-            Task::batch(all)
+            Task::batch([batch_task, phash_batch_task, xmp_task])
         }
 
         Message::ThumbnailLoaded { id, handle } => {
@@ -547,8 +538,12 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
             } else {
                 Task::none()
             };
+            // EXIF batch complete — now safe to start thumbnail generation.
+            // This is the gate that enforces the EXIF-first pipeline.
+            let thumb_start = start_initial_thumbs(state);
             let mut all = tasks;
             all.push(reindex);
+            all.push(thumb_start);
             Task::batch(all)
         }
 
@@ -869,6 +864,30 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
             let next_id = group[next_pos];
             select_image(state, next_id)
         }
+
+        // === MEMORY_GUARD: BEGIN ===
+        Message::Memory(ev) => {
+            let diag = memory_guard::Diagnostics {
+                thumb_queue_len: state.thumb_queue.len(),
+                phash_active: state.phash_active,
+                images_total: state.images.len(),
+                current_path: state.selected
+                    .and_then(|id| state.images.get(id))
+                    .map(|e| e.path.clone()),
+            };
+            match memory_guard::handle(&mut state.memory, ev, diag) {
+                memory_guard::Action::Resume => {
+                    Task::batch([dequeue_thumb(state), drain_phash_queue(state)])
+                }
+                memory_guard::Action::None => {
+                    if state.memory.critical {
+                        state.full_res_handle = None;
+                    }
+                    Task::none()
+                }
+            }
+        }
+        // === MEMORY_GUARD: END ===
     }
 }
 
@@ -989,8 +1008,35 @@ fn rgba_resized(img: image::DynamicImage, max_px: u32) -> Option<ImageHandle> {
 
 // ── Helpers ────────────────────────────────────────────────────────────────
 
+/// Drain up to THUMB_CONCURRENCY entries from the queue and start the initial thumbnail batch.
+/// Called once per directory load, after the EXIF batch completes.
+fn start_initial_thumbs(state: &mut App) -> Task<Message> {
+    if memory_guard::is_paused(&state.memory) {
+        return Task::none();
+    }
+    let db_path = state.db_path.clone();
+    let mut tasks = Vec::new();
+    for _ in 0..THUMB_CONCURRENCY {
+        let Some((id, path)) = state.thumb_queue.pop_front() else { break };
+        let dbp = db_path.clone();
+        tasks.push(Task::perform(
+            crate::thumbnail::generate(id, path, dbp),
+            |r| match r {
+                ThumbResult::Loaded { id, handle } => Message::ThumbnailLoaded { id, handle },
+                ThumbResult::Failed(id) => Message::ThumbnailFailed(id),
+            },
+        ));
+    }
+    Task::batch(tasks)
+}
+
 /// Pop the next pending thumbnail from the queue and start its generation task.
 fn dequeue_thumb(state: &mut App) -> Task<Message> {
+    // === MEMORY_GUARD: BEGIN ===
+    if memory_guard::is_paused(&state.memory) {
+        return Task::none();
+    }
+    // === MEMORY_GUARD: END ===
     if let Some((id, path)) = state.thumb_queue.pop_front() {
         let db_path = state.db_path.clone();
         Task::perform(
@@ -1008,6 +1054,19 @@ fn dequeue_thumb(state: &mut App) -> Task<Message> {
 /// If this entry's pHash hasn't been attempted yet, spawn a compute task (subject
 /// to PHASH_CONCURRENCY) or enqueue it for later.
 fn maybe_spawn_phash(state: &mut App, id: usize) -> Task<Message> {
+    // === MEMORY_GUARD: BEGIN ===
+    if memory_guard::is_paused(&state.memory) {
+        if !state.phash_attempted.contains(&id) {
+            let already_queued = state.phash_queue.iter().any(|(qid, _)| *qid == id);
+            if !already_queued {
+                if let Some(e) = state.images.get(id) {
+                    state.phash_queue.push_back((id, e.path.clone()));
+                }
+            }
+        }
+        return Task::none();
+    }
+    // === MEMORY_GUARD: END ===
     if state.phash_attempted.contains(&id) {
         return Task::none();
     }
@@ -1030,6 +1089,11 @@ fn maybe_spawn_phash(state: &mut App, id: usize) -> Task<Message> {
 
 /// Drain the pHash queue up to PHASH_CONCURRENCY active slots.
 fn drain_phash_queue(state: &mut App) -> Task<Message> {
+    // === MEMORY_GUARD: BEGIN ===
+    if memory_guard::is_paused(&state.memory) {
+        return Task::none();
+    }
+    // === MEMORY_GUARD: END ===
     let mut tasks = Vec::new();
     while state.phash_active < PHASH_CONCURRENCY {
         let Some((id, path)) = state.phash_queue.pop_front() else { break };
@@ -1293,9 +1357,15 @@ fn view(state: &App) -> Element<'_, Message> {
         row(panes).height(Length::Fill).into()
     };
 
-    column![toolbar, status_bar, content_area]
-        .height(Length::Fill)
-        .into()
+    // === MEMORY_GUARD: BEGIN (original: column![toolbar, status_bar, content_area]...) ===
+    let mem_banner = memory_guard::view_banner::<Message>(&state.memory);
+    let mut col_items: Vec<Element<'_, Message>> = Vec::with_capacity(4);
+    col_items.push(toolbar.into());
+    if let Some(b) = mem_banner { col_items.push(b); }
+    col_items.push(status_bar.into());
+    col_items.push(content_area);
+    iced::widget::column(col_items).height(Length::Fill).into()
+    // === MEMORY_GUARD: END ===
 }
 
 // ── Fullscreen viewer ──────────────────────────────────────────────────────

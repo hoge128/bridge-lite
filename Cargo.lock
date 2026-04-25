@@ -460,6 +460,7 @@ dependencies = [
 name = "bridge-lite"
 version = "0.1.0"
 dependencies = [
+ "cc",
  "chrono",
  "dirs-next",
  "iced",

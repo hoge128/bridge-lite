@@ -14,6 +14,9 @@ mod raw_thumb;
 mod scanner;
 mod thumbnail;
 mod xmp;
+// === MEMORY_GUARD: BEGIN ===
+mod memory_guard;
+// === MEMORY_GUARD: END ===
 
 fn main() -> iced::Result {
     let settings = config::Settings::load();
