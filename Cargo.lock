@@ -457,9 +457,35 @@ dependencies = [
 ]
 
 [[package]]
-name = "bridge-lite"
+name = "bridge-core"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "image",
+ "image_hasher",
+ "kamadak-exif",
+ "libc",
+ "rayon",
+ "rusqlite",
+ "serde",
+ "serde_json",
+ "tokio",
+ "walkdir",
+ "xmp_toolkit",
+]
+
+[[package]]
+name = "bridge-ffi"
+version = "0.1.0"
+dependencies = [
+ "bridge-core",
+]
+
+[[package]]
+name = "bridge-lite-iced"
+version = "0.1.0"
+dependencies = [
+ "bridge-core",
  "cc",
  "chrono",
  "dirs-next",
