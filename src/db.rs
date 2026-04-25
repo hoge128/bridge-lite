@@ -47,6 +47,12 @@ fn init_schema(conn: &Connection) -> Result<()> {
             jpeg  BLOB NOT NULL
         );
 
+        CREATE TABLE IF NOT EXISTS phashes (
+            path  TEXT PRIMARY KEY,
+            mtime INTEGER NOT NULL,
+            phash INTEGER NOT NULL
+        );
+
         CREATE TABLE IF NOT EXISTS meta (
             key   TEXT PRIMARY KEY,
             value TEXT
@@ -272,6 +278,81 @@ pub fn update_xmp(path: &Path, db_path: &Path, data: &XmpData) {
         "UPDATE images SET rating=?1, xmp_label=?2, xmp_flag=?3 WHERE path=?4",
         params![data.rating.map(|r| r as i64), label, flag, path_str.as_ref()],
     );
+}
+
+// ── pHash cache ───────────────────────────────────────────────────────────
+
+/// Return cached pHash if the file's mtime still matches.
+pub fn fetch_phash(path: &Path, db_path: &Path) -> Option<u64> {
+    let conn = Connection::open(db_path).ok()?;
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(1));
+    let mtime = file_mtime(path);
+    conn.query_row(
+        "SELECT phash FROM phashes WHERE path = ?1 AND mtime = ?2",
+        params![path.to_string_lossy().as_ref(), mtime],
+        |row| row.get::<_, i64>(0),
+    )
+    .ok()
+    .map(|v| v as u64)
+}
+
+/// Persist a pHash for the given file path.
+pub fn store_phash(path: &Path, db_path: &Path, phash: u64) {
+    let Ok(conn) = Connection::open(db_path) else { return };
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(1));
+    let mtime = file_mtime(path);
+    let _ = conn.execute(
+        "INSERT OR REPLACE INTO phashes (path, mtime, phash) VALUES (?1, ?2, ?3)",
+        params![path.to_string_lossy().as_ref(), mtime, phash as i64],
+    );
+}
+
+/// Fetch all cached pHashes for the given paths in a single connection.
+/// Only entries whose mtime still matches the current file mtime are returned.
+pub fn fetch_phash_batch(
+    paths: &[PathBuf],
+    db_path: &Path,
+) -> std::collections::HashMap<PathBuf, u64> {
+    let mut out = std::collections::HashMap::new();
+    let Ok(conn) = Connection::open(db_path) else { return out };
+    for chunk in paths.chunks(500) {
+        let placeholders = std::iter::repeat("?")
+            .take(chunk.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT path, mtime, phash FROM phashes WHERE path IN ({placeholders})"
+        );
+        let Ok(mut stmt) = conn.prepare(&sql) else { continue };
+        let params_iter = rusqlite::params_from_iter(
+            chunk.iter().map(|p| p.to_string_lossy().into_owned()),
+        );
+        let Ok(rows) = stmt.query_map(params_iter, |row| {
+            let path_str: String = row.get(0)?;
+            let stored_mtime: i64 = row.get(1)?;
+            let phash: i64 = row.get(2)?;
+            Ok((PathBuf::from(path_str), stored_mtime, phash as u64))
+        }) else {
+            continue;
+        };
+        for row in rows.flatten() {
+            let (path, stored_mtime, phash) = row;
+            if file_mtime(&path) == stored_mtime {
+                out.insert(path, phash);
+            }
+        }
+    }
+    out
+}
+
+/// Async wrapper for `fetch_phash_batch`.
+pub async fn fetch_phash_batch_async(
+    paths: Vec<PathBuf>,
+    db_path: PathBuf,
+) -> std::collections::HashMap<PathBuf, u64> {
+    tokio::task::spawn_blocking(move || fetch_phash_batch(&paths, &db_path))
+        .await
+        .unwrap_or_default()
 }
 
 fn upsert(conn: &Connection, path: &Path, exif: &ExifData) -> Result<()> {

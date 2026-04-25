@@ -1,33 +1,32 @@
 use std::collections::HashMap;
 
+use chrono::NaiveDateTime;
+
 use crate::metadata::ExifData;
 use crate::scanner::ImageEntry;
 
-/// Parse EXIF datetime "YYYY:MM:DD HH:MM:SS" → an i64 suitable for gap comparisons.
-/// Not epoch-accurate; only needs to be consistent and monotonic within a session.
+/// Parse EXIF datetime "YYYY:MM:DD HH:MM:SS" → Unix timestamp (seconds).
 fn parse_datetime_secs(dt: &str) -> Option<i64> {
-    if dt.len() < 19 { return None; }
-    let y:  i64 = dt[0..4].parse().ok()?;
-    let mo: i64 = dt[5..7].parse().ok()?;
-    let d:  i64 = dt[8..10].parse().ok()?;
-    let h:  i64 = dt[11..13].parse().ok()?;
-    let m:  i64 = dt[14..16].parse().ok()?;
-    let s:  i64 = dt[17..19].parse().ok()?;
-    Some(
-        y  * 365 * 24 * 3600
-        + mo * 30  * 24 * 3600
-        + d  * 24  * 3600
-        + h  * 3600
-        + m  * 60
-        + s,
-    )
+    NaiveDateTime::parse_from_str(dt, "%Y:%m:%d %H:%M:%S")
+        .ok()
+        .map(|ndt| ndt.and_utc().timestamp())
 }
 
-fn find_root(canonical: &HashMap<u64, u64>, mut id: u64) -> u64 {
+fn find_root(canonical: &mut HashMap<u64, u64>, id: u64) -> u64 {
+    // Iterative path-halving compression.
+    let mut cur = id;
     loop {
-        match canonical.get(&id) {
-            Some(&next) if next != id => id = next,
-            _ => return id,
+        match canonical.get(&cur).copied() {
+            Some(parent) if parent != cur => {
+                // Path compression: point cur → grandparent when possible.
+                if let Some(&grandparent) = canonical.get(&parent) {
+                    canonical.insert(cur, grandparent);
+                    cur = grandparent;
+                } else {
+                    cur = parent;
+                }
+            }
+            _ => return cur,
         }
     }
 }
@@ -151,9 +150,15 @@ fn sort_groups(groups: &mut HashMap<u64, Vec<usize>>, images: &[ImageEntry]) {
 ///
 /// Mutates `images[*].shot_id` to reflect the new grouping and returns the new
 /// `shot_groups` map.
+/// Hamming distance threshold for pHash similarity.
+const PHASH_HAMMING_THRESHOLD: u32 = 8;
+/// Maximum datetime gap (seconds) for pHash-based merging.
+const PHASH_DATETIME_WINDOW_SECS: i64 = 2;
+
 pub fn reindex_shot_groups(
     images: &mut [ImageEntry],
     exif: &HashMap<usize, ExifData>,
+    phashes: &HashMap<usize, u64>,
 ) -> HashMap<u64, Vec<usize>> {
     // ── Phase 1: seed from stem-based shot_id ─────────────────────────────
     let mut groups: HashMap<u64, Vec<usize>> = HashMap::new();
@@ -200,40 +205,133 @@ pub fn reindex_shot_groups(
     let mut canonical: HashMap<u64, u64> = HashMap::new();
     for group_ids in ts_index.values() {
         if group_ids.len() <= 1 { continue; }
-        let first = find_root(&canonical, group_ids[0]);
+        let first = find_root(&mut canonical, group_ids[0]);
         for &gid in &group_ids[1..] {
-            let root = find_root(&canonical, gid);
+            let root = find_root(&mut canonical, gid);
             if root != first {
                 canonical.insert(root, first);
             }
         }
     }
 
-    if canonical.is_empty() {
-        sort_groups(&mut working, images);
-        return working;
-    }
+    // Apply Phase-3 canonical merges before Phase 4.
+    let working = if canonical.is_empty() {
+        working
+    } else {
+        let mut merged: HashMap<u64, Vec<usize>> = HashMap::new();
+        for (shot_id, members) in working {
+            let canon = find_root(&mut canonical, shot_id);
+            let target = merged.entry(canon).or_default();
+            for id in members {
+                if !target.contains(&id) {
+                    target.push(id);
+                }
+            }
+        }
+        for (&canon_id, members) in &merged {
+            for &id in members {
+                if let Some(entry) = images.get_mut(id) {
+                    entry.shot_id = canon_id;
+                }
+            }
+        }
+        merged
+    };
 
-    let mut merged: HashMap<u64, Vec<usize>> = HashMap::new();
-    for (shot_id, members) in working {
-        let canon = find_root(&canonical, shot_id);
-        let target = merged.entry(canon).or_default();
-        for id in members {
-            if !target.contains(&id) {
-                target.push(id);
+    // ── Phase 4: pHash merge ──────────────────────────────────────────────
+    // For each group compute a representative pHash (bit-wise majority vote across
+    // members) and the earliest datetime.  Then merge groups whose representative
+    // pHashes are within PHASH_HAMMING_THRESHOLD bits AND whose datetimes are within
+    // PHASH_DATETIME_WINDOW_SECS.  datetime constraint prevents false merges on
+    // visually-similar scenes from different sessions.
+    let mut working = working;
+    let group_ids: Vec<u64> = working.keys().cloned().collect();
+
+    // Build per-group (representative_phash, earliest_datetime_secs).
+    let group_meta: HashMap<u64, (Option<u64>, Option<i64>)> = group_ids
+        .iter()
+        .map(|&sid| {
+            let members = working.get(&sid).map(|v| v.as_slice()).unwrap_or(&[]);
+            let rep_phash = majority_vote_phash(members, phashes);
+            let earliest_ts = members
+                .iter()
+                .filter_map(|&id| {
+                    exif.get(&id)?.datetime.as_deref().and_then(parse_datetime_secs)
+                })
+                .min();
+            (sid, (rep_phash, earliest_ts))
+        })
+        .collect();
+
+    let mut phash_canonical: HashMap<u64, u64> = HashMap::new();
+    let ids: Vec<u64> = group_ids.clone();
+    for i in 0..ids.len() {
+        for j in (i + 1)..ids.len() {
+            let a = ids[i];
+            let b = ids[j];
+            let (Some(ha), Some(ta)) = group_meta[&a] else { continue };
+            let (Some(hb), Some(tb)) = group_meta[&b] else { continue };
+            if crate::phash::hamming(ha, hb) > PHASH_HAMMING_THRESHOLD {
+                continue;
+            }
+            if (ta - tb).abs() > PHASH_DATETIME_WINDOW_SECS {
+                continue;
+            }
+            let ra = find_root(&mut phash_canonical, a);
+            let rb = find_root(&mut phash_canonical, b);
+            if ra != rb {
+                // Prefer the smaller id as canonical root for determinism.
+                if ra < rb {
+                    phash_canonical.insert(rb, ra);
+                } else {
+                    phash_canonical.insert(ra, rb);
+                }
             }
         }
     }
-    for (&canon_id, members) in &merged {
-        for &id in members {
-            if let Some(entry) = images.get_mut(id) {
-                entry.shot_id = canon_id;
+
+    if !phash_canonical.is_empty() {
+        let mut final_groups: HashMap<u64, Vec<usize>> = HashMap::new();
+        for (shot_id, members) in working {
+            let canon = find_root(&mut phash_canonical, shot_id);
+            let target = final_groups.entry(canon).or_default();
+            for id in members {
+                if !target.contains(&id) {
+                    target.push(id);
+                }
             }
         }
+        for (&canon_id, members) in &final_groups {
+            for &id in members {
+                if let Some(entry) = images.get_mut(id) {
+                    entry.shot_id = canon_id;
+                }
+            }
+        }
+        working = final_groups;
     }
 
-    sort_groups(&mut merged, images);
-    merged
+    sort_groups(&mut working, images);
+    working
+}
+
+/// Compute a representative pHash for a group via bit-wise majority vote.
+/// Each bit in the output is 1 iff more than half the members have that bit set.
+/// Returns `None` if no member has a pHash.
+fn majority_vote_phash(members: &[usize], phashes: &HashMap<usize, u64>) -> Option<u64> {
+    let hashes: Vec<u64> = members.iter().filter_map(|id| phashes.get(id).copied()).collect();
+    if hashes.is_empty() {
+        return None;
+    }
+    let threshold = hashes.len() as u32;
+    let mut result = 0u64;
+    for bit in 0..64u32 {
+        let ones: u32 = hashes.iter().map(|&h| ((h >> bit) & 1) as u32).sum();
+        if ones * 2 >= threshold {
+            result |= 1u64 << bit;
+        }
+    }
+    Some(result)
 }
 
 #[cfg(test)]
@@ -271,7 +369,7 @@ mod tests {
         exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
         exif.insert(1, exif_with_datetime("2026:04:21 10:00:05", None));
 
-        let groups = reindex_shot_groups(&mut images, &exif);
+        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new());
         assert_eq!(groups.len(), 1);
         let g = groups.values().next().unwrap();
         assert_eq!(g.len(), 2);
@@ -284,7 +382,7 @@ mod tests {
         exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
         exif.insert(1, exif_with_datetime("2026:04:21 10:00:30", None)); // 30s gap
 
-        let groups = reindex_shot_groups(&mut images, &exif);
+        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new());
         assert_eq!(groups.len(), 2, "should split into two groups");
         assert_ne!(images[0].shot_id, images[1].shot_id, "shot_id should differ after split");
     }
@@ -297,7 +395,7 @@ mod tests {
         exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", Some("500")));
         exif.insert(1, exif_with_datetime("2026:04:21 10:00:00", Some("500")));
 
-        let groups = reindex_shot_groups(&mut images, &exif);
+        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new());
         assert_eq!(groups.len(), 1, "should merge into one group");
         assert_eq!(images[0].shot_id, images[1].shot_id);
     }
@@ -310,7 +408,7 @@ mod tests {
         exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
         exif.insert(1, exif_with_datetime("2026:04:21 10:00:00", None));
 
-        let groups = reindex_shot_groups(&mut images, &exif);
+        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new());
         assert_eq!(groups.len(), 2, "must not merge without subsec");
     }
 
@@ -322,11 +420,91 @@ mod tests {
         exif.insert(1, exif_with_datetime("2026:04:21 10:01:00", None)); // 60s gap
         // id=2 has no EXIF
 
-        let groups = reindex_shot_groups(&mut images, &exif);
+        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new());
         // id=0 and id=2 (no EXIF) should be in one group; id=1 in another
         assert_eq!(groups.len(), 2);
         let group_of_0 = images[0].shot_id;
         assert_eq!(images[2].shot_id, group_of_0, "EXIF-lacking entry stays with earliest cluster");
         assert_ne!(images[1].shot_id, group_of_0);
+    }
+
+    #[test]
+    fn merges_by_phash_with_close_datetime() {
+        // Two entries in different stem groups, close datetime, low hamming distance → merge
+        let mut images = vec![make_entry(0, 10), make_entry(1, 20)];
+        let mut exif = HashMap::new();
+        exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
+        exif.insert(1, exif_with_datetime("2026:04:21 10:00:01", None)); // 1s diff
+        let mut phashes = HashMap::new();
+        phashes.insert(0, 0x0000_0000_0000_0FFFu64);
+        phashes.insert(1, 0x0000_0000_0000_1FFFu64); // hamming = 1
+
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes);
+        assert_eq!(groups.len(), 1, "should merge by pHash + close datetime");
+        assert_eq!(images[0].shot_id, images[1].shot_id);
+    }
+
+    #[test]
+    fn no_phash_merge_when_datetime_far() {
+        // Low hamming but datetime 60s apart → must NOT merge
+        let mut images = vec![make_entry(0, 10), make_entry(1, 20)];
+        let mut exif = HashMap::new();
+        exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
+        exif.insert(1, exif_with_datetime("2026:04:21 10:01:00", None)); // 60s diff
+        let mut phashes = HashMap::new();
+        phashes.insert(0, 0x0000_0000_0000_0FFFu64);
+        phashes.insert(1, 0x0000_0000_0000_1FFFu64); // hamming = 1
+
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes);
+        assert_eq!(groups.len(), 2, "must not merge when datetime is far apart");
+        assert_ne!(images[0].shot_id, images[1].shot_id);
+    }
+
+    #[test]
+    fn no_phash_merge_when_distance_above_threshold() {
+        // Close datetime but high hamming → must NOT merge
+        let mut images = vec![make_entry(0, 10), make_entry(1, 20)];
+        let mut exif = HashMap::new();
+        exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
+        exif.insert(1, exif_with_datetime("2026:04:21 10:00:01", None));
+        let mut phashes = HashMap::new();
+        phashes.insert(0, 0x0000_FFFF_0000_FFFFu64);
+        phashes.insert(1, 0xFFFF_0000_FFFF_0000u64); // hamming = 32
+
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes);
+        assert_eq!(groups.len(), 2, "must not merge when hamming distance is high");
+    }
+
+    #[test]
+    fn aeb_group_members_not_split_by_phash() {
+        // 3 members in same stem group; one has distant pHash → no split (Phase 4 only merges)
+        let mut images = vec![make_entry(0, 1), make_entry(1, 1), make_entry(2, 1)];
+        let mut exif = HashMap::new();
+        exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
+        exif.insert(1, exif_with_datetime("2026:04:21 10:00:01", None));
+        exif.insert(2, exif_with_datetime("2026:04:21 10:00:01", None));
+        let mut phashes = HashMap::new();
+        phashes.insert(0, 0x0000_FFFF_0000_FFFFu64);
+        phashes.insert(1, 0x0000_0000_0000_FFFFu64);
+        phashes.insert(2, 0xFFFF_0000_FFFF_0000u64); // very different
+
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes);
+        // All 3 share the same stem-based shot_id → stay in 1 group regardless
+        assert_eq!(groups.len(), 1, "Phase 4 must not split existing groups");
+    }
+
+    #[test]
+    fn month_boundary_datetime_diff() {
+        // 2026-03-31 23:59:59 and 2026-04-01 00:00:01 → 2 second gap
+        let mut images = vec![make_entry(0, 10), make_entry(1, 20)];
+        let mut exif = HashMap::new();
+        exif.insert(0, exif_with_datetime("2026:03:31 23:59:59", None));
+        exif.insert(1, exif_with_datetime("2026:04:01 00:00:01", None));
+        let mut phashes = HashMap::new();
+        phashes.insert(0, 0x0000_0000_0000_0FFFu64);
+        phashes.insert(1, 0x0000_0000_0000_1FFFu64); // hamming = 1
+
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes);
+        assert_eq!(groups.len(), 1, "month boundary with 2s gap should merge");
     }
 }
