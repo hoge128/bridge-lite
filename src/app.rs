@@ -12,14 +12,13 @@ use crate::metadata::{parse_focal_mm, ExifData};
 use crate::scanner::ImageEntry;
 use crate::thumbnail::ThumbResult;
 use crate::xmp::{Flag, Label, XmpData};
-use crate::theme::{self, alpha, font_size, radius, spacing};
+use crate::theme::{self, font_size, radius, spacing};
 
 // ── Constants ──────────────────────────────────────────────────────────────
 
 const THUMB_DISPLAY: f32 = 180.0;
 const FILTER_PANEL_WIDTH: f32 = 190.0;
 const SIDEBAR_WIDTH: f32 = 300.0;
-const GRID_COLUMNS: usize = 4;
 /// Max concurrent thumbnail generation tasks
 const THUMB_CONCURRENCY: usize = 16;
 /// Max concurrent pHash computation tasks (separate pool to avoid CPU saturation)

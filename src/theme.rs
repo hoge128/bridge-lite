@@ -26,6 +26,7 @@ pub mod radius {
     pub const SM: f32 = 4.0;
     pub const MD: f32 = 8.0;
     pub const LG: f32 = 12.0;
+    #[allow(dead_code)]
     pub const PILL: f32 = 999.0;
 }
 
@@ -95,20 +96,34 @@ where
 }
 
 // ── Bundled icon bytes ────────────────────────────────────────────────────
-
+// All icons are pre-loaded for use across current and future UI phases.
+#[allow(dead_code)]
 pub const ICON_SETTINGS: &[u8]       = include_bytes!("../assets/icons/settings.svg");
+#[allow(dead_code)]
 pub const ICON_X: &[u8]              = include_bytes!("../assets/icons/x.svg");
+#[allow(dead_code)]
 pub const ICON_CHEVRON_LEFT: &[u8]   = include_bytes!("../assets/icons/chevron-left.svg");
+#[allow(dead_code)]
 pub const ICON_CHEVRON_RIGHT: &[u8]  = include_bytes!("../assets/icons/chevron-right.svg");
+#[allow(dead_code)]
 pub const ICON_CHEVRON_UP: &[u8]     = include_bytes!("../assets/icons/chevron-up.svg");
+#[allow(dead_code)]
 pub const ICON_CHEVRON_DOWN: &[u8]   = include_bytes!("../assets/icons/chevron-down.svg");
+#[allow(dead_code)]
 pub const ICON_FILTER: &[u8]         = include_bytes!("../assets/icons/filter.svg");
+#[allow(dead_code)]
 pub const ICON_FOLDER: &[u8]         = include_bytes!("../assets/icons/folder.svg");
+#[allow(dead_code)]
 pub const ICON_IMAGE: &[u8]          = include_bytes!("../assets/icons/image.svg");
+#[allow(dead_code)]
 pub const ICON_INFO: &[u8]           = include_bytes!("../assets/icons/info.svg");
+#[allow(dead_code)]
 pub const ICON_STAR: &[u8]           = include_bytes!("../assets/icons/star.svg");
+#[allow(dead_code)]
 pub const ICON_FLAG: &[u8]           = include_bytes!("../assets/icons/flag.svg");
+#[allow(dead_code)]
 pub const ICON_TAG: &[u8]            = include_bytes!("../assets/icons/tag.svg");
+#[allow(dead_code)]
 pub const ICON_FULLSCREEN: &[u8]     = include_bytes!("../assets/icons/fullscreen.svg");
 
 pub fn bridge_light() -> Theme {
