@@ -1,0 +1,39 @@
+name: BridgeLite
+options:
+  bundleIdPrefix: io.github.bridge-lite
+  deploymentTarget:
+    macOS: "26.0"
+  xcodeVersion: "16.3"
+  generateEmptyDirectories: true
+
+targets:
+  BridgeLite:
+    type: application
+    platform: macOS
+    deploymentTarget: "26.0"
+    sources:
+      - path: BridgeLite
+      - path: Generated
+        optional: true
+    settings:
+      base:
+        SWIFT_VERSION: 6.0
+        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite
+        PRODUCT_NAME: BridgeLite
+        SWIFT_EMIT_LOC_STRINGS: YES
+        # Rust static library linked directly (run tools/build-rust-xcframework.sh first)
+        OTHER_LDFLAGS: $(inherited) -lbridge_ffi -lc++
+        LIBRARY_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/lib
+        # swift-bridge C headers (module map exposes them as "RustCore" module)
+        SWIFT_INCLUDE_PATHS: $(inherited) $(PROJECT_DIR)/Generated/include
+        HEADER_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/include
+    info:
+      path: BridgeLite/Resources/Info.plist
+      properties:
+        CFBundleName: BridgeLite
+        CFBundleDisplayName: BridgeLite
+        CFBundleIdentifier: io.github.bridge-lite
+        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.1.0"
+        NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"

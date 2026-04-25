@@ -1,0 +1,502 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		080BCFEFED5119F429F6EF37 /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
+		2017A2227FC3FB4B6E5DEDEB /* CoreError+LocalizedError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */; };
+		20FA827723A350BA5FA21B62 /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
+		221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 562FFC709A5EF19C156C3F4B /* LibraryStore.swift */; };
+		2B393FBA258B56A1BD277370 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A4260412EA9F57B97926BB9 /* SettingsView.swift */; };
+		3D9618AA9A9F30F68301F355 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1C59E59994061A04481C6A6A /* Localizable.xcstrings */; };
+		3ECF458059E0E92F6318ABA0 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F0D4EF54B7033D13443243 /* SidebarView.swift */; };
+		46298ED8412E1E06AADF32B2 /* FilterCriteria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */; };
+		487E0F471C54D7589919532C /* PhotoEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B64F29E109361726718A3C /* PhotoEntry.swift */; };
+		5478CCDC6D2D1C6C2FEEBEFF /* ThumbnailPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */; };
+		54F4CBE0C0AF7B59DE4D27DF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49A54E1E164617C20BDC0BE8 /* Assets.xcassets */; };
+		5B7AA16F9AB39446C7450658 /* PairingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */; };
+		639D3ABDDEE404D4558F0932 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */; };
+		740B6E0B825A83C207B42109 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6259A93CEB1040679F6D1C26 /* ToolbarView.swift */; };
+		74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */; };
+		757F65595D73658FC438F522 /* BridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */; };
+		8F544229F248278F9D38D074 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
+		9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8959834812C243F4AB214555 /* ViewerView.swift */; };
+		A017CA3928F5411EB8A668A1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B123E21AF2DA71784C11365 /* SettingsStore.swift */; };
+		B381E002D017743456FC7713 /* bridge-ffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */; };
+		B8D2E26E4404EF20904397E4 /* FilterPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 449E124463D6E6D28958EBE9 /* FilterPanelView.swift */; };
+		BD135BC5DA5312F04B946CC4 /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
+		C5E75A4F20CD758BDD8C2EFC /* BridgeLiteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */; };
+		CBD8D3D6954D40D54CF4655C /* ShotGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E644DA2225FFA58312896A06 /* ShotGroup.swift */; };
+		CF8892645373D041666BB500 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */; };
+		D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
+		E8F5A37ADB423EFE6A24493D /* ScanPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829D014EC927B51D64289330 /* ScanPipeline.swift */; };
+		EB98541B8291C56BC7DAAE8C /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */; };
+		F049B58AD623462639BFDA52 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */; };
+		FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXFileReference section */
+		05F0D4EF54B7033D13443243 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
+		07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PHashPipeline.swift; sourceTree = "<group>"; };
+		09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterCriteria.swift; sourceTree = "<group>"; };
+		1C59E59994061A04481C6A6A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridView.swift; sourceTree = "<group>"; };
+		2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
+		2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "bridge-ffi.swift"; sourceTree = "<group>"; };
+		30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftBridgeCore.swift; sourceTree = "<group>"; };
+		35CE4E8C5B9154592AD343CB /* ExifData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExifData.swift; sourceTree = "<group>"; };
+		3666271DD81B9F423848C2B5 /* XmpData.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = XmpData.swift; sourceTree = "<group>"; };
+		3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingPipeline.swift; sourceTree = "<group>"; };
+		449E124463D6E6D28958EBE9 /* FilterPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterPanelView.swift; sourceTree = "<group>"; };
+		49A54E1E164617C20BDC0BE8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		562FFC709A5EF19C156C3F4B /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
+		5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailPipeline.swift; sourceTree = "<group>"; };
+		6259A93CEB1040679F6D1C26 /* ToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarView.swift; sourceTree = "<group>"; };
+		6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CoreError+LocalizedError.swift"; sourceTree = "<group>"; };
+		70EF463FF8F23594579AF67A /* SwiftBridgeCore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SwiftBridgeCore.h; sourceTree = "<group>"; };
+		7B123E21AF2DA71784C11365 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		829D014EC927B51D64289330 /* ScanPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanPipeline.swift; sourceTree = "<group>"; };
+		851B10EDFF439C8C3987E4B6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
+		8959834812C243F4AB214555 /* ViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerView.swift; sourceTree = "<group>"; };
+		9A4260412EA9F57B97926BB9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
+		9CE46BEBEEE9B02A6F31B9F8 /* BridgeLite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BridgeLite.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCellView.swift; sourceTree = "<group>"; };
+		A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
+		A8476046BC02C30936274119 /* bridge-ffi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bridge-ffi.h"; sourceTree = "<group>"; };
+		A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeLiteApp.swift; sourceTree = "<group>"; };
+		B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeCore.swift; sourceTree = "<group>"; };
+		D190D06914E2B2F68880DE4D /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
+		D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libbridge_ffi.a; sourceTree = "<group>"; };
+		E644DA2225FFA58312896A06 /* ShotGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotGroup.swift; sourceTree = "<group>"; };
+		E8B64F29E109361726718A3C /* PhotoEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEntry.swift; sourceTree = "<group>"; };
+		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
+		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXGroup section */
+		0B59DB47FE521E3FDA281611 = {
+			isa = PBXGroup;
+			children = (
+				2B20FE4B7F2B9B7F415EEBAA /* BridgeLite */,
+				A064914507EF1D72412C09C3 /* Generated */,
+				609B502AC7819BA56CD266E8 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		1DAB6EBEE8F42EC30B8457BD /* Pipelines */ = {
+			isa = PBXGroup;
+			children = (
+				F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */,
+				3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */,
+				07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */,
+				829D014EC927B51D64289330 /* ScanPipeline.swift */,
+				5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */,
+			);
+			path = Pipelines;
+			sourceTree = "<group>";
+		};
+		2B20FE4B7F2B9B7F415EEBAA /* BridgeLite */ = {
+			isa = PBXGroup;
+			children = (
+				A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */,
+				DCEED3D7ADB9AF247F944868 /* Bridging */,
+				98857F4203ACB3D6FC91D1DB /* Models */,
+				1DAB6EBEE8F42EC30B8457BD /* Pipelines */,
+				B124AFCD9F68FF2A7830AC45 /* Resources */,
+				5C7EFF5C58CDF69D785187E9 /* Stores */,
+				E3BE2DA0E4DBBF187AA46217 /* Views */,
+			);
+			path = BridgeLite;
+			sourceTree = "<group>";
+		};
+		5C7EFF5C58CDF69D785187E9 /* Stores */ = {
+			isa = PBXGroup;
+			children = (
+				562FFC709A5EF19C156C3F4B /* LibraryStore.swift */,
+				7B123E21AF2DA71784C11365 /* SettingsStore.swift */,
+			);
+			path = Stores;
+			sourceTree = "<group>";
+		};
+		609B502AC7819BA56CD266E8 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				9CE46BEBEEE9B02A6F31B9F8 /* BridgeLite.app */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		7DB8B529540DDBB0E185EC2A /* include */ = {
+			isa = PBXGroup;
+			children = (
+				A8476046BC02C30936274119 /* bridge-ffi.h */,
+				D190D06914E2B2F68880DE4D /* module.modulemap */,
+				70EF463FF8F23594579AF67A /* SwiftBridgeCore.h */,
+			);
+			path = include;
+			sourceTree = "<group>";
+		};
+		98857F4203ACB3D6FC91D1DB /* Models */ = {
+			isa = PBXGroup;
+			children = (
+				35CE4E8C5B9154592AD343CB /* ExifData.swift */,
+				09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */,
+				E8B64F29E109361726718A3C /* PhotoEntry.swift */,
+				E644DA2225FFA58312896A06 /* ShotGroup.swift */,
+				3666271DD81B9F423848C2B5 /* XmpData.swift */,
+			);
+			path = Models;
+			sourceTree = "<group>";
+		};
+		A064914507EF1D72412C09C3 /* Generated */ = {
+			isa = PBXGroup;
+			children = (
+				2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */,
+				30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */,
+				7DB8B529540DDBB0E185EC2A /* include */,
+				FE007466483FBC73D779BC68 /* lib */,
+			);
+			path = Generated;
+			sourceTree = "<group>";
+		};
+		B124AFCD9F68FF2A7830AC45 /* Resources */ = {
+			isa = PBXGroup;
+			children = (
+				49A54E1E164617C20BDC0BE8 /* Assets.xcassets */,
+				851B10EDFF439C8C3987E4B6 /* Info.plist */,
+				1C59E59994061A04481C6A6A /* Localizable.xcstrings */,
+			);
+			path = Resources;
+			sourceTree = "<group>";
+		};
+		DCEED3D7ADB9AF247F944868 /* Bridging */ = {
+			isa = PBXGroup;
+			children = (
+				B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */,
+				6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */,
+				F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */,
+			);
+			path = Bridging;
+			sourceTree = "<group>";
+		};
+		E3BE2DA0E4DBBF187AA46217 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */,
+				2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */,
+				449E124463D6E6D28958EBE9 /* FilterPanelView.swift */,
+				9A4260412EA9F57B97926BB9 /* SettingsView.swift */,
+				05F0D4EF54B7033D13443243 /* SidebarView.swift */,
+				9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */,
+				2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */,
+				6259A93CEB1040679F6D1C26 /* ToolbarView.swift */,
+				8959834812C243F4AB214555 /* ViewerView.swift */,
+			);
+			path = Views;
+			sourceTree = "<group>";
+		};
+		FE007466483FBC73D779BC68 /* lib */ = {
+			isa = PBXGroup;
+			children = (
+				D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */,
+			);
+			path = lib;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		3ADD03B0946F6C036A05B104 /* BridgeLite */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 5B540B5D0B1F56392133D919 /* Build configuration list for PBXNativeTarget "BridgeLite" */;
+			buildPhases = (
+				8373F6BAA1DBB3371EDD364F /* Sources */,
+				E153B379A04838498FD7F9F5 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BridgeLite;
+			packageProductDependencies = (
+			);
+			productName = BridgeLite;
+			productReference = 9CE46BEBEEE9B02A6F31B9F8 /* BridgeLite.app */;
+			productType = "com.apple.product-type.application";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		1C21470588454ACD00E942A8 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = YES;
+				LastUpgradeCheck = 1630;
+				TargetAttributes = {
+				};
+			};
+			buildConfigurationList = F982BE9F4DA4F3B9FE8E9A0C /* Build configuration list for PBXProject "BridgeLite" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				Base,
+				en,
+				ja,
+			);
+			mainGroup = 0B59DB47FE521E3FDA281611;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 609B502AC7819BA56CD266E8 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				3ADD03B0946F6C036A05B104 /* BridgeLite */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		E153B379A04838498FD7F9F5 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				54F4CBE0C0AF7B59DE4D27DF /* Assets.xcassets in Resources */,
+				3D9618AA9A9F30F68301F355 /* Localizable.xcstrings in Resources */,
+				639D3ABDDEE404D4558F0932 /* libbridge_ffi.a in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		8373F6BAA1DBB3371EDD364F /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F049B58AD623462639BFDA52 /* AboutView.swift in Sources */,
+				757F65595D73658FC438F522 /* BridgeCore.swift in Sources */,
+				C5E75A4F20CD758BDD8C2EFC /* BridgeLiteApp.swift in Sources */,
+				20FA827723A350BA5FA21B62 /* ConcurrencyLimiter.swift in Sources */,
+				CF8892645373D041666BB500 /* ContentView.swift in Sources */,
+				2017A2227FC3FB4B6E5DEDEB /* CoreError+LocalizedError.swift in Sources */,
+				8F544229F248278F9D38D074 /* ExifData.swift in Sources */,
+				46298ED8412E1E06AADF32B2 /* FilterCriteria.swift in Sources */,
+				B8D2E26E4404EF20904397E4 /* FilterPanelView.swift in Sources */,
+				D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */,
+				221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */,
+				74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */,
+				5B7AA16F9AB39446C7450658 /* PairingPipeline.swift in Sources */,
+				487E0F471C54D7589919532C /* PhotoEntry.swift in Sources */,
+				E8F5A37ADB423EFE6A24493D /* ScanPipeline.swift in Sources */,
+				A017CA3928F5411EB8A668A1 /* SettingsStore.swift in Sources */,
+				2B393FBA258B56A1BD277370 /* SettingsView.swift in Sources */,
+				CBD8D3D6954D40D54CF4655C /* ShotGroup.swift in Sources */,
+				3ECF458059E0E92F6318ABA0 /* SidebarView.swift in Sources */,
+				080BCFEFED5119F429F6EF37 /* SwiftBridgeCore.swift in Sources */,
+				EB98541B8291C56BC7DAAE8C /* ThumbnailCellView.swift in Sources */,
+				FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */,
+				5478CCDC6D2D1C6C2FEEBEFF /* ThumbnailPipeline.swift in Sources */,
+				740B6E0B825A83C207B42109 /* ToolbarView.swift in Sources */,
+				9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */,
+				BD135BC5DA5312F04B946CC4 /* XmpData.swift in Sources */,
+				B381E002D017743456FC7713 /* bridge-ffi.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		503F5A21107CC36D395657C5 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_OPTIMIZATION_LEVEL = "-O";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Release;
+		};
+		7E0BF69B8087425EBC09D46F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++14";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu11;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"$(inherited)",
+					"DEBUG=1",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_VERSION = 5.0;
+			};
+			name = Debug;
+		};
+		EDD49F2E2E0D052BB3D8BEA6 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
+				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite";
+				PRODUCT_NAME = BridgeLite;
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		F05CEAEB22E69DB3E9F0513E /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				COMBINE_HIDPI_IMAGES = YES;
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
+				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite";
+				PRODUCT_NAME = BridgeLite;
+				SDKROOT = macosx;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_INCLUDE_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		5B540B5D0B1F56392133D919 /* Build configuration list for PBXNativeTarget "BridgeLite" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				EDD49F2E2E0D052BB3D8BEA6 /* Debug */,
+				F05CEAEB22E69DB3E9F0513E /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		F982BE9F4DA4F3B9FE8E9A0C /* Build configuration list for PBXProject "BridgeLite" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				7E0BF69B8087425EBC09D46F /* Debug */,
+				503F5A21107CC36D395657C5 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 1C21470588454ACD00E942A8 /* Project object */;
+}

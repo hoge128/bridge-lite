@@ -5,7 +5,12 @@ edition = "2024"
 description = "swift-bridge FFI layer for bridge-lite"
 
 [lib]
-crate-type = ["staticlib"]
+crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 bridge-core = { path = "../bridge-core" }
+swift-bridge = "0.1"
+tokio = { version = "1.50.0", features = ["full"] }
+
+[build-dependencies]
+swift-bridge-build = "0.1"
