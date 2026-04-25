@@ -21,6 +21,8 @@ const SIDEBAR_WIDTH: f32 = 260.0;
 const GRID_COLUMNS: usize = 4;
 /// Max concurrent thumbnail generation tasks
 const THUMB_CONCURRENCY: usize = 16;
+/// Max concurrent pHash computation tasks (separate pool to avoid CPU saturation)
+const PHASH_CONCURRENCY: usize = 4;
 /// Max long-edge for sidebar preview (pixels)
 const PREVIEW_MAX_PX: u32 = 1000;
 /// Max long-edge for fullscreen viewer (pixels, safety cap for memory)
@@ -169,6 +171,14 @@ pub struct App {
     show_sidebar: bool,
     /// Reverse lookup: shot_id → list of all entry ids sharing that shot.
     shot_groups: HashMap<u64, Vec<usize>>,
+    /// Perceptual hashes keyed by entry id (populated after thumbnail generation)
+    phashes: HashMap<usize, u64>,
+    /// Entry ids for which pHash computation has been attempted (success or failure)
+    phash_attempted: HashSet<usize>,
+    /// Number of pHash compute tasks currently in flight
+    phash_active: usize,
+    /// Pending pHash compute queue (entry id → path)
+    phash_queue: VecDeque<(usize, PathBuf)>,
     /// Pending thumbnail generation queue (processed THUMB_CONCURRENCY at a time)
     thumb_queue: VecDeque<(usize, PathBuf)>,
     /// Persisted user preferences
@@ -240,6 +250,8 @@ pub enum Message {
     ReindexShotGroups,
     LabelFilterToggled(Label),
     FlagFilterToggled(Flag),
+    PhashBatchLoaded(HashMap<PathBuf, u64>),
+    PhashIndexed { id: usize, phash: Option<u64> },
 }
 
 // ── Entry point ────────────────────────────────────────────────────────────
@@ -316,6 +328,10 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
             state.exif_data.clear();
             state.xmp_data.clear();
             state.shot_groups.clear();
+            state.phashes.clear();
+            state.phash_attempted.clear();
+            state.phash_active = 0;
+            state.phash_queue.clear();
             state.available_cameras.clear();
             state.filter = FilterState::default();
             state.indexed_count = 0;
@@ -393,8 +409,14 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
             // 500-path chunk). Only uncached paths trigger individual file reads later.
             let paths: Vec<PathBuf> = images.iter().map(|e| e.path.clone()).collect();
             let batch_task = Task::perform(
-                crate::db::fetch_exif_batch_async(paths, db_path),
+                crate::db::fetch_exif_batch_async(paths.clone(), db_path.clone()),
                 Message::ExifBatchLoaded,
+            );
+
+            // Prefetch cached pHashes from DB in parallel with EXIF batch.
+            let phash_batch_task = Task::perform(
+                crate::db::fetch_phash_batch_async(paths, db_path.clone()),
+                Message::PhashBatchLoaded,
             );
 
             // Read XMP sidecars for all images in a blocking thread.
@@ -419,26 +441,65 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
             state.images = images;
             let mut all = thumb_tasks;
             all.push(batch_task);
+            all.push(phash_batch_task);
             all.push(xmp_task);
             Task::batch(all)
         }
 
         Message::ThumbnailLoaded { id, handle } => {
             state.thumbnails.insert(id, ThumbnailState::Loaded(handle));
-            dequeue_thumb(state)
+            let thumb_task = dequeue_thumb(state);
+            // Trigger pHash computation for this entry now that its thumbnail JPEG
+            // is cached — reuses the JPEG bytes to avoid a second decode.
+            let phash_task = maybe_spawn_phash(state, id);
+            Task::batch([thumb_task, phash_task])
         }
 
         Message::ThumbnailFailed(id) => {
             state.thumbnails.insert(id, ThumbnailState::Failed);
-            dequeue_thumb(state)
+            // Still attempt pHash via fallback paths even when thumbnail fails.
+            let thumb_task = dequeue_thumb(state);
+            let phash_task = maybe_spawn_phash(state, id);
+            Task::batch([thumb_task, phash_task])
         }
 
         Message::ReindexShotGroups => {
             state.shot_groups = crate::pairing::reindex_shot_groups(
                 &mut state.images,
                 &state.exif_data,
+                &state.phashes,
             );
             Task::none()
+        }
+
+        Message::PhashBatchLoaded(map) => {
+            for entry in &state.images {
+                if let Some(&phash) = map.get(&entry.path) {
+                    state.phashes.insert(entry.id, phash);
+                    state.phash_attempted.insert(entry.id);
+                }
+                // Misses will be computed via ThumbnailLoaded hook.
+            }
+            if should_reindex(state) {
+                Task::done(Message::ReindexShotGroups)
+            } else {
+                Task::none()
+            }
+        }
+
+        Message::PhashIndexed { id, phash } => {
+            if let Some(p) = phash {
+                state.phashes.insert(id, p);
+            }
+            state.phash_attempted.insert(id);
+            state.phash_active = state.phash_active.saturating_sub(1);
+            // Drain queue
+            let drain_task = drain_phash_queue(state);
+            if should_reindex(state) {
+                Task::batch([drain_task, Task::done(Message::ReindexShotGroups)])
+            } else {
+                drain_task
+            }
         }
 
         Message::ExifBatchLoaded(map) => {
@@ -468,7 +529,7 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
                 })
                 .collect();
             // If the batch covered every image (no misses), trigger timestamp regrouping now.
-            let reindex = if tasks.is_empty() && all_exif_indexed(state) {
+            let reindex = if tasks.is_empty() && should_reindex(state) {
                 Task::done(Message::ReindexShotGroups)
             } else {
                 Task::none()
@@ -488,7 +549,7 @@ fn update(state: &mut App, message: Message) -> Task<Message> {
             state.indexed_count += 1;
             update_status(state);
             // Trigger timestamp regrouping once the last EXIF miss completes.
-            if all_exif_indexed(state) {
+            if should_reindex(state) {
                 Task::done(Message::ReindexShotGroups)
             } else {
                 Task::none()
@@ -931,6 +992,47 @@ fn dequeue_thumb(state: &mut App) -> Task<Message> {
     }
 }
 
+/// If this entry's pHash hasn't been attempted yet, spawn a compute task (subject
+/// to PHASH_CONCURRENCY) or enqueue it for later.
+fn maybe_spawn_phash(state: &mut App, id: usize) -> Task<Message> {
+    if state.phash_attempted.contains(&id) {
+        return Task::none();
+    }
+    let path = match state.images.get(id) {
+        Some(e) => e.path.clone(),
+        None => return Task::none(),
+    };
+    if state.phash_active < PHASH_CONCURRENCY {
+        state.phash_active += 1;
+        let db_path = state.db_path.clone();
+        Task::perform(
+            crate::phash::compute_phash_async(id, path, db_path),
+            |(id, phash)| Message::PhashIndexed { id, phash },
+        )
+    } else {
+        state.phash_queue.push_back((id, path));
+        Task::none()
+    }
+}
+
+/// Drain the pHash queue up to PHASH_CONCURRENCY active slots.
+fn drain_phash_queue(state: &mut App) -> Task<Message> {
+    let mut tasks = Vec::new();
+    while state.phash_active < PHASH_CONCURRENCY {
+        let Some((id, path)) = state.phash_queue.pop_front() else { break };
+        if state.phash_attempted.contains(&id) {
+            continue;
+        }
+        state.phash_active += 1;
+        let db_path = state.db_path.clone();
+        tasks.push(Task::perform(
+            crate::phash::compute_phash_async(id, path, db_path),
+            |(id, phash)| Message::PhashIndexed { id, phash },
+        ));
+    }
+    Task::batch(tasks)
+}
+
 pub(crate) const DEVELOPED_SOFTWARE_KEYWORDS: &[&str] = &[
     "lightroom",
     "dxo",
@@ -1054,8 +1156,12 @@ fn toggle_label(data: &mut XmpData, label: Label) -> bool {
     changed
 }
 
-fn all_exif_indexed(state: &App) -> bool {
-    !state.images.is_empty() && state.indexed_count >= state.images.len()
+/// True once both EXIF and pHash have been fully indexed/attempted for all images,
+/// which is the signal to run the final shot-group reindex.
+fn should_reindex(state: &App) -> bool {
+    !state.images.is_empty()
+        && state.indexed_count >= state.images.len()
+        && state.phash_attempted.len() >= state.images.len()
 }
 
 fn update_status(state: &mut App) {

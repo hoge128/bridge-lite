@@ -8,6 +8,7 @@ mod menu;
 mod macos_thumb;
 mod metadata;
 mod pairing;
+mod phash;
 mod raw_thumb;
 mod scanner;
 mod thumbnail;
