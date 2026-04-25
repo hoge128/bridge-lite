@@ -307,12 +307,14 @@ DxO PureRAW / Lightroom などで現像されたファイルを同一 shot と�
   - EXIF 欠損エントリは stem ベース shot_id を維持
   - `state.shot_groups` を全面再構築、`entry.shot_id` を更新 → UI 再描画
 
-### Phase 10-C — ピクセルベースの類似判定 (後続 PR)
+### Phase 10-C ✅ ピクセルベースの類似判定 (2026-04-25)
 
-- [ ] `image_hasher` クレートで pHash (64 bit) を計算、DB に `phash INTEGER` カラムでキャッシュ
-- [ ] shot_group 再編成時に「ファイル名違い + 同 pHash（ハミング距離 ≤ 5）」で統合
-  - Phase 10-B（EXIF タイムスタンプ）と併用して精度を上げる
-  - RAW / JPG / 現像後 JPG は同一被写体だがトーン差があるため pHash が有効（SSIM より適切）
+- [x] `image_hasher 3.1` クレートで pHash (64 bit, DCT 8x8) を計算、`phashes` テーブルに mtime 検証付きキャッシュ
+- [x] shot_group 再編成時に「ファイル名違い + hamming ≤ 8 かつ datetime ≤ 2 秒」で統合
+  - Phase 10-B（EXIF タイムスタンプ）と連携し精度を向上
+  - 代表 pHash は bit-wise majority vote で合成（AEB 露出違いに耐性）
+  - `parse_datetime_secs` を chrono::NaiveDateTime で正しく実装（月跨ぎバグ修正）
+  - `PHASH_CONCURRENCY = 4` — サムネイル生成完了後に逐次計算 (CPU 飽和回避)
 
 ### 10-A 手動検証チェックリスト
 
