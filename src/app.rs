@@ -262,6 +262,9 @@ pub fn run_with(settings: Settings) -> iced::Result {
         .title("bridge-lite")
         .theme(|state: &App| state.settings.theme.to_iced())
         .subscription(subscription)
+        .default_font(iced::Font::with_name("Inter"))
+        .font(include_bytes!("../assets/fonts/InterVariable.ttf").as_slice())
+        .font(include_bytes!("../assets/fonts/JetBrainsMono-Regular.ttf").as_slice())
         .window(iced::window::Settings {
             size: iced::Size::new(1400.0, 860.0),
             min_size: Some(iced::Size::new(800.0, 500.0)),
