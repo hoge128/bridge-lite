@@ -1,34 +1,80 @@
 use std::path::PathBuf;
 
-use image_hasher::{HashAlg, HasherConfig};
+const N: usize = 32;
 
 /// Compute a 64-bit perceptual hash (DCT-based) from a 32×32 grayscale pixel buffer.
 ///
-/// This is the primary pHash API for bridge-core. The caller (e.g. Swift side or
-/// iced-app) provides a 32×32 = 1024 byte grayscale image, and this function
-/// computes and returns the 64-bit pHash.
+/// Implements the classic DCT pHash: apply 2D DCT-II, take top-left 8×8 coefficients,
+/// compare each to the mean, and pack into a 64-bit integer.
 pub fn compute_phash_from_luma_32x32(pixels: &[u8; 1024]) -> u64 {
-    let gray = image::GrayImage::from_raw(32, 32, pixels.to_vec())
-        .expect("32x32 grayscale image should always be valid");
-    let img = image::DynamicImage::ImageLuma8(gray);
+    let mut mat = [[0.0f32; N]; N];
+    for r in 0..N {
+        for c in 0..N {
+            mat[r][c] = pixels[r * N + c] as f32;
+        }
+    }
 
-    let hasher = HasherConfig::new()
-        .hash_alg(HashAlg::Mean)
-        .hash_size(8, 8)
-        .preproc_dct()
-        .to_hasher();
+    dct2d(&mut mat);
 
-    let hash = hasher.hash_image(&img);
-    let bytes: [u8; 8] = hash.as_bytes().try_into().expect("pHash must be 8 bytes");
-    u64::from_le_bytes(bytes)
+    let mut low = [0.0f32; 64];
+    for r in 0..8 {
+        for c in 0..8 {
+            low[r * 8 + c] = mat[r][c];
+        }
+    }
+
+    let mean = low.iter().sum::<f32>() / 64.0;
+    let mut hash = 0u64;
+    for (i, &v) in low.iter().enumerate() {
+        if v >= mean {
+            hash |= 1u64 << i;
+        }
+    }
+    hash
 }
 
 pub fn hamming(a: u64, b: u64) -> u32 {
     (a ^ b).count_ones()
 }
 
+fn dct1d(row: &mut [f32; N]) {
+    use std::f32::consts::PI;
+    let scale_dc = (1.0f32 / N as f32).sqrt();
+    let scale_ac = (2.0f32 / N as f32).sqrt();
+    let mut out = [0.0f32; N];
+    for k in 0..N {
+        let sum: f32 = row
+            .iter()
+            .enumerate()
+            .map(|(n, &x)| x * (PI * k as f32 * (2 * n + 1) as f32 / (2 * N) as f32).cos())
+            .sum();
+        out[k] = (if k == 0 { scale_dc } else { scale_ac }) * sum;
+    }
+    *row = out;
+}
+
+fn dct2d(mat: &mut [[f32; N]; N]) {
+    for row in mat.iter_mut() {
+        dct1d(row);
+    }
+    // Transpose → DCT on rows → Transpose back
+    let mut t = [[0.0f32; N]; N];
+    for r in 0..N {
+        for c in 0..N {
+            t[c][r] = mat[r][c];
+        }
+    }
+    for row in t.iter_mut() {
+        dct1d(row);
+    }
+    for r in 0..N {
+        for c in 0..N {
+            mat[r][c] = t[c][r];
+        }
+    }
+}
+
 /// Fetch all cached pHashes for the given paths in a single connection.
-/// Only entries whose mtime still matches the current file mtime are returned.
 pub fn fetch_phash_batch(
     paths: &[PathBuf],
     db_path: &std::path::Path,
@@ -57,21 +103,18 @@ mod tests {
 
     #[test]
     fn hamming_close() {
-        // 1-bit difference
         assert_eq!(hamming(0b0001, 0b0011), 1);
     }
 
     #[test]
-    fn compute_phash_from_luma_32x32_produces_nonzero() {
-        // A non-trivial grayscale image (gradient) should produce a non-zero hash.
+    fn compute_phash_from_luma_32x32_produces_stable_result() {
         let mut pixels = [0u8; 1024];
         for (i, p) in pixels.iter_mut().enumerate() {
             *p = (i % 256) as u8;
         }
-        let hash = compute_phash_from_luma_32x32(&pixels);
-        // Hash could theoretically be 0, but it's astronomically unlikely for a gradient.
-        // Just check it completes without panic.
-        let _ = hash;
+        let h1 = compute_phash_from_luma_32x32(&pixels);
+        let h2 = compute_phash_from_luma_32x32(&pixels);
+        assert_eq!(h1, h2);
     }
 
     #[test]
@@ -80,5 +123,14 @@ mod tests {
         let h1 = compute_phash_from_luma_32x32(&pixels);
         let h2 = compute_phash_from_luma_32x32(&pixels);
         assert_eq!(h1, h2);
+    }
+
+    #[test]
+    fn different_images_may_differ() {
+        let black = [0u8; 1024];
+        let white = [255u8; 1024];
+        let h_black = compute_phash_from_luma_32x32(&black);
+        let h_white = compute_phash_from_luma_32x32(&white);
+        let _ = hamming(h_black, h_white);
     }
 }
