@@ -1,0 +1,5 @@
+module RustCore {
+    header "SwiftBridgeCore.h"
+    header "bridge-ffi.h"
+    export *
+}
