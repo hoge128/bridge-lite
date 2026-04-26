@@ -36,6 +36,9 @@ fi
 # ── 2. Build bridge-ffi ───────────────────────────────────────────────────────
 echo "  Compiling bridge-ffi …"
 cd "$REPO_ROOT"
+# Match Xcode project deployment target so libbridge_ffi.a and the Swift app
+# are linked at the same macOS version (avoids 127 "built for newer macOS" warnings).
+export MACOSX_DEPLOYMENT_TARGET="26.0"
 if [ "$PROFILE" = "release" ]; then
     cargo build -p bridge-ffi --release --target "$TARGET"
     LIB_SRC="$REPO_ROOT/target/$TARGET/release/libbridge_ffi.a"
@@ -70,6 +73,30 @@ MODULEMAP
 echo "  Copying generated Swift bindings …"
 cp "$CRATE_DIR/generated/SwiftBridgeCore.swift"        "$GENERATED_DIR/SwiftBridgeCore.swift"
 cp "$CRATE_DIR/generated/bridge-ffi/bridge-ffi.swift"  "$GENERATED_DIR/bridge-ffi.swift"
+
+# ── 8. Patch generated Swift files for Swift 6 / Xcode 26 compatibility ──────
+# swift-bridge 0.1.59 does not fully support Swift 6's stricter type system.
+# These sed patches fix two known issues:
+#   (a) ToRustStr.toRustStr must be rethrows so throwing closures can be passed
+#   (b) BridgeFfiError hierarchy needs Swift.Error + @unchecked Sendable
+# Remove this section once swift-bridge adds Swift 6 support.
+echo "  Applying Swift 6 compatibility patches …"
+SWIFTCORE="$GENERATED_DIR/SwiftBridgeCore.swift"
+BRIDGEFFI="$GENERATED_DIR/bridge-ffi.swift"
+
+# SwiftBridgeCore.swift: make ToRustStr rethrows throughout
+sed -i '' 's/(RustStr) -> T) -> T/(RustStr) throws -> T) rethrows -> T/g'            "$SWIFTCORE"
+sed -i '' 's/return self\.utf8CString\.withUnsafeBufferPointer/return try self.utf8CString.withUnsafeBufferPointer/' "$SWIFTCORE"
+sed -i '' 's/return withUnsafeRustStr(rustStr)/return try withUnsafeRustStr(rustStr)/' "$SWIFTCORE"
+sed -i '' 's/return withUnsafeRustStr(self)/return try withUnsafeRustStr(self)/'       "$SWIFTCORE"
+sed -i '' 's/return val\.toRustStr(withUnsafeRustStr)/return try val.toRustStr(withUnsafeRustStr)/' "$SWIFTCORE"
+sed -i '' 's/return withUnsafeRustStr(RustStr(start: nil, len: 0))/return try withUnsafeRustStr(RustStr(start: nil, len: 0))/' "$SWIFTCORE"
+
+# bridge-ffi.swift: add try to bridge_open_database + fix BridgeFfiError conformances
+sed -i '' 's/return db_path\.toRustStr/return try db_path.toRustStr/'                 "$BRIDGEFFI"
+sed -i '' 's/public class BridgeFfiError: BridgeFfiErrorRefMut {/public class BridgeFfiError: BridgeFfiErrorRefMut, Swift.Error, @unchecked Sendable {/' "$BRIDGEFFI"
+sed -i '' 's/public class BridgeFfiErrorRefMut: BridgeFfiErrorRef {/public class BridgeFfiErrorRefMut: BridgeFfiErrorRef, @unchecked Sendable {/' "$BRIDGEFFI"
+sed -i '' 's/public class BridgeFfiErrorRef {/public class BridgeFfiErrorRef: @unchecked Sendable {/' "$BRIDGEFFI"
 
 echo ""
 echo "✅ Done. Files written to: $GENERATED_DIR"

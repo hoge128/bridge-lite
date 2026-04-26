@@ -33,9 +33,13 @@ struct ExifData: Sendable, Equatable {
 }
 
 enum BridgeCoreConstants {
-    // Phase C.6 以降: bridge_developed_keywords() から取得
+    // Must stay in sync with crates/bridge-core/src/developed.rs
     static let developedKeywords: [String] = [
-        "lightroom", "photoshop", "capture one", "dxo", "luminar",
-        "darktable", "rawtherapee", "on1", "affinity photo"
+        "lightroom", "dxo", "pureraw",
+        "capture one", "captureone",
+        "photoshop", "camera raw",
+        "topaz", "on1", "luminar", "affinity",
+        "darktable", "rawtherapee",
+        "silkypix", "rawpower", "picktorial", "iridient", "exposure x",
     ]
 }

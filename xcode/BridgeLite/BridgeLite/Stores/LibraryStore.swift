@@ -19,7 +19,8 @@ final class LibraryStore {
 
     // パイプライン
     private let scanPipeline = ScanPipeline()
-    private(set) var pairingPipeline = PairingPipeline()
+    private var pairingPipeline = PairingPipeline()
+    private var phashPipeline = PHashPipeline()
 
     // UI 状態
     var selectedID: UInt64?
@@ -88,10 +89,16 @@ final class LibraryStore {
                 await pairingPipeline.noteExifReady(list: capturedList, db: db, store: self)
             }
 
-            // サムネイル開始 (fire-and-forget: 各サムネイル完了時に thumbnailImages を更新)
+            // サムネイル → pHash → shot-group reindex (直列チェーン)
             statusMessage = String(localized: "Loading thumbnails…")
             let entriesToLoad = orderedIDs.compactMap { entries[$0] }
-            Task { await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db) }
+            let capturedPhash = phashPipeline
+            let capturedPairing = pairingPipeline
+            Task {
+                await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash)
+                await capturedPhash.waitForAllPending()
+                await capturedPairing.notePhashReady(list: capturedList, db: db, store: self)
+            }
 
             statusMessage = String(
                 format: String(localized: "%d photos"),
@@ -227,6 +234,8 @@ final class LibraryStore {
         selectedID = nil
         viewerMode = false
         lastImageList = nil
+        pairingPipeline = PairingPipeline()
+        phashPipeline = PHashPipeline()
     }
 
     private func ingest(_ scanned: [PhotoEntry]) {

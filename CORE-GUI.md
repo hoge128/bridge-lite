@@ -108,6 +108,8 @@ SwiftUI → bridge-ffi → bridge-core → Adobe XMP Toolkit SDK (C++)
 ```
 bridge-lite/
 ├── Cargo.toml                  # ワークスペースルート
+├── README.md
+├── CORE-GUI.md                 # 本ドキュメント
 ├── crates/
 │   ├── bridge-core/            # Rust lib (純粋ロジック)
 │   │   ├── Cargo.toml
@@ -122,22 +124,24 @@ bridge-lite/
 │   │   │   ├── xmp.rs
 │   │   │   ├── db.rs
 │   │   │   └── phash.rs
-│   │   └── tests/              # 統合テスト (25件以上)
-│   ├── bridge-ffi/             # Rust staticlib + swift-bridge
-│   │   ├── Cargo.toml
-│   │   ├── build.rs            # swift-bridge-build でコード生成
-│   │   └── src/lib.rs
-│   └── iced-app/               # 移行期に維持 (Phase G で削除)
+│   │   └── tests/              # 統合テスト (31件)
+│   └── bridge-ffi/             # Rust staticlib + swift-bridge
 │       ├── Cargo.toml
-│       └── src/
+│       ├── build.rs            # swift-bridge-build でコード生成
+│       └── src/lib.rs
 ├── vendor/
 │   └── xmp_toolkit/            # macOS 26 RawCameraException パッチ済み
 ├── xcode/
 │   └── BridgeLite/
 │       ├── BridgeLite.xcodeproj
+│       ├── project.yml         # xcodegen 定義
+│       ├── Generated/          # Rust FFI 自動生成コード + libbridge_ffi.a
 │       └── BridgeLite/
+│           ├── BridgeLiteApp.swift
 │           ├── Bridging/
-│           │   └── BridgeCore.swift  # FfiImageEntry → PhotoEntry 変換
+│           │   ├── BridgeCore.swift          # FFI ラッパ + FfiImageEntry → PhotoEntry 変換
+│           │   ├── CoreError+LocalizedError.swift
+│           │   └── ImageEntry+Convert.swift
 │           ├── Models/
 │           │   ├── PhotoEntry.swift
 │           │   ├── ExifData.swift
@@ -145,55 +149,45 @@ bridge-lite/
 │           │   ├── ShotGroup.swift
 │           │   └── FilterCriteria.swift
 │           ├── Stores/
-│           │   ├── LibraryStore.swift
-│           │   ├── ThumbnailStore.swift
-│           │   ├── ExifStore.swift
-│           │   └── XmpStore.swift
+│           │   ├── LibraryStore.swift        # @MainActor @Observable — グリッド・選択・フィルタ
+│           │   └── SettingsStore.swift
 │           ├── Pipelines/
+│           │   ├── ConcurrencyLimiter.swift  # actor ベースのセマフォ
 │           │   ├── ScanPipeline.swift
-│           │   ├── ThumbnailPipeline.swift
-│           │   ├── PHashPipeline.swift
+│           │   ├── ThumbnailPipeline.swift   # MAX=6 並列
+│           │   ├── PHashPipeline.swift       # MAX=4 並列
 │           │   └── PairingPipeline.swift
 │           ├── Views/
 │           │   ├── ContentView.swift
+│           │   ├── ToolbarView.swift
 │           │   ├── ThumbnailGridView.swift
+│           │   ├── ThumbnailCellView.swift
 │           │   ├── SidebarView.swift
 │           │   ├── ViewerView.swift
 │           │   ├── FilterPanelView.swift
 │           │   ├── SettingsView.swift
 │           │   └── AboutView.swift
 │           └── Resources/
-│               └── Localizable.xcstrings
-└── tools/
-    └── build-rust-xcframework.sh
+│               └── Localizable.xcstrings     # ja/en 34キー
+├── tools/
+│   └── build-rust-xcframework.sh
+├── knowledge/                  # 移行ログ・過去ドキュメント
+└── test/
+    └── 20260221/               # テスト用サンプル画像
 ```
-
-### 「消滅するファイル」リスト (Phase G 完了時)
-
-以下のファイルは SwiftUI 移行完了後に削除される:
-
-| ファイル | 理由 |
-|---|---|
-| `src/app.rs` | iced アプリケーション本体。SwiftUI に置換 |
-| `src/menu.rs` | muda ベースのメニュー。CommandMenu に置換 |
-| `src/i18n.rs` | 独自 i18n。Localizable.xcstrings に置換 |
-| `src/theme.rs` | iced テーマ。SwiftUI のカラースキームに置換 |
-| `src/memory_guard.rs` | iced/wgpu メモリ問題の回避策。根本消滅 |
-| `src/macos_thumb.rs` | iced 向けサムネ生成。ThumbnailPipeline に置換 |
-| `macos/cgimage_shim.cpp` | C++ ブリッジ。Swift 直接呼び出しに置換 |
 
 ### サードパーティ所属
 
 **Rust 側 (bridge-core / bridge-ffi)**
 - Adobe XMP Toolkit SDK (C++, vendor 済み)
 - kamadak-exif — EXIF パース
-- image_hasher — pHash 計算補助
 - rusqlite — SQLite アクセス (WAL モード)
 - walkdir — ディレクトリ走査
+- chrono — EXIF タイムスタンプ解析
+- rayon — 並列処理
 
 **Swift 側 (Xcode)**
 - ImageIO / CGImageSource — サムネイル・フルレズ生成
-- QuickLookThumbnailing — 補助的なサムネイル生成
 - NSCache — RAM キャッシュ (L1)
 - swift-bridge — Rust FFI 自動生成
 - OSLog / Logger — ログ

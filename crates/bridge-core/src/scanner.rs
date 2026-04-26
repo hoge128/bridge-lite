@@ -76,6 +76,7 @@ fn strip_one_suffix(s: &mut String) -> bool {
     // Matches DxO PureRAW ("DSE06384-DxO_DeepPRIME XD2s"), Lightroom exports, etc.
     const SOFTWARE_MARKERS: &[&str] = &[
         "-dxo", "_dxo",
+        "-pureraw", "_pureraw",   // DxO PureRAW standalone output
         "-lightroom", "_lightroom",
         "-captureone", "-capture_one", "_captureone",
         "-photolab", "_photolab",
@@ -83,9 +84,11 @@ fn strip_one_suffix(s: &mut String) -> bool {
         "-on1", "_on1",
         "-luminar", "_luminar",
         "-affinity", "_affinity",
+        "-silkypix", "_silkypix",
         "-denoise", "_denoise",
         "-gigapixel", "_gigapixel",
         "-sharpen", "_sharpen",
+        "-processed", "_processed",
     ];
     for marker in SOFTWARE_MARKERS {
         if let Some(idx) = s.find(marker) {

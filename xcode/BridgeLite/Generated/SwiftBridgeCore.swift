@@ -78,13 +78,13 @@ func optionalStringIntoRustString<S: IntoRustString>(_ string: Optional<S>) -> R
 ///    callback.
 /// 3. Pass the `RustStr` to the closure that was passed into `RustStr.toRustStr`.
 public protocol ToRustStr {
-    func toRustStr<T>(_ withUnsafeRustStr: (RustStr) throws -> T) rethrows -> T
+    func toRustStr<T> (_ withUnsafeRustStr: (RustStr) throws -> T) rethrows -> T;
 }
 
 extension String: ToRustStr {
     /// Safely get a scoped pointer to the String and then call the callback with a RustStr
     /// that uses that pointer.
-    public func toRustStr<T>(_ withUnsafeRustStr: (RustStr) throws -> T) rethrows -> T {
+    public func toRustStr<T> (_ withUnsafeRustStr: (RustStr) throws -> T) rethrows -> T {
         return try self.utf8CString.withUnsafeBufferPointer({ bufferPtr in
             let rustStr = RustStr(
                 start: UnsafeMutableRawPointer(mutating: bufferPtr.baseAddress!).assumingMemoryBound(to: UInt8.self),
@@ -97,7 +97,7 @@ extension String: ToRustStr {
 }
 
 extension RustStr: ToRustStr {
-    public func toRustStr<T>(_ withUnsafeRustStr: (RustStr) throws -> T) rethrows -> T {
+    public func toRustStr<T> (_ withUnsafeRustStr: (RustStr) throws -> T) rethrows -> T {
         return try withUnsafeRustStr(self)
     }
 }

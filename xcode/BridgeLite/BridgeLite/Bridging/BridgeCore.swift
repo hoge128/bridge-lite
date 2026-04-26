@@ -37,7 +37,7 @@ enum BridgeCore {
     /// Scan a directory and return (PhotoEntry array, opaque list handle).
     /// The opaque list handle must be kept alive until reindexShotGroups is called.
     static func scanDirectory(url: URL, db: BridgeCoreDatabase) async throws -> ([PhotoEntry], BridgeCoreImageList) {
-        return try await Task.detached(priority: .userInitiated) {
+        return await Task.detached(priority: .userInitiated) {
             let rawList = bridge_scan_directory(db.inner, url.path)
             let count = image_entry_list_count(rawList)
             var entries: [PhotoEntry] = []

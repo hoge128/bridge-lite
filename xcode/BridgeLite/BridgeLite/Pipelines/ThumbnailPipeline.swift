@@ -9,17 +9,29 @@ enum ThumbnailPipeline {
     private static let limiter = ConcurrencyLimiter(maxConcurrent: 6)
 
     /// Fire-and-forget: load all thumbnails, updating store as each one completes.
-    static func loadAll(entries: [PhotoEntry], store: LibraryStore, db: BridgeCoreDatabase) async {
+    /// Also enqueues pHash computation for newly generated thumbnails so that
+    /// shot-group reindexing has the hash data it needs.
+    static func loadAll(
+        entries: [PhotoEntry],
+        store: LibraryStore,
+        db: BridgeCoreDatabase,
+        phashPipeline: PHashPipeline
+    ) async {
         await withTaskGroup(of: Void.self) { group in
             for entry in entries {
-                group.addTask { await loadOne(entry: entry, store: store, db: db) }
+                group.addTask { await loadOne(entry: entry, store: store, db: db, phashPipeline: phashPipeline) }
             }
         }
     }
 
-    private static func loadOne(entry: PhotoEntry, store: LibraryStore, db: BridgeCoreDatabase) async {
+    private static func loadOne(
+        entry: PhotoEntry,
+        store: LibraryStore,
+        db: BridgeCoreDatabase,
+        phashPipeline: PHashPipeline
+    ) async {
         try? await limiter.run {
-            // 1. SQLite thumbnail cache (Rust-managed)
+            // 1. SQLite thumbnail cache — pHash already in DB from prior scan
             if let jpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db),
                let img = CGImage.fromJPEGData(jpeg) {
                 await store.setThumbnail(id: entry.id, image: img)
@@ -32,6 +44,7 @@ enum ThumbnailPipeline {
                 if let jpeg = img.jpegData(compressionQuality: 0.85) {
                     await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
                 }
+                await phashPipeline.enqueue(entry: entry, source: img, db: db)
                 return
             }
 
@@ -43,6 +56,7 @@ enum ThumbnailPipeline {
                 if let jpeg2 = img.jpegData(compressionQuality: 0.85) {
                     await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg2, db: db)
                 }
+                await phashPipeline.enqueue(entry: entry, source: img, db: db)
             }
         }
     }
@@ -50,8 +64,9 @@ enum ThumbnailPipeline {
     static func generateWithImageIO(url: URL, maxPixels: Int) async -> CGImage? {
         return await Task.detached(priority: .userInitiated) {
             let ext = url.pathExtension.lowercased()
-            // Skip RAW — ImageIO's RawCamera handler causes macOS 26 crashes
-            let rawExts = Set(["arw","cr2","cr3","nef","nrw","rw2","orf","pef","raf","dng"])
+            // Skip proprietary RAW — ImageIO's RawCamera handler causes macOS 26 crashes.
+            // DNG is TIFF-based and uses a separate stable handler, so it is kept enabled.
+            let rawExts = Set(["arw","cr2","cr3","nef","nrw","rw2","orf","pef","raf"])
             if rawExts.contains(ext) { return nil }
 
             guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }

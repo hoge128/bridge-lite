@@ -31,6 +31,12 @@ struct BridgeLiteCommands: Commands {
             }
             .keyboardShortcut("o", modifiers: .command)
         }
+        CommandGroup(replacing: .appTermination) {
+            Button("Quit BridgeLite") {
+                NSApplication.shared.terminate(nil)
+            }
+            .keyboardShortcut("w", modifiers: .command)
+        }
         CommandMenu("View") {
             Toggle("Filters", isOn: Binding(
                 get: { store.showFilters },

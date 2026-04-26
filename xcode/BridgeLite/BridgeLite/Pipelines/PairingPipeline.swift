@@ -16,8 +16,8 @@ actor PairingPipeline {
     }
 
     private func maybeReindex(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: LibraryStore) async {
-        // Reindex once both EXIF and pHash batches complete, or immediately after EXIF if no list.
-        guard (exifReady && phashReady) || (exifReady && list == nil) else { return }
+        // Reindex once both EXIF and pHash batches are complete.
+        guard exifReady && phashReady else { return }
         guard !reindexed else { return }
         reindexed = true
 

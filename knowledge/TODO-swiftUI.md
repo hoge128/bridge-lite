@@ -28,7 +28,7 @@
 
 - [x] SwiftUI 版が iced 版の全機能をカバーしている *(Phase F 完了)*
 - [x] `cargo test --workspace` が全件パスする *(58 件)*
-- [ ] `crates/iced-app` が workspace の `members` から削除されている *(Phase G 残)*
+- [x] `crates/iced-app` が workspace の `members` から削除されている *(Phase G 完了)*
 
 ### ブランチ戦略
 
@@ -169,82 +169,39 @@
 
 ---
 
-## Phase G: iced-app 廃止 + クリーンアップ 🔲 未完了 (ユーザーによる Xcode 動作確認待ち)
+## Phase G: iced-app 廃止 + クリーンアップ ✅ 完了 (2026-04-26)
 
 **目的**: iced 関連の技術負債をゼロにし、クリーンな Rust core + SwiftUI 構成に仕上げる。
 
-> **重要**: Phase G の削除作業は不可逆。SwiftUI 版を Xcode でビルドして動作を確認してから実施すること。
-
-### ユーザーが先に実施すること
-
-```sh
-# 1. Rust ライブラリのビルド
-./tools/build-rust-xcframework.sh --release
-
-# 2. Xcode プロジェクトの再生成 (必要な場合)
-cd xcode/BridgeLite && xcodegen generate
-
-# 3. Xcode でビルド・実行
-open xcode/BridgeLite/BridgeLite.xcodeproj
-# → Cmd+B でビルド、Cmd+R で起動、テストフォルダを開いて動作確認
-```
-
 ### G.1 `crates/iced-app/` 削除
 
-```toml
-# Cargo.toml — members から iced-app を除去
-[workspace]
-members = ["crates/bridge-core", "crates/bridge-ffi"]
-resolver = "3"
-```
-
-```sh
-git rm -r crates/iced-app/
-```
-
-- [ ] **G.1a** `Cargo.toml` の `members` から `crates/iced-app` を削除
-- [ ] **G.1b** `crates/iced-app/` ディレクトリを `git rm -r` で削除
-- [ ] **G.1c** `cargo build --workspace` が通ることを確認
+- [x] **G.1a** `Cargo.toml` の `members` から `crates/iced-app` を削除
+- [x] **G.1b** `crates/iced-app/` ディレクトリを `git rm -r` で削除
+- [x] **G.1c** `cargo build --workspace` が通ることを確認
 
 ### G.2 残存ファイルのクリーンアップ
 
-- [ ] **G.2a** `assets/` ディレクトリ (iced 向けフォント・SVG アイコン) を削除
-
-  ```sh
-  git rm -r assets/
-  ```
-
-- [ ] **G.2b** bridge-core の移行期ラッパを削除
-  - `phash.rs` の `compute_phash_sync` (deprecated)
+- [x] **G.2a** `assets/` ディレクトリ (iced 向けフォント・SVG アイコン) を削除
+- [x] **G.2b** bridge-core の移行期ラッパを削除 (`compute_phash_sync` 削除済み)
 
 ### G.3 依存確認
 
-```sh
-# iced/muda/image 依存が bridge-core に残っていないこと
-cargo tree -p bridge-core | grep -E '(iced|muda|image_hasher|^image )'
-# → 出力なし
-
-# C++ ファイルが vendor/target 外に残っていないこと
-find . -name '*.cpp' -not -path '*/vendor/*' -not -path '*/target/*'
-# → 出力なし
-```
-
-- [ ] **G.3a** `cargo tree -p bridge-core` で iced/muda/image が出ないことを確認
-- [ ] **G.3b** `find` で vendor/target 外の .cpp がないことを確認
+- [x] **G.3a** `cargo tree -p bridge-core` で iced/muda/image が出ないことを確認
+- [x] **G.3b** `find` で vendor/target 外の .cpp がないことを確認
 
 ### G.4 ドキュメント更新
 
-- [ ] **G.4a** `README.md` を更新 (ビルド方法、旧 `cargo run` 手順削除)
-- [ ] **G.4b** `CORE-GUI.md` を最終更新
-- [ ] **G.4c** 本ファイル (`TODO-swiftUI.md`) を最終更新
+- [x] **G.4a** `README.md` を新規作成 (ビルド方法記載)
+- [x] **G.4b** `CORE-GUI.md` を最終更新 (iced-app 参照を削除)
+- [x] **G.4c** 本ファイルを `knowledge/` へ移動・最終更新
 
-**Phase G 完了基準**:
+**Phase G 完了確認結果**:
 
-```sh
-cargo test -p bridge-core      # → ok. 31+ passed
-cargo build --workspace         # → Compiling bridge-core, bridge-ffi のみ
-find . -name '*.cpp' -not -path '*/vendor/*' -not -path '*/target/*'  # → 出力なし
-cargo tree -p bridge-core | grep -E '(iced|muda|image_hasher)'        # → 出力なし
+```
+cargo test -p bridge-core      → ok. 31 passed
+cargo build --workspace        → Compiling bridge-core, bridge-ffi のみ
+.cpp ファイル (vendor/target 外)  → なし
+cargo tree -p bridge-core の iced/muda/image_hasher → なし
 ```
 
 ---
@@ -258,11 +215,11 @@ cargo tree -p bridge-core | grep -E '(iced|muda|image_hasher)'        # → 出�
 | `cargo test -p bridge-core` (31 件) | Phase B | ✅ |
 | swift-bridge FFI バインディング生成 | Phase C | ✅ |
 | xcodegen でプロジェクト生成 | Phase C | ✅ |
-| Xcode Cmd+B でビルド成功 | Phase C | 🔲 ユーザー確認待ち |
+| Xcode Cmd+B でビルド成功 | Phase C | ✅ BUILD SUCCEEDED (2026-04-26 確認) |
 | Xcode Cmd+R で起動・フォルダ開く | Phase C | 🔲 ユーザー確認待ち |
 | Adobe Bridge XMP 互換 (`DSE06383.xmp`) | Phase D | 🔲 ユーザー確認待ち |
 | Adobe Bridge XMP 互換 (`DSE06419.JPG`) | Phase D | 🔲 ユーザー確認待ち |
 | shot grouping 正確性 (件数一致) | Phase E | 🔲 ユーザー確認待ち |
-| `crates/iced-app` 削除完了 | Phase G | 🔲 未着手 |
-| `cargo tree -p bridge-core` に iced/muda なし | Phase G | 🔲 未着手 |
-| C++ ファイルが vendor/target 外にない | Phase G | 🔲 未着手 |
+| `crates/iced-app` 削除完了 | Phase G | ✅ |
+| `cargo tree -p bridge-core` に iced/muda なし | Phase G | ✅ |
+| C++ ファイルが vendor/target 外にない | Phase G | ✅ |

@@ -20,6 +20,11 @@ struct SidebarView: View {
                     .clipped()
 
                 if let entry = selectedEntry {
+                    // Variation strip — only when group has multiple members
+                    if let members = store.shotGroups[entry.shotId], members.count > 1 {
+                        VariationStripView(selectedID: entry.id, members: members)
+                    }
+
                     GroupBox {
                         VStack(alignment: .leading, spacing: 4) {
                             LabeledContent("File", value: entry.filename)
@@ -60,6 +65,71 @@ struct PreviewImageView: View {
         }
     }
 }
+
+// MARK: - Variation Strip
+
+struct VariationStripView: View {
+    let selectedID: UInt64
+    let members: [UInt64]
+    @Environment(LibraryStore.self) private var store
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 6) {
+                ForEach(members, id: \.self) { memberId in
+                    if let member = store.entries[memberId] {
+                        VariationThumbView(entry: member, isSelected: memberId == selectedID)
+                    }
+                }
+            }
+            .padding(.horizontal, 8)
+        }
+        .frame(height: 66)
+        .padding(.top, 8)
+    }
+}
+
+struct VariationThumbView: View {
+    let entry: PhotoEntry
+    let isSelected: Bool
+    @Environment(LibraryStore.self) private var store
+
+    private var thumbnail: CGImage? { store.thumbnailImages[entry.id] }
+    private var isDev: Bool {
+        (store.xmpData[entry.id]?.developed == true) ||
+        (store.exifData[entry.id]?.isDeveloped == true)
+    }
+
+    var body: some View {
+        ZStack(alignment: .bottomTrailing) {
+            ThumbnailImageView(cgImage: thumbnail)
+                .frame(width: 52, height: 52)
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+                .overlay(
+                    RoundedRectangle(cornerRadius: 4)
+                        .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                )
+
+            let badge = isDev ? "DEV" : (entry.isRaw ? "R" : "J")
+            Text(badge)
+                .font(.system(size: 8, weight: .bold))
+                .foregroundStyle(isDev ? Color.white : Color.primary)
+                .padding(.horizontal, 3)
+                .padding(.vertical, 1)
+                .background {
+                    if isDev {
+                        RoundedRectangle(cornerRadius: 2).fill(Color.green.opacity(0.8))
+                    } else {
+                        RoundedRectangle(cornerRadius: 2).fill(.ultraThinMaterial)
+                    }
+                }
+                .padding(2)
+        }
+        .onTapGesture { store.selectEntry(entry.id) }
+    }
+}
+
+// MARK: - EXIF
 
 struct ExifSectionView: View {
     let entryID: UInt64
@@ -103,6 +173,8 @@ struct ExifSectionView: View {
     }
 }
 
+// MARK: - XMP
+
 struct XmpSectionView: View {
     let entryID: UInt64
     @Environment(LibraryStore.self) private var store
@@ -119,18 +191,23 @@ struct XmpSectionView: View {
                             .onTapGesture { store.applyRating(n) }
                     }
                 }
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     ForEach(XmpLabel.allCases, id: \.rawValue) { label in
-                        Circle()
-                            .fill(label.color)
-                            .frame(width: 16, height: 16)
-                            .overlay(
-                                Circle().stroke(
-                                    xmp?.label == label ? Color.primary : Color.clear,
-                                    lineWidth: 2
-                                )
-                            )
-                            .onTapGesture { store.applyLabel(label.rawValue) }
+                        ZStack {
+                            Circle()
+                                .fill(label.color)
+                                .frame(width: 20, height: 20)
+                            if xmp?.label == label {
+                                Circle()
+                                    .stroke(Color.white.opacity(0.9), lineWidth: 2.5)
+                                    .frame(width: 20, height: 20)
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 9, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
+                        .frame(width: 20, height: 20)
+                        .onTapGesture { store.applyLabel(label.rawValue) }
                     }
                 }
                 HStack(spacing: 8) {

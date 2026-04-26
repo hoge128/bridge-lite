@@ -111,7 +111,18 @@ impl Flag {
 ///   (for files written by a previous bridge-lite version that used sidecars).
 /// - RAW (ARW/CR2/…): reads sidecar only.
 pub fn read_metadata(image_path: &Path) -> Option<XmpData> {
-    if crate::scanner::is_raw(image_path) {
+    let ext_is_dng = image_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|e| e.eq_ignore_ascii_case("dng"))
+        .unwrap_or(false);
+
+    if ext_is_dng {
+        // DNG is TIFF-based and stores XMP embedded (Lightroom, DxO PhotoLab, etc.
+        // write develop metadata into the DNG itself — no sidecar is created).
+        // Fall back to sidecar for hand-crafted or legacy workflows.
+        read_embedded(image_path).or_else(|| read_sidecar(image_path))
+    } else if crate::scanner::is_raw(image_path) {
         read_sidecar(image_path)
     } else {
         read_embedded(image_path).or_else(|| read_sidecar(image_path))
@@ -133,13 +144,28 @@ pub fn write_metadata(image_path: &Path, data: &XmpData) -> io::Result<()> {
 
 /// Returns true if the XMP contains fingerprints of a RAW developer:
 /// - `crs:RawFileName` — written by Lightroom/ACR and DxO PhotoLab outputs
+/// - `crs:HasSettings` — present when Lightroom/ACR develop settings are applied
 /// - `DxO:WhiteLevel` / `DxO:AdobeWhiteLevel` — DxO-specific properties
+/// - `xmpMM:DerivedFrom` — file was derived from another (raw → processed DNG)
+/// - `xmp:CreatorTool` — standard field written by most RAW developers
 /// - `xmpMM:History[N]/stEvt:softwareAgent` matching a known developer keyword
 fn detect_developed(meta: &XmpMeta) -> bool {
     if meta.property(NS_CRS, "RawFileName").is_some() { return true; }
     if meta.property(NS_CRS, "HasSettings").is_some() { return true; }
     if meta.property(NS_DXO, "WhiteLevel").is_some() { return true; }
     if meta.property(NS_DXO, "AdobeWhiteLevel").is_some() { return true; }
+
+    // xmpMM:DerivedFrom: present when a file was derived/converted from another
+    // (e.g., DxO PureRAW ARW→DNG, Lightroom DNG export). Strong processed indicator.
+    if meta.property(xmp_ns::XMP_MM, "DerivedFrom").is_some() { return true; }
+
+    // xmp:CreatorTool: standard XMP field that most RAW developers write.
+    if let Some(tool) = meta.property(xmp_ns::XMP, "CreatorTool") {
+        let lower = tool.value.to_lowercase();
+        if DEVELOPED_SOFTWARE_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
+            return true;
+        }
+    }
 
     // Walk xmpMM:History entries (fixed-index scan; break on first missing slot).
     for i in 1..=10 {
@@ -199,9 +225,18 @@ fn apply_xmp_data(meta: &mut XmpMeta, data: &XmpData) -> io::Result<()> {
     }
 
     // xmp:Label + photoshop:LabelColor must be written together for Bridge compatibility.
+    // Preserve an existing xmp:Label string if it maps to the same color — this keeps
+    // Bridge-localized names (e.g. Japanese "選択") intact when re-saving the same color.
     if let Some(label) = data.label {
-        meta.set_property(xmp_ns::XMP, "Label", &XmpValue::new(label.as_str().to_string()))
-            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        let existing_text = meta.property(xmp_ns::XMP, "Label").map(|v| v.value);
+        let same_color = existing_text
+            .as_deref()
+            .and_then(Label::from_str)
+            == Some(label);
+        if !same_color {
+            meta.set_property(xmp_ns::XMP, "Label", &XmpValue::new(label.as_str().to_string()))
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        }
         meta.set_property(xmp_ns::PHOTOSHOP, "LabelColor", &XmpValue::new(label.label_color().to_string()))
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
     } else {
