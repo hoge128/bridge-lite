@@ -78,35 +78,35 @@ func optionalStringIntoRustString<S: IntoRustString>(_ string: Optional<S>) -> R
 ///    callback.
 /// 3. Pass the `RustStr` to the closure that was passed into `RustStr.toRustStr`.
 public protocol ToRustStr {
-    func toRustStr<T> (_ withUnsafeRustStr: (RustStr) -> T) -> T;
+    func toRustStr<T>(_ withUnsafeRustStr: (RustStr) throws -> T) rethrows -> T
 }
 
 extension String: ToRustStr {
     /// Safely get a scoped pointer to the String and then call the callback with a RustStr
     /// that uses that pointer.
-    public func toRustStr<T> (_ withUnsafeRustStr: (RustStr) -> T) -> T {
-        return self.utf8CString.withUnsafeBufferPointer({ bufferPtr in
+    public func toRustStr<T>(_ withUnsafeRustStr: (RustStr) throws -> T) rethrows -> T {
+        return try self.utf8CString.withUnsafeBufferPointer({ bufferPtr in
             let rustStr = RustStr(
                 start: UnsafeMutableRawPointer(mutating: bufferPtr.baseAddress!).assumingMemoryBound(to: UInt8.self),
                 // Subtract 1 because of the null termination character at the end
                 len: UInt(bufferPtr.count - 1)
             )
-            return withUnsafeRustStr(rustStr)
+            return try withUnsafeRustStr(rustStr)
         })
     }
 }
 
 extension RustStr: ToRustStr {
-    public func toRustStr<T> (_ withUnsafeRustStr: (RustStr) -> T) -> T {
-        return withUnsafeRustStr(self)
+    public func toRustStr<T>(_ withUnsafeRustStr: (RustStr) throws -> T) rethrows -> T {
+        return try withUnsafeRustStr(self)
     }
 }
 
-func optionalRustStrToRustStr<S: ToRustStr, T>(_ str: Optional<S>, _ withUnsafeRustStr: (RustStr) -> T) -> T {
+func optionalRustStrToRustStr<S: ToRustStr, T>(_ str: Optional<S>, _ withUnsafeRustStr: (RustStr) throws -> T) rethrows -> T {
     if let val = str {
-        return val.toRustStr(withUnsafeRustStr)
+        return try val.toRustStr(withUnsafeRustStr)
     } else {
-        return withUnsafeRustStr(RustStr(start: nil, len: 0))
+        return try withUnsafeRustStr(RustStr(start: nil, len: 0))
     }
 }
 public class RustVec<T: Vectorizable> {

@@ -1,8 +1,5 @@
 import Foundation
 
-// BridgeFfiError is a swift-bridge opaque class. Make it throwable.
-extension BridgeFfiError: Swift.Error {}
-
 enum BridgeCoreError: Error, LocalizedError {
     case io(path: String, message: String)
     case unsupportedFormat(path: String)

@@ -199,7 +199,7 @@ extension Data {
     init(rustVec: RustVec<UInt8>) {
         let len = Int(rustVec.len())
         var bytes = [UInt8](repeating: 0, count: len)
-        for i in 0..<len { bytes[i] = rustVec[UInt(i)] }
+        for i in 0..<len { bytes[i] = rustVec[i] }
         self.init(bytes)
     }
 }

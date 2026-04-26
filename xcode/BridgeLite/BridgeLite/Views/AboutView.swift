@@ -7,7 +7,7 @@ struct AboutView: View {
         VStack(spacing: 16) {
             Text("B")
                 .font(.system(size: 60, weight: .bold, design: .monospaced))
-                .foregroundStyle(.accent)
+                .foregroundStyle(.tint)
             Text("BridgeLite")
                 .font(.title2.bold())
             Text("Lightweight RAW+JPG image viewer")

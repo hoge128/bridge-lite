@@ -31,7 +31,7 @@ struct ThumbnailGridView: View {
         // Rating: 0-5 stars
         .onKeyPress(characters: CharacterSet(charactersIn: "012345"), phases: .down) { press in
             if let n = Int(press.characters) { store.applyRating(n); return .handled }
-            return .ignore
+            return .ignored
         }
         // Labels: 6=Red 7=Yellow 8=Green 9=Blue
         .onKeyPress(characters: CharacterSet(charactersIn: "6789"), phases: .down) { press in
@@ -39,14 +39,14 @@ struct ThumbnailGridView: View {
             if let ch = press.characters.first, let raw = labelMap[ch] {
                 store.applyLabel(raw); return .handled
             }
-            return .ignore
+            return .ignored
         }
         // Pick / Reject
         .onKeyPress(characters: CharacterSet(charactersIn: "pPxX"), phases: .down) { press in
             switch press.characters.lowercased() {
             case "p": store.togglePick();   return .handled
             case "x": store.toggleReject(); return .handled
-            default:  return .ignore
+            default:  return .ignored
             }
         }
     }

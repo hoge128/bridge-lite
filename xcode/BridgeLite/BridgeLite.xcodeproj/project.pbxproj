@@ -71,6 +71,7 @@
 		B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeCore.swift; sourceTree = "<group>"; };
 		D190D06914E2B2F68880DE4D /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libbridge_ffi.a; sourceTree = "<group>"; };
+		E5E4D2077F4EF0B418BE9762 /* BridgeLite-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "BridgeLite-Bridging-Header.h"; sourceTree = "<group>"; };
 		E644DA2225FFA58312896A06 /* ShotGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotGroup.swift; sourceTree = "<group>"; };
 		E8B64F29E109361726718A3C /* PhotoEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEntry.swift; sourceTree = "<group>"; };
 		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
@@ -102,6 +103,7 @@
 		2B20FE4B7F2B9B7F415EEBAA /* BridgeLite */ = {
 			isa = PBXGroup;
 			children = (
+				E5E4D2077F4EF0B418BE9762 /* BridgeLite-Bridging-Header.h */,
 				A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */,
 				DCEED3D7ADB9AF247F944868 /* Bridging */,
 				98857F4203ACB3D6FC91D1DB /* Models */,
@@ -447,7 +449,7 @@
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				SWIFT_OBJC_BRIDGING_HEADER = "BridgeLite/BridgeLite-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
@@ -470,7 +472,7 @@
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
-				SWIFT_INCLUDE_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				SWIFT_OBJC_BRIDGING_HEADER = "BridgeLite/BridgeLite-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Release;

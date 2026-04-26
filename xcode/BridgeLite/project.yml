@@ -25,9 +25,9 @@ targets:
         # Rust static library linked directly (run tools/build-rust-xcframework.sh first)
         OTHER_LDFLAGS: $(inherited) -lbridge_ffi -lc++
         LIBRARY_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/lib
-        # swift-bridge C headers (module map exposes them as "RustCore" module)
-        SWIFT_INCLUDE_PATHS: $(inherited) $(PROJECT_DIR)/Generated/include
+        # swift-bridge C headers exposed via bridging header
         HEADER_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/include
+        SWIFT_OBJC_BRIDGING_HEADER: BridgeLite/BridgeLite-Bridging-Header.h
     info:
       path: BridgeLite/Resources/Info.plist
       properties:

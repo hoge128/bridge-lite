@@ -1,5 +1,5 @@
 public func bridge_open_database<GenericToRustStr: ToRustStr>(_ db_path: GenericToRustStr) throws -> BridgeDatabase {
-    return db_path.toRustStr({ db_pathAsRustStr in
+    return try db_path.toRustStr({ db_pathAsRustStr in
         try { let val = __swift_bridge__$bridge_open_database(db_pathAsRustStr); if val.is_ok { return BridgeDatabase(ptr: val.ok_or_err!) } else { throw BridgeFfiError(ptr: val.ok_or_err!) } }()
     })
 }
@@ -615,7 +615,7 @@ extension ImageEntryList: Vectorizable {
 }
 
 
-public class BridgeFfiError: BridgeFfiErrorRefMut {
+public class BridgeFfiError: BridgeFfiErrorRefMut, Swift.Error, @unchecked Sendable {
     var isOwned: Bool = true
 
     public override init(ptr: UnsafeMutableRawPointer) {
@@ -628,12 +628,12 @@ public class BridgeFfiError: BridgeFfiErrorRefMut {
         }
     }
 }
-public class BridgeFfiErrorRefMut: BridgeFfiErrorRef {
+public class BridgeFfiErrorRefMut: BridgeFfiErrorRef, @unchecked Sendable {
     public override init(ptr: UnsafeMutableRawPointer) {
         super.init(ptr: ptr)
     }
 }
-public class BridgeFfiErrorRef {
+public class BridgeFfiErrorRef: @unchecked Sendable {
     var ptr: UnsafeMutableRawPointer
 
     public init(ptr: UnsafeMutableRawPointer) {
