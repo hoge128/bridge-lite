@@ -55,23 +55,6 @@ struct FolderView: View {
                     guard !store.statusMessage.isEmpty else { return base }
                     return "\(base) (\(store.statusMessage))"
                 }())
-                .onDrop(of: [.folder, .fileURL], isTargeted: nil) { providers in
-                    Task { @MainActor in
-                        for provider in providers {
-                            let url: URL? = await withCheckedContinuation { cont in
-                                _ = provider.loadObject(ofClass: URL.self) { item, _ in
-                                    cont.resume(returning: item)
-                                }
-                            }
-                            if let url {
-                                let target = url.hasDirectoryPath ? url : url.deletingLastPathComponent()
-                                await store.openDirectory(target)
-                                break
-                            }
-                        }
-                    }
-                    return true
-                }
                 .onKeyPress(.leftArrow) {
                     if store.viewerMode || store.compareMode { return .ignored }
                     store.navigatePrev(); return .handled
@@ -83,11 +66,6 @@ struct FolderView: View {
                 .onKeyPress(keys: [.tab], phases: .down) { press in
                     if store.viewerMode || store.compareMode { return .ignored }
                     store.cyclePairVariant(reverse: press.modifiers.contains(.shift))
-                    return .handled
-                }
-                .onKeyPress(.space) {
-                    if store.viewerMode || store.compareMode { return .ignored }
-                    if store.primaryID != nil { store.viewerMode = true }
                     return .handled
                 }
                 .onKeyPress(characters: CharacterSet(charactersIn: "012345"), phases: .down) { press in
@@ -132,6 +110,12 @@ struct FolderView: View {
                             }
                         }
                         .keyboardShortcut(.return, modifiers: [])
+                        Button("") {
+                            if !store.viewerMode && !store.compareMode, store.primaryID != nil {
+                                store.viewerMode = true
+                            }
+                        }
+                        .keyboardShortcut(.space, modifiers: [])
                     }
                     .opacity(0)
                     .allowsHitTesting(false)

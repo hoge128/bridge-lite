@@ -1,8 +1,10 @@
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct ThumbnailGridView: View {
     @Environment(LibraryStore.self) private var store
+    @State private var isDropTargeted = false
     private var cellSize: CGFloat { store.settings.thumbnailSize }
 
     private func handleTap(id: UInt64) {
@@ -23,10 +25,39 @@ struct ThumbnailGridView: View {
     }
 
     var body: some View {
-        if store.settings.gridMode == .dense {
-            denseGrid
-        } else {
-            strictGrid
+        ZStack {
+            if store.currentDirectoryURL == nil {
+                emptyStateContent
+            } else if store.settings.gridMode == .dense {
+                denseGrid
+            } else {
+                strictGrid
+            }
+
+            if isDropTargeted {
+                Color.blue.opacity(0.15)
+                    .allowsHitTesting(false)
+            }
+
+            // AppKit ネイティブ D&D レシーバー（draggingPasteboard で確実に URL 取得）
+            FolderDropTargetView(isTargeted: $isDropTargeted) { url in
+                Task { await store.openDirectory(url) }
+            }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
+    }
+
+    // MARK: - Empty state
+
+    private var emptyStateContent: some View {
+        VStack(spacing: 16) {
+            Image(systemName: "folder.badge.plus")
+                .font(.system(size: 56, weight: .thin))
+                .foregroundStyle(isDropTargeted ? Color.blue : Color.secondary)
+            Text("フォルダをドロップして開く")
+                .font(.title3)
+                .foregroundStyle(isDropTargeted ? Color.blue : Color.secondary)
         }
     }
 
@@ -41,7 +72,7 @@ struct ThumbnailGridView: View {
                     ForEach(store.visibleIDs, id: \.self) { id in
                         if let entry = store.entries[id] {
                             ThumbnailCellView(entry: entry)
-                                .onTapGesture(count: 2) { handleDoubleTap(id: id) }
+                                .simultaneousGesture(TapGesture(count: 2).onEnded { handleDoubleTap(id: id) })
                                 .onTapGesture { handleTap(id: id) }
                         }
                     }
@@ -60,7 +91,7 @@ struct ThumbnailGridView: View {
                     if let entry = store.entries[id] {
                         ThumbnailCellView(entry: entry)
                             .layoutValue(key: AspectRatioKey.self, value: aspectRatio(for: id))
-                            .onTapGesture(count: 2) { handleDoubleTap(id: id) }
+                            .simultaneousGesture(TapGesture(count: 2).onEnded { handleDoubleTap(id: id) })
                             .onTapGesture { handleTap(id: id) }
                     }
                 }
@@ -77,6 +108,65 @@ struct ThumbnailGridView: View {
             return CGFloat(img.width) / CGFloat(img.height)
         }
         return 1.5
+    }
+}
+
+// MARK: - AppKit drop target
+
+private struct FolderDropTargetView: NSViewRepresentable {
+    @Binding var isTargeted: Bool
+    let onDrop: (URL) -> Void
+
+    func makeNSView(context: Context) -> DropView {
+        let v = DropView()
+        v.onDropURL = onDrop
+        v.onTargetChanged = { isTargeted = $0 }
+        return v
+    }
+
+    func updateNSView(_ nsView: DropView, context: Context) {
+        nsView.onDropURL = onDrop
+        nsView.onTargetChanged = { isTargeted = $0 }
+    }
+
+    final class DropView: NSView {
+        var onDropURL: ((URL) -> Void)?
+        var onTargetChanged: ((Bool) -> Void)?
+
+        override init(frame: NSRect) {
+            super.init(frame: frame)
+            registerForDraggedTypes([.fileURL])
+        }
+        required init?(coder: NSCoder) { fatalError() }
+
+        private func firstFolderURL(from info: NSDraggingInfo) -> URL? {
+            let pb = info.draggingPasteboard
+            guard let items = pb.readObjects(forClasses: [NSURL.self],
+                                             options: [.urlReadingFileURLsOnly: true]) as? [URL],
+                  let url = items.first else { return nil }
+            return url.hasDirectoryPath ? url : url.deletingLastPathComponent()
+        }
+
+        override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+            guard firstFolderURL(from: sender) != nil else { return [] }
+            DispatchQueue.main.async { self.onTargetChanged?(true) }
+            return .copy
+        }
+
+        override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
+
+        override func draggingExited(_ sender: NSDraggingInfo?) {
+            DispatchQueue.main.async { self.onTargetChanged?(false) }
+        }
+
+        override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool { true }
+
+        override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+            DispatchQueue.main.async { self.onTargetChanged?(false) }
+            guard let url = firstFolderURL(from: sender) else { return false }
+            DispatchQueue.main.async { self.onDropURL?(url) }
+            return true
+        }
     }
 }
 

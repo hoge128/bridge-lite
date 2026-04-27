@@ -4,6 +4,13 @@ struct FilterPanelView: View {
     @Environment(LibraryStore.self) private var store
 
     @State private var isResetHovered = false
+    @State private var ratingExpanded = true
+    @State private var cameraExpanded = true
+    @State private var labelExpanded = true
+    @State private var isoExpanded = true
+    @State private var focalExpanded = true
+    @State private var shutterExpanded = true
+    @State private var apertureExpanded = true
 
     // MARK: - Histogram bucket data
 
@@ -164,18 +171,31 @@ struct FilterPanelView: View {
 
                 // Camera
                 if !store.availableCameras.isEmpty {
-                    SectionBox("Camera") {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(store.availableCameras, id: \.self) { cam in
-                                Toggle(cam, isOn: Binding(
-                                    get: { !store.filter.excludedCameras.contains(cam) },
-                                    set: { on in
-                                        if on { store.filter.excludedCameras.remove(cam) }
-                                        else  { store.filter.excludedCameras.insert(cam) }
-                                    }
-                                ))
-                                .font(.caption)
+                    GroupBox {
+                        DisclosureGroup(isExpanded: $cameraExpanded) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(store.availableCameras, id: \.self) { cam in
+                                    Toggle(cam, isOn: Binding(
+                                        get: { !store.filter.excludedCameras.contains(cam) },
+                                        set: { on in
+                                            if on { store.filter.excludedCameras.remove(cam) }
+                                            else  { store.filter.excludedCameras.insert(cam) }
+                                        }
+                                    ))
+                                    .font(.caption)
+                                    .toggleStyle(.checkbox)
+                                }
                             }
+                            .padding(.top, 4)
+                        } label: {
+                            Button { cameraExpanded.toggle() } label: {
+                                Text("Camera")
+                                    .font(.caption2)
+                                    .kerning(1.2)
+                                    .foregroundStyle(.secondary)
+                                    .textCase(.uppercase)
+                            }
+                            .buttonStyle(.plain)
                         }
                     }
                     .padding(.horizontal, 8)
@@ -210,61 +230,81 @@ struct FilterPanelView: View {
                 }
 
                 // Rating
-                SectionBox("Rating") {
-                    HStack(spacing: 6) {
-                        Button {
-                            if store.filter.filterRatings.contains(0) { store.filter.filterRatings.remove(0) }
-                            else { store.filter.filterRatings.insert(0) }
-                        } label: {
-                            Image(systemName: "nosign")
-                                .foregroundStyle(store.filter.filterRatings.contains(0)
-                                    ? Color.primary : Color.secondary.opacity(0.3))
+                GroupBox {
+                    DisclosureGroup(isExpanded: $ratingExpanded) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Toggle(isOn: Binding(
+                                get: { store.filter.filterRatings.contains(0) },
+                                set: { on in
+                                    if on { store.filter.filterRatings.insert(0) }
+                                    else  { store.filter.filterRatings.remove(0) }
+                                }
+                            )) { Text("No Rating").font(.caption) }
+                            .toggleStyle(.checkbox)
+
+                            ForEach(1...5, id: \.self) { n in
+                                Toggle(isOn: Binding(
+                                    get: { store.filter.filterRatings.contains(n) },
+                                    set: { on in
+                                        if on { store.filter.filterRatings.insert(n) }
+                                        else  { store.filter.filterRatings.remove(n) }
+                                    }
+                                )) {
+                                    Text(String(repeating: "★", count: n))
+                                        .font(.caption)
+                                }
+                                .toggleStyle(.checkbox)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                    } label: {
+                        Button { ratingExpanded.toggle() } label: {
+                            Text("Rating")
+                                .font(.caption2)
+                                .kerning(1.2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
                         }
                         .buttonStyle(.plain)
-                        .help("No Rating")
-
-                        Divider().frame(height: 14)
-
-                        ForEach(1...5, id: \.self) { n in
-                            Button {
-                                if store.filter.filterRatings.contains(n) { store.filter.filterRatings.remove(n) }
-                                else { store.filter.filterRatings.insert(n) }
-                            } label: {
-                                Image(systemName: "star.fill")
-                                    .foregroundStyle(store.filter.filterRatings.contains(n)
-                                        ? Color.yellow.opacity(0.85) : Color.secondary.opacity(0.25))
-                            }
-                            .buttonStyle(.plain)
-                            .help("\(n) Star\(n == 1 ? "" : "s")")
-                        }
                     }
-                    .font(.system(size: 15))
-                    .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.horizontal, 8)
 
                 // Label
-                SectionBox("Label") {
-                    HStack(spacing: 6) {
-                        ForEach(XmpLabel.allCases, id: \.rawValue) { label in
-                            Circle()
-                                .fill(label.color)
-                                .frame(width: 18, height: 18)
-                                .overlay(
-                                    Circle().stroke(
-                                        store.filter.filterLabels.contains(label)
-                                        ? Color.primary : Color.clear,
-                                        lineWidth: 2
+                GroupBox {
+                    DisclosureGroup(isExpanded: $labelExpanded) {
+                        HStack(spacing: 6) {
+                            ForEach(XmpLabel.allCases, id: \.rawValue) { label in
+                                Circle()
+                                    .fill(label.color)
+                                    .frame(width: 18, height: 18)
+                                    .overlay(
+                                        Circle().stroke(
+                                            store.filter.filterLabels.contains(label)
+                                            ? Color.primary : Color.clear,
+                                            lineWidth: 2
+                                        )
                                     )
-                                )
-                                .onTapGesture {
-                                    if store.filter.filterLabels.contains(label) {
-                                        store.filter.filterLabels.remove(label)
-                                    } else {
-                                        store.filter.filterLabels.insert(label)
+                                    .onTapGesture {
+                                        if store.filter.filterLabels.contains(label) {
+                                            store.filter.filterLabels.remove(label)
+                                        } else {
+                                            store.filter.filterLabels.insert(label)
+                                        }
                                     }
-                                }
+                            }
                         }
+                        .padding(.top, 4)
+                    } label: {
+                        Button { labelExpanded.toggle() } label: {
+                            Text("Label")
+                                .font(.caption2)
+                                .kerning(1.2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 8)
@@ -294,30 +334,52 @@ struct FilterPanelView: View {
                 .padding(.horizontal, 8)
 
                 // ISO range
-                SectionBox("ISO") {
-                    @Bindable var store = store
-                    ExifHistogramView(
-                        bars: isoBuckets,
-                        minText: $store.filter.isoMin,
-                        maxText: $store.filter.isoMax
-                    )
+                GroupBox {
+                    DisclosureGroup(isExpanded: $isoExpanded) {
+                        @Bindable var store = store
+                        ExifHistogramView(
+                            bars: isoBuckets,
+                            minText: $store.filter.isoMin,
+                            maxText: $store.filter.isoMax
+                        )
+                    } label: {
+                        Button { isoExpanded.toggle() } label: {
+                            Text("ISO")
+                                .font(.caption2)
+                                .kerning(1.2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.horizontal, 8)
 
                 // Focal length (mm, 35mm equiv)
-                SectionBox("Focal Length") {
-                    @Bindable var store = store
-                    ExifHistogramView(
-                        bars: focalBuckets,
-                        minText: $store.filter.focalMin,
-                        maxText: $store.filter.focalMax
-                    )
+                GroupBox {
+                    DisclosureGroup(isExpanded: $focalExpanded) {
+                        @Bindable var store = store
+                        ExifHistogramView(
+                            bars: focalBuckets,
+                            minText: $store.filter.focalMin,
+                            maxText: $store.filter.focalMax
+                        )
+                    } label: {
+                        Button { focalExpanded.toggle() } label: {
+                            Text("Focal Length")
+                                .font(.caption2)
+                                .kerning(1.2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                        }
+                        .buttonStyle(.plain)
+                    }
                 }
                 .padding(.horizontal, 8)
 
                 // Shutter speed (seconds, fractions OK: 1/200)
                 GroupBox {
-                    DisclosureGroup {
+                    DisclosureGroup(isExpanded: $shutterExpanded) {
                         @Bindable var store = store
                         ExifHistogramView(
                             bars: shutterBuckets,
@@ -325,18 +387,21 @@ struct FilterPanelView: View {
                             maxText: $store.filter.shutterMax
                         )
                     } label: {
-                        Text("Shutter")
-                            .font(.caption2)
-                            .kerning(1.2)
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
+                        Button { shutterExpanded.toggle() } label: {
+                            Text("Shutter")
+                                .font(.caption2)
+                                .kerning(1.2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 8)
 
                 // Aperture (F値)
                 GroupBox {
-                    DisclosureGroup {
+                    DisclosureGroup(isExpanded: $apertureExpanded) {
                         @Bindable var store = store
                         ExifHistogramView(
                             bars: apertureBuckets,
@@ -344,11 +409,14 @@ struct FilterPanelView: View {
                             maxText: $store.filter.apertureMax
                         )
                     } label: {
-                        Text("Aperture")
-                            .font(.caption2)
-                            .kerning(1.2)
-                            .foregroundStyle(.secondary)
-                            .textCase(.uppercase)
+                        Button { apertureExpanded.toggle() } label: {
+                            Text("Aperture")
+                                .font(.caption2)
+                                .kerning(1.2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 8)

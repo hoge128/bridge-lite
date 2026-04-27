@@ -4,6 +4,10 @@ import UniformTypeIdentifiers
 // MARK: - App Delegate (Dock icon drop / Finder open)
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    func applicationWillFinishLaunching(_ notification: Notification) {
+        NSWindow.allowsAutomaticWindowTabbing = false
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         let target: URL
         if let folder = urls.first(where: { $0.hasDirectoryPath }) {
@@ -55,7 +59,6 @@ struct BridgeLiteApp: App {
 }
 
 struct BridgeLiteCommands: Commands {
-    @Environment(\.openWindow) private var openWindow
     @FocusedValue(\.libraryStore) private var store: LibraryStore?
 
     var body: some Commands {
@@ -65,10 +68,6 @@ struct BridgeLiteCommands: Commands {
             }
             .keyboardShortcut("o", modifiers: .command)
             .disabled(store == nil)
-            Button("New Tab") {
-                NSApp.sendAction(Selector("newWindowForTab:"), to: nil, from: nil)
-            }
-            .keyboardShortcut("t", modifiers: .command)
         }
         CommandGroup(replacing: .appTermination) {
             Button("Quit BridgeLite") {
@@ -87,7 +86,6 @@ struct BridgeLiteCommands: Commands {
             Button("Enter Fullscreen Viewer") {
                 store?.viewerMode = true
             }
-            .keyboardShortcut(.space, modifiers: [])
             .disabled(store?.selectedID == nil)
         }
         CommandMenu("Rate") {

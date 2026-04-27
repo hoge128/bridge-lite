@@ -208,16 +208,16 @@ struct ThumbnailCellView: View {
         ZStack {
             RoundedRectangle(cornerRadius: cornerRadius)
                 .stroke(
-                    isSelected ? Color.accentColor.opacity(0.85) : (isHovered ? Color.secondary.opacity(0.3) : Color.clear),
-                    lineWidth: 0.5
+                    isSelected ? Color.accentColor : (isHovered ? Color.secondary.opacity(0.25) : Color.clear),
+                    lineWidth: isSelected ? 3.0 : 1.0
                 )
             if isSelected {
-                RoundedRectangle(cornerRadius: max(0, cornerRadius - 1))
-                    .stroke(Color.white.opacity(0.4), lineWidth: 0.5)
-                    .padding(1)
+                RoundedRectangle(cornerRadius: max(0, cornerRadius - 1.5))
+                    .stroke(Color.white.opacity(0.55), lineWidth: 1.0)
+                    .padding(1.5)
             }
         }
-        .animation(.easeInOut(duration: 0.1), value: isSelected)
+        .animation(.easeInOut(duration: 0.08), value: isSelected)
     }
 }
 
