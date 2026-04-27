@@ -20,6 +20,7 @@ xcode/BridgeLite/Generated/
 
 # UI reference screenshots
 ui-image/
+test/
 
 # macOS
 .DS_Store
