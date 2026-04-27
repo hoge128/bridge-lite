@@ -19,7 +19,6 @@ build/
 xcode/BridgeLite/Generated/
 
 # UI reference screenshots
-ui-iamge/
 ui-image/
 
 # macOS
