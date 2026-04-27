@@ -7,10 +7,12 @@ use crate::xmp::XmpData;
 
 // ── Schema ─────────────────────────────────────────────────────────────────
 
-/// Bump when EXIF extraction logic changes in a way that requires re-indexing
-/// existing rows. Previous DBs without this key are treated as version 1.
+/// Bump only when EXIF *extraction logic* changes and existing rows must be
+/// re-read from source files (triggers DELETE FROM images in migration).
+/// Adding nullable columns via migrate_image_columns() does NOT require a bump —
+/// stale rows are identified by mtime mismatch and re-indexed lazily.
 /// v2: software column populated.
-/// v3: subsec column added (SubSecTimeOriginal for Phase 10-B timestamp grouping).
+/// v3: subsec column added (SubSecTimeOriginal for timestamp grouping).
 pub const EXIF_SCHEMA_VERSION: i32 = 3;
 
 fn init_schema(conn: &Connection) -> Result<()> {
@@ -33,6 +35,7 @@ fn init_schema(conn: &Connection) -> Result<()> {
             img_width   INTEGER,
             img_height  INTEGER,
             software    TEXT,
+            mtime       INTEGER,
             indexed_at  INTEGER DEFAULT (strftime('%s', 'now'))
         );
 
@@ -92,34 +95,37 @@ pub fn ensure_schema(db_path: &Path) -> bool {
     Connection::open(db_path)
         .and_then(|conn| {
             init_schema(&conn)?;
-            migrate_xmp_columns(&conn);
+            migrate_image_columns(&conn);
             migrate_to_current_version(&conn)?;
             Ok(())
         })
         .is_ok()
 }
 
-/// Add XMP rating columns to the images table when upgrading an existing DB.
-/// ALTER TABLE fails silently on re-run (column already exists).
-fn migrate_xmp_columns(conn: &Connection) {
-    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN rating    INTEGER;");
-    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN xmp_label TEXT;");
-    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN xmp_flag  TEXT;");
-    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN software  TEXT;");
+/// Add new nullable columns to the images table on existing DBs.
+/// ALTER TABLE fails silently when the column already exists, making this safe
+/// to call on every startup regardless of the current schema state.
+fn migrate_image_columns(conn: &Connection) {
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN rating         INTEGER;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN xmp_label      TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN xmp_flag       TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN software        TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN mtime           INTEGER;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN focal_len_35mm  INTEGER;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN lens_model      TEXT;");
 }
 
-/// Check DB for cached EXIF. On miss, read from file and cache the result.
+/// Check DB for cached EXIF. On miss (or mtime mismatch), read from file and cache.
 pub fn fetch_or_index(path: &Path, db_path: &Path) -> Option<ExifData> {
     let conn = Connection::open(db_path).ok()?;
+    let mtime = file_mtime(path);
 
-    // Cache hit
-    if let Some(exif) = query_exif(&conn, path) {
+    if let Some(exif) = query_exif(&conn, path, mtime) {
         return Some(exif);
     }
 
-    // Cache miss: read from file
     let exif = crate::metadata::read_exif_sync(path)?;
-    let _ = upsert(&conn, path, &exif);
+    let _ = upsert(&conn, path, &exif, mtime);
     Some(exif)
 }
 
@@ -137,7 +143,8 @@ pub async fn fetch_or_index_async(
 }
 
 /// Fetch all already-cached EXIF rows for the given paths in a single connection.
-/// Paths with no DB row are omitted from the result. The caller discovers misses
+/// Rows whose mtime no longer matches the file on disk are excluded (stale cache).
+/// Paths with no DB row or a stale mtime are omitted; the caller discovers misses
 /// by comparing the returned keys against the full path list.
 pub fn fetch_exif_batch(
     paths: &[PathBuf],
@@ -152,8 +159,8 @@ pub fn fetch_exif_batch(
             .collect::<Vec<_>>()
             .join(",");
         let sql = format!(
-            "SELECT path, make, model, datetime, subsec, exposure, fnumber, iso, \
-                    focal_len, img_width, img_height, software \
+            "SELECT path, mtime, make, model, datetime, subsec, exposure, fnumber, iso, \
+                    focal_len, focal_len_35mm, lens_model, img_width, img_height, software \
              FROM images WHERE path IN ({placeholders})"
         );
         let Ok(mut stmt) = conn.prepare(&sql) else { continue };
@@ -162,27 +169,34 @@ pub fn fetch_exif_batch(
         );
         let Ok(rows) = stmt.query_map(params, |row| {
             let path_str: String = row.get(0)?;
+            let stored_mtime: Option<i64> = row.get(1)?;
             Ok((
                 PathBuf::from(path_str),
+                stored_mtime,
                 ExifData {
-                    make: row.get(1)?,
-                    model: row.get(2)?,
-                    datetime: row.get(3)?,
-                    subsec: row.get(4)?,
-                    exposure_time: row.get(5)?,
-                    fnumber: row.get(6)?,
-                    iso: row.get(7)?,
-                    focal_length: row.get(8)?,
-                    width: row.get(9)?,
-                    height: row.get(10)?,
-                    software: row.get(11)?,
+                    make: row.get(2)?,
+                    model: row.get(3)?,
+                    datetime: row.get(4)?,
+                    subsec: row.get(5)?,
+                    exposure_time: row.get(6)?,
+                    fnumber: row.get(7)?,
+                    iso: row.get(8)?,
+                    focal_length: row.get(9)?,
+                    focal_length_35mm: row.get(10)?,
+                    lens_model: row.get(11)?,
+                    width: row.get(12)?,
+                    height: row.get(13)?,
+                    software: row.get(14)?,
                 },
             ))
         }) else {
             continue;
         };
         for row in rows.flatten() {
-            out.insert(row.0, row.1);
+            let (path, stored_mtime, exif) = row;
+            if stored_mtime.map_or(false, |m| m == file_mtime(&path)) {
+                out.insert(path, exif);
+            }
         }
     }
     out
@@ -235,13 +249,15 @@ pub fn store_thumb(path: &Path, db_path: &Path, jpeg: &[u8]) {
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 
-fn query_exif(conn: &Connection, path: &Path) -> Option<ExifData> {
+/// Returns cached EXIF only when the stored mtime matches the file's current mtime.
+/// Rows with NULL mtime (legacy, pre-migration) never match and trigger re-indexing.
+fn query_exif(conn: &Connection, path: &Path, mtime: i64) -> Option<ExifData> {
     let path_str = path.to_string_lossy();
     conn.query_row(
         "SELECT make, model, datetime, subsec, exposure, fnumber, iso, focal_len,
-                img_width, img_height, software
-         FROM images WHERE path = ?1",
-        params![path_str.as_ref()],
+                focal_len_35mm, lens_model, img_width, img_height, software
+         FROM images WHERE path = ?1 AND mtime = ?2",
+        params![path_str.as_ref(), mtime],
         |row| {
             Ok(ExifData {
                 make: row.get(0)?,
@@ -252,9 +268,11 @@ fn query_exif(conn: &Connection, path: &Path) -> Option<ExifData> {
                 fnumber: row.get(5)?,
                 iso: row.get(6)?,
                 focal_length: row.get(7)?,
-                width: row.get(8)?,
-                height: row.get(9)?,
-                software: row.get(10)?,
+                focal_length_35mm: row.get(8)?,
+                lens_model: row.get(9)?,
+                width: row.get(10)?,
+                height: row.get(11)?,
+                software: row.get(12)?,
             })
         },
     )
@@ -262,6 +280,10 @@ fn query_exif(conn: &Connection, path: &Path) -> Option<ExifData> {
 }
 
 pub fn update_xmp(path: &Path, db_path: &Path, data: &XmpData) {
+    // Guarantee the images row exists before updating XMP columns.
+    // fetch_or_index is a fast no-op when EXIF is already cached with a valid mtime.
+    let _ = fetch_or_index(path, db_path);
+
     let Ok(conn) = Connection::open(db_path) else { return };
     let path_str = path.to_string_lossy();
     let label = data.label.map(|l| l.as_str().to_string());
@@ -347,7 +369,7 @@ pub async fn fetch_phash_batch_async(
         .unwrap_or_default()
 }
 
-fn upsert(conn: &Connection, path: &Path, exif: &ExifData) -> Result<()> {
+fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result<()> {
     let path_str = path.to_string_lossy();
     let filename = path
         .file_name()
@@ -358,16 +380,19 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData) -> Result<()> {
     conn.execute(
         "INSERT INTO images
             (path, filename, make, model, datetime, subsec, exposure, fnumber, iso,
-             focal_len, img_width, img_height, software)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13)
+             focal_len, focal_len_35mm, lens_model, img_width, img_height, software, mtime)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)
          ON CONFLICT(path) DO UPDATE SET
             make=excluded.make, model=excluded.model,
             datetime=excluded.datetime, subsec=excluded.subsec,
             exposure=excluded.exposure,
             fnumber=excluded.fnumber, iso=excluded.iso,
             focal_len=excluded.focal_len,
+            focal_len_35mm=excluded.focal_len_35mm,
+            lens_model=excluded.lens_model,
             img_width=excluded.img_width, img_height=excluded.img_height,
             software=excluded.software,
+            mtime=excluded.mtime,
             indexed_at=strftime('%s','now')",
         params![
             path_str.as_ref(),
@@ -380,9 +405,12 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData) -> Result<()> {
             exif.fnumber,
             exif.iso,
             exif.focal_length,
+            exif.focal_length_35mm,
+            exif.lens_model,
             exif.width,
             exif.height,
             exif.software,
+            mtime,
         ],
     )?;
     Ok(())

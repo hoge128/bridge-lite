@@ -1,1 +1,22 @@
+# Rust
 /target
+
+# Xcode — user-specific (machine-local, never share)
+xcuserdata/
+*.xcuserstate
+*.xccheckout
+*.pbxuser
+!default.pbxuser
+
+# Xcode — build products
+DerivedData/
+build/
+*.ipa
+*.dSYM
+*.dSYM.zip
+
+# Xcode — generated from tools/build-rust-xcframework.sh
+xcode/BridgeLite/Generated/
+
+# macOS
+.DS_Store

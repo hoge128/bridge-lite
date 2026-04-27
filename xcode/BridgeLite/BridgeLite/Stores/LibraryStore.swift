@@ -141,44 +141,48 @@ final class LibraryStore {
 
     func applyRating(_ stars: Int) {
         guard let id = selectedID,
-              let entry = entries[id] else { return }
+              let entry = entries[id],
+              let db = database else { return }
         var current = xmpData[id] ?? XmpData()
         current.rating = stars == 0 ? nil : stars
         current.flag = nil
         xmpData[id] = current
         let x = current
-        Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x) }
+        Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x, db: db) }
     }
 
     func applyLabel(_ labelRaw: UInt8) {
         guard let id = selectedID,
               let entry = entries[id],
-              let label = XmpLabel(rawValue: labelRaw) else { return }
+              let label = XmpLabel(rawValue: labelRaw),
+              let db = database else { return }
         var current = xmpData[id] ?? XmpData()
         current.label = current.label == label ? nil : label
         xmpData[id] = current
         let x = current
-        Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x) }
+        Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x, db: db) }
     }
 
     func togglePick() {
         guard let id = selectedID,
-              let entry = entries[id] else { return }
+              let entry = entries[id],
+              let db = database else { return }
         var current = xmpData[id] ?? XmpData()
         current.flag = current.flag == .pick ? nil : .pick
         xmpData[id] = current
         let x = current
-        Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x) }
+        Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x, db: db) }
     }
 
     func toggleReject() {
         guard let id = selectedID,
-              let entry = entries[id] else { return }
+              let entry = entries[id],
+              let db = database else { return }
         var current = xmpData[id] ?? XmpData()
         current.flag = current.flag == .reject ? nil : .reject
         xmpData[id] = current
         let x = current
-        Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x) }
+        Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x, db: db) }
     }
 
     // MARK: - Computed
@@ -196,6 +200,10 @@ final class LibraryStore {
 
     var availableCameras: [String] {
         Array(Set(exifData.values.compactMap { $0.cameraName })).sorted()
+    }
+
+    var availableLenses: [String] {
+        Array(Set(exifData.values.compactMap { $0.lensName })).sorted()
     }
 
     // MARK: - Private
@@ -262,10 +270,31 @@ final class LibraryStore {
         for (_, members) in groups {
             guard !members.isEmpty else { continue }
 
-            // Tier 1: developed (EXIF software tag matches known keywords)
+            // Tier 1: developed non-RAW — checked in priority order:
+            //   1. Filename suffix (synchronous, no async dependency)
+            //   2. XMP developed flag (catches DxO namespace, crs:RawFileName, etc.)
+            //   3. EXIF Software keyword match
+            //   4. birth_time relative lag > 60s within the shot group
+            //      Files copied together from a card are within seconds of each other;
+            //      a developed file created later stands out clearly above this threshold.
+            let groupMinDate = members.compactMap { entries[$0]?.createdDate }.min()
             let devs = members.filter { id in
-                guard let sw = exifData[id]?.software?.lowercased() else { return false }
-                return BridgeCoreConstants.developedKeywords.contains { sw.contains($0) }
+                guard let entry = entries[id], !entry.isRaw else { return false }
+                let suffixHit  = entry.hasDevelopedSuffix
+                let xmpHit     = xmpData[id]?.developed == true
+                let exifHit    = exifData[id]?.software.map { sw in
+                    let lower = sw.lowercased()
+                    return BridgeCoreConstants.developedKeywords.contains { lower.contains($0) }
+                } ?? false
+                let tsHit: Bool = {
+                    guard let created = entry.createdDate, let minDate = groupMinDate else { return false }
+                    return created.timeIntervalSince(minDate) > 60
+                }()
+                // DEBUG — remove after diagnosis
+                if members.count > 1 {
+                    print("[Tier1] \(entry.filename) suffix=\(suffixHit) xmp=\(xmpHit) exif=\(exifHit) ts=\(tsHit) sw=\(exifData[id]?.software ?? "nil") created=\(entry.createdDate?.description ?? "nil") groupMin=\(groupMinDate?.description ?? "nil")")
+                }
+                return suffixHit || xmpHit || exifHit || tsHit
             }
             if let rep = devs.first { reps.insert(rep); continue }
 

@@ -21,4 +21,11 @@ struct PhotoEntry: Identifiable, Hashable, Sendable {
     var fileExtension: String {
         url.pathExtension.uppercased()
     }
+
+    /// True if the filename stem contains a known developed-software suffix (e.g. "-DxO_DeepPRIME XD2s").
+    /// Works synchronously without waiting for EXIF/XMP to load.
+    var hasDevelopedSuffix: Bool {
+        let stem = url.deletingPathExtension().lastPathComponent.lowercased()
+        return BridgeCoreConstants.softwareFilenameMarkers.contains { stem.contains($0) }
+    }
 }

@@ -110,14 +110,16 @@ struct VariationThumbView: View {
                         .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
                 )
 
-            let badge = isDev ? "DEV" : (entry.isRaw ? "R" : "J")
+            let badge = entry.isRaw ? "R" : (isDev ? "DEV" : "J")
             Text(badge)
                 .font(.system(size: 8, weight: .bold))
-                .foregroundStyle(isDev ? Color.white : Color.primary)
+                .foregroundStyle((entry.isRaw || isDev) ? Color.white : Color.primary)
                 .padding(.horizontal, 3)
                 .padding(.vertical, 1)
                 .background {
-                    if isDev {
+                    if entry.isRaw {
+                        RoundedRectangle(cornerRadius: 2).fill(Color.orange.opacity(0.8))
+                    } else if isDev {
                         RoundedRectangle(cornerRadius: 2).fill(Color.green.opacity(0.8))
                     } else {
                         RoundedRectangle(cornerRadius: 2).fill(.ultraThinMaterial)

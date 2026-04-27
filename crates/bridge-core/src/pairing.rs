@@ -151,7 +151,10 @@ fn sort_groups(groups: &mut HashMap<u64, Vec<usize>>, images: &[ImageEntry]) {
 /// Mutates `images[*].shot_id` to reflect the new grouping and returns the new
 /// `shot_groups` map.
 /// Hamming distance threshold for pHash similarity.
-const PHASH_HAMMING_THRESHOLD: u32 = 8;
+/// Kept tight (≤2) so that only true duplicates (copy/rename of the same JPEG) are merged.
+/// Consecutive shots of visually similar scenes typically differ by 4+ bits; a threshold
+/// of 8 was too permissive and caused false merges for burst sequences.
+const PHASH_HAMMING_THRESHOLD: u32 = 2;
 /// Maximum datetime gap (seconds) for pHash-based merging.
 const PHASH_DATETIME_WINDOW_SECS: i64 = 2;
 

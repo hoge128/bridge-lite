@@ -76,6 +76,12 @@ public func ffi_exif_iso(_ r: FfiExifResultRef) -> Int32 {
 public func ffi_exif_focal_length(_ r: FfiExifResultRef) -> RustString {
     RustString(ptr: __swift_bridge__$ffi_exif_focal_length(r.ptr))
 }
+public func ffi_exif_focal_length_35mm(_ r: FfiExifResultRef) -> Int32 {
+    __swift_bridge__$ffi_exif_focal_length_35mm(r.ptr)
+}
+public func ffi_exif_lens_model(_ r: FfiExifResultRef) -> RustString {
+    RustString(ptr: __swift_bridge__$ffi_exif_lens_model(r.ptr))
+}
 public func ffi_exif_width(_ r: FfiExifResultRef) -> Int32 {
     __swift_bridge__$ffi_exif_width(r.ptr)
 }
@@ -105,9 +111,9 @@ public func ffi_xmp_flag(_ r: FfiXmpResultRef) -> UInt8 {
 public func ffi_xmp_developed(_ r: FfiXmpResultRef) -> Bool {
     __swift_bridge__$ffi_xmp_developed(r.ptr)
 }
-public func bridge_write_xmp<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr, _ rating: Int32, _ label: UInt8, _ flag: UInt8) -> Bool {
+public func bridge_write_xmp<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ rating: Int32, _ label: UInt8, _ flag: UInt8) -> Bool {
     return path.toRustStr({ pathAsRustStr in
-        __swift_bridge__$bridge_write_xmp(pathAsRustStr, rating, label, flag)
+        __swift_bridge__$bridge_write_xmp(db.ptr, pathAsRustStr, rating, label, flag)
     })
 }
 public func bridge_compute_phash_from_luma(_ pixels: UnsafeBufferPointer<UInt8>) -> UInt64 {

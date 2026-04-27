@@ -11,6 +11,8 @@ pub struct ExifData {
     pub fnumber: Option<String>,
     pub iso: Option<u32>,
     pub focal_length: Option<String>,
+    pub focal_length_35mm: Option<u32>,
+    pub lens_model: Option<String>,
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub software: Option<String>,
@@ -55,6 +57,16 @@ pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
             }
         });
 
+    let focal_length_35mm = exif
+        .get_field(Tag::FocalLengthIn35mmFilm, In::PRIMARY)
+        .and_then(|f| {
+            if let exif::Value::Short(v) = &f.value {
+                v.first().map(|&n| n as u32)
+            } else {
+                None
+            }
+        });
+
     let width = pixel_dim(&exif, Tag::PixelXDimension);
     let height = pixel_dim(&exif, Tag::PixelYDimension);
 
@@ -71,6 +83,8 @@ pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
         fnumber: get_display(Tag::FNumber),
         iso,
         focal_length: get_display(Tag::FocalLength),
+        focal_length_35mm,
+        lens_model: get_ascii(Tag::LensModel),
         width,
         height,
         software: get_ascii(Tag::Software),

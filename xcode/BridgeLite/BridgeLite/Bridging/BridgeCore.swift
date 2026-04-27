@@ -64,8 +64,10 @@ enum BridgeCore {
                 exposureTime:  ffi_exif_exposure(r).toString().nonEmpty,
                 fnumber:       ffi_exif_fnumber(r).toString().nonEmpty,
                 iso:           Int(ffi_exif_iso(r)).nonZero,
-                focalLength:   ffi_exif_focal_length(r).toString().nonEmpty,
-                width:         Int(ffi_exif_width(r)).nonZero,
+                focalLength:     ffi_exif_focal_length(r).toString().nonEmpty,
+                focalLength35mm: Int(ffi_exif_focal_length_35mm(r)).nonNegative,
+                lensName:        ffi_exif_lens_model(r).toString().nonEmpty,
+                width:           Int(ffi_exif_width(r)).nonZero,
                 height:        Int(ffi_exif_height(r)).nonZero,
                 software:      ffi_exif_software(r).toString().nonEmpty
             )
@@ -88,9 +90,10 @@ enum BridgeCore {
         }.value
     }
 
-    static func writeXmp(url: URL, xmp: XmpData) async -> Bool {
+    static func writeXmp(url: URL, xmp: XmpData, db: BridgeCoreDatabase) async -> Bool {
         return await Task.detached(priority: .utility) {
             bridge_write_xmp(
+                db.inner,
                 url.path,
                 Int32(xmp.rating ?? -1),
                 xmp.label?.rawValue ?? 0,
@@ -193,6 +196,7 @@ private extension String {
 
 private extension Int {
     var nonZero: Int? { self == 0 ? nil : self }
+    var nonNegative: Int? { self < 0 ? nil : self }
 }
 
 extension Data {

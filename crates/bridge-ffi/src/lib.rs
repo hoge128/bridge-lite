@@ -112,6 +112,8 @@ pub struct FfiExifResult {
     pub fnumber: String,
     pub iso: i32,
     pub focal_length: String,
+    pub focal_length_35mm: i32,
+    pub lens_model: String,
     pub width: i32,
     pub height: i32,
     pub software: String,
@@ -129,6 +131,8 @@ impl FfiExifResult {
             fnumber: String::new(),
             iso: -1,
             focal_length: String::new(),
+            focal_length_35mm: -1,
+            lens_model: String::new(),
             width: -1,
             height: -1,
             software: String::new(),
@@ -146,6 +150,8 @@ impl FfiExifResult {
             fnumber: e.fnumber.clone().unwrap_or_default(),
             iso: e.iso.map(|v| v as i32).unwrap_or(-1),
             focal_length: e.focal_length.clone().unwrap_or_default(),
+            focal_length_35mm: e.focal_length_35mm.map(|v| v as i32).unwrap_or(-1),
+            lens_model: e.lens_model.clone().unwrap_or_default(),
             width: e.width.map(|v| v as i32).unwrap_or(-1),
             height: e.height.map(|v| v as i32).unwrap_or(-1),
             software: e.software.clone().unwrap_or_default(),
@@ -287,6 +293,8 @@ mod ffi {
         fn ffi_exif_fnumber(r: &FfiExifResult) -> String;
         fn ffi_exif_iso(r: &FfiExifResult) -> i32;
         fn ffi_exif_focal_length(r: &FfiExifResult) -> String;
+        fn ffi_exif_focal_length_35mm(r: &FfiExifResult) -> i32;
+        fn ffi_exif_lens_model(r: &FfiExifResult) -> String;
         fn ffi_exif_width(r: &FfiExifResult) -> i32;
         fn ffi_exif_height(r: &FfiExifResult) -> i32;
         fn ffi_exif_software(r: &FfiExifResult) -> String;
@@ -298,7 +306,7 @@ mod ffi {
         fn ffi_xmp_label(r: &FfiXmpResult) -> u8;
         fn ffi_xmp_flag(r: &FfiXmpResult) -> u8;
         fn ffi_xmp_developed(r: &FfiXmpResult) -> bool;
-        fn bridge_write_xmp(path: &str, rating: i32, label: u8, flag: u8) -> bool;
+        fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, flag: u8) -> bool;
 
         // pHash API
         fn bridge_compute_phash_from_luma(pixels: &[u8]) -> u64;
@@ -385,6 +393,8 @@ fn ffi_exif_exposure(r: &FfiExifResult) -> String { r.exposure.clone() }
 fn ffi_exif_fnumber(r: &FfiExifResult) -> String { r.fnumber.clone() }
 fn ffi_exif_iso(r: &FfiExifResult) -> i32 { r.iso }
 fn ffi_exif_focal_length(r: &FfiExifResult) -> String { r.focal_length.clone() }
+fn ffi_exif_focal_length_35mm(r: &FfiExifResult) -> i32 { r.focal_length_35mm }
+fn ffi_exif_lens_model(r: &FfiExifResult) -> String { r.lens_model.clone() }
 fn ffi_exif_width(r: &FfiExifResult) -> i32 { r.width }
 fn ffi_exif_height(r: &FfiExifResult) -> i32 { r.height }
 fn ffi_exif_software(r: &FfiExifResult) -> String { r.software.clone() }
@@ -405,7 +415,7 @@ fn ffi_xmp_label(r: &FfiXmpResult) -> u8 { r.label }
 fn ffi_xmp_flag(r: &FfiXmpResult) -> u8 { r.flag }
 fn ffi_xmp_developed(r: &FfiXmpResult) -> bool { r.developed }
 
-fn bridge_write_xmp(path: &str, rating: i32, label: u8, flag: u8) -> bool {
+fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, flag: u8) -> bool {
     let p = Path::new(path);
     let data = CoreXmpData {
         rating: if rating >= 0 { Some(rating.clamp(0, 5) as u8) } else { None },
@@ -413,7 +423,11 @@ fn bridge_write_xmp(path: &str, rating: i32, label: u8, flag: u8) -> bool {
         flag: flag_from_u8(flag),
         developed: false,
     };
-    bridge_core::xmp::write_metadata(p, &data).is_ok()
+    let ok = bridge_core::xmp::write_metadata(p, &data).is_ok();
+    if ok {
+        bridge_core::db::update_xmp(p, &db.db_path, &data);
+    }
+    ok
 }
 
 // ── pHash API impl ─────────────────────────────────────────────────────────

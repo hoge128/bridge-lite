@@ -1,5 +1,9 @@
 import Foundation
 
+enum GridMode: String, CaseIterable {
+    case strict, dense
+}
+
 @Observable
 final class SettingsStore {
     var defaultPath: String = UserDefaults.standard.string(forKey: "defaultPath") ?? "" {
@@ -10,5 +14,9 @@ final class SettingsStore {
     }
     var theme: String = UserDefaults.standard.string(forKey: "theme") ?? "system" {
         didSet { UserDefaults.standard.set(theme, forKey: "theme") }
+    }
+    var gridMode: GridMode = (UserDefaults.standard.string(forKey: "gridMode")
+                               .flatMap(GridMode.init(rawValue:))) ?? .strict {
+        didSet { UserDefaults.standard.set(gridMode.rawValue, forKey: "gridMode") }
     }
 }

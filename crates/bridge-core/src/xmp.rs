@@ -149,6 +149,8 @@ pub fn write_metadata(image_path: &Path, data: &XmpData) -> io::Result<()> {
 /// - `xmpMM:DerivedFrom` — file was derived from another (raw → processed DNG)
 /// - `xmp:CreatorTool` — standard field written by most RAW developers
 /// - `xmpMM:History[N]/stEvt:softwareAgent` matching a known developer keyword
+///   (excluding entries with `stEvt:changed="/metadata"`, which Bridge writes
+///   for rating/label changes via the Camera Raw engine)
 fn detect_developed(meta: &XmpMeta) -> bool {
     if meta.property(NS_CRS, "RawFileName").is_some() { return true; }
     if meta.property(NS_CRS, "HasSettings").is_some() { return true; }
@@ -167,19 +169,31 @@ fn detect_developed(meta: &XmpMeta) -> bool {
         }
     }
 
-    // Walk xmpMM:History entries (fixed-index scan; break on first missing slot).
+    // xmpMM:History walk: Camera Raw / Lightroom / Photoshop write softwareAgent entries
+    // when saving a developed file. Match against known developer keywords.
+    //
+    // Exception: Adobe Bridge writes Camera Raw history entries with
+    // stEvt:changed="/metadata" when the user rates or labels a SOOC JPEG.
+    // These are metadata-only writes — not real development — so skip them.
+    // Entries with stEvt:changed="/metadata/crs" (Camera Raw settings change)
+    // or stEvt:changed="/" (full rewrite) are legitimate develop operations.
     for i in 1..=10 {
-        let path = format!("History[{}]/stEvt:softwareAgent", i);
-        if let Some(agent) = meta.property(xmp_ns::XMP_MM, &path) {
-            let lower = agent.value.to_lowercase();
-            if DEVELOPED_SOFTWARE_KEYWORDS
-                .iter()
-                .any(|kw| lower.contains(kw))
-            {
-                return true;
+        let agent_path = format!("History[{}]/stEvt:softwareAgent", i);
+        let agent = match meta.property(xmp_ns::XMP_MM, &agent_path) {
+            Some(a) => a,
+            None => break,
+        };
+
+        let changed_path = format!("History[{}]/stEvt:changed", i);
+        if let Some(changed) = meta.property(xmp_ns::XMP_MM, &changed_path) {
+            if changed.value == "/metadata" {
+                continue;
             }
-        } else {
-            break;
+        }
+
+        let lower = agent.value.to_lowercase();
+        if DEVELOPED_SOFTWARE_KEYWORDS.iter().any(|kw| lower.contains(kw)) {
+            return true;
         }
     }
     false
@@ -479,6 +493,56 @@ mod tests {
         meta.set_property_i32(xmp_ns::XMP, "Rating", &XmpValue::new(3)).unwrap();
         let data = parse_xmp_data(&meta);
         assert!(!data.developed, "plain xmp:Rating must not flag developed");
+    }
+
+    fn make_meta_with_history(agent: &str, changed: Option<&str>) -> XmpMeta {
+        let changed_attr = match changed {
+            Some(c) => format!(r#" stEvt:changed="{}""#, c),
+            None => String::new(),
+        };
+        let xml = format!(
+            r#"<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description rdf:about=""
+  xmlns:xmpMM="http://ns.adobe.com/xap/1.0/mm/"
+  xmlns:stEvt="http://ns.adobe.com/xap/1.0/sType/ResourceEvent#">
+  <xmpMM:History>
+    <rdf:Seq>
+      <rdf:li stEvt:action="saved" stEvt:softwareAgent="{agent}"{changed}/>
+    </rdf:Seq>
+  </xmpMM:History>
+</rdf:Description>
+</rdf:RDF>
+</x:xmpmeta><?xpacket end="w"?>"#,
+            agent = agent,
+            changed = changed_attr,
+        );
+        XmpMeta::from_str(&xml).expect("parse test XMP")
+    }
+
+    #[test]
+    fn ignores_bridge_metadata_only_history() {
+        let meta = make_meta_with_history("Adobe Photoshop Camera Raw 18.1", Some("/metadata"));
+        let data = parse_xmp_data(&meta);
+        assert!(!data.developed,
+            "Camera Raw entry with stEvt:changed=/metadata must NOT flag developed");
+    }
+
+    #[test]
+    fn detects_developed_via_history_real_edit() {
+        let meta = make_meta_with_history("Adobe Photoshop Lightroom 13.0", Some("/"));
+        let data = parse_xmp_data(&meta);
+        assert!(data.developed,
+            "Lightroom entry with stEvt:changed=/ must flag developed");
+    }
+
+    #[test]
+    fn detects_developed_via_history_crs_settings_change() {
+        let meta = make_meta_with_history("Adobe Photoshop Camera Raw 18.1", Some("/metadata/crs"));
+        let data = parse_xmp_data(&meta);
+        assert!(data.developed,
+            "/metadata/crs (Camera Raw settings change) must flag developed");
     }
 
     #[test]

@@ -5,6 +5,7 @@ struct ToolbarView: ToolbarContent {
 
     var body: some ToolbarContent {
         @Bindable var store = store
+        @Bindable var settings = store.settings
 
         ToolbarItemGroup(placement: .navigation) {
             Button(action: { store.requestOpenFolder() }) {
@@ -24,6 +25,12 @@ struct ToolbarView: ToolbarContent {
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
+            Picker("Layout", selection: $settings.gridMode) {
+                Image(systemName: "square.grid.3x3").tag(GridMode.strict)
+                Image(systemName: "rectangle.grid.3x2").tag(GridMode.dense)
+            }
+            .pickerStyle(.segmented)
+            .help("Grid layout")
             Toggle(isOn: $store.showFilters) {
                 Label("Filters", systemImage: "line.3.horizontal.decrease.circle")
             }
