@@ -1,8 +1,26 @@
+import AppKit
 import SwiftUI
 
 struct ThumbnailGridView: View {
     @Environment(LibraryStore.self) private var store
-    private let cellSize: CGFloat = 180
+    private var cellSize: CGFloat { store.settings.thumbnailSize }
+
+    private func handleTap(id: UInt64) {
+        let flags = NSEvent.modifierFlags
+        if flags.contains(.command) {
+            store.toggleSelect(id)
+        } else if flags.contains(.shift) {
+            store.rangeSelect(to: id)
+        } else {
+            store.selectEntry(id)
+        }
+    }
+
+    private func handleDoubleTap(id: UInt64) {
+        store.selectEntry(id)
+        store.compareAnchorID = id
+        store.compareMode = true
+    }
 
     var body: some View {
         if store.settings.gridMode == .dense {
@@ -23,7 +41,8 @@ struct ThumbnailGridView: View {
                     ForEach(store.visibleIDs, id: \.self) { id in
                         if let entry = store.entries[id] {
                             ThumbnailCellView(entry: entry)
-                                .onTapGesture { store.selectEntry(id) }
+                                .onTapGesture(count: 2) { handleDoubleTap(id: id) }
+                                .onTapGesture { handleTap(id: id) }
                         }
                     }
                 }
@@ -41,7 +60,8 @@ struct ThumbnailGridView: View {
                     if let entry = store.entries[id] {
                         ThumbnailCellView(entry: entry)
                             .layoutValue(key: AspectRatioKey.self, value: aspectRatio(for: id))
-                            .onTapGesture { store.selectEntry(id) }
+                            .onTapGesture(count: 2) { handleDoubleTap(id: id) }
+                            .onTapGesture { handleTap(id: id) }
                     }
                 }
             }

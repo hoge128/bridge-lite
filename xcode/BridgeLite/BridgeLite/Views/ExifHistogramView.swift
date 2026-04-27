@@ -53,16 +53,22 @@ struct ExifHistogramView: View {
                         let lx = CGFloat(lIdx) * barW
                         let rx = CGFloat(rIdx + 1) * barW
 
+                        let topPad: CGFloat = 4
+                        let usableH = size.height - topPad
                         let pts: [CGPoint] = bars.enumerated().map { i, bar in
                             CGPoint(
                                 x: (CGFloat(i) + 0.5) * barW,
-                                y: size.height * (1 - CGFloat(bar.count) / CGFloat(maxCount))
+                                y: topPad + usableH * (1 - CGFloat(bar.count) / CGFloat(maxCount))
                             )
                         }
 
                         // カーブと選択背景はクリップされたレイヤーで描く
                         ctx.drawLayer { layer in
-                            layer.clip(to: Path(CGRect(origin: .zero, size: size)))
+                            let clipRect = CGRect(origin: .zero, size: size)
+                            let clipPath = UnevenRoundedRectangle(
+                                bottomLeadingRadius: 3, bottomTrailingRadius: 3
+                            ).path(in: clipRect)
+                            layer.clip(to: clipPath)
 
                             let areaPath = Self.smoothAreaPath(pts: pts, size: size)
                             let linePath = Self.smoothLinePath(pts: pts, size: size)
@@ -185,9 +191,9 @@ struct ExifHistogramView: View {
 
     private static func extendedPoints(_ pts: [CGPoint], size: CGSize) -> [CGPoint] {
         guard !pts.isEmpty else { return [] }
-        var ext = [CGPoint(x: 0, y: pts[0].y)]
+        var ext = [CGPoint(x: 0, y: size.height)]
         ext.append(contentsOf: pts)
-        ext.append(CGPoint(x: size.width, y: pts[pts.count - 1].y))
+        ext.append(CGPoint(x: size.width, y: size.height))
         return ext
     }
 

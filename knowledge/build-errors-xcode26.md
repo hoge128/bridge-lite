@@ -180,6 +180,51 @@ type 'ShapeStyle' has no member 'accent'
 
 ---
 
+## 9. `@ViewBuilder` ストアドプロパティを持つジェネリック View struct の初期化子ラベル
+
+**エラー**:
+```
+missing argument label 'title:' in call
+    SectionBox("File Type") {
+              ^
+               title:
+```
+
+**原因**: `struct SectionBox<Content: View>` のように `@ViewBuilder let content: () -> Content` をストアドプロパティとして持つと、Swift は自動的にメンバーワイズ初期化子 `init(title: String, content: () -> Content)` を生成する。このとき `title:` ラベルが必須になるため、`SectionBox("File Type") { ... }` という通常の View 感覚の呼び出しがコンパイルエラーになる。
+
+過去エラーとの関連性: なし（swift-bridge・Observable 系とは別種の、純粋な Swift 初期化子ラベルの問題）。
+
+**修正**: 明示的な `init(_ title:, content:)` を定義して `_` でラベルを省略する。
+
+```swift
+// NG: メンバーワイズ init が title: ラベルを強制する
+struct SectionBox<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+    // 自動生成される init(title: String, content: () -> Content) のみ存在
+}
+
+// OK: ラベルなし init を明示定義
+struct SectionBox<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    init(_ title: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+}
+
+// 呼び出し側はラベルなしで書ける
+SectionBox("File Type") { ... }
+```
+
+**適用ファイル**: `BridgeLite/Views/SidebarView.swift`（`SectionBox` 定義）
+
+**注意**: `@ViewBuilder` クロージャプロパティはストアドプロパティとして保持するとき `@escaping` が必要。`var body: some View` 内の `content()` 呼び出しに `@escaping` 属性を付けないと別のエラーになる。
+
+---
+
 ## ビルドを通すための生成ファイル編集ルール
 
 swift-bridge 0.1.59 は Swift 6 に完全対応していないため、`Generated/` 内の生成ファイルを以下のルールで手動パッチしている。`tools/build-rust-xcframework.sh` を再実行するたびにパッチが必要になることに注意。
@@ -190,3 +235,27 @@ swift-bridge 0.1.59 は Swift 6 に完全対応していないため、`Generate
 | `Generated/bridge-ffi.swift` | `bridge_open_database` の `toRustStr` 呼び出しに `try` を追加、`BridgeFfiError` 継承チェーンに `Swift.Error + @unchecked Sendable` を追加 |
 
 将来 swift-bridge が Swift 6 に正式対応したら、これらのパッチは不要になる。
+
+---
+
+## 10. コード署名エラー: "The executable is not codesigned"
+
+**エラー**:
+```
+The executable is not codesigned.
+Domain: LaunchExecutableValidationErrorDomain
+Code: 1
+Recovery Suggestion: Sign the executable with a valid certificate and provisioning profile.
+```
+
+**原因**: `CODE_SIGN_STYLE = Manual` + `CODE_SIGN_IDENTITY = "-"` (ad-hoc) の組み合わせで、Xcode 26 が署名を無音でスキップすることがある。`codesign -d -v BridgeLite.app` が `code object is not signed at all` を返す状態。
+
+**修正**: `project.pbxproj` の Debug・Release 両構成で `CODE_SIGN_STYLE` を `Automatic` に変更し、`CODE_SIGN_IDENTITY = "-"` 行を削除する。Xcode が Preferences に登録した Apple ID（Personal Team）で自動署名する。
+
+```
+// project.pbxproj (Debug・Release 両方)
+CODE_SIGN_STYLE = Automatic;   // Manual → Automatic
+// CODE_SIGN_IDENTITY = "-";  // この行を削除
+```
+
+**Apple ID について**: 普段使いの Apple ID で問題ない。Personal Team は無料で作られ、秘密鍵はローカル Keychain にのみ保存される。無料アカウントの場合、開発用証明書の有効期限は 7 日だが Xcode がビルド時に自動更新する。

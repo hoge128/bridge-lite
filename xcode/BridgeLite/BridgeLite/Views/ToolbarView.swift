@@ -17,23 +17,27 @@ struct ToolbarView: ToolbarContent {
             if store.isLoading {
                 ProgressView()
                     .scaleEffect(0.6)
-            } else if !store.statusMessage.isEmpty {
-                Text(store.statusMessage)
+            } else if let msg = store.undoMessage {
+                Text(msg)
                     .font(.caption)
-                    .foregroundStyle(.secondary)
+                    .foregroundStyle(.orange)
+                    .transition(.opacity)
             }
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
+            Button(action: { store.performUndo() }) {
+                Label("Undo", systemImage: "arrow.uturn.backward")
+            }
+            .disabled(!store.canUndo)
+            .help(store.performUndoTitle ?? "Undo (⌘Z)")
+
             Picker("Layout", selection: $settings.gridMode) {
                 Image(systemName: "square.grid.3x3").tag(GridMode.strict)
                 Image(systemName: "rectangle.grid.3x2").tag(GridMode.dense)
             }
             .pickerStyle(.segmented)
             .help("Grid layout")
-            Toggle(isOn: $store.showFilters) {
-                Label("Filters", systemImage: "line.3.horizontal.decrease.circle")
-            }
             Toggle(isOn: $store.showSidebar) {
                 Label("Metadata", systemImage: "sidebar.right")
             }

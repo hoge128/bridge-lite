@@ -1,5 +1,9 @@
 import Foundation
 
+enum PhotoKind: Sendable, Hashable, CaseIterable {
+    case raw, sooc, developed
+}
+
 struct FilterCriteria: Sendable, Equatable {
     var excludedCameras: Set<String> = []
     var excludedLenses: Set<String> = []
@@ -11,11 +15,12 @@ struct FilterCriteria: Sendable, Equatable {
     var shutterMax: String = ""
     var apertureMin: String = ""
     var apertureMax: String = ""
-    var dateFrom: String = ""
-    var dateTo: String = ""
+    var dateFrom: Date? = nil
+    var dateTo: Date? = nil
     var filterRatings: Set<Int> = []
     var filterLabels: Set<XmpLabel> = []
     var filterFlags: Set<XmpFlag> = []
+    var filterKinds: Set<PhotoKind> = []
 
     var isActive: Bool {
         !excludedCameras.isEmpty || !excludedLenses.isEmpty ||
@@ -23,8 +28,9 @@ struct FilterCriteria: Sendable, Equatable {
         !focalMin.isEmpty || !focalMax.isEmpty ||
         !shutterMin.isEmpty || !shutterMax.isEmpty ||
         !apertureMin.isEmpty || !apertureMax.isEmpty ||
-        !dateFrom.isEmpty || !dateTo.isEmpty ||
-        !filterRatings.isEmpty || !filterLabels.isEmpty || !filterFlags.isEmpty
+        dateFrom != nil || dateTo != nil ||
+        !filterRatings.isEmpty || !filterLabels.isEmpty || !filterFlags.isEmpty ||
+        !filterKinds.isEmpty
     }
 
     func matches(entry: PhotoEntry, exif: ExifData?, xmp: XmpData?) -> Bool {
@@ -56,6 +62,18 @@ struct FilterCriteria: Sendable, Equatable {
             if let min = Double(apertureMin), aperture < min { return false }
             if let max = Double(apertureMax), aperture > max { return false }
         }
+        // Date filter — EXIF datetime preferred, fallback to file creation date
+        if dateFrom != nil || dateTo != nil {
+            let photoDate: Date? = exif?.datetime.flatMap(parseExifDate) ?? entry.createdDate
+            if let date = photoDate {
+                if let from = dateFrom, date < from { return false }
+                if let to = dateTo {
+                    // "to" の当日末尾まで含める
+                    let endOfDay = Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: to) ?? to
+                    if date > endOfDay { return false }
+                }
+            }
+        }
         // Rating filter
         if !filterRatings.isEmpty {
             let rating = xmp?.rating ?? 0
@@ -76,6 +94,8 @@ struct FilterCriteria: Sendable, Equatable {
         self = FilterCriteria()
     }
 
+    // MARK: - Private helpers
+
     // "1/200" や "0.005" を秒に変換
     private func parseSeconds(_ s: String) -> Double? {
         guard !s.isEmpty else { return nil }
@@ -86,5 +106,13 @@ struct FilterCriteria: Sendable, Equatable {
               let d = Double(parts[1]),
               d != 0 else { return nil }
         return n / d
+    }
+
+    // EXIF datetime: "2024:01:15 10:30:00"
+    private func parseExifDate(_ s: String) -> Date? {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        return f.date(from: s)
     }
 }

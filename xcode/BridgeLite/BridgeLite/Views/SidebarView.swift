@@ -1,4 +1,53 @@
+import AppKit
 import SwiftUI
+
+// MARK: - Shared
+
+struct MetaRow: View {
+    let key: String
+    let value: String
+
+    var body: some View {
+        GridRow {
+            Text(key)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .fixedSize(horizontal: true, vertical: false)
+                .gridColumnAlignment(.leading)
+            Text(value)
+                .font(.caption)
+                .foregroundStyle(.primary)
+                .textSelection(.enabled)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .fixedSize(horizontal: false, vertical: true)
+                .gridColumnAlignment(.leading)
+        }
+    }
+}
+
+struct SectionBox<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    init(_ title: String, @ViewBuilder content: @escaping () -> Content) {
+        self.title = title
+        self.content = content
+    }
+
+    var body: some View {
+        GroupBox {
+            content()
+        } label: {
+            Text(title)
+                .font(.caption2)
+                .kerning(1.2)
+                .foregroundStyle(.secondary)
+                .textCase(.uppercase)
+        }
+    }
+}
+
+// MARK: - Main
 
 struct SidebarView: View {
     @Environment(LibraryStore.self) private var store
@@ -20,30 +69,22 @@ struct SidebarView: View {
                     .clipped()
 
                 if let entry = selectedEntry {
-                    // Variation strip — only when group has multiple members
                     if let members = store.shotGroups[entry.shotId], members.count > 1 {
                         VariationStripView(selectedID: entry.id, members: members)
                     }
 
-                    GroupBox {
-                        VStack(alignment: .leading, spacing: 4) {
-                            LabeledContent("File", value: entry.filename)
-                            LabeledContent("Size", value: entry.formattedFileSize)
-                            LabeledContent("Type", value: entry.fileExtension)
-                        }
-                        .font(.caption)
-                    }
-                    .padding(.horizontal, 8)
-                    .padding(.top, 8)
-
+                    PosixSectionView(entry: entry)
                     ExifSectionView(entryID: entry.id)
                     XmpSectionView(entryID: entry.id)
                 }
             }
         }
         .frame(minWidth: 260)
+        .background(.ultraThinMaterial)
     }
 }
+
+// MARK: - Preview image
 
 struct PreviewImageView: View {
     let image: CGImage?
@@ -128,6 +169,46 @@ struct VariationThumbView: View {
                 .padding(2)
         }
         .onTapGesture { store.selectEntry(entry.id) }
+        .contextMenu {
+            Button("元のファイルを表示") {
+                NSWorkspace.shared.activateFileViewerSelecting([entry.url])
+            }
+        }
+    }
+}
+
+// MARK: - POSIX
+
+struct PosixSectionView: View {
+    let entry: PhotoEntry
+
+    private func fmt(_ date: Date) -> String {
+        date.formatted(
+            .dateTime
+            .year(.defaultDigits)
+            .month(.twoDigits)
+            .day(.twoDigits)
+            .hour(.twoDigits(amPM: .omitted))
+            .minute(.twoDigits)
+            .second(.twoDigits)
+        )
+    }
+
+    var body: some View {
+        SectionBox("POSIX") {
+            Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
+                MetaRow(key: "Path", value: entry.url.path(percentEncoded: false))
+                MetaRow(key: "Size", value: entry.formattedFileSize)
+                if let created = entry.createdDate {
+                    MetaRow(key: "Created", value: fmt(created))
+                }
+                if let modified = entry.modifiedDate {
+                    MetaRow(key: "Modified", value: fmt(modified))
+                }
+            }
+        }
+        .padding(.horizontal, 8)
+        .padding(.top, 8)
     }
 }
 
@@ -140,35 +221,40 @@ struct ExifSectionView: View {
     var exif: ExifData? { store.exifData[entryID] }
 
     var body: some View {
-        GroupBox("EXIF") {
-            VStack(alignment: .leading, spacing: 4) {
-                if let exif {
+        SectionBox("EXIF") {
+            if let exif {
+                Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
                     if let cam = exif.cameraName {
-                        LabeledContent("Camera", value: cam)
+                        MetaRow(key: "Camera", value: cam)
+                    }
+                    if let lens = exif.lensName {
+                        MetaRow(key: "Lens", value: lens)
                     }
                     if let dt = exif.datetime {
-                        LabeledContent("Date", value: dt)
+                        MetaRow(key: "Date", value: dt)
                     }
                     if let exp = exif.exposureTime {
-                        LabeledContent("Exposure", value: exp)
+                        MetaRow(key: "Exposure", value: exp)
                     }
                     if let fn = exif.fnumber {
-                        LabeledContent("F-Number", value: fn)
+                        MetaRow(key: "F-Number", value: fn)
                     }
                     if let iso = exif.iso {
-                        LabeledContent("ISO", value: "\(iso)")
+                        MetaRow(key: "ISO", value: "\(iso)")
                     }
                     if let fl = exif.focalLength {
-                        LabeledContent("Focal", value: fl)
+                        MetaRow(key: "Focal", value: fl)
                     }
                     if let res = exif.resolutionString {
-                        LabeledContent("Resolution", value: res)
+                        MetaRow(key: "Resolution", value: res)
                     }
-                } else {
-                    Text("—").foregroundStyle(.secondary)
+                    if let sw = exif.software {
+                        MetaRow(key: "Software", value: sw)
+                    }
                 }
+            } else {
+                Text("—").foregroundStyle(.secondary).font(.caption)
             }
-            .font(.caption)
         }
         .padding(.horizontal, 8)
         .padding(.top, 8)
@@ -184,7 +270,7 @@ struct XmpSectionView: View {
     var xmp: XmpData? { store.xmpData[entryID] }
 
     var body: some View {
-        GroupBox("Rating") {
+        SectionBox("XMP") {
             VStack(alignment: .leading, spacing: 8) {
                 HStack(spacing: 4) {
                     ForEach(0...5, id: \.self) { n in
@@ -212,16 +298,27 @@ struct XmpSectionView: View {
                         .onTapGesture { store.applyLabel(label.rawValue) }
                     }
                 }
-                HStack(spacing: 8) {
-                    Button(xmp?.flag == .pick ? "✓ Pick" : "Pick") { store.togglePick() }
-                        .foregroundStyle(xmp?.flag == .pick ? Color.accentColor : Color.primary)
-                    Button(xmp?.flag == .reject ? "✕ Reject" : "Reject") { store.toggleReject() }
-                        .foregroundStyle(xmp?.flag == .reject ? Color.red : Color.primary)
+                HStack(spacing: 12) {
+                    Button(action: { store.togglePick() }) {
+                        Image(systemName: xmp?.flag == .pick ? "flag.fill" : "flag")
+                            .foregroundStyle(xmp?.flag == .pick ? Color.orange : Color.secondary)
+                            .font(.system(size: 15))
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Pick (P)")
+
+                    Button(action: { store.toggleReject() }) {
+                        Image(systemName: xmp?.flag == .reject ? "xmark.circle.fill" : "xmark.circle")
+                            .foregroundStyle(xmp?.flag == .reject ? Color.red : Color.secondary)
+                            .font(.system(size: 15))
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Reject (X)")
                 }
-                .font(.caption)
             }
         }
         .padding(.horizontal, 8)
         .padding(.top, 8)
+        .padding(.bottom, 12)
     }
 }

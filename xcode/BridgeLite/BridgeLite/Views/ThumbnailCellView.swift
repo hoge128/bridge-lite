@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 struct ThumbnailCellView: View {
@@ -5,16 +6,14 @@ struct ThumbnailCellView: View {
     @Environment(LibraryStore.self) private var store
     @State private var isHovered = false
 
-    private var isSelected: Bool { store.selectedID == entry.id }
+    private var isSelected: Bool { store.selectedIDs.contains(entry.id) }
     private var thumbnail: CGImage? { store.thumbnailImages[entry.id] }
     private var xmp: XmpData? { store.xmpData[entry.id] }
     private var exif: ExifData? { store.exifData[entry.id] }
 
-    private enum PhotoKind { case sooc, raw, retouched }
-
     private var photoKind: PhotoKind {
         if entry.isRaw { return .raw }
-        if (xmp?.developed == true) || (exif?.isDeveloped == true) { return .retouched }
+        if (xmp?.developed == true) || (exif?.isDeveloped == true) { return .developed }
         return .sooc
     }
 
@@ -23,7 +22,7 @@ struct ThumbnailCellView: View {
         switch photoKind {
         case .sooc:      return isJa ? "カメラ出力" : "SOOC"
         case .raw:       return "RAW"
-        case .retouched: return isJa ? "現像済" : "Retouched"
+        case .developed: return isJa ? "現像済" : "Retouched"
         }
     }
 
@@ -46,15 +45,22 @@ struct ThumbnailCellView: View {
             }
             .frame(width: 180, height: 180)
             .clipShape(RoundedRectangle(cornerRadius: 6))
+            .scaleEffect(isSelected ? 0.97 : 1.0, anchor: .center)
+            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isSelected)
             .overlay(alignment: .topLeading) { flagView.padding(5) }
-            .overlay(alignment: .topTrailing) { identifierBadge.padding(4) }
+            .overlay(alignment: .topTrailing) {
+                identifierBadge
+                    .padding(4)
+                    .opacity(photoKind != .sooc || isHovered ? 1 : 0)
+                    .animation(.easeInOut(duration: 0.15), value: isHovered)
+            }
             .overlay { selectionStroke(cornerRadius: 6) }
 
             HStack(spacing: 3) {
                 if let rating = xmp?.rating, rating > 0 {
                     Text(String(repeating: "★", count: rating))
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(.yellow.opacity(0.75))
                 }
                 Text(entry.filename)
                     .font(.caption2)
@@ -65,6 +71,7 @@ struct ThumbnailCellView: View {
             .frame(width: 180)
         }
         .onHover { isHovered = $0 }
+        .contextMenu { cellContextMenu }
     }
 
     // MARK: - Dense mode (flexible size, no filename, overlaid metadata)
@@ -76,13 +83,15 @@ struct ThumbnailCellView: View {
             colorLabelStrip
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
+        .scaleEffect(isSelected ? 0.97 : 1.0, anchor: .center)
+        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isSelected)
         .overlay(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: 2) {
                 flagView
                 if let rating = xmp?.rating, rating > 0 {
                     Text(String(repeating: "★", count: rating))
                         .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.yellow)
+                        .foregroundStyle(.yellow.opacity(0.75))
                         .padding(.horizontal, 4)
                         .padding(.vertical, 2)
                         .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 3))
@@ -93,6 +102,7 @@ struct ThumbnailCellView: View {
         .overlay(alignment: .topTrailing) { identifierBadge.padding(4) }
         .overlay { selectionStroke(cornerRadius: 4) }
         .onHover { isHovered = $0 }
+        .contextMenu { cellContextMenu }
     }
 
     // MARK: - Shared sub-views
@@ -131,18 +141,83 @@ struct ThumbnailCellView: View {
                     RoundedRectangle(cornerRadius: 3).fill(.ultraThinMaterial)
                 case .raw:
                     RoundedRectangle(cornerRadius: 3).fill(Color.orange.opacity(0.8))
-                case .retouched:
+                case .developed:
                     RoundedRectangle(cornerRadius: 3).fill(Color.green.opacity(0.8))
                 }
             }
     }
 
+    // MARK: - Context menu
+
+    @ViewBuilder
+    private var cellContextMenu: some View {
+        let isJa = store.settings.language == "ja"
+
+        Button(isJa ? "コピー" : "Copy") {
+            if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
+            store.triggerCopy()
+        }
+
+        Button(isJa ? "元のファイルを表示" : "Show in Finder") {
+            NSWorkspace.shared.activateFileViewerSelecting([entry.url])
+        }
+
+        Divider()
+
+        Menu(isJa ? "評価" : "Rating") {
+            Button(isJa ? "評価なし" : "No Rating") {
+                if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
+                store.triggerRating(0)
+            }
+            ForEach(1...5, id: \.self) { n in
+                Button(String(repeating: "★", count: n)) {
+                    if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
+                    store.triggerRating(n)
+                }
+            }
+        }
+
+        Menu(isJa ? "ラベル" : "Label") {
+            ForEach(XmpLabel.allCases, id: \.rawValue) { label in
+                Button(label.name) {
+                    if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
+                    store.applyLabel(label.rawValue)
+                }
+            }
+            Divider()
+            Button(isJa ? "ラベルを解除" : "Clear Label") {
+                if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
+                // clear by applying the current label (toggle off)
+                if let current = store.xmpData[store.primaryID ?? entry.id]?.label {
+                    store.applyLabel(current.rawValue)
+                }
+            }
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
+            store.triggerDelete()
+        } label: {
+            Text(isJa ? "ゴミ箱に移動" : "Move to Trash")
+        }
+    }
+
     private func selectionStroke(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
-            .stroke(
-                isSelected ? Color.accentColor : (isHovered ? Color.secondary.opacity(0.4) : Color.clear),
-                lineWidth: isSelected ? 2 : 1
-            )
+        ZStack {
+            RoundedRectangle(cornerRadius: cornerRadius)
+                .stroke(
+                    isSelected ? Color.accentColor.opacity(0.85) : (isHovered ? Color.secondary.opacity(0.3) : Color.clear),
+                    lineWidth: 0.5
+                )
+            if isSelected {
+                RoundedRectangle(cornerRadius: max(0, cornerRadius - 1))
+                    .stroke(Color.white.opacity(0.4), lineWidth: 0.5)
+                    .padding(1)
+            }
+        }
+        .animation(.easeInOut(duration: 0.1), value: isSelected)
     }
 }
 

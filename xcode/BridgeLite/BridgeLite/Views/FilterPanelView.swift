@@ -3,6 +3,8 @@ import SwiftUI
 struct FilterPanelView: View {
     @Environment(LibraryStore.self) private var store
 
+    @State private var isResetHovered = false
+
     // MARK: - Histogram bucket data
 
     private var isoBuckets: [ExifBucket] {
@@ -118,12 +120,51 @@ struct FilterPanelView: View {
         ScrollView {
             VStack(alignment: .leading, spacing: 12) {
                 Text("Filters")
-                    .font(.headline)
+                    .font(.caption2)
+                    .kerning(1.5)
+                    .foregroundStyle(.secondary)
+                    .textCase(.uppercase)
                     .padding(.horizontal)
+                    .padding(.top, 4)
+
+                // File Kind
+                SectionBox("File Type") {
+                    let isJa = store.settings.language == "ja"
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle(isOn: Binding(
+                            get: { store.filter.filterKinds.contains(.raw) },
+                            set: { on in
+                                if on { store.filter.filterKinds.insert(.raw) }
+                                else  { store.filter.filterKinds.remove(.raw) }
+                            }
+                        )) { Text("RAW").font(.caption) }
+                        .toggleStyle(.checkbox)
+
+                        Toggle(isOn: Binding(
+                            get: { store.filter.filterKinds.contains(.sooc) },
+                            set: { on in
+                                if on { store.filter.filterKinds.insert(.sooc) }
+                                else  { store.filter.filterKinds.remove(.sooc) }
+                            }
+                        )) { Text(isJa ? "カメラ出力" : "SOOC").font(.caption) }
+                        .toggleStyle(.checkbox)
+
+                        Toggle(isOn: Binding(
+                            get: { store.filter.filterKinds.contains(.developed) },
+                            set: { on in
+                                if on { store.filter.filterKinds.insert(.developed) }
+                                else  { store.filter.filterKinds.remove(.developed) }
+                            }
+                        )) { Text(isJa ? "現像済み" : "Developed").font(.caption) }
+                        .toggleStyle(.checkbox)
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                }
+                .padding(.horizontal, 8)
 
                 // Camera
                 if !store.availableCameras.isEmpty {
-                    GroupBox("Camera") {
+                    SectionBox("Camera") {
                         VStack(alignment: .leading, spacing: 4) {
                             ForEach(store.availableCameras, id: \.self) { cam in
                                 Toggle(cam, isOn: Binding(
@@ -142,55 +183,68 @@ struct FilterPanelView: View {
 
                 // Lens
                 if !store.availableLenses.isEmpty {
-                    GroupBox("Lens") {
-                        VStack(alignment: .leading, spacing: 4) {
-                            ForEach(store.availableLenses, id: \.self) { lens in
-                                Toggle(lens, isOn: Binding(
-                                    get: { !store.filter.excludedLenses.contains(lens) },
-                                    set: { on in
-                                        if on { store.filter.excludedLenses.remove(lens) }
-                                        else  { store.filter.excludedLenses.insert(lens) }
-                                    }
-                                ))
-                                .font(.caption)
+                    GroupBox {
+                        DisclosureGroup {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(store.availableLenses, id: \.self) { lens in
+                                    Toggle(lens, isOn: Binding(
+                                        get: { !store.filter.excludedLenses.contains(lens) },
+                                        set: { on in
+                                            if on { store.filter.excludedLenses.remove(lens) }
+                                            else  { store.filter.excludedLenses.insert(lens) }
+                                        }
+                                    ))
+                                    .font(.caption)
+                                }
                             }
+                            .padding(.top, 4)
+                        } label: {
+                            Text("Lens")
+                                .font(.caption2)
+                                .kerning(1.2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
                         }
                     }
                     .padding(.horizontal, 8)
                 }
 
                 // Rating
-                GroupBox("Rating") {
-                    let isJa = store.settings.language == "ja"
-                    VStack(alignment: .leading, spacing: 4) {
-                        ForEach(0...5, id: \.self) { n in
-                            Toggle(isOn: Binding(
-                                get: { store.filter.filterRatings.contains(n) },
-                                set: { on in
-                                    if on { store.filter.filterRatings.insert(n) }
-                                    else  { store.filter.filterRatings.remove(n) }
-                                }
-                            )) {
-                                HStack(spacing: 4) {
-                                    if n == 0 {
-                                        Text(isJa ? "評価なし" : "No rating")
-                                            .font(.caption)
-                                    } else {
-                                        Text(String(repeating: "★", count: n))
-                                            .font(.caption)
-                                            .foregroundStyle(.yellow)
-                                    }
-                                }
+                SectionBox("Rating") {
+                    HStack(spacing: 6) {
+                        Button {
+                            if store.filter.filterRatings.contains(0) { store.filter.filterRatings.remove(0) }
+                            else { store.filter.filterRatings.insert(0) }
+                        } label: {
+                            Image(systemName: "nosign")
+                                .foregroundStyle(store.filter.filterRatings.contains(0)
+                                    ? Color.primary : Color.secondary.opacity(0.3))
+                        }
+                        .buttonStyle(.plain)
+                        .help("No Rating")
+
+                        Divider().frame(height: 14)
+
+                        ForEach(1...5, id: \.self) { n in
+                            Button {
+                                if store.filter.filterRatings.contains(n) { store.filter.filterRatings.remove(n) }
+                                else { store.filter.filterRatings.insert(n) }
+                            } label: {
+                                Image(systemName: "star.fill")
+                                    .foregroundStyle(store.filter.filterRatings.contains(n)
+                                        ? Color.yellow.opacity(0.85) : Color.secondary.opacity(0.25))
                             }
-                            .toggleStyle(.checkbox)
+                            .buttonStyle(.plain)
+                            .help("\(n) Star\(n == 1 ? "" : "s")")
                         }
                     }
+                    .font(.system(size: 15))
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
                 .padding(.horizontal, 8)
 
                 // Label
-                GroupBox("Label") {
+                SectionBox("Label") {
                     HStack(spacing: 6) {
                         ForEach(XmpLabel.allCases, id: \.rawValue) { label in
                             Circle()
@@ -216,7 +270,7 @@ struct FilterPanelView: View {
                 .padding(.horizontal, 8)
 
                 // Flag
-                GroupBox("Flag") {
+                SectionBox("Flag") {
                     HStack(spacing: 8) {
                         ForEach([XmpFlag.pick, XmpFlag.reject], id: \.rawValue) { flag in
                             Button {
@@ -240,90 +294,173 @@ struct FilterPanelView: View {
                 .padding(.horizontal, 8)
 
                 // ISO range
-                GroupBox("ISO") {
+                SectionBox("ISO") {
                     @Bindable var store = store
                     ExifHistogramView(
                         bars: isoBuckets,
                         minText: $store.filter.isoMin,
                         maxText: $store.filter.isoMax
                     )
-                    HStack {
-                        TextField("Min", text: $store.filter.isoMin)
-                            .frame(width: 50)
-                        Text("–")
-                        TextField("Max", text: $store.filter.isoMax)
-                            .frame(width: 50)
-                    }
-                    .font(.caption)
                 }
                 .padding(.horizontal, 8)
 
                 // Focal length (mm, 35mm equiv)
-                GroupBox("Focal Length (mm)") {
+                SectionBox("Focal Length") {
                     @Bindable var store = store
                     ExifHistogramView(
                         bars: focalBuckets,
                         minText: $store.filter.focalMin,
                         maxText: $store.filter.focalMax
                     )
-                    HStack {
-                        TextField("Min", text: $store.filter.focalMin)
-                            .frame(width: 50)
-                        Text("–")
-                        TextField("Max", text: $store.filter.focalMax)
-                            .frame(width: 50)
-                    }
-                    .font(.caption)
                 }
                 .padding(.horizontal, 8)
 
                 // Shutter speed (seconds, fractions OK: 1/200)
-                GroupBox("Shutter (s)") {
-                    @Bindable var store = store
-                    ExifHistogramView(
-                        bars: shutterBuckets,
-                        minText: $store.filter.shutterMin,
-                        maxText: $store.filter.shutterMax
-                    )
-                    HStack {
-                        TextField("e.g. 1/1000", text: $store.filter.shutterMin)
-                            .frame(width: 65)
-                        Text("–")
-                        TextField("e.g. 1/60", text: $store.filter.shutterMax)
-                            .frame(width: 65)
+                GroupBox {
+                    DisclosureGroup {
+                        @Bindable var store = store
+                        ExifHistogramView(
+                            bars: shutterBuckets,
+                            minText: $store.filter.shutterMin,
+                            maxText: $store.filter.shutterMax
+                        )
+                    } label: {
+                        Text("Shutter")
+                            .font(.caption2)
+                            .kerning(1.2)
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
                     }
-                    .font(.caption)
                 }
                 .padding(.horizontal, 8)
 
                 // Aperture (F値)
-                GroupBox("Aperture (f/)") {
-                    @Bindable var store = store
-                    ExifHistogramView(
-                        bars: apertureBuckets,
-                        minText: $store.filter.apertureMin,
-                        maxText: $store.filter.apertureMax
-                    )
-                    HStack {
-                        TextField("Min", text: $store.filter.apertureMin)
-                            .frame(width: 50)
-                        Text("–")
-                        TextField("Max", text: $store.filter.apertureMax)
-                            .frame(width: 50)
+                GroupBox {
+                    DisclosureGroup {
+                        @Bindable var store = store
+                        ExifHistogramView(
+                            bars: apertureBuckets,
+                            minText: $store.filter.apertureMin,
+                            maxText: $store.filter.apertureMax
+                        )
+                    } label: {
+                        Text("Aperture")
+                            .font(.caption2)
+                            .kerning(1.2)
+                            .foregroundStyle(.secondary)
+                            .textCase(.uppercase)
                     }
-                    .font(.caption)
+                }
+                .padding(.horizontal, 8)
+
+                // Date
+                GroupBox {
+                    DisclosureGroup {
+                        @Bindable var store = store
+                        VStack(alignment: .leading, spacing: 8) {
+                            DateFilterRow(
+                                label: "From",
+                                date: store.filter.dateFrom,
+                                onSet: { store.filter.dateFrom = Calendar.current.startOfDay(for: Date()) },
+                                onPick: { store.filter.dateFrom = $0 },
+                                onClear: { store.filter.dateFrom = nil }
+                            )
+                            DateFilterRow(
+                                label: "To",
+                                date: store.filter.dateTo,
+                                onSet: { store.filter.dateTo = Calendar.current.startOfDay(for: Date()) },
+                                onPick: { store.filter.dateTo = $0 },
+                                onClear: { store.filter.dateTo = nil }
+                            )
+                        }
+                        .padding(.top, 6)
+                    } label: {
+                        HStack {
+                            Text("Date")
+                                .font(.caption2)
+                                .kerning(1.2)
+                                .foregroundStyle(.secondary)
+                                .textCase(.uppercase)
+                            if store.filter.dateFrom != nil || store.filter.dateTo != nil {
+                                Circle()
+                                    .fill(Color.accentColor)
+                                    .frame(width: 6, height: 6)
+                            }
+                        }
+                    }
                 }
                 .padding(.horizontal, 8)
 
                 Divider()
                     .padding(.horizontal, 8)
 
-                Button("Reset Filters") { store.filter.reset() }
-                    .disabled(!store.filter.isActive)
+                Button(action: { store.filter.reset() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "arrow.counterclockwise")
+                        Text("Reset Filters")
+                    }
+                    .font(.caption)
                     .padding(.horizontal, 8)
+                    .padding(.vertical, 4)
+                    .background(
+                        isResetHovered && store.filter.isActive
+                            ? Color.secondary.opacity(0.12) : Color.clear,
+                        in: RoundedRectangle(cornerRadius: 4)
+                    )
+                }
+                .buttonStyle(.borderless)
+                .disabled(!store.filter.isActive)
+                .opacity(store.filter.isActive || isResetHovered ? 1.0 : 0.0)
+                .animation(.easeInOut(duration: 0.15), value: store.filter.isActive)
+                .animation(.easeInOut(duration: 0.15), value: isResetHovered)
+                .onHover { isResetHovered = $0 }
+                .padding(.horizontal, 8)
             }
             .padding(.vertical)
         }
         .frame(minWidth: 180)
+        .background(.ultraThinMaterial)
+    }
+}
+
+// MARK: - DateFilterRow
+
+private struct DateFilterRow: View {
+    let label: String
+    let date: Date?
+    let onSet: () -> Void
+    let onPick: (Date) -> Void
+    let onClear: () -> Void
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text(label)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .frame(width: 28, alignment: .leading)
+
+            if let date {
+                DatePicker(
+                    "",
+                    selection: Binding(get: { date }, set: onPick),
+                    displayedComponents: .date
+                )
+                .labelsHidden()
+                .datePickerStyle(.compact)
+                .font(.caption)
+
+                Button(action: onClear) {
+                    Image(systemName: "xmark.circle.fill")
+                        .foregroundStyle(.secondary)
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+            } else {
+                Button("Set date", action: onSet)
+                    .font(.caption)
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(Color.accentColor)
+            }
+        }
     }
 }
