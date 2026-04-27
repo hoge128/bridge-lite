@@ -13,7 +13,8 @@ use crate::xmp::XmpData;
 /// stale rows are identified by mtime mismatch and re-indexed lazily.
 /// v2: software column populated.
 /// v3: subsec column added (SubSecTimeOriginal for timestamp grouping).
-pub const EXIF_SCHEMA_VERSION: i32 = 3;
+/// v4: artist column added (EXIF Artist tag).
+pub const EXIF_SCHEMA_VERSION: i32 = 4;
 
 fn init_schema(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -35,6 +36,7 @@ fn init_schema(conn: &Connection) -> Result<()> {
             img_width   INTEGER,
             img_height  INTEGER,
             software    TEXT,
+            artist      TEXT,
             mtime       INTEGER,
             indexed_at  INTEGER DEFAULT (strftime('%s', 'now'))
         );
@@ -113,6 +115,7 @@ fn migrate_image_columns(conn: &Connection) {
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN mtime           INTEGER;");
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN focal_len_35mm  INTEGER;");
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN lens_model      TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN artist          TEXT;");
 }
 
 /// Check DB for cached EXIF. On miss (or mtime mismatch), read from file and cache.
@@ -160,7 +163,7 @@ pub fn fetch_exif_batch(
             .join(",");
         let sql = format!(
             "SELECT path, mtime, make, model, datetime, subsec, exposure, fnumber, iso, \
-                    focal_len, focal_len_35mm, lens_model, img_width, img_height, software \
+                    focal_len, focal_len_35mm, lens_model, img_width, img_height, software, artist \
              FROM images WHERE path IN ({placeholders})"
         );
         let Ok(mut stmt) = conn.prepare(&sql) else { continue };
@@ -187,6 +190,7 @@ pub fn fetch_exif_batch(
                     width: row.get(12)?,
                     height: row.get(13)?,
                     software: row.get(14)?,
+                    artist: row.get(15)?,
                 },
             ))
         }) else {
@@ -255,7 +259,7 @@ fn query_exif(conn: &Connection, path: &Path, mtime: i64) -> Option<ExifData> {
     let path_str = path.to_string_lossy();
     conn.query_row(
         "SELECT make, model, datetime, subsec, exposure, fnumber, iso, focal_len,
-                focal_len_35mm, lens_model, img_width, img_height, software
+                focal_len_35mm, lens_model, img_width, img_height, software, artist
          FROM images WHERE path = ?1 AND mtime = ?2",
         params![path_str.as_ref(), mtime],
         |row| {
@@ -273,6 +277,7 @@ fn query_exif(conn: &Connection, path: &Path, mtime: i64) -> Option<ExifData> {
                 width: row.get(10)?,
                 height: row.get(11)?,
                 software: row.get(12)?,
+                artist: row.get(13)?,
             })
         },
     )
@@ -380,8 +385,8 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result
     conn.execute(
         "INSERT INTO images
             (path, filename, make, model, datetime, subsec, exposure, fnumber, iso,
-             focal_len, focal_len_35mm, lens_model, img_width, img_height, software, mtime)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16)
+             focal_len, focal_len_35mm, lens_model, img_width, img_height, software, artist, mtime)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)
          ON CONFLICT(path) DO UPDATE SET
             make=excluded.make, model=excluded.model,
             datetime=excluded.datetime, subsec=excluded.subsec,
@@ -392,6 +397,7 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result
             lens_model=excluded.lens_model,
             img_width=excluded.img_width, img_height=excluded.img_height,
             software=excluded.software,
+            artist=excluded.artist,
             mtime=excluded.mtime,
             indexed_at=strftime('%s','now')",
         params![
@@ -410,6 +416,7 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result
             exif.width,
             exif.height,
             exif.software,
+            exif.artist,
             mtime,
         ],
     )?;

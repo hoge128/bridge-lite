@@ -117,6 +117,7 @@ pub struct FfiExifResult {
     pub width: i32,
     pub height: i32,
     pub software: String,
+    pub artist: String,
 }
 
 impl FfiExifResult {
@@ -136,6 +137,7 @@ impl FfiExifResult {
             width: -1,
             height: -1,
             software: String::new(),
+            artist: String::new(),
         }
     }
 
@@ -155,6 +157,7 @@ impl FfiExifResult {
             width: e.width.map(|v| v as i32).unwrap_or(-1),
             height: e.height.map(|v| v as i32).unwrap_or(-1),
             software: e.software.clone().unwrap_or_default(),
+            artist: e.artist.clone().unwrap_or_default(),
         }
     }
 }
@@ -298,6 +301,7 @@ mod ffi {
         fn ffi_exif_width(r: &FfiExifResult) -> i32;
         fn ffi_exif_height(r: &FfiExifResult) -> i32;
         fn ffi_exif_software(r: &FfiExifResult) -> String;
+        fn ffi_exif_artist(r: &FfiExifResult) -> String;
 
         // XMP API
         fn bridge_read_xmp(path: &str) -> FfiXmpResult;
@@ -398,6 +402,7 @@ fn ffi_exif_lens_model(r: &FfiExifResult) -> String { r.lens_model.clone() }
 fn ffi_exif_width(r: &FfiExifResult) -> i32 { r.width }
 fn ffi_exif_height(r: &FfiExifResult) -> i32 { r.height }
 fn ffi_exif_software(r: &FfiExifResult) -> String { r.software.clone() }
+fn ffi_exif_artist(r: &FfiExifResult) -> String { r.artist.clone() }
 
 // ── XMP API impl ───────────────────────────────────────────────────────────
 

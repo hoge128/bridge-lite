@@ -126,6 +126,7 @@ void* __swift_bridge__$ffi_exif_lens_model(void* r);
 int32_t __swift_bridge__$ffi_exif_width(void* r);
 int32_t __swift_bridge__$ffi_exif_height(void* r);
 void* __swift_bridge__$ffi_exif_software(void* r);
+void* __swift_bridge__$ffi_exif_artist(void* r);
 void* __swift_bridge__$bridge_read_xmp(struct RustStr path);
 bool __swift_bridge__$ffi_xmp_found(void* r);
 int32_t __swift_bridge__$ffi_xmp_rating(void* r);

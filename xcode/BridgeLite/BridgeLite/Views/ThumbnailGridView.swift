@@ -38,14 +38,16 @@ struct ThumbnailGridView: View {
                 Color.blue.opacity(0.15)
                     .allowsHitTesting(false)
             }
-
-            // AppKit ネイティブ D&D レシーバー（draggingPasteboard で確実に URL 取得）
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+        .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
+        // background に置くことでクリックは前面 SwiftUI ビューへ直行し、
+        // ドラッグは登録型(.fileURL)を探す AppKit drag system が背後のビューも見つけてくれる
+        .background {
             FolderDropTargetView(isTargeted: $isDropTargeted) { url in
                 Task { await store.openDirectory(url) }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
     }
 
     // MARK: - Empty state
@@ -71,7 +73,7 @@ struct ThumbnailGridView: View {
                 LazyVGrid(columns: columns, spacing: 8) {
                     ForEach(store.visibleIDs, id: \.self) { id in
                         if let entry = store.entries[id] {
-                            ThumbnailCellView(entry: entry)
+                            ThumbnailCellView(entry: entry, isSelected: store.selectedIDs.contains(id))
                                 .simultaneousGesture(TapGesture(count: 2).onEnded { handleDoubleTap(id: id) })
                                 .onTapGesture { handleTap(id: id) }
                         }
@@ -89,7 +91,7 @@ struct ThumbnailGridView: View {
             JustifiedFlowLayout(targetRowHeight: cellSize, spacing: 4) {
                 ForEach(store.visibleIDs, id: \.self) { id in
                     if let entry = store.entries[id] {
-                        ThumbnailCellView(entry: entry)
+                        ThumbnailCellView(entry: entry, isSelected: store.selectedIDs.contains(id))
                             .layoutValue(key: AspectRatioKey.self, value: aspectRatio(for: id))
                             .simultaneousGesture(TapGesture(count: 2).onEnded { handleDoubleTap(id: id) })
                             .onTapGesture { handleTap(id: id) }

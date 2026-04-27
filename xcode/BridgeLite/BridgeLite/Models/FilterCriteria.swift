@@ -7,6 +7,7 @@ enum PhotoKind: Sendable, Hashable, CaseIterable {
 struct FilterCriteria: Sendable, Equatable {
     var excludedCameras: Set<String> = []
     var excludedLenses: Set<String> = []
+    var excludedArtists: Set<String> = []
     var isoMin: String = ""
     var isoMax: String = ""
     var focalMin: String = ""
@@ -15,20 +16,20 @@ struct FilterCriteria: Sendable, Equatable {
     var shutterMax: String = ""
     var apertureMin: String = ""
     var apertureMax: String = ""
-    var dateFrom: Date? = nil
-    var dateTo: Date? = nil
+    var dateMin: String = ""
+    var dateMax: String = ""
     var filterRatings: Set<Int> = []
     var filterLabels: Set<XmpLabel> = []
     var filterFlags: Set<XmpFlag> = []
     var filterKinds: Set<PhotoKind> = []
 
     var isActive: Bool {
-        !excludedCameras.isEmpty || !excludedLenses.isEmpty ||
+        !excludedCameras.isEmpty || !excludedLenses.isEmpty || !excludedArtists.isEmpty ||
         !isoMin.isEmpty || !isoMax.isEmpty ||
         !focalMin.isEmpty || !focalMax.isEmpty ||
         !shutterMin.isEmpty || !shutterMax.isEmpty ||
         !apertureMin.isEmpty || !apertureMax.isEmpty ||
-        dateFrom != nil || dateTo != nil ||
+        !dateMin.isEmpty || !dateMax.isEmpty ||
         !filterRatings.isEmpty || !filterLabels.isEmpty || !filterFlags.isEmpty ||
         !filterKinds.isEmpty
     }
@@ -40,6 +41,10 @@ struct FilterCriteria: Sendable, Equatable {
         }
         // Lens filter
         if let lensName = exif?.lensName, !excludedLenses.isEmpty, excludedLenses.contains(lensName) {
+            return false
+        }
+        // Artist filter
+        if let artist = exif?.artist, !excludedArtists.isEmpty, excludedArtists.contains(artist) {
             return false
         }
         // ISO filter
@@ -63,12 +68,11 @@ struct FilterCriteria: Sendable, Equatable {
             if let max = Double(apertureMax), aperture > max { return false }
         }
         // Date filter — EXIF datetime preferred, fallback to file creation date
-        if dateFrom != nil || dateTo != nil {
+        if !dateMin.isEmpty || !dateMax.isEmpty {
             let photoDate: Date? = exif?.datetime.flatMap(parseExifDate) ?? entry.createdDate
             if let date = photoDate {
-                if let from = dateFrom, date < from { return false }
-                if let to = dateTo {
-                    // "to" の当日末尾まで含める
+                if let from = parseISODate(dateMin), date < from { return false }
+                if let to = parseISODate(dateMax) {
                     let endOfDay = Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: to) ?? to
                     if date > endOfDay { return false }
                 }
@@ -113,6 +117,15 @@ struct FilterCriteria: Sendable, Equatable {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        return f.date(from: s)
+    }
+
+    // ISO date: "2024-01-15"
+    private func parseISODate(_ s: String) -> Date? {
+        guard !s.isEmpty else { return nil }
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
         return f.date(from: s)
     }
 }

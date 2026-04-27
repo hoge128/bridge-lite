@@ -69,7 +69,8 @@ enum BridgeCore {
                 lensName:        ffi_exif_lens_model(r).toString().nonEmpty,
                 width:           Int(ffi_exif_width(r)).nonZero,
                 height:        Int(ffi_exif_height(r)).nonZero,
-                software:      ffi_exif_software(r).toString().nonEmpty
+                software:      ffi_exif_software(r).toString().nonEmpty,
+                artist:        ffi_exif_artist(r).toString().nonEmpty
             )
         }.value
     }

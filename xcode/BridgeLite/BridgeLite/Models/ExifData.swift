@@ -14,6 +14,7 @@ struct ExifData: Sendable, Equatable {
     var width: Int?
     var height: Int?
     var software: String?
+    var artist: String?
 
     var cameraName: String? {
         guard let model = model else { return make }

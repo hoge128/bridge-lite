@@ -16,6 +16,7 @@ pub struct ExifData {
     pub width: Option<u32>,
     pub height: Option<u32>,
     pub software: Option<String>,
+    pub artist: Option<String>,
 }
 
 pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
@@ -88,6 +89,7 @@ pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
         width,
         height,
         software: get_ascii(Tag::Software),
+        artist: get_ascii(Tag::Artist),
     })
 }
 

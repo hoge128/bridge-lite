@@ -6,11 +6,13 @@ struct FilterPanelView: View {
     @State private var isResetHovered = false
     @State private var ratingExpanded = true
     @State private var cameraExpanded = true
+    @State private var artistExpanded = true
     @State private var labelExpanded = true
     @State private var isoExpanded = true
     @State private var focalExpanded = true
     @State private var shutterExpanded = true
     @State private var apertureExpanded = true
+    @State private var dateExpanded = true
 
     // MARK: - Histogram bucket data
 
@@ -120,6 +122,79 @@ struct FilterPanelView: View {
         }
     }
 
+    // MARK: - Date histogram buckets
+
+    private func photoDate(for id: UInt64) -> Date? {
+        if let dt = store.exifData[id]?.datetime {
+            let f = DateFormatter()
+            f.locale = Locale(identifier: "en_US_POSIX")
+            f.dateFormat = "yyyy:MM:dd HH:mm:ss"
+            if let d = f.date(from: dt) { return d }
+        }
+        return store.entries[id]?.createdDate
+    }
+
+    private var dateBuckets: [ExifBucket] {
+        let cal = Calendar.current
+        let dates = store.entries.keys.compactMap { photoDate(for: $0) }
+        guard let minDate = dates.min(), let maxDate = dates.max() else { return [] }
+        let daySpan = cal.dateComponents([.day], from: minDate, to: maxDate).day ?? 0
+        return daySpan <= 14
+            ? buildDailyBuckets(dates: dates, from: minDate, to: maxDate)
+            : buildMonthlyBuckets(dates: dates, from: minDate, to: maxDate)
+    }
+
+    private func buildMonthlyBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
+        let cal = Calendar.current
+        let isoFmt = DateFormatter(); isoFmt.locale = Locale(identifier: "en_US_POSIX"); isoFmt.dateFormat = "yyyy-MM-dd"
+        let lblFmt = DateFormatter(); lblFmt.locale = Locale(identifier: "en_US_POSIX"); lblFmt.dateFormat = "MMM"
+        let multiYear = cal.component(.year, from: minDate) != cal.component(.year, from: maxDate)
+        var buckets: [ExifBucket] = []
+        var cursor = cal.date(from: cal.dateComponents([.year, .month], from: minDate))!
+        while cursor <= maxDate {
+            let nextMonth = cal.date(byAdding: .month, value: 1, to: cursor)!
+            let lastDay = cal.date(byAdding: .day, value: -1, to: nextMonth)!
+            let count = dates.filter { $0 >= cursor && $0 < nextMonth }.count
+            let label: String
+            if multiYear {
+                let m = cal.component(.month, from: cursor)
+                let y = cal.component(.year, from: cursor) % 100
+                label = String(format: "%d/'%02d", m, y)
+            } else {
+                label = lblFmt.string(from: cursor)
+            }
+            buckets.append(ExifBucket(
+                label: label, count: count,
+                minText: isoFmt.string(from: cursor), maxText: isoFmt.string(from: lastDay),
+                lowerBound: cursor.timeIntervalSince1970, upperBound: lastDay.timeIntervalSince1970
+            ))
+            cursor = nextMonth
+        }
+        return buckets
+    }
+
+    private func buildDailyBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
+        let cal = Calendar.current
+        let isoFmt = DateFormatter(); isoFmt.locale = Locale(identifier: "en_US_POSIX"); isoFmt.dateFormat = "yyyy-MM-dd"
+        var buckets: [ExifBucket] = []
+        var cursor = cal.startOfDay(for: minDate)
+        let end = cal.startOfDay(for: maxDate)
+        while cursor <= end {
+            let nextDay = cal.date(byAdding: .day, value: 1, to: cursor)!
+            let count = dates.filter { $0 >= cursor && $0 < nextDay }.count
+            let dateStr = isoFmt.string(from: cursor)
+            let m = cal.component(.month, from: cursor)
+            let d = cal.component(.day, from: cursor)
+            buckets.append(ExifBucket(
+                label: "\(m)/\(d)", count: count,
+                minText: dateStr, maxText: dateStr,
+                lowerBound: cursor.timeIntervalSince1970, upperBound: nextDay.timeIntervalSince1970 - 1
+            ))
+            cursor = nextDay
+        }
+        return buckets
+    }
+
     // MARK: - Body
 
     var body: some View {
@@ -190,6 +265,38 @@ struct FilterPanelView: View {
                         } label: {
                             Button { cameraExpanded.toggle() } label: {
                                 Text("Camera")
+                                    .font(.caption2)
+                                    .kerning(1.2)
+                                    .foregroundStyle(.secondary)
+                                    .textCase(.uppercase)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                    }
+                    .padding(.horizontal, 8)
+                }
+
+                // Photographer (EXIF Artist)
+                if !store.availableArtists.isEmpty {
+                    GroupBox {
+                        DisclosureGroup(isExpanded: $artistExpanded) {
+                            VStack(alignment: .leading, spacing: 4) {
+                                ForEach(store.availableArtists, id: \.self) { artist in
+                                    Toggle(artist, isOn: Binding(
+                                        get: { !store.filter.excludedArtists.contains(artist) },
+                                        set: { on in
+                                            if on { store.filter.excludedArtists.remove(artist) }
+                                            else  { store.filter.excludedArtists.insert(artist) }
+                                        }
+                                    ))
+                                    .font(.caption)
+                                    .toggleStyle(.checkbox)
+                                }
+                            }
+                            .padding(.top, 4)
+                        } label: {
+                            Button { artistExpanded.toggle() } label: {
+                                Text("Photographer")
                                     .font(.caption2)
                                     .kerning(1.2)
                                     .foregroundStyle(.secondary)
@@ -423,38 +530,22 @@ struct FilterPanelView: View {
 
                 // Date
                 GroupBox {
-                    DisclosureGroup {
+                    DisclosureGroup(isExpanded: $dateExpanded) {
                         @Bindable var store = store
-                        VStack(alignment: .leading, spacing: 8) {
-                            DateFilterRow(
-                                label: "From",
-                                date: store.filter.dateFrom,
-                                onSet: { store.filter.dateFrom = Calendar.current.startOfDay(for: Date()) },
-                                onPick: { store.filter.dateFrom = $0 },
-                                onClear: { store.filter.dateFrom = nil }
-                            )
-                            DateFilterRow(
-                                label: "To",
-                                date: store.filter.dateTo,
-                                onSet: { store.filter.dateTo = Calendar.current.startOfDay(for: Date()) },
-                                onPick: { store.filter.dateTo = $0 },
-                                onClear: { store.filter.dateTo = nil }
-                            )
-                        }
-                        .padding(.top, 6)
+                        ExifHistogramView(
+                            bars: dateBuckets,
+                            minText: $store.filter.dateMin,
+                            maxText: $store.filter.dateMax
+                        )
                     } label: {
-                        HStack {
+                        Button { dateExpanded.toggle() } label: {
                             Text("Date")
                                 .font(.caption2)
                                 .kerning(1.2)
                                 .foregroundStyle(.secondary)
                                 .textCase(.uppercase)
-                            if store.filter.dateFrom != nil || store.filter.dateTo != nil {
-                                Circle()
-                                    .fill(Color.accentColor)
-                                    .frame(width: 6, height: 6)
-                            }
                         }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 8)
@@ -491,44 +582,3 @@ struct FilterPanelView: View {
     }
 }
 
-// MARK: - DateFilterRow
-
-private struct DateFilterRow: View {
-    let label: String
-    let date: Date?
-    let onSet: () -> Void
-    let onPick: (Date) -> Void
-    let onClear: () -> Void
-
-    var body: some View {
-        HStack(spacing: 6) {
-            Text(label)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .frame(width: 28, alignment: .leading)
-
-            if let date {
-                DatePicker(
-                    "",
-                    selection: Binding(get: { date }, set: onPick),
-                    displayedComponents: .date
-                )
-                .labelsHidden()
-                .datePickerStyle(.compact)
-                .font(.caption)
-
-                Button(action: onClear) {
-                    Image(systemName: "xmark.circle.fill")
-                        .foregroundStyle(.secondary)
-                        .font(.caption)
-                }
-                .buttonStyle(.plain)
-            } else {
-                Button("Set date", action: onSet)
-                    .font(.caption)
-                    .buttonStyle(.borderless)
-                    .foregroundStyle(Color.accentColor)
-            }
-        }
-    }
-}

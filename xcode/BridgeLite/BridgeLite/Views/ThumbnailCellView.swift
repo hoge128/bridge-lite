@@ -3,10 +3,9 @@ import SwiftUI
 
 struct ThumbnailCellView: View {
     let entry: PhotoEntry
+    let isSelected: Bool
     @Environment(LibraryStore.self) private var store
     @State private var isHovered = false
-
-    private var isSelected: Bool { store.selectedIDs.contains(entry.id) }
     private var thumbnail: CGImage? { store.thumbnailImages[entry.id] }
     private var xmp: XmpData? { store.xmpData[entry.id] }
     private var exif: ExifData? { store.exifData[entry.id] }
@@ -45,8 +44,6 @@ struct ThumbnailCellView: View {
             }
             .frame(width: 180, height: 180)
             .clipShape(RoundedRectangle(cornerRadius: 6))
-            .scaleEffect(isSelected ? 0.97 : 1.0, anchor: .center)
-            .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isSelected)
             .overlay(alignment: .topLeading) { flagView.padding(5) }
             .overlay(alignment: .topTrailing) {
                 identifierBadge
@@ -83,8 +80,6 @@ struct ThumbnailCellView: View {
             colorLabelStrip
         }
         .clipShape(RoundedRectangle(cornerRadius: 4))
-        .scaleEffect(isSelected ? 0.97 : 1.0, anchor: .center)
-        .animation(.spring(response: 0.2, dampingFraction: 0.7), value: isSelected)
         .overlay(alignment: .topLeading) {
             VStack(alignment: .leading, spacing: 2) {
                 flagView

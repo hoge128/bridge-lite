@@ -34,7 +34,11 @@ final class LibraryStore {
     var compareAnchorID: UInt64? = nil
     var showFilters: Bool = true
     var showSidebar: Bool = true
-    var filter: FilterCriteria = FilterCriteria()
+    var filter: FilterCriteria = FilterCriteria() {
+        didSet { recomputeVisible() }
+    }
+
+    private(set) var visibleIDs: [UInt64] = []
     var statusMessage: String = ""
     var isLoading: Bool = false
 
@@ -344,6 +348,7 @@ final class LibraryStore {
             newGroups[e.shotId, default: []].append(id)
         }
         shotGroups = newGroups
+        recomputeVisible()
         deselectAll()
         showUndoMessage("ゴミ箱に移動: \(fileCount) ファイル（Finderから復元できます）")
     }
@@ -386,6 +391,7 @@ final class LibraryStore {
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
             }
         }
+        recomputeVisible()
         let desc = stars == 0 ? "レーティング解除" : "レーティング ★×\(stars)"
         registerUndo(description: desc) { [weak self] in
             guard let self, let db = self.database else { return }
@@ -397,6 +403,7 @@ final class LibraryStore {
                 let x = current; let url = te.url
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
             }
+            self.recomputeVisible()
         }
     }
 
@@ -418,6 +425,7 @@ final class LibraryStore {
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
             }
         }
+        recomputeVisible()
         registerUndo(description: "ラベル変更") { [weak self] in
             guard let self, let db = self.database else { return }
             for (te, old) in allTargets {
@@ -428,6 +436,7 @@ final class LibraryStore {
                 let x = current; let url = te.url
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
             }
+            self.recomputeVisible()
         }
     }
 
@@ -444,6 +453,7 @@ final class LibraryStore {
             let x = current
             Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x, db: db) }
         }
+        recomputeVisible()
         registerUndo(description: "Pick フラグ変更") { [weak self] in
             guard let self, let db = self.database else { return }
             for (te, old) in allTargets {
@@ -454,6 +464,7 @@ final class LibraryStore {
                 let x = current; let url = te.url
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
             }
+            self.recomputeVisible()
         }
     }
 
@@ -470,6 +481,7 @@ final class LibraryStore {
             let x = current
             Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x, db: db) }
         }
+        recomputeVisible()
         registerUndo(description: "Reject フラグ変更") { [weak self] in
             guard let self, let db = self.database else { return }
             for (te, old) in allTargets {
@@ -480,12 +492,13 @@ final class LibraryStore {
                 let x = current; let url = te.url
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
             }
+            self.recomputeVisible()
         }
     }
 
     // MARK: - Computed
 
-    var visibleIDs: [UInt64] {
+    private func recomputeVisible() {
         let liveReps: Set<UInt64>
         if !filter.filterKinds.isEmpty {
             liveReps = computeRepresentativesForKinds(filter.filterKinds, groups: shotGroups, entries: entries)
@@ -493,8 +506,11 @@ final class LibraryStore {
             liveReps = computeRepresentatives(groups: shotGroups, entries: entries)
         }
         let reps = orderedIDs.filter { liveReps.contains($0) }
-        guard filter.isActive else { return reps }
-        return reps.filter { id in
+        if !filter.isActive {
+            visibleIDs = reps
+            return
+        }
+        visibleIDs = reps.filter { id in
             guard let entry = entries[id] else { return false }
             return filter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id])
         }
@@ -508,6 +524,10 @@ final class LibraryStore {
         Array(Set(exifData.values.compactMap { $0.lensName })).sorted()
     }
 
+    var availableArtists: [String] {
+        Array(Set(exifData.values.compactMap { $0.artist })).sorted()
+    }
+
     // MARK: - Private
 
     func setThumbnail(id: UInt64, image: CGImage) {
@@ -517,11 +537,13 @@ final class LibraryStore {
     func setExif(id: UInt64, exif: ExifData?) {
         guard let exif else { return }
         exifData[id] = exif
+        recomputeVisible()
     }
 
     func setXmp(id: UInt64, xmp: XmpData?) {
         guard let xmp else { return }
         xmpData[id] = xmp
+        recomputeVisible()
     }
 
     func applyReindexedGroups(_ groups: [UInt64: [UInt64]]) {
@@ -532,6 +554,7 @@ final class LibraryStore {
             }
         }
         shotGroups = groups
+        recomputeVisible()
     }
 
     // MARK: - Tab lifecycle
@@ -556,6 +579,7 @@ final class LibraryStore {
         thumbnailImages = [:]
         exifData = [:]
         xmpData = [:]
+        visibleIDs = []
         selectedIDs = []
         primaryID = nil
         anchorID = nil
@@ -585,6 +609,7 @@ final class LibraryStore {
         entries = dict
         orderedIDs = ordered
         shotGroups = groups
+        recomputeVisible()
     }
 
     private func isDevelopedMember(_ id: UInt64, groupMinDate: Date?) -> Bool {
@@ -670,10 +695,6 @@ final class LibraryStore {
                     guard let created = entry.createdDate, let minDate = groupMinDate else { return false }
                     return created.timeIntervalSince(minDate) > 60
                 }()
-                // DEBUG — remove after diagnosis
-                if members.count > 1 {
-                    print("[Tier1] \(entry.filename) suffix=\(suffixHit) xmp=\(xmpHit) exif=\(exifHit) ts=\(tsHit) sw=\(exifData[id]?.software ?? "nil") created=\(entry.createdDate?.description ?? "nil") groupMin=\(groupMinDate?.description ?? "nil")")
-                }
                 return suffixHit || xmpHit || exifHit || tsHit
             }
             if let rep = devs.first { reps.insert(rep); continue }
