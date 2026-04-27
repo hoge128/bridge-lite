@@ -18,5 +18,9 @@ build/
 # Xcode — generated from tools/build-rust-xcframework.sh
 xcode/BridgeLite/Generated/
 
+# UI reference screenshots
+ui-iamge/
+ui-image/
+
 # macOS
 .DS_Store
