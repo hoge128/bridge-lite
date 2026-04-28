@@ -80,7 +80,6 @@ struct SidebarView: View {
             }
         }
         .frame(minWidth: 260)
-        .background(.ultraThinMaterial)
     }
 }
 
@@ -182,16 +181,16 @@ struct VariationThumbView: View {
 struct PosixSectionView: View {
     let entry: PhotoEntry
 
+    private static let dateStyle: Date.FormatStyle = .dateTime
+        .year(.defaultDigits)
+        .month(.twoDigits)
+        .day(.twoDigits)
+        .hour(.twoDigits(amPM: .omitted))
+        .minute(.twoDigits)
+        .second(.twoDigits)
+
     private func fmt(_ date: Date) -> String {
-        date.formatted(
-            .dateTime
-            .year(.defaultDigits)
-            .month(.twoDigits)
-            .day(.twoDigits)
-            .hour(.twoDigits(amPM: .omitted))
-            .minute(.twoDigits)
-            .second(.twoDigits)
-        )
+        date.formatted(Self.dateStyle)
     }
 
     var body: some View {

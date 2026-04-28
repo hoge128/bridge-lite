@@ -124,13 +124,16 @@ struct FilterPanelView: View {
 
     // MARK: - Date histogram buckets
 
+    private static let exifDateParser: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        return f
+    }()
+
     private func photoDate(for id: UInt64) -> Date? {
-        if let dt = store.exifData[id]?.datetime {
-            let f = DateFormatter()
-            f.locale = Locale(identifier: "en_US_POSIX")
-            f.dateFormat = "yyyy:MM:dd HH:mm:ss"
-            if let d = f.date(from: dt) { return d }
-        }
+        if let dt = store.exifData[id]?.datetime,
+           let d = Self.exifDateParser.date(from: dt) { return d }
         return store.entries[id]?.createdDate
     }
 
@@ -144,10 +147,17 @@ struct FilterPanelView: View {
             : buildMonthlyBuckets(dates: dates, from: minDate, to: maxDate)
     }
 
+    private static let isoDateFormatter: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"; return f
+    }()
+    private static let monthLabelFormatter: DateFormatter = {
+        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "MMM"; return f
+    }()
+
     private func buildMonthlyBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
         let cal = Calendar.current
-        let isoFmt = DateFormatter(); isoFmt.locale = Locale(identifier: "en_US_POSIX"); isoFmt.dateFormat = "yyyy-MM-dd"
-        let lblFmt = DateFormatter(); lblFmt.locale = Locale(identifier: "en_US_POSIX"); lblFmt.dateFormat = "MMM"
+        let isoFmt = Self.isoDateFormatter
+        let lblFmt = Self.monthLabelFormatter
         let multiYear = cal.component(.year, from: minDate) != cal.component(.year, from: maxDate)
         var buckets: [ExifBucket] = []
         var cursor = cal.date(from: cal.dateComponents([.year, .month], from: minDate))!
@@ -175,7 +185,7 @@ struct FilterPanelView: View {
 
     private func buildDailyBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
         let cal = Calendar.current
-        let isoFmt = DateFormatter(); isoFmt.locale = Locale(identifier: "en_US_POSIX"); isoFmt.dateFormat = "yyyy-MM-dd"
+        let isoFmt = Self.isoDateFormatter
         var buckets: [ExifBucket] = []
         var cursor = cal.startOfDay(for: minDate)
         let end = cal.startOfDay(for: maxDate)

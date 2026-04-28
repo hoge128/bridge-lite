@@ -3,9 +3,10 @@ import SwiftUI
 
 struct ThumbnailCellView: View {
     let entry: PhotoEntry
-    let isSelected: Bool
     @Environment(LibraryStore.self) private var store
     @State private var isHovered = false
+
+    private var isSelected: Bool { store.selectedIDs.contains(entry.id) }
     private var thumbnail: CGImage? { store.thumbnailImages[entry.id] }
     private var xmp: XmpData? { store.xmpData[entry.id] }
     private var exif: ExifData? { store.exifData[entry.id] }

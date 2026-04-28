@@ -5,9 +5,21 @@ import UniformTypeIdentifiers
 struct ThumbnailGridView: View {
     @Environment(LibraryStore.self) private var store
     @State private var isDropTargeted = false
+    @State private var lastTap: (id: UInt64, time: Date)?
     private var cellSize: CGFloat { store.settings.thumbnailSize }
 
     private func handleTap(id: UInt64) {
+        if let last = lastTap,
+           last.id == id,
+           Date().timeIntervalSince(last.time) < NSEvent.doubleClickInterval {
+            store.selectEntry(id)
+            store.compareAnchorID = id
+            store.compareMode = true
+            lastTap = nil
+            return
+        }
+        lastTap = (id: id, time: Date())
+
         let flags = NSEvent.modifierFlags
         if flags.contains(.command) {
             store.toggleSelect(id)
@@ -16,12 +28,6 @@ struct ThumbnailGridView: View {
         } else {
             store.selectEntry(id)
         }
-    }
-
-    private func handleDoubleTap(id: UInt64) {
-        store.selectEntry(id)
-        store.compareAnchorID = id
-        store.compareMode = true
     }
 
     var body: some View {
@@ -73,8 +79,7 @@ struct ThumbnailGridView: View {
                 LazyVGrid(columns: columns, spacing: 8) {
                     ForEach(store.visibleIDs, id: \.self) { id in
                         if let entry = store.entries[id] {
-                            ThumbnailCellView(entry: entry, isSelected: store.selectedIDs.contains(id))
-                                .simultaneousGesture(TapGesture(count: 2).onEnded { handleDoubleTap(id: id) })
+                            ThumbnailCellView(entry: entry)
                                 .onTapGesture { handleTap(id: id) }
                         }
                     }
@@ -91,9 +96,8 @@ struct ThumbnailGridView: View {
             JustifiedFlowLayout(targetRowHeight: cellSize, spacing: 4) {
                 ForEach(store.visibleIDs, id: \.self) { id in
                     if let entry = store.entries[id] {
-                        ThumbnailCellView(entry: entry, isSelected: store.selectedIDs.contains(id))
+                        ThumbnailCellView(entry: entry)
                             .layoutValue(key: AspectRatioKey.self, value: aspectRatio(for: id))
-                            .simultaneousGesture(TapGesture(count: 2).onEnded { handleDoubleTap(id: id) })
                             .onTapGesture { handleTap(id: id) }
                     }
                 }
