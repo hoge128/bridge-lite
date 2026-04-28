@@ -33,6 +33,7 @@ struct ContentView: View {
 
 struct FolderView: View {
     @Environment(LibraryStore.self) private var store
+    @State private var spaceKeyMonitor: Any?
 
     var body: some View {
         @Bindable var store = store
@@ -110,12 +111,6 @@ struct FolderView: View {
                             }
                         }
                         .keyboardShortcut(.return, modifiers: [])
-                        Button("") {
-                            if !store.viewerMode && !store.compareMode, store.primaryID != nil {
-                                store.viewerMode = true
-                            }
-                        }
-                        .keyboardShortcut(.space, modifiers: [])
                     }
                     .opacity(0)
                     .allowsHitTesting(false)
@@ -143,6 +138,21 @@ struct FolderView: View {
                 ViewerView()
                     .environment(store)
             }
+        }
+        .onAppear {
+            guard spaceKeyMonitor == nil else { return }
+            let s = store
+            spaceKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard event.keyCode == 49,
+                      event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
+                      !s.viewerMode, !s.compareMode,
+                      s.primaryID != nil else { return event }
+                s.viewerMode = true
+                return nil
+            }
+        }
+        .onDisappear {
+            if let m = spaceKeyMonitor { NSEvent.removeMonitor(m); spaceKeyMonitor = nil }
         }
     }
 }
