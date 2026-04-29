@@ -9,8 +9,8 @@ private struct ViewModePicker: View {
 
     var body: some View {
         HStack(spacing: 2) {
-            pill("すべての写真", mode: .all)
-            pill("デイリー",     mode: .daily)
+            pill(String(localized: "All Photos"), mode: .all)
+            pill(String(localized: "Daily"), mode: .daily)
         }
         .padding(3)
         .background {
@@ -96,28 +96,30 @@ struct ToolbarView: ToolbarContent {
                 Label("Undo", systemImage: "arrow.uturn.backward")
             }
             .disabled(!store.canUndo)
-            .help(store.performUndoTitle ?? "Undo (⌘Z)")
+            .help(store.performUndoTitle ?? String(localized: "Undo (⌘Z)"))
 
             if !store.viewerMode && !store.compareMode {
                 Menu {
                     Picker("", selection: $settings.sortKey) {
-                        Text("ファイル名 別").tag(SortKey.filename)
-                        Text("撮影日時 別").tag(SortKey.exifDate)
-                        Text("作成日 別").tag(SortKey.createdDate)
-                        Text("修正日 別").tag(SortKey.modifiedDate)
-                        Text("サイズ 別").tag(SortKey.fileSize)
-                        Text("レーティング 別").tag(SortKey.rating)
+                        Text(SortKey.filename.localizedName).tag(SortKey.filename)
+                        Text(SortKey.exifDate.localizedName).tag(SortKey.exifDate)
+                        Text(SortKey.createdDate.localizedName).tag(SortKey.createdDate)
+                        Text(SortKey.modifiedDate.localizedName).tag(SortKey.modifiedDate)
+                        Text(SortKey.fileSize.localizedName).tag(SortKey.fileSize)
+                        Text(SortKey.rating.localizedName).tag(SortKey.rating)
                     }
                     .pickerStyle(.inline)
                 } label: {
-                    Text("\(settings.sortKey.localizedName) で並べ替え")
+                    Text(String(localized: "Sort by \(settings.sortKey.localizedName)"))
                 }
                 .onChange(of: settings.sortKey) { store.applyOrder() }
 
                 Button(action: { settings.sortAscending.toggle() }) {
                     Image(systemName: settings.sortAscending ? "arrow.up" : "arrow.down")
                 }
-                .help(settings.sortAscending ? "昇順" : "降順")
+                .help(settings.sortAscending
+                      ? String(localized: "Ascending")
+                      : String(localized: "Descending"))
                 .onChange(of: settings.sortAscending) { store.applyOrder() }
 
                 Toggle(isOn: $store.showSidebar) {

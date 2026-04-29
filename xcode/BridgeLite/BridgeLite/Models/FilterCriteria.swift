@@ -4,6 +4,24 @@ enum PhotoKind: Sendable, Hashable, CaseIterable {
     case raw, sooc, developed
 }
 
+extension PhotoKind {
+    var localizedName: String {
+        switch self {
+        case .raw:       return String(localized: "kind.raw", defaultValue: "RAW")
+        case .sooc:      return String(localized: "kind.sooc", defaultValue: "SOOC")
+        case .developed: return String(localized: "kind.developed", defaultValue: "Developed")
+        }
+    }
+
+    var localizedBadgeName: String {
+        switch self {
+        case .raw:       return String(localized: "kind.raw.badge", defaultValue: "RAW")
+        case .sooc:      return String(localized: "kind.sooc.badge", defaultValue: "SOOC")
+        case .developed: return String(localized: "kind.developed.badge", defaultValue: "Retouched")
+        }
+    }
+}
+
 struct FilterCriteria: Sendable, Equatable {
     var excludedCameras: Set<String> = []
     var excludedLenses: Set<String> = []

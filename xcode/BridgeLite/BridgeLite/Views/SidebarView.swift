@@ -168,7 +168,7 @@ struct SidebarView: View {
                     Image(systemName: "photo.stack")
                         .font(.system(size: 32))
                         .foregroundStyle(.tertiary)
-                    Text("写真を選択してください")
+                    Text("Select a photo")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -324,7 +324,7 @@ struct GpsSectionView: View {
                     let s = "maps://?ll=\(coordinate.lat),\(coordinate.lon)"
                     if let url = URL(string: s) { NSWorkspace.shared.open(url) }
                 } label: {
-                    Label("Maps で開く", systemImage: "map")
+                    Label("Open in Maps", systemImage: "map")
                         .font(.caption)
                 }
                 .buttonStyle(.borderless)
@@ -428,16 +428,14 @@ struct VariationThumbView: View {
 
     @ViewBuilder
     private var variationContextMenu: some View {
-        let isJa = store.settings.language == "ja"
-
-        Button(isJa ? "元のファイルを表示" : "Show in Finder") {
+        Button("Show in Finder") {
             NSWorkspace.shared.activateFileViewerSelecting([entry.url])
         }
 
         Divider()
 
-        Menu(isJa ? "評価" : "Rating") {
-            Button(isJa ? "評価なし" : "No Rating") {
+        Menu("Rating") {
+            Button("No Rating") {
                 store.selectEntry(entry.id)
                 store.triggerRating(0)
             }
@@ -449,7 +447,7 @@ struct VariationThumbView: View {
             }
         }
 
-        Menu(isJa ? "ラベル" : "Label") {
+        Menu("Label") {
             ForEach(XmpLabel.allCases, id: \.rawValue) { label in
                 Button(label.name) {
                     store.selectEntry(entry.id)
@@ -457,7 +455,7 @@ struct VariationThumbView: View {
                 }
             }
             Divider()
-            Button(isJa ? "ラベルを解除" : "Clear Label") {
+            Button("Clear Label") {
                 store.selectEntry(entry.id)
                 if let current = store.xmpData[entry.id]?.label {
                     store.applyLabel(current.rawValue)
@@ -471,7 +469,7 @@ struct VariationThumbView: View {
             store.selectEntry(entry.id)
             store.triggerDelete()
         } label: {
-            Text(isJa ? "ゴミ箱に移動" : "Move to Trash")
+            Text("Move to Trash")
         }
     }
 }
@@ -531,7 +529,7 @@ struct PosixSectionView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .fixedSize(horizontal: false, vertical: true)
                 .onTapGesture(count: 2) { showFullPath = false }
-                .help("ダブルクリックで短縮表示")
+                .help("Double-click to collapse")
         } else {
             VStack(alignment: .leading, spacing: 1) {
                 Text(entry.filename)
@@ -545,7 +543,7 @@ struct PosixSectionView: View {
             }
             .frame(maxWidth: .infinity, alignment: .leading)
             .onTapGesture(count: 2) { showFullPath = true }
-            .help("ダブルクリックでフルパスを表示")
+            .help("Double-click to show full path")
         }
     }
 }

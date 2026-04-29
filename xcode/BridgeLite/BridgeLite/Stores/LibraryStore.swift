@@ -287,7 +287,7 @@ final class LibraryStore {
     func performUndo() {
         guard let record = undoStack.popLast() else { return }
         record.perform()
-        showUndoMessage("取り消し: \(record.description)")
+        showUndoMessage(String(localized: "Undid: \(record.description)"))
     }
 
     private func registerUndo(description: String, perform: @escaping () -> Void) {
@@ -322,15 +322,16 @@ final class LibraryStore {
 
     private func showCopyAlert() -> CopyMode? {
         let alert = NSAlert()
-        alert.messageText = "コピーの範囲を選択"
-        alert.informativeText = "\(selectedIDs.count)グループのファイルをコピーします。"
+        alert.messageText = String(localized: "Choose copy scope")
+        let count = selectedIDs.count
+        alert.informativeText = String(localized: "Files from \(count) group(s) will be copied.")
         let hasKindFilter = !filter.filterKinds.isEmpty
-        alert.addButton(withTitle: "代表ファイルのみ")
-        if hasKindFilter { alert.addButton(withTitle: "フィルタ対象のみ") }
-        alert.addButton(withTitle: "グループ全体")
-        alert.addButton(withTitle: "キャンセル")
+        alert.addButton(withTitle: String(localized: "Representative only"))
+        if hasKindFilter { alert.addButton(withTitle: String(localized: "Filtered kind only")) }
+        alert.addButton(withTitle: String(localized: "Entire group"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
         alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = "次回から確認しない"
+        alert.suppressionButton?.title = String(localized: "Don't ask again")
 
         let resp = alert.runModal()
         if alert.suppressionButton?.state == .on { settings.confirmCopy = false }
@@ -385,13 +386,13 @@ final class LibraryStore {
                 return acc + (shotGroups[entry.shotId]?.count ?? 1)
             }
             let alert = NSAlert()
-            alert.messageText = "\(groupCount)グループ（\(fileCount)ファイル）をゴミ箱に移動しますか？"
-            alert.informativeText = "グループ内のすべてのファイルが移動されます。Finderから復元できます。"
+            alert.messageText = String(localized: "Move \(groupCount) group(s) (\(fileCount) files) to Trash?")
+            alert.informativeText = String(localized: "All files in the group will be moved. Recoverable from Finder.")
             alert.alertStyle = .warning
-            alert.addButton(withTitle: "ゴミ箱に移動")
-            alert.addButton(withTitle: "キャンセル")
+            alert.addButton(withTitle: String(localized: "Move to Trash"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
             alert.showsSuppressionButton = true
-            alert.suppressionButton?.title = "次回から確認しない"
+            alert.suppressionButton?.title = String(localized: "Don't ask again")
 
             let resp = alert.runModal()
             if alert.suppressionButton?.state == .on { settings.confirmDelete = false }
@@ -434,7 +435,7 @@ final class LibraryStore {
         shotGroups = newGroups
         recomputeVisible()
         deselectAll()
-        showUndoMessage("ゴミ箱に移動: \(fileCount) ファイル（Finderから復元できます）")
+        showUndoMessage(String(localized: "Moved \(fileCount) file(s) to Trash (recoverable from Finder)"))
     }
 
     // MARK: - 一括評価トリガー
@@ -442,14 +443,17 @@ final class LibraryStore {
     func triggerRating(_ stars: Int) {
         guard !selectedIDs.isEmpty else { return }
         if selectedIDs.count > 1 && settings.confirmBulkRating {
-            let label = stars == 0 ? "評価なし" : String(repeating: "★", count: stars)
+            let ratingLabel = stars == 0
+                ? String(localized: "No Rating")
+                : String(repeating: "★", count: stars)
+            let count = selectedIDs.count
             let alert = NSAlert()
-            alert.messageText = "\(selectedIDs.count)枚の写真に「\(label)」を設定しますか？"
-            alert.informativeText = "既存のレーティングは上書きされます。"
-            alert.addButton(withTitle: "設定する")
-            alert.addButton(withTitle: "キャンセル")
+            alert.messageText = String(localized: "Set \"\(ratingLabel)\" for \(count) photo(s)?")
+            alert.informativeText = String(localized: "Existing ratings will be overwritten.")
+            alert.addButton(withTitle: String(localized: "Apply"))
+            alert.addButton(withTitle: String(localized: "Cancel"))
             alert.showsSuppressionButton = true
-            alert.suppressionButton?.title = "次回から確認しない"
+            alert.suppressionButton?.title = String(localized: "Don't ask again")
 
             let resp = alert.runModal()
             if alert.suppressionButton?.state == .on { settings.confirmBulkRating = false }
@@ -475,7 +479,9 @@ final class LibraryStore {
             }
         }
         recomputeVisible()
-        let desc = stars == 0 ? "レーティング解除" : "レーティング ★×\(stars)"
+        let desc = stars == 0
+            ? String(localized: "Clear Rating")
+            : String(localized: "Rating \(stars) Star(s)")
         registerUndo(description: desc) { [weak self] in
             guard let self, let db = self.database else { return }
             for (te, old) in allTargets {
@@ -509,7 +515,7 @@ final class LibraryStore {
             }
         }
         recomputeVisible()
-        registerUndo(description: "ラベル変更") { [weak self] in
+        registerUndo(description: String(localized: "Label Change")) { [weak self] in
             guard let self, let db = self.database else { return }
             for (te, old) in allTargets {
                 guard self.entries[te.id] != nil else { continue }

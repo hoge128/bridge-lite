@@ -20,14 +20,7 @@ struct ThumbnailCellView: View {
         return .sooc
     }
 
-    private var identifierText: String {
-        let isJa = store.settings.language == "ja"
-        switch photoKind {
-        case .sooc:      return isJa ? "カメラ出力" : "SOOC"
-        case .raw:       return "RAW"
-        case .developed: return isJa ? "現像済" : "Retouched"
-        }
-    }
+    private var identifierText: String { photoKind.localizedBadgeName }
 
     var body: some View {
         strictBody
@@ -120,21 +113,19 @@ struct ThumbnailCellView: View {
 
     @ViewBuilder
     private var cellContextMenu: some View {
-        let isJa = store.settings.language == "ja"
-
-        Button(isJa ? "コピー" : "Copy") {
+        Button("Copy") {
             if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
             store.triggerCopy()
         }
 
-        Button(isJa ? "元のファイルを表示" : "Show in Finder") {
+        Button("Show in Finder") {
             NSWorkspace.shared.activateFileViewerSelecting([entry.url])
         }
 
         Divider()
 
-        Menu(isJa ? "評価" : "Rating") {
-            Button(isJa ? "評価なし" : "No Rating") {
+        Menu("Rating") {
+            Button("No Rating") {
                 if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
                 store.triggerRating(0)
             }
@@ -146,7 +137,7 @@ struct ThumbnailCellView: View {
             }
         }
 
-        Menu(isJa ? "ラベル" : "Label") {
+        Menu("Label") {
             ForEach(XmpLabel.allCases, id: \.rawValue) { label in
                 Button(label.name) {
                     if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
@@ -154,9 +145,8 @@ struct ThumbnailCellView: View {
                 }
             }
             Divider()
-            Button(isJa ? "ラベルを解除" : "Clear Label") {
+            Button("Clear Label") {
                 if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
-                // clear by applying the current label (toggle off)
                 if let current = store.xmpData[store.primaryID ?? entry.id]?.label {
                     store.applyLabel(current.rawValue)
                 }
@@ -169,7 +159,7 @@ struct ThumbnailCellView: View {
             if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
             store.triggerDelete()
         } label: {
-            Text(isJa ? "ゴミ箱に移動" : "Move to Trash")
+            Text("Move to Trash")
         }
     }
 

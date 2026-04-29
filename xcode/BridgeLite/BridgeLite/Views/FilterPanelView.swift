@@ -221,7 +221,6 @@ struct FilterPanelView: View {
 
                 // File Kind
                 SectionBox("File Type") {
-                    let isJa = store.settings.language == "ja"
                     VStack(alignment: .leading, spacing: 4) {
                         Toggle(isOn: Binding(
                             get: { store.filter.filterKinds.contains(.raw) },
@@ -231,9 +230,7 @@ struct FilterPanelView: View {
                             }
                         )) { Text("RAW").font(.caption) }
                         .toggleStyle(.checkbox)
-                        .help(isJa
-                              ? "RAW を各グループの代表サムネイルとして表示（RAW のないグループは非表示）"
-                              : "Use RAW as the representative thumbnail per group (groups without RAW are hidden)")
+                        .help("Use RAW as the representative thumbnail per group (groups without RAW are hidden)")
 
                         Toggle(isOn: Binding(
                             get: { store.filter.filterKinds.contains(.sooc) },
@@ -241,11 +238,9 @@ struct FilterPanelView: View {
                                 if on { store.filter.filterKinds.insert(.sooc) }
                                 else  { store.filter.filterKinds.remove(.sooc) }
                             }
-                        )) { Text(isJa ? "カメラ出力" : "SOOC").font(.caption) }
+                        )) { Text(PhotoKind.sooc.localizedName).font(.caption) }
                         .toggleStyle(.checkbox)
-                        .help(isJa
-                              ? "カメラ出力 JPEG を各グループの代表サムネイルとして表示（JPEG のないグループは非表示）"
-                              : "Use camera JPEG as the representative thumbnail per group (groups without JPEG are hidden)")
+                        .help("Use camera JPEG as the representative thumbnail per group (groups without JPEG are hidden)")
 
                         Toggle(isOn: Binding(
                             get: { store.filter.filterKinds.contains(.developed) },
@@ -253,22 +248,18 @@ struct FilterPanelView: View {
                                 if on { store.filter.filterKinds.insert(.developed) }
                                 else  { store.filter.filterKinds.remove(.developed) }
                             }
-                        )) { Text(isJa ? "現像済み" : "Developed").font(.caption) }
+                        )) { Text(PhotoKind.developed.localizedName).font(.caption) }
                         .toggleStyle(.checkbox)
-                        .help(isJa
-                              ? "現像済み JPEG を各グループの代表サムネイルとして表示（現像済みのないグループは非表示）"
-                              : "Use developed JPEG as the representative thumbnail per group (groups without developed JPEG are hidden)")
+                        .help("Use developed JPEG as the representative thumbnail per group (groups without developed JPEG are hidden)")
 
                         Divider()
 
                         Toggle(isOn: $store.filter.cameraOnly) {
-                            Text(isJa ? "カメラ撮影のみ" : "Camera shots only")
+                            Text("Camera shots only")
                                 .font(.caption)
                         }
                         .toggleStyle(.checkbox)
-                        .help(isJa
-                              ? "Make/Model EXIF を持たない画像（スクリーンショット・Web 画像など）を除外"
-                              : "Exclude images without camera Make/Model EXIF (screenshots, web images, etc.)")
+                        .help("Exclude images without camera Make/Model EXIF (screenshots, web images, etc.)")
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -303,9 +294,7 @@ struct FilterPanelView: View {
                                     .textCase(.uppercase)
                             }
                             .buttonStyle(.plain)
-                            .help(store.settings.language == "ja"
-                                  ? "チェックを外したカメラ機種を除外"
-                                  : "Uncheck cameras to exclude them from results")
+                            .help("Uncheck cameras to exclude them from results")
                         }
                     }
                     .padding(.horizontal, 8)
@@ -340,9 +329,7 @@ struct FilterPanelView: View {
                                     .textCase(.uppercase)
                             }
                             .buttonStyle(.plain)
-                            .help(store.settings.language == "ja"
-                                  ? "チェックを外したフォトグラファーを除外（EXIF Artist フィールドから取得）"
-                                  : "Uncheck photographers to exclude them (read from EXIF Artist field)")
+                            .help("Uncheck photographers to exclude them (read from EXIF Artist field)")
                         }
                     }
                     .padding(.horizontal, 8)
@@ -374,9 +361,7 @@ struct FilterPanelView: View {
                                 .kerning(1.2)
                                 .foregroundStyle(.secondary)
                                 .textCase(.uppercase)
-                                .help(store.settings.language == "ja"
-                                      ? "チェックを外したレンズを除外"
-                                      : "Uncheck lenses to exclude them from results")
+                                .help("Uncheck lenses to exclude them from results")
                         }
                     }
                     .padding(.horizontal, 8)
@@ -420,9 +405,7 @@ struct FilterPanelView: View {
                                 .textCase(.uppercase)
                         }
                         .buttonStyle(.plain)
-                        .help(store.settings.language == "ja"
-                              ? "チェックした星評価の写真のみ表示。何も選択しない場合は全評価を表示"
-                              : "Show only photos with checked ratings. Nothing checked = show all ratings")
+                        .help("Show only photos with checked ratings. Nothing checked = show all ratings")
                     }
                 }
                 .padding(.horizontal, 8)
@@ -462,9 +445,7 @@ struct FilterPanelView: View {
                                 .textCase(.uppercase)
                         }
                         .buttonStyle(.plain)
-                        .help(store.settings.language == "ja"
-                              ? "クリックして色ラベルで絞り込み。複数選択可"
-                              : "Click to filter by label color. Multiple selection supported")
+                        .help("Click to filter by label color. Multiple selection supported")
                     }
                 }
                 .padding(.horizontal, 8)
@@ -487,9 +468,7 @@ struct FilterPanelView: View {
                                 .textCase(.uppercase)
                         }
                         .buttonStyle(.plain)
-                        .help(store.settings.language == "ja"
-                              ? "ISO感度で絞り込み。バーをクリックして範囲を選択、またはテキストフィールドに直接入力"
-                              : "Filter by ISO sensitivity. Click bars to select range or type values directly")
+                        .help("Filter by ISO sensitivity. Click bars to select range or type values directly")
                     }
                 }
                 .padding(.horizontal, 8)
@@ -512,9 +491,7 @@ struct FilterPanelView: View {
                                 .textCase(.uppercase)
                         }
                         .buttonStyle(.plain)
-                        .help(store.settings.language == "ja"
-                              ? "焦点距離（35mm換算）で絞り込み。バーをクリックして範囲を選択"
-                              : "Filter by focal length (35mm equiv). Click bars to select range")
+                        .help("Filter by focal length (35mm equiv). Click bars to select range")
                     }
                 }
                 .padding(.horizontal, 8)
@@ -537,9 +514,7 @@ struct FilterPanelView: View {
                                 .textCase(.uppercase)
                         }
                         .buttonStyle(.plain)
-                        .help(store.settings.language == "ja"
-                              ? "シャッタースピードで絞り込み。1/2000s='2k'、1/60s='60' と表示"
-                              : "Filter by shutter speed. 1/2000s shown as '2k', 1/60s as '60'")
+                        .help("Filter by shutter speed. 1/2000s shown as '2k', 1/60s as '60'")
                     }
                 }
                 .padding(.horizontal, 8)
@@ -562,9 +537,7 @@ struct FilterPanelView: View {
                                 .textCase(.uppercase)
                         }
                         .buttonStyle(.plain)
-                        .help(store.settings.language == "ja"
-                              ? "絞り値（F値）で絞り込み。バーをクリックして範囲を選択"
-                              : "Filter by aperture (F-number). Click bars to select range")
+                        .help("Filter by aperture (F-number). Click bars to select range")
                     }
                 }
                 .padding(.horizontal, 8)
@@ -587,9 +560,7 @@ struct FilterPanelView: View {
                                 .textCase(.uppercase)
                         }
                         .buttonStyle(.plain)
-                        .help(store.settings.language == "ja"
-                              ? "撮影日付で絞り込み。14日以内は日単位、それ以上は月単位で表示"
-                              : "Filter by shooting date. Within 14 days = daily buckets, otherwise monthly")
+                        .help("Filter by shooting date. Within 14 days = daily buckets, otherwise monthly")
                     }
                 }
                 .padding(.horizontal, 8)

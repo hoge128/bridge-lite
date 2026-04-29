@@ -63,7 +63,7 @@ struct ThumbnailGridView: View {
             Image(systemName: "folder.badge.plus")
                 .font(.system(size: 56, weight: .thin))
                 .foregroundStyle(isDropTargeted ? Color.blue : Color.secondary)
-            Text("フォルダをドロップして開く")
+            Text("Drop a folder to open")
                 .font(.title3)
                 .foregroundStyle(isDropTargeted ? Color.blue : Color.secondary)
         }
@@ -145,8 +145,9 @@ private struct DailyGroupHeaderView: View {
 
     private static let dayFormatter: DateFormatter = {
         let f = DateFormatter()
-        f.locale = Locale(identifier: "ja_JP")
-        f.dateFormat = "yyyy年MM月dd日"
+        f.locale = Locale.current
+        f.dateStyle = .long
+        f.timeStyle = .none
         return f
     }()
 

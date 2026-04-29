@@ -80,7 +80,7 @@ struct GroupCompareView: View {
 
     private var headerBar: some View {
         HStack {
-            Button("閉じる") { closeCompare() }
+            Button("Close") { closeCompare() }
                 .keyboardShortcut(.escape, modifiers: [])
                 .buttonStyle(.borderless)
                 .foregroundStyle(.white.opacity(0.8))
@@ -98,7 +98,7 @@ struct GroupCompareView: View {
             Button { imageFilesOnly.toggle() } label: {
                 HStack(spacing: 5) {
                     Image(systemName: imageFilesOnly ? "photo.fill" : "photo")
-                    Text(store.settings.language == "ja" ? "画像のみ" : "Image only")
+                    Text("Image only")
                 }
                 .font(.callout)
                 .fontWeight(imageFilesOnly ? .semibold : .regular)
@@ -117,7 +117,7 @@ struct GroupCompareView: View {
                     store.settings.compareNavMode = navMode == .memberFirst ? .groupFirst : .memberFirst
                 } label: {
                     Label(
-                        navMode == .memberFirst ? "メンバー" : "グループ",
+                        navMode == .memberFirst ? "Member" : "Group",
                         systemImage: navMode == .memberFirst ? "rectangle.stack" : "arrow.left.and.right"
                     )
                     .font(.caption)
@@ -125,8 +125,8 @@ struct GroupCompareView: View {
                 .buttonStyle(.borderless)
                 .foregroundStyle(.white.opacity(0.7))
                 .help(navMode == .memberFirst
-                      ? "←→: メンバー移動 / Ctrl+Tab: グループ移動"
-                      : "←→: グループ移動 / Ctrl+Tab: メンバー移動")
+                      ? "←→: Member navigation / Ctrl+Tab: Group navigation"
+                      : "←→: Group navigation / Ctrl+Tab: Member navigation")
 
                 HStack(spacing: 24) {
                     Button {
@@ -237,14 +237,12 @@ private struct CompareMemberColumn: View {
     private var xmp: XmpData? { store.xmpData[memberID] }
     private var exif: ExifData? { store.exifData[memberID] }
 
-    private var isJa: Bool { store.settings.language == "ja" }
-
     private var kindLabel: (text: String, color: Color) {
         guard let entry else { return ("", .clear) }
-        if entry.isRaw { return ("RAW", .orange) }
+        if entry.isRaw { return (PhotoKind.raw.localizedBadgeName, .orange) }
         let isDev = (xmp?.developed == true) || (exif?.isDeveloped == true)
-        if isDev { return (isJa ? "現像済" : "Retouched", .green) }
-        return (isJa ? "カメラ出力" : "SOOC", Color.primary.opacity(0.4))
+        if isDev { return (PhotoKind.developed.localizedBadgeName, .green) }
+        return (PhotoKind.sooc.localizedBadgeName, Color.primary.opacity(0.4))
     }
 
     // Displayed image: high-res preview when ready, thumbnail as placeholder.
