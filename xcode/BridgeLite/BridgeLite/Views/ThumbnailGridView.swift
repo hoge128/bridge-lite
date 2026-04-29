@@ -86,23 +86,30 @@ struct ThumbnailGridView: View {
                 }
                 .padding(8)
             }
+            .onAppear { store.gridColumnCount = cols }
+            .onChange(of: cols) { _, newCols in store.gridColumnCount = newCols }
         }
     }
 
     // MARK: - Dense grid (justified flow layout)
 
     private var denseGrid: some View {
-        ScrollView {
-            JustifiedFlowLayout(targetRowHeight: cellSize, spacing: 4) {
-                ForEach(store.visibleIDs, id: \.self) { id in
-                    if let entry = store.entries[id] {
-                        ThumbnailCellView(entry: entry)
-                            .layoutValue(key: AspectRatioKey.self, value: aspectRatio(for: id))
-                            .onTapGesture { handleTap(id: id) }
+        GeometryReader { geo in
+            let estimatedCols = max(2, Int(geo.size.width / (cellSize * 1.5 + 4)))
+            ScrollView {
+                JustifiedFlowLayout(targetRowHeight: cellSize, spacing: 4) {
+                    ForEach(store.visibleIDs, id: \.self) { id in
+                        if let entry = store.entries[id] {
+                            ThumbnailCellView(entry: entry)
+                                .layoutValue(key: AspectRatioKey.self, value: aspectRatio(for: id))
+                                .onTapGesture { handleTap(id: id) }
+                        }
                     }
                 }
+                .padding(8)
             }
-            .padding(8)
+            .onAppear { store.gridColumnCount = estimatedCols }
+            .onChange(of: estimatedCols) { _, cols in store.gridColumnCount = cols }
         }
     }
 

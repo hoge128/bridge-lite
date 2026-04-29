@@ -29,6 +29,8 @@ struct GroupCompareView: View {
         return filtered.isEmpty ? allGroupMembers : filtered
     }
 
+    private var navMode: CompareNavMode { store.settings.compareNavMode }
+
     var body: some View {
         ZStack {
             Color.black.ignoresSafeArea()
@@ -51,10 +53,21 @@ struct GroupCompareView: View {
             }
         }
         .background {
-            Button("") {
-                if store.primaryID != nil { store.viewerMode = true }
+            Group {
+                Button("") {
+                    if store.primaryID != nil { store.viewerMode = true }
+                }
+                .keyboardShortcut(.space, modifiers: [])
+                // Ctrl+Tab: mode に応じてグループ間/メンバー間移動
+                Button("") {
+                    if navMode == .memberFirst { navigateNext() } else { navigateMemberNext() }
+                }
+                .keyboardShortcut(.tab, modifiers: .control)
+                Button("") {
+                    if navMode == .memberFirst { navigatePrev() } else { navigateMemberPrev() }
+                }
+                .keyboardShortcut(.tab, modifiers: [.control, .shift])
             }
-            .keyboardShortcut(.space, modifiers: [])
             .opacity(0)
             .allowsHitTesting(false)
         }
@@ -82,28 +95,58 @@ struct GroupCompareView: View {
 
             Spacer()
 
-            Toggle(isOn: $imageFilesOnly) {
-                Text(store.settings.language == "ja" ? "画像ファイルのみ" : "Image files only")
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.8))
+            Button { imageFilesOnly.toggle() } label: {
+                HStack(spacing: 5) {
+                    Image(systemName: imageFilesOnly ? "photo.fill" : "photo")
+                    Text(store.settings.language == "ja" ? "画像のみ" : "Image only")
+                }
+                .font(.callout)
+                .fontWeight(imageFilesOnly ? .semibold : .regular)
+                .foregroundStyle(imageFilesOnly ? .white : .white.opacity(0.6))
+                .padding(.horizontal, 12)
+                .padding(.vertical, 5)
+                .background(
+                    imageFilesOnly ? Color.accentColor.opacity(0.85) : Color.white.opacity(0.1),
+                    in: Capsule()
+                )
             }
-            .toggleStyle(.checkbox)
-            .controlSize(.small)
+            .buttonStyle(.plain)
 
-            HStack(spacing: 24) {
-                Button(action: navigatePrev) {
-                    Image(systemName: "chevron.left")
+            HStack(spacing: 16) {
+                Button {
+                    store.settings.compareNavMode = navMode == .memberFirst ? .groupFirst : .memberFirst
+                } label: {
+                    Label(
+                        navMode == .memberFirst ? "メンバー" : "グループ",
+                        systemImage: navMode == .memberFirst ? "rectangle.stack" : "arrow.left.and.right"
+                    )
+                    .font(.caption)
                 }
-                .keyboardShortcut(.leftArrow, modifiers: [])
                 .buttonStyle(.borderless)
-                .foregroundStyle(.white.opacity(0.8))
+                .foregroundStyle(.white.opacity(0.7))
+                .help(navMode == .memberFirst
+                      ? "←→: メンバー移動 / Ctrl+Tab: グループ移動"
+                      : "←→: グループ移動 / Ctrl+Tab: メンバー移動")
 
-                Button(action: navigateNext) {
-                    Image(systemName: "chevron.right")
+                HStack(spacing: 24) {
+                    Button {
+                        if navMode == .memberFirst { navigateMemberPrev() } else { navigatePrev() }
+                    } label: {
+                        Image(systemName: "chevron.left")
+                    }
+                    .keyboardShortcut(.leftArrow, modifiers: [])
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.white.opacity(0.8))
+
+                    Button {
+                        if navMode == .memberFirst { navigateMemberNext() } else { navigateNext() }
+                    } label: {
+                        Image(systemName: "chevron.right")
+                    }
+                    .keyboardShortcut(.rightArrow, modifiers: [])
+                    .buttonStyle(.borderless)
+                    .foregroundStyle(.white.opacity(0.8))
                 }
-                .keyboardShortcut(.rightArrow, modifiers: [])
-                .buttonStyle(.borderless)
-                .foregroundStyle(.white.opacity(0.8))
             }
         }
         .padding(.horizontal, 16)
@@ -158,6 +201,22 @@ struct GroupCompareView: View {
         if let first = members.first { store.selectEntry(first) }
     }
 
+    private func navigateMemberNext() {
+        let members = groupMembers
+        guard let current = store.primaryID,
+              let idx = members.firstIndex(of: current),
+              idx + 1 < members.count else { return }
+        store.selectEntry(members[idx + 1])
+    }
+
+    private func navigateMemberPrev() {
+        let members = groupMembers
+        guard let current = store.primaryID,
+              let idx = members.firstIndex(of: current),
+              idx > 0 else { return }
+        store.selectEntry(members[idx - 1])
+    }
+
     private func closeCompare() {
         store.selectEntry(currentRepID)
         store.compareMode = false
@@ -197,11 +256,12 @@ private struct CompareMemberColumn: View {
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
 
             Text(entry?.filename ?? "")
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                .font(.callout)
+                .foregroundStyle(.white)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity)
+                .padding(.horizontal, 4)
 
             ratingRow
         }
@@ -272,26 +332,32 @@ private struct CompareMemberColumn: View {
     }
 
     private var ratingRow: some View {
-        HStack(spacing: 8) {
-            Image(systemName: "xmark.circle")
-                .font(.system(size: 13))
-                .foregroundStyle(Color.red.opacity(0.5))
-                .onTapGesture { applyRating(0) }
+        HStack(spacing: 4) {
+            Button { applyRating(0) } label: {
+                Image(systemName: "xmark.circle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle((xmp?.rating ?? 0) > 0 ? Color.red.opacity(0.75) : Color.white.opacity(0.2))
+            }
+            .buttonStyle(.plain)
 
             ForEach(1...5, id: \.self) { n in
                 let filled = n <= (xmp?.rating ?? 0)
-                Image(systemName: filled ? "star.fill" : "star")
-                    .font(.system(size: 13))
-                    .foregroundStyle(filled ? Color.yellow : Color.secondary)
-                    .onTapGesture { applyRating(n) }
+                Button { applyRating(n) } label: {
+                    Image(systemName: filled ? "star.fill" : "star")
+                        .font(.system(size: 22))
+                        .foregroundStyle(filled ? Color.yellow : Color.white.opacity(0.3))
+                }
+                .buttonStyle(.plain)
             }
 
             if let flag = xmp?.flag {
-                Image(systemName: flag == .pick ? "flag.fill" : (flag == .reject ? "xmark.circle.fill" : "flag"))
-                    .font(.system(size: 13))
-                    .foregroundStyle(flag == .pick ? Color.orange : (flag == .reject ? Color.red : Color.secondary))
+                Spacer().frame(width: 4)
+                Image(systemName: flag == .pick ? "flag.fill" : "xmark.circle.fill")
+                    .font(.system(size: 15))
+                    .foregroundStyle(flag == .pick ? Color.orange : Color.red)
             }
         }
+        .padding(.vertical, 4)
     }
 
     private func applyRating(_ n: Int) {

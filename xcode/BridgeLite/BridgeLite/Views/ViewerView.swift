@@ -6,6 +6,7 @@ struct ViewerView: View {
     @Environment(LibraryStore.self) private var store
     @State private var fullResImage: CGImage?
     @State private var isLoadingFullRes = false
+    @State private var keyMonitor: Any?
 
     private var selectedEntry: PhotoEntry? {
         store.selectedID.flatMap { store.entries[$0] }
@@ -44,7 +45,6 @@ struct ViewerView: View {
             VStack {
                 HStack {
                     Button("Close") { store.viewerMode = false }
-                        .keyboardShortcut(.escape, modifiers: [])
                         .padding()
                     Spacer()
                     HStack(spacing: 16) {
@@ -57,6 +57,17 @@ struct ViewerView: View {
                 }
                 Spacer()
             }
+        }
+        .onAppear {
+            let s = store
+            keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard event.keyCode == 53 else { return event } // Escape
+                s.viewerMode = false
+                return nil // consume して GroupCompareView の Escape が連鎖しないようにする
+            }
+        }
+        .onDisappear {
+            if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
         }
         .task(id: store.selectedID) {
             fullResImage = nil

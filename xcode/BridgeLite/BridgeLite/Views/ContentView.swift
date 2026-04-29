@@ -56,14 +56,6 @@ struct FolderView: View {
                     guard !store.statusMessage.isEmpty else { return base }
                     return "\(base) (\(store.statusMessage))"
                 }())
-                .onKeyPress(.leftArrow) {
-                    if store.viewerMode || store.compareMode { return .ignored }
-                    store.navigatePrev(); return .handled
-                }
-                .onKeyPress(.rightArrow) {
-                    if store.viewerMode || store.compareMode { return .ignored }
-                    store.navigateNext(); return .handled
-                }
                 .onKeyPress(keys: [.tab], phases: .down) { press in
                     if store.viewerMode || store.compareMode { return .ignored }
                     store.cyclePairVariant(reverse: press.modifiers.contains(.shift))
@@ -143,12 +135,45 @@ struct FolderView: View {
             guard spaceKeyMonitor == nil else { return }
             let s = store
             spaceKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                guard event.keyCode == 49,
-                      event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
-                      !s.viewerMode, !s.compareMode,
-                      s.primaryID != nil else { return event }
-                s.viewerMode = true
-                return nil
+                // Space → viewer mode
+                if event.keyCode == 49,
+                   event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
+                   !s.viewerMode, !s.compareMode,
+                   s.primaryID != nil {
+                    s.viewerMode = true
+                    return nil
+                }
+                // Arrow keys — text view がフォーカスを持っている場合はスルー
+                guard !(NSApp.keyWindow?.firstResponder is NSTextView),
+                      !s.viewerMode, !s.compareMode else { return event }
+                // 矢印キーには .numericPad / .function が常に付く。関心のある modifier のみ抽出する
+                let mods = event.modifierFlags.intersection([.shift, .command, .control, .option])
+                let shift = mods.contains(.shift)
+                let cmd   = mods.contains(.command)
+                guard mods.subtracting([.shift, .command]).isEmpty else { return event }
+                switch event.keyCode {
+                case 123: // ←
+                    guard !cmd else { return event }
+                    shift ? s.rangeNavigatePrev() : s.navigatePrev()
+                    return nil
+                case 124: // →
+                    guard !cmd else { return event }
+                    shift ? s.rangeNavigateNext() : s.navigateNext()
+                    return nil
+                case 126: // ↑
+                    if shift && cmd { s.rangeNavigateFirst() }
+                    else if shift   { s.rangeNavigateUp() }
+                    else if cmd     { s.navigateFirst() }
+                    else            { s.navigateUp() }
+                    return nil
+                case 125: // ↓
+                    if shift && cmd { s.rangeNavigateLast() }
+                    else if shift   { s.rangeNavigateDown() }
+                    else if cmd     { s.navigateLast() }
+                    else            { s.navigateDown() }
+                    return nil
+                default: return event
+                }
             }
         }
         .onDisappear {

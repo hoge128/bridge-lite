@@ -4,6 +4,11 @@ enum GridMode: String, CaseIterable {
     case strict, dense
 }
 
+enum CompareNavMode: String {
+    case memberFirst  // ←→ = グループ内メンバー移動 / Ctrl+Tab = グループ間移動
+    case groupFirst   // ←→ = グループ間移動 / Ctrl+Tab = グループ内メンバー移動
+}
+
 enum SortKey: String, CaseIterable {
     case filename, createdDate, modifiedDate, fileSize, rating
 
@@ -74,6 +79,10 @@ final class SettingsStore {
     }
     var sortAscending: Bool = (UserDefaults.standard.object(forKey: "sortAscending") as? Bool) ?? true {
         didSet { UserDefaults.standard.set(sortAscending, forKey: "sortAscending") }
+    }
+    var compareNavMode: CompareNavMode = (UserDefaults.standard.string(forKey: "compareNavMode")
+                                           .flatMap(CompareNavMode.init(rawValue:))) ?? .memberFirst {
+        didSet { UserDefaults.standard.set(compareNavMode.rawValue, forKey: "compareNavMode") }
     }
 
     // MARK: - 伝播マトリクス (非対角 6 セル)

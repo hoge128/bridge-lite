@@ -32,6 +32,7 @@ final class LibraryStore {
     var viewerMode: Bool = false
     var compareMode: Bool = false
     var compareAnchorID: UInt64? = nil
+    var gridColumnCount: Int = 4
     var showFilters: Bool = true
     var showSidebar: Bool = true
     var filter: FilterCriteria = FilterCriteria() {
@@ -185,17 +186,87 @@ final class LibraryStore {
     }
 
     func navigateNext() {
-        guard let id = primaryID,
-              let idx = visibleIDs.firstIndex(of: id),
-              idx + 1 < visibleIDs.count else { return }
+        guard let id = primaryID else {
+            if let first = visibleIDs.first { selectEntry(first) }; return
+        }
+        guard let idx = visibleIDs.firstIndex(of: id), idx + 1 < visibleIDs.count else { return }
         selectEntry(visibleIDs[idx + 1])
     }
 
     func navigatePrev() {
-        guard let id = primaryID,
-              let idx = visibleIDs.firstIndex(of: id),
-              idx > 0 else { return }
+        guard let id = primaryID else {
+            if let first = visibleIDs.first { selectEntry(first) }; return
+        }
+        guard let idx = visibleIDs.firstIndex(of: id), idx > 0 else { return }
         selectEntry(visibleIDs[idx - 1])
+    }
+
+    func navigateUp() {
+        guard let id = primaryID else {
+            if let first = visibleIDs.first { selectEntry(first) }; return
+        }
+        guard let idx = visibleIDs.firstIndex(of: id) else { return }
+        selectEntry(visibleIDs[max(0, idx - gridColumnCount)])
+    }
+
+    func navigateDown() {
+        guard let id = primaryID else {
+            if let first = visibleIDs.first { selectEntry(first) }; return
+        }
+        guard let idx = visibleIDs.firstIndex(of: id) else { return }
+        selectEntry(visibleIDs[min(visibleIDs.count - 1, idx + gridColumnCount)])
+    }
+
+    func navigateFirst() {
+        guard !visibleIDs.isEmpty else { return }
+        selectEntry(visibleIDs[0])
+    }
+
+    func navigateLast() {
+        guard !visibleIDs.isEmpty else { return }
+        selectEntry(visibleIDs[visibleIDs.count - 1])
+    }
+
+    func rangeNavigateNext() {
+        guard let id = primaryID else {
+            if let first = visibleIDs.first { selectEntry(first) }; return
+        }
+        guard let idx = visibleIDs.firstIndex(of: id), idx + 1 < visibleIDs.count else { return }
+        rangeSelect(to: visibleIDs[idx + 1])
+    }
+
+    func rangeNavigatePrev() {
+        guard let id = primaryID else {
+            if let first = visibleIDs.first { selectEntry(first) }; return
+        }
+        guard let idx = visibleIDs.firstIndex(of: id), idx > 0 else { return }
+        rangeSelect(to: visibleIDs[idx - 1])
+    }
+
+    func rangeNavigateUp() {
+        guard let id = primaryID else {
+            if let first = visibleIDs.first { selectEntry(first) }; return
+        }
+        guard let idx = visibleIDs.firstIndex(of: id) else { return }
+        rangeSelect(to: visibleIDs[max(0, idx - gridColumnCount)])
+    }
+
+    func rangeNavigateDown() {
+        guard let id = primaryID else {
+            if let first = visibleIDs.first { selectEntry(first) }; return
+        }
+        guard let idx = visibleIDs.firstIndex(of: id) else { return }
+        rangeSelect(to: visibleIDs[min(visibleIDs.count - 1, idx + gridColumnCount)])
+    }
+
+    func rangeNavigateFirst() {
+        guard !visibleIDs.isEmpty else { return }
+        rangeSelect(to: visibleIDs[0])
+    }
+
+    func rangeNavigateLast() {
+        guard !visibleIDs.isEmpty else { return }
+        rangeSelect(to: visibleIDs[visibleIDs.count - 1])
     }
 
     func cyclePairVariant(reverse: Bool) {
