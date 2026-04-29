@@ -16,12 +16,12 @@ enum SortKey: String, CaseIterable {
 
     var localizedName: String {
         switch self {
-        case .filename:     return "ファイル名"
-        case .createdDate:  return "作成日"
-        case .modifiedDate: return "修正日"
-        case .fileSize:     return "サイズ"
-        case .rating:       return "レーティング"
-        case .exifDate:     return "撮影日時"
+        case .filename:     return String(localized: "sort.filename", defaultValue: "Filename")
+        case .createdDate:  return String(localized: "sort.created_date", defaultValue: "Created")
+        case .modifiedDate: return String(localized: "sort.modified_date", defaultValue: "Modified")
+        case .fileSize:     return String(localized: "sort.file_size", defaultValue: "Size")
+        case .rating:       return String(localized: "sort.rating", defaultValue: "Rating")
+        case .exifDate:     return String(localized: "sort.exif_date", defaultValue: "Shot Date")
         }
     }
 }
@@ -57,7 +57,7 @@ struct PropagationMatrix: Sendable, Equatable {
 final class SettingsStore {
     static let shared = SettingsStore()
 
-    var language: String = UserDefaults.standard.string(forKey: "language") ?? "ja" {
+    var language: String = UserDefaults.standard.string(forKey: "language") ?? "en" {
         didSet { UserDefaults.standard.set(language, forKey: "language") }
     }
     // [BETA DISABLED] UserDefaults を読まず常に .all で起動する。

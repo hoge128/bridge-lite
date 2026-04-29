@@ -42,6 +42,15 @@ extension FocusedValues {
 struct BridgeLiteApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
+    private static let _bootstrap: Void = {
+        let lang = UserDefaults.standard.string(forKey: "language") ?? "en"
+        if lang == "ja" || lang == "en" {
+            UserDefaults.standard.set([lang], forKey: "AppleLanguages")
+        }
+    }()
+
+    init() { _ = Self._bootstrap }
+
     var body: some Scene {
         WindowGroup(id: "main") {
             ContentView()
