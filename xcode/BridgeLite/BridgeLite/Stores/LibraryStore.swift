@@ -56,6 +56,10 @@ final class LibraryStore {
     private var pendingXmp: [UInt64: XmpData] = [:]
     private var metaFlushTask: Task<Void, Never>?
 
+    // フォルダ切替時にキャンセルする fire-and-forget タスク
+    private var exifLoadTask: Task<Void, Never>?
+    private var thumbnailLoadTask: Task<Void, Never>?
+
     private(set) var currentDirectoryURL: URL?
     private var database: BridgeCoreDatabase?
     private var lastImageList: BridgeCoreImageList?
@@ -95,10 +99,10 @@ final class LibraryStore {
             }
             ingest(scanned)
 
-            // 並行: EXIF バッチ + XMP バッチ (fire-and-forget)
+            // 並行: EXIF バッチ + XMP バッチ
             let allEntries = orderedIDs.compactMap { entries[$0] }
             let capturedList = lastImageList
-            Task {
+            exifLoadTask = Task {
                 let exifLimiter = ConcurrencyLimiter(maxConcurrent: 8)
                 await withTaskGroup(of: Void.self) { group in
                     for entry in allEntries {
@@ -125,7 +129,7 @@ final class LibraryStore {
                 + orderedIDs.filter { !visibleSet.contains($0) }.compactMap { entries[$0] }
             let capturedPhash = phashPipeline
             let capturedPairing = pairingPipeline
-            Task {
+            thumbnailLoadTask = Task {
                 await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash)
                 await capturedPhash.waitForAllPending()
                 await capturedPairing.notePhashReady(list: capturedList, db: db, store: self)
@@ -745,6 +749,10 @@ final class LibraryStore {
         thumbnailFlushTask = nil
         metaFlushTask?.cancel()
         metaFlushTask = nil
+        exifLoadTask?.cancel()
+        exifLoadTask = nil
+        thumbnailLoadTask?.cancel()
+        thumbnailLoadTask = nil
         pendingThumbnails = [:]
         pendingExif = [:]
         pendingXmp = [:]
