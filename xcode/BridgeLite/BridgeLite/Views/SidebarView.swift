@@ -88,6 +88,7 @@ struct SidebarView: View {
     @State private var highResPreview: CGImage? = nil
     @State private var rgbHistogram: RGBHistogram = .empty
     @State private var gpsCoordinate: (lat: Double, lon: Double)? = nil
+    @State private var lastPreviewTap: Date?
 
     private var selectedEntry: PhotoEntry? {
         store.selectedID.flatMap { store.entries[$0] }
@@ -102,6 +103,17 @@ struct SidebarView: View {
                             .frame(maxWidth: .infinity)
                             .frame(height: 220)
                             .clipped()
+                            .onTapGesture {
+                                let now = Date()
+                                if let last = lastPreviewTap,
+                                   now.timeIntervalSince(last) < NSEvent.doubleClickInterval {
+                                    store.compareAnchorID = entry.id
+                                    store.compareMode = true
+                                    lastPreviewTap = nil
+                                } else {
+                                    lastPreviewTap = now
+                                }
+                            }
 
                         Group {
                             if !entry.isRaw, !rgbHistogram.isEmpty {
@@ -363,6 +375,7 @@ struct VariationThumbView: View {
     let entry: PhotoEntry
     let isSelected: Bool
     @Environment(LibraryStore.self) private var store
+    @State private var lastTap: Date?
 
     private var thumbnail: CGImage? { store.thumbnailImages[entry.id] }
     private var isDev: Bool {
@@ -397,11 +410,68 @@ struct VariationThumbView: View {
                 }
                 .padding(2)
         }
-        .onTapGesture { store.selectEntry(entry.id) }
-        .contextMenu {
-            Button("元のファイルを表示") {
-                NSWorkspace.shared.activateFileViewerSelecting([entry.url])
+        .onTapGesture {
+            let now = Date()
+            if let last = lastTap,
+               now.timeIntervalSince(last) < NSEvent.doubleClickInterval {
+                store.selectEntry(entry.id)
+                store.compareAnchorID = entry.id
+                store.compareMode = true
+                lastTap = nil
+            } else {
+                lastTap = now
+                store.selectEntry(entry.id)
             }
+        }
+        .contextMenu { variationContextMenu }
+    }
+
+    @ViewBuilder
+    private var variationContextMenu: some View {
+        let isJa = store.settings.language == "ja"
+
+        Button(isJa ? "元のファイルを表示" : "Show in Finder") {
+            NSWorkspace.shared.activateFileViewerSelecting([entry.url])
+        }
+
+        Divider()
+
+        Menu(isJa ? "評価" : "Rating") {
+            Button(isJa ? "評価なし" : "No Rating") {
+                store.selectEntry(entry.id)
+                store.triggerRating(0)
+            }
+            ForEach(1...5, id: \.self) { n in
+                Button(String(repeating: "★", count: n)) {
+                    store.selectEntry(entry.id)
+                    store.triggerRating(n)
+                }
+            }
+        }
+
+        Menu(isJa ? "ラベル" : "Label") {
+            ForEach(XmpLabel.allCases, id: \.rawValue) { label in
+                Button(label.name) {
+                    store.selectEntry(entry.id)
+                    store.applyLabel(label.rawValue)
+                }
+            }
+            Divider()
+            Button(isJa ? "ラベルを解除" : "Clear Label") {
+                store.selectEntry(entry.id)
+                if let current = store.xmpData[entry.id]?.label {
+                    store.applyLabel(current.rawValue)
+                }
+            }
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            store.selectEntry(entry.id)
+            store.triggerDelete()
+        } label: {
+            Text(isJa ? "ゴミ箱に移動" : "Move to Trash")
         }
     }
 }
