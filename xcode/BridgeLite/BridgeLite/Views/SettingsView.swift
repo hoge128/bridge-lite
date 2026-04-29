@@ -12,14 +12,6 @@ struct SettingsView: View {
                     Text("日本語").tag("ja")
                     Text("English").tag("en")
                 }
-                Picker("Theme", selection: $settings.theme) {
-                    Text("System").tag("system")
-                    Text("Light").tag("light")
-                    Text("Dark").tag("dark")
-                }
-            }
-            Section("Library") {
-                TextField("Default Path", text: $settings.defaultPath)
             }
             Section {
                 propagationGrid

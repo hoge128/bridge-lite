@@ -5,6 +5,8 @@ struct ThumbnailCellView: View {
     let entry: PhotoEntry
     @Environment(LibraryStore.self) private var store
     @State private var isHovered = false
+    @State private var dragSource = CellDragSource()
+    @State private var dragInFlight = false
 
     private var cellSize: CGFloat { store.settings.thumbnailSize }
     private var isSelected: Bool { store.selectedIDs.contains(entry.id) }
@@ -68,6 +70,18 @@ struct ThumbnailCellView: View {
         }
         .onHover { isHovered = $0 }
         .contextMenu { cellContextMenu }
+        .background { CellDragBackingView(source: dragSource) }
+        .gesture(
+            DragGesture(minimumDistance: 4)
+                .onChanged { _ in
+                    guard !dragInFlight, let event = NSApp.currentEvent else { return }
+                    dragInFlight = true
+                    let ids = store.selectedIDs.contains(entry.id) ? store.selectedIDs : [entry.id]
+                    dragSource.urlsProvider = { ids.compactMap { self.store.entries[$0]?.url } }
+                    dragSource.begin(event: event, cellSize: cellSize)
+                }
+                .onEnded { _ in dragInFlight = false }
+        )
     }
 
     // MARK: - Shared sub-views
@@ -174,6 +188,40 @@ struct ThumbnailCellView: View {
         }
         .animation(.easeInOut(duration: 0.08), value: isSelected)
     }
+}
+
+// MARK: - Drag source (AppKit layer)
+
+@MainActor
+private final class CellDragSource: NSObject, NSDraggingSource {
+    var urlsProvider: (() -> [URL])?
+    weak var backingView: NSView?
+
+    nonisolated func draggingSession(_ session: NSDraggingSession,
+                                     sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
+
+    func begin(event: NSEvent, cellSize: CGFloat) {
+        guard let view = backingView,
+              let urls = urlsProvider?(), !urls.isEmpty else { return }
+        let frame = NSRect(origin: .zero, size: CGSize(width: cellSize, height: cellSize))
+        let items = urls.map { url -> NSDraggingItem in
+            let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+            item.setDraggingFrame(frame, contents: nil)
+            return item
+        }
+        view.beginDraggingSession(with: items, event: event, source: self)
+    }
+}
+
+private struct CellDragBackingView: NSViewRepresentable {
+    let source: CellDragSource
+
+    func makeNSView(context: Context) -> NSView {
+        let v = NSView()
+        source.backingView = v
+        return v
+    }
+    func updateNSView(_ v: NSView, context: Context) { source.backingView = v }
 }
 
 struct ThumbnailImageView: View {
