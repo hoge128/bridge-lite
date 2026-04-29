@@ -269,8 +269,10 @@ struct FilterPanelView: View {
                                     ))
                                     .font(.caption)
                                     .toggleStyle(.checkbox)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, 4)
                         } label: {
                             Button { cameraExpanded.toggle() } label: {
@@ -301,8 +303,10 @@ struct FilterPanelView: View {
                                     ))
                                     .font(.caption)
                                     .toggleStyle(.checkbox)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, 4)
                         } label: {
                             Button { artistExpanded.toggle() } label: {
@@ -332,8 +336,11 @@ struct FilterPanelView: View {
                                         }
                                     ))
                                     .font(.caption)
+                                    .toggleStyle(.checkbox)
+                                    .frame(maxWidth: .infinity, alignment: .leading)
                                 }
                             }
+                            .frame(maxWidth: .infinity, alignment: .leading)
                             .padding(.top, 4)
                         } label: {
                             Text("Lens")
