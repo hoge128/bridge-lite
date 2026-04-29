@@ -20,8 +20,8 @@ struct FilterCriteria: Sendable, Equatable {
     var dateMax: String = ""
     var filterRatings: Set<Int> = []
     var filterLabels: Set<XmpLabel> = []
-    var filterFlags: Set<XmpFlag> = []
     var filterKinds: Set<PhotoKind> = []
+    var cameraOnly: Bool = false
 
     var isActive: Bool {
         !excludedCameras.isEmpty || !excludedLenses.isEmpty || !excludedArtists.isEmpty ||
@@ -30,11 +30,16 @@ struct FilterCriteria: Sendable, Equatable {
         !shutterMin.isEmpty || !shutterMax.isEmpty ||
         !apertureMin.isEmpty || !apertureMax.isEmpty ||
         !dateMin.isEmpty || !dateMax.isEmpty ||
-        !filterRatings.isEmpty || !filterLabels.isEmpty || !filterFlags.isEmpty ||
-        !filterKinds.isEmpty
+        !filterRatings.isEmpty || !filterLabels.isEmpty ||
+        !filterKinds.isEmpty || cameraOnly
     }
 
     func matches(entry: PhotoEntry, exif: ExifData?, xmp: XmpData?) -> Bool {
+        // Camera-only filter: exclude images without camera Make/Model (e.g. screenshots, web images)
+        if cameraOnly, let exif = exif {
+            let hasCameraTag = !(exif.make ?? "").isEmpty || !(exif.model ?? "").isEmpty
+            if !hasCameraTag { return false }
+        }
         // Camera filter
         if let cameraName = exif?.cameraName, !excludedCameras.isEmpty, excludedCameras.contains(cameraName) {
             return false
@@ -86,10 +91,6 @@ struct FilterCriteria: Sendable, Equatable {
         // Label filter
         if !filterLabels.isEmpty {
             guard let label = xmp?.label, filterLabels.contains(label) else { return false }
-        }
-        // Flag filter
-        if !filterFlags.isEmpty {
-            guard let flag = xmp?.flag, filterFlags.contains(flag) else { return false }
         }
         return true
     }

@@ -350,12 +350,6 @@ private struct CompareMemberColumn: View {
                 .buttonStyle(.plain)
             }
 
-            if let flag = xmp?.flag {
-                Spacer().frame(width: 4)
-                Image(systemName: flag == .pick ? "flag.fill" : "xmark.circle.fill")
-                    .font(.system(size: 15))
-                    .foregroundStyle(flag == .pick ? Color.orange : Color.red)
-            }
         }
         .padding(.vertical, 4)
     }

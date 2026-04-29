@@ -95,9 +95,6 @@ struct BridgeLiteCommands: Commands {
                     .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: [])
             }
             Divider()
-            Button("Pick")   { store?.togglePick()   }.keyboardShortcut("p", modifiers: [])
-            Button("Reject") { store?.toggleReject() }.keyboardShortcut("x", modifiers: [])
-            Divider()
             Button("Label Red")    { store?.applyLabel(1) }.keyboardShortcut("6", modifiers: [])
             Button("Label Yellow") { store?.applyLabel(2) }.keyboardShortcut("7", modifiers: [])
             Button("Label Green")  { store?.applyLabel(3) }.keyboardShortcut("8", modifiers: [])

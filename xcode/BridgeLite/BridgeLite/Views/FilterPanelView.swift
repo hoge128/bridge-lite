@@ -249,6 +249,17 @@ struct FilterPanelView: View {
                             }
                         )) { Text(isJa ? "現像済み" : "Developed").font(.caption) }
                         .toggleStyle(.checkbox)
+
+                        Divider()
+
+                        Toggle(isOn: $store.filter.cameraOnly) {
+                            Text(isJa ? "カメラ撮影のみ" : "Camera shots only")
+                                .font(.caption)
+                        }
+                        .toggleStyle(.checkbox)
+                        .help(isJa
+                              ? "Make/Model EXIF を持たない画像（スクリーンショット・Web 画像など）を除外"
+                              : "Exclude images without camera Make/Model EXIF (screenshots, web images, etc.)")
                     }
                     .frame(maxWidth: .infinity, alignment: .leading)
                 }
@@ -429,30 +440,6 @@ struct FilterPanelView: View {
                                 .textCase(.uppercase)
                         }
                         .buttonStyle(.plain)
-                    }
-                }
-                .padding(.horizontal, 8)
-
-                // Flag
-                SectionBox("Flag") {
-                    HStack(spacing: 8) {
-                        ForEach([XmpFlag.pick, XmpFlag.reject], id: \.rawValue) { flag in
-                            Button {
-                                if store.filter.filterFlags.contains(flag) {
-                                    store.filter.filterFlags.remove(flag)
-                                } else {
-                                    store.filter.filterFlags.insert(flag)
-                                }
-                            } label: {
-                                Text(flag == .pick ? "✓ Pick" : "✕ Reject")
-                                    .font(.caption)
-                                    .foregroundStyle(
-                                        store.filter.filterFlags.contains(flag)
-                                        ? Color.accentColor : Color.primary
-                                    )
-                            }
-                            .buttonStyle(.plain)
-                        }
                     }
                 }
                 .padding(.horizontal, 8)

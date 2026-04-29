@@ -3,7 +3,6 @@ import SwiftUI
 struct XmpData: Sendable, Equatable {
     var rating: Int?       // 0-5, nil = unset
     var label: XmpLabel?
-    var flag: XmpFlag?
     var developed: Bool = false
 }
 
@@ -35,7 +34,3 @@ enum XmpLabel: UInt8, Sendable, CaseIterable {
     }
 }
 
-enum XmpFlag: UInt8, Sendable {
-    case pick   = 1
-    case reject = 2
-}

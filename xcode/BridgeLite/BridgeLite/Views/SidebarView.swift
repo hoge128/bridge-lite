@@ -568,23 +568,6 @@ struct XmpSectionView: View {
                         .onTapGesture { store.applyLabel(label.rawValue) }
                     }
                 }
-                HStack(spacing: 12) {
-                    Button(action: { store.togglePick() }) {
-                        Image(systemName: xmp?.flag == .pick ? "flag.fill" : "flag")
-                            .foregroundStyle(xmp?.flag == .pick ? Color.orange : Color.secondary)
-                            .font(.system(size: 15))
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Pick (P)")
-
-                    Button(action: { store.toggleReject() }) {
-                        Image(systemName: xmp?.flag == .reject ? "xmark.circle.fill" : "xmark.circle")
-                            .foregroundStyle(xmp?.flag == .reject ? Color.red : Color.secondary)
-                            .font(.system(size: 15))
-                    }
-                    .buttonStyle(.borderless)
-                    .help("Reject (X)")
-                }
             }
         }
         .padding(.horizontal, 8)

@@ -469,7 +469,6 @@ final class LibraryStore {
                 allTargets.append((entry: te, old: xmpData[targetID]?.rating))
                 var current = xmpData[targetID] ?? XmpData()
                 current.rating = stars == 0 ? nil : stars
-                current.flag = nil
                 xmpData[targetID] = current
                 let x = current; let url = te.url
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
@@ -524,61 +523,6 @@ final class LibraryStore {
         }
     }
 
-    func togglePick() {
-        guard !selectedIDs.isEmpty, let db = database else { return }
-        let newFlag: XmpFlag? = xmpData[primaryID ?? selectedIDs.first!]?.flag == .pick ? nil : .pick
-        var allTargets: [(entry: PhotoEntry, old: XmpFlag?)] = []
-        for id in selectedIDs {
-            guard let entry = entries[id] else { continue }
-            allTargets.append((entry: entry, old: xmpData[id]?.flag))
-            var current = xmpData[id] ?? XmpData()
-            current.flag = newFlag
-            xmpData[id] = current
-            let x = current
-            Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x, db: db) }
-        }
-        recomputeVisible()
-        registerUndo(description: "Pick フラグ変更") { [weak self] in
-            guard let self, let db = self.database else { return }
-            for (te, old) in allTargets {
-                guard self.entries[te.id] != nil else { continue }
-                var current = self.xmpData[te.id] ?? XmpData()
-                current.flag = old
-                self.xmpData[te.id] = current
-                let x = current; let url = te.url
-                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
-            }
-            self.recomputeVisible()
-        }
-    }
-
-    func toggleReject() {
-        guard !selectedIDs.isEmpty, let db = database else { return }
-        let newFlag: XmpFlag? = xmpData[primaryID ?? selectedIDs.first!]?.flag == .reject ? nil : .reject
-        var allTargets: [(entry: PhotoEntry, old: XmpFlag?)] = []
-        for id in selectedIDs {
-            guard let entry = entries[id] else { continue }
-            allTargets.append((entry: entry, old: xmpData[id]?.flag))
-            var current = xmpData[id] ?? XmpData()
-            current.flag = newFlag
-            xmpData[id] = current
-            let x = current
-            Task { _ = await BridgeCore.writeXmp(url: entry.url, xmp: x, db: db) }
-        }
-        recomputeVisible()
-        registerUndo(description: "Reject フラグ変更") { [weak self] in
-            guard let self, let db = self.database else { return }
-            for (te, old) in allTargets {
-                guard self.entries[te.id] != nil else { continue }
-                var current = self.xmpData[te.id] ?? XmpData()
-                current.flag = old
-                self.xmpData[te.id] = current
-                let x = current; let url = te.url
-                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
-            }
-            self.recomputeVisible()
-        }
-    }
 
     // MARK: - Computed
 
@@ -726,8 +670,7 @@ final class LibraryStore {
     }
 
     func setExif(id: UInt64, exif: ExifData?) {
-        guard let exif else { return }
-        pendingExif[id] = exif
+        pendingExif[id] = exif ?? ExifData()
         scheduleMetaFlush()
     }
 

@@ -44,7 +44,6 @@ struct ThumbnailCellView: View {
             }
             .frame(width: cellSize, height: cellSize)
             .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(alignment: .topLeading) { flagView.padding(5) }
             .overlay(alignment: .topTrailing) {
                 identifierBadge
                     .padding(4)
@@ -80,16 +79,6 @@ struct ThumbnailCellView: View {
                 Spacer()
                 label.color.opacity(0.85).frame(height: 5)
             }
-        }
-    }
-
-    @ViewBuilder
-    private var flagView: some View {
-        if let flag = xmp?.flag {
-            Image(systemName: flag == .pick ? "flag.fill" : "xmark.circle.fill")
-                .font(.caption2.bold())
-                .foregroundStyle(flag == .pick ? Color.white : Color.red)
-                .shadow(color: .black.opacity(0.5), radius: 1)
         }
     }
 

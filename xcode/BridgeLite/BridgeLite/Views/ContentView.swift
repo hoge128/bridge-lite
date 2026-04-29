@@ -74,14 +74,6 @@ struct FolderView: View {
                     }
                     return .ignored
                 }
-                .onKeyPress(characters: CharacterSet(charactersIn: "pPxX"), phases: .down) { press in
-                    if store.viewerMode { return .ignored }
-                    switch press.characters.lowercased() {
-                    case "p": store.togglePick();   return .handled
-                    case "x": store.toggleReject(); return .handled
-                    default:  return .ignored
-                    }
-                }
                 .background {
                     Group {
                         Button("") { store.selectAll() }
