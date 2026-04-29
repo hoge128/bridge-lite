@@ -1,9 +1,7 @@
 import Foundation
 
-enum GridMode: String, CaseIterable {
-    case strict, dense
-}
-
+// [BETA DISABLED] .daily はスキャン中フリーズ未解決のため UI から非公開。
+// ViewModePicker を ToolbarView に戻すことで再有効化できる。
 enum ViewMode: String, CaseIterable {
     case all, daily
 }
@@ -14,7 +12,7 @@ enum CompareNavMode: String {
 }
 
 enum SortKey: String, CaseIterable {
-    case filename, createdDate, modifiedDate, fileSize, rating
+    case filename, createdDate, modifiedDate, fileSize, rating, exifDate
 
     var localizedName: String {
         switch self {
@@ -23,6 +21,7 @@ enum SortKey: String, CaseIterable {
         case .modifiedDate: return "修正日"
         case .fileSize:     return "サイズ"
         case .rating:       return "レーティング"
+        case .exifDate:     return "撮影日時"
         }
     }
 }
@@ -67,14 +66,10 @@ final class SettingsStore {
     var theme: String = UserDefaults.standard.string(forKey: "theme") ?? "system" {
         didSet { UserDefaults.standard.set(theme, forKey: "theme") }
     }
-    var gridMode: GridMode = (UserDefaults.standard.string(forKey: "gridMode")
-                               .flatMap(GridMode.init(rawValue:))) ?? .strict {
-        didSet { UserDefaults.standard.set(gridMode.rawValue, forKey: "gridMode") }
-    }
-    var viewMode: ViewMode = (UserDefaults.standard.string(forKey: "viewMode")
-                               .flatMap(ViewMode.init(rawValue:))) ?? .all {
-        didSet { UserDefaults.standard.set(viewMode.rawValue, forKey: "viewMode") }
-    }
+    // [BETA DISABLED] UserDefaults を読まず常に .all で起動する。
+    // 再有効化時は下記に戻す:
+    // (UserDefaults.standard.string(forKey: "viewMode").flatMap(ViewMode.init(rawValue:))) ?? .all
+    var viewMode: ViewMode = .all
     var thumbnailSize: CGFloat = {
         let v = UserDefaults.standard.double(forKey: "thumbnailSize")
         return v > 0 ? CGFloat(v) : 180

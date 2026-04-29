@@ -28,11 +28,7 @@ struct ThumbnailCellView: View {
     }
 
     var body: some View {
-        if store.settings.gridMode == .dense {
-            denseBody
-        } else {
-            strictBody
-        }
+        strictBody
     }
 
     // MARK: - Strict mode (square tile sized by slider, filename + rating below)
@@ -71,35 +67,6 @@ struct ThumbnailCellView: View {
             }
             .frame(width: cellSize)
         }
-        .onHover { isHovered = $0 }
-        .contextMenu { cellContextMenu }
-    }
-
-    // MARK: - Dense mode (flexible size, no filename, overlaid metadata)
-
-    private var denseBody: some View {
-        ZStack {
-            ThumbnailImageView(cgImage: thumbnail)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            colorLabelStrip
-        }
-        .clipShape(RoundedRectangle(cornerRadius: 4))
-        .overlay(alignment: .topLeading) {
-            VStack(alignment: .leading, spacing: 2) {
-                flagView
-                if let rating = xmp?.rating, rating > 0 {
-                    Text(String(repeating: "★", count: rating))
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.yellow.opacity(0.75))
-                        .padding(.horizontal, 4)
-                        .padding(.vertical, 2)
-                        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 3))
-                }
-            }
-            .padding(4)
-        }
-        .overlay(alignment: .topTrailing) { identifierBadge.padding(4) }
-        .overlay { selectionStroke(cornerRadius: 4) }
         .onHover { isHovered = $0 }
         .contextMenu { cellContextMenu }
     }

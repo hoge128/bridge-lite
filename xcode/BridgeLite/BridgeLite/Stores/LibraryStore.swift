@@ -600,6 +600,9 @@ final class LibraryStore {
             }
         }
         visibleIDs = sortedIDs(filtered)
+        if settings.viewMode == .daily {
+            rebuildDailyGroups()
+        }
     }
 
     func applyOrder() { recomputeVisible() }
@@ -638,6 +641,8 @@ final class LibraryStore {
             let ra = xmpData[a]?.rating ?? 0
             let rb = xmpData[b]?.rating ?? 0
             return ra == rb ? .orderedSame : (ra < rb ? .orderedAscending : .orderedDescending)
+        case .exifDate:
+            return photoDate(for: a).compare(photoDate(for: b))
         }
     }
 
@@ -654,6 +659,7 @@ final class LibraryStore {
     }
 
     // MARK: - Daily grouping
+    // [BETA DISABLED] ViewModePicker 非表示中は到達しない。削除しないこと。
 
     struct DailyGroup: Identifiable {
         let date: Date
@@ -661,7 +667,11 @@ final class LibraryStore {
         var id: Date { date }
     }
 
-    var dailyGroups: [DailyGroup] {
+    // view body は stored array を O(1) で読むだけ。@Observable の自動追跡で
+    // body が 20Hz 再評価されても重い日付パース処理は走らない。
+    private(set) var dailyGroups: [DailyGroup] = []
+
+    private func rebuildDailyGroups() {
         let cal = Calendar.current
         var grouped: [Date: [UInt64]] = [:]
         for id in visibleIDs {
@@ -670,7 +680,12 @@ final class LibraryStore {
         }
         let asc = settings.sortAscending
         let sortedDays = grouped.keys.sorted { asc ? $0 < $1 : $0 > $1 }
-        return sortedDays.map { DailyGroup(date: $0, ids: grouped[$0]!) }
+        dailyGroups = sortedDays.map { DailyGroup(date: $0, ids: grouped[$0]!) }
+    }
+
+    func refreshDailyGroupsIfNeeded() {
+        guard settings.viewMode == .daily else { return }
+        rebuildDailyGroups()
     }
 
     func photoDate(for id: UInt64) -> Date {
@@ -686,7 +701,7 @@ final class LibraryStore {
     }()
 
     func selectGroupIDs(_ ids: [UInt64]) {
-        for id in ids { selectedIDs.insert(id) }
+        selectedIDs.formUnion(ids)
         if primaryID == nil { primaryID = ids.first }
     }
 

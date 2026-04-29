@@ -1,6 +1,8 @@
 import SwiftUI
 
 // MARK: - Liquid Glass style view mode picker
+// [BETA DISABLED] デイリーモードはスキャン中のフリーズが未解決のため非表示。
+// 再有効化する場合は ToolbarView.principal ブロックに ViewModePicker を戻す。
 
 private struct ViewModePicker: View {
     @Binding var selection: ViewMode
@@ -86,8 +88,6 @@ struct ToolbarView: ToolbarContent {
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .transition(.opacity)
-            } else if !store.viewerMode && !store.compareMode {
-                ViewModePicker(selection: $settings.viewMode)
             }
         }
 
@@ -102,6 +102,7 @@ struct ToolbarView: ToolbarContent {
                 Menu {
                     Picker("", selection: $settings.sortKey) {
                         Text("ファイル名 別").tag(SortKey.filename)
+                        Text("撮影日時 別").tag(SortKey.exifDate)
                         Text("作成日 別").tag(SortKey.createdDate)
                         Text("修正日 別").tag(SortKey.modifiedDate)
                         Text("サイズ 別").tag(SortKey.fileSize)
@@ -119,12 +120,6 @@ struct ToolbarView: ToolbarContent {
                 .help(settings.sortAscending ? "昇順" : "降順")
                 .onChange(of: settings.sortAscending) { store.applyOrder() }
 
-                Picker("Layout", selection: $settings.gridMode) {
-                    Image(systemName: "square.grid.3x3").tag(GridMode.strict)
-                    Image(systemName: "rectangle.grid.3x2").tag(GridMode.dense)
-                }
-                .pickerStyle(.segmented)
-                .help("Grid layout")
                 Toggle(isOn: $store.showSidebar) {
                     Label("Metadata", systemImage: "sidebar.right")
                 }
