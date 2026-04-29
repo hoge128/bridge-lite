@@ -48,6 +48,13 @@ final class LibraryStore {
     private var undoMessageTask: Task<Void, Never>?
     var canUndo: Bool { !undoStack.isEmpty }
 
+    // Batch flush — coalesces rapid dict mutations to reduce @Observable invalidation frequency
+    private var pendingThumbnails: [UInt64: CGImage] = [:]
+    private var thumbnailFlushTask: Task<Void, Never>?
+    private var pendingExif: [UInt64: ExifData] = [:]
+    private var pendingXmp: [UInt64: XmpData] = [:]
+    private var metaFlushTask: Task<Void, Never>?
+
     private(set) var currentDirectoryURL: URL?
     private var database: BridgeCoreDatabase?
     private var lastImageList: BridgeCoreImageList?
@@ -91,15 +98,18 @@ final class LibraryStore {
             let allEntries = orderedIDs.compactMap { entries[$0] }
             let capturedList = lastImageList
             Task {
+                let exifLimiter = ConcurrencyLimiter(maxConcurrent: 8)
                 await withTaskGroup(of: Void.self) { group in
                     for entry in allEntries {
                         group.addTask { [weak self] in
                             guard let self else { return }
-                            async let exif = BridgeCore.fetchExif(url: entry.url, db: db)
-                            async let xmp  = BridgeCore.readXmp(url: entry.url)
-                            let (e, x) = await (exif, xmp)
-                            await self.setExif(id: entry.id, exif: e)
-                            await self.setXmp(id: entry.id, xmp: x)
+                            try? await exifLimiter.run {
+                                async let exif = BridgeCore.fetchExif(url: entry.url, db: db)
+                                async let xmp  = BridgeCore.readXmp(url: entry.url)
+                                let (e, x) = await (exif, xmp)
+                                await self.setExif(id: entry.id, exif: e)
+                                await self.setXmp(id: entry.id, xmp: x)
+                            }
                         }
                     }
                 }
@@ -108,7 +118,10 @@ final class LibraryStore {
 
             // サムネイル → pHash → shot-group reindex (直列チェーン)
             statusMessage = String(localized: "Loading thumbnails…")
-            let entriesToLoad = orderedIDs.compactMap { entries[$0] }
+            // visibleIDs (sort order) first so top-of-grid thumbnails appear before off-screen ones
+            let visibleSet = Set(visibleIDs)
+            let entriesToLoad = visibleIDs.compactMap { entries[$0] }
+                + orderedIDs.filter { !visibleSet.contains($0) }.compactMap { entries[$0] }
             let capturedPhash = phashPipeline
             let capturedPairing = pairingPipeline
             Task {
@@ -506,13 +519,54 @@ final class LibraryStore {
             liveReps = computeRepresentatives(groups: shotGroups, entries: entries)
         }
         let reps = orderedIDs.filter { liveReps.contains($0) }
+        let filtered: [UInt64]
         if !filter.isActive {
-            visibleIDs = reps
-            return
+            filtered = reps
+        } else {
+            filtered = reps.filter { id in
+                guard let entry = entries[id] else { return false }
+                return filter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id])
+            }
         }
-        visibleIDs = reps.filter { id in
-            guard let entry = entries[id] else { return false }
-            return filter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id])
+        visibleIDs = sortedIDs(filtered)
+    }
+
+    func applyOrder() { recomputeVisible() }
+
+    private func sortedIDs(_ ids: [UInt64]) -> [UInt64] {
+        let key = settings.sortKey
+        let asc = settings.sortAscending
+        return ids.sorted { a, b in
+            let cmp = compareIDs(a, b, key: key)
+            if cmp != .orderedSame {
+                return asc ? cmp == .orderedAscending : cmp == .orderedDescending
+            }
+            let an = entries[a]?.filename ?? ""
+            let bn = entries[b]?.filename ?? ""
+            return an < bn
+        }
+    }
+
+    private func compareIDs(_ a: UInt64, _ b: UInt64, key: SortKey) -> ComparisonResult {
+        switch key {
+        case .filename:
+            return (entries[a]?.filename ?? "").compare(entries[b]?.filename ?? "")
+        case .createdDate:
+            let da = entries[a]?.createdDate ?? .distantPast
+            let db = entries[b]?.createdDate ?? .distantPast
+            return da.compare(db)
+        case .modifiedDate:
+            let da = entries[a]?.modifiedDate ?? .distantPast
+            let db = entries[b]?.modifiedDate ?? .distantPast
+            return da.compare(db)
+        case .fileSize:
+            let sa = entries[a]?.fileSize ?? 0
+            let sb = entries[b]?.fileSize ?? 0
+            return sa == sb ? .orderedSame : (sa < sb ? .orderedAscending : .orderedDescending)
+        case .rating:
+            let ra = xmpData[a]?.rating ?? 0
+            let rb = xmpData[b]?.rating ?? 0
+            return ra == rb ? .orderedSame : (ra < rb ? .orderedAscending : .orderedDescending)
         }
     }
 
@@ -531,19 +585,41 @@ final class LibraryStore {
     // MARK: - Private
 
     func setThumbnail(id: UInt64, image: CGImage) {
-        thumbnailImages[id] = image
+        pendingThumbnails[id] = image
+        guard thumbnailFlushTask == nil else { return }
+        thumbnailFlushTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(50))
+            guard let self else { return }
+            thumbnailImages.merge(pendingThumbnails) { _, new in new }
+            pendingThumbnails = [:]
+            thumbnailFlushTask = nil
+        }
     }
 
     func setExif(id: UInt64, exif: ExifData?) {
         guard let exif else { return }
-        exifData[id] = exif
-        recomputeVisible()
+        pendingExif[id] = exif
+        scheduleMetaFlush()
     }
 
     func setXmp(id: UInt64, xmp: XmpData?) {
         guard let xmp else { return }
-        xmpData[id] = xmp
-        recomputeVisible()
+        pendingXmp[id] = xmp
+        scheduleMetaFlush()
+    }
+
+    private func scheduleMetaFlush() {
+        guard metaFlushTask == nil else { return }
+        metaFlushTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(50))
+            guard let self else { return }
+            exifData.merge(pendingExif) { _, new in new }
+            xmpData.merge(pendingXmp) { _, new in new }
+            pendingExif = [:]
+            pendingXmp = [:]
+            metaFlushTask = nil
+            recomputeVisible()
+        }
     }
 
     func applyReindexedGroups(_ groups: [UInt64: [UInt64]]) {
@@ -587,6 +663,13 @@ final class LibraryStore {
         undoMessage = nil
         undoMessageTask?.cancel()
         undoMessageTask = nil
+        thumbnailFlushTask?.cancel()
+        thumbnailFlushTask = nil
+        metaFlushTask?.cancel()
+        metaFlushTask = nil
+        pendingThumbnails = [:]
+        pendingExif = [:]
+        pendingXmp = [:]
         viewerMode = false
         compareMode = false
         compareAnchorID = nil

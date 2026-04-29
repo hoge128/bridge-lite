@@ -32,6 +32,26 @@ struct ToolbarView: ToolbarContent {
             .disabled(!store.canUndo)
             .help(store.performUndoTitle ?? "Undo (⌘Z)")
 
+            Menu {
+                Picker("", selection: $settings.sortKey) {
+                    Text("ファイル名 別").tag(SortKey.filename)
+                    Text("作成日 別").tag(SortKey.createdDate)
+                    Text("修正日 別").tag(SortKey.modifiedDate)
+                    Text("サイズ 別").tag(SortKey.fileSize)
+                    Text("レーティング 別").tag(SortKey.rating)
+                }
+                .pickerStyle(.inline)
+            } label: {
+                Text("\(settings.sortKey.localizedName) で並べ替え")
+            }
+            .onChange(of: settings.sortKey) { store.applyOrder() }
+
+            Button(action: { settings.sortAscending.toggle() }) {
+                Image(systemName: settings.sortAscending ? "arrow.up" : "arrow.down")
+            }
+            .help(settings.sortAscending ? "昇順" : "降順")
+            .onChange(of: settings.sortAscending) { store.applyOrder() }
+
             Picker("Layout", selection: $settings.gridMode) {
                 Image(systemName: "square.grid.3x3").tag(GridMode.strict)
                 Image(systemName: "rectangle.grid.3x2").tag(GridMode.dense)

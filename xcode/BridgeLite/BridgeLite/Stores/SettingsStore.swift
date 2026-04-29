@@ -4,6 +4,20 @@ enum GridMode: String, CaseIterable {
     case strict, dense
 }
 
+enum SortKey: String, CaseIterable {
+    case filename, createdDate, modifiedDate, fileSize, rating
+
+    var localizedName: String {
+        switch self {
+        case .filename:     return "ファイル名"
+        case .createdDate:  return "作成日"
+        case .modifiedDate: return "修正日"
+        case .fileSize:     return "サイズ"
+        case .rating:       return "レーティング"
+        }
+    }
+}
+
 /// 写真種別ペアごとに評価/ラベルの伝播可否を管理する。
 /// 対角 (同種 → 同種) は常に true のためフィールドを持たない。
 struct PropagationMatrix: Sendable, Equatable {
@@ -53,6 +67,13 @@ final class SettingsStore {
         return v > 0 ? CGFloat(v) : 180
     }() {
         didSet { UserDefaults.standard.set(Double(thumbnailSize), forKey: "thumbnailSize") }
+    }
+    var sortKey: SortKey = (UserDefaults.standard.string(forKey: "sortKey")
+                             .flatMap(SortKey.init(rawValue:))) ?? .filename {
+        didSet { UserDefaults.standard.set(sortKey.rawValue, forKey: "sortKey") }
+    }
+    var sortAscending: Bool = (UserDefaults.standard.object(forKey: "sortAscending") as? Bool) ?? true {
+        didSet { UserDefaults.standard.set(sortAscending, forKey: "sortAscending") }
     }
 
     // MARK: - 伝播マトリクス (非対角 6 セル)
