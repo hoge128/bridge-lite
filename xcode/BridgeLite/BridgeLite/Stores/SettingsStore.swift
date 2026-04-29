@@ -4,6 +4,10 @@ enum GridMode: String, CaseIterable {
     case strict, dense
 }
 
+enum ViewMode: String, CaseIterable {
+    case all, daily
+}
+
 enum CompareNavMode: String {
     case memberFirst  // ←→ = グループ内メンバー移動 / Ctrl+Tab = グループ間移動
     case groupFirst   // ←→ = グループ間移動 / Ctrl+Tab = グループ内メンバー移動
@@ -66,6 +70,10 @@ final class SettingsStore {
     var gridMode: GridMode = (UserDefaults.standard.string(forKey: "gridMode")
                                .flatMap(GridMode.init(rawValue:))) ?? .strict {
         didSet { UserDefaults.standard.set(gridMode.rawValue, forKey: "gridMode") }
+    }
+    var viewMode: ViewMode = (UserDefaults.standard.string(forKey: "viewMode")
+                               .flatMap(ViewMode.init(rawValue:))) ?? .all {
+        didSet { UserDefaults.standard.set(viewMode.rawValue, forKey: "viewMode") }
     }
     var thumbnailSize: CGFloat = {
         let v = UserDefaults.standard.double(forKey: "thumbnailSize")

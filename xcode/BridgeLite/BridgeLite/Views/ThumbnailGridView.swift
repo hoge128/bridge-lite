@@ -34,6 +34,8 @@ struct ThumbnailGridView: View {
         ZStack {
             if store.currentDirectoryURL == nil {
                 emptyStateContent
+            } else if store.settings.viewMode == .daily {
+                dailyGrid
             } else if store.settings.gridMode == .dense {
                 denseGrid
             } else {
@@ -91,6 +93,58 @@ struct ThumbnailGridView: View {
         }
     }
 
+    // MARK: - Daily grid (grouped by shooting date)
+
+    private var dailyGrid: some View {
+        GeometryReader { geo in
+            let cols = max(2, Int((geo.size.width - 16) / (cellSize + 8)))
+            let gridColumns = Array(repeating: GridItem(.fixed(cellSize), spacing: 8), count: cols)
+            let estimatedCols = max(2, Int(geo.size.width / (cellSize * 1.5 + 4)))
+            let isDense = store.settings.gridMode == .dense
+
+            ScrollView {
+                // LazyVStack でセクション単位の遅延描画、内側の LazyVGrid で写真単位の遅延描画
+                LazyVStack(alignment: .leading, spacing: 0) {
+                    ForEach(store.dailyGroups) { group in
+                        DailyGroupHeaderView(date: group.date, ids: group.ids)
+                            .padding(.horizontal, 8)
+                            .padding(.top, 20)
+                            .padding(.bottom, 8)
+
+                        if isDense {
+                            JustifiedFlowLayout(targetRowHeight: cellSize, spacing: 4) {
+                                ForEach(group.ids, id: \.self) { id in
+                                    if let entry = store.entries[id] {
+                                        ThumbnailCellView(entry: entry)
+                                            .layoutValue(key: AspectRatioKey.self, value: aspectRatio(for: id))
+                                            .onTapGesture { handleTap(id: id) }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.bottom, 16)
+                        } else {
+                            LazyVGrid(columns: gridColumns, spacing: 8) {
+                                ForEach(group.ids, id: \.self) { id in
+                                    if let entry = store.entries[id] {
+                                        ThumbnailCellView(entry: entry)
+                                            .onTapGesture { handleTap(id: id) }
+                                    }
+                                }
+                            }
+                            .padding(.horizontal, 8)
+                            .padding(.bottom, 16)
+                        }
+                    }
+                }
+                .padding(.bottom, 8)
+            }
+            .onAppear { store.gridColumnCount = isDense ? estimatedCols : cols }
+            .onChange(of: cols) { _, c in if !isDense { store.gridColumnCount = c } }
+            .onChange(of: estimatedCols) { _, c in if isDense { store.gridColumnCount = c } }
+        }
+    }
+
     // MARK: - Dense grid (justified flow layout)
 
     private var denseGrid: some View {
@@ -121,6 +175,63 @@ struct ThumbnailGridView: View {
             return CGFloat(img.width) / CGFloat(img.height)
         }
         return 1.5
+    }
+}
+
+// MARK: - Daily group header
+
+private struct DailyGroupHeaderView: View {
+    let date: Date
+    let ids: [UInt64]
+    @Environment(LibraryStore.self) private var store
+    @State private var isHovered = false
+
+    private static let dayFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "ja_JP")
+        f.dateFormat = "yyyy年MM月dd日"
+        return f
+    }()
+
+    private enum SelectionState { case none, partial, all }
+
+    private var selectionState: SelectionState {
+        let count = ids.filter { store.selectedIDs.contains($0) }.count
+        if count == 0 { return .none }
+        return count == ids.count ? .all : .partial
+    }
+
+    private var showCheckbox: Bool { isHovered || selectionState != .none }
+
+    var body: some View {
+        HStack(spacing: 8) {
+            if showCheckbox {
+                checkboxButton
+                    .transition(.opacity)
+            }
+            Text(Self.dayFormatter.string(from: date))
+                .font(.title3.bold())
+                .foregroundStyle(.primary)
+        }
+        .animation(.easeInOut(duration: 0.12), value: showCheckbox)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .contentShape(Rectangle())
+        .onHover { isHovered = $0 }
+    }
+
+    private var checkboxButton: some View {
+        let state = selectionState
+        return Button {
+            if state == .all { store.deselectGroupIDs(ids) }
+            else { store.selectGroupIDs(ids) }
+        } label: {
+            Image(systemName: state == .all ? "checkmark.circle.fill"
+                           : state == .partial ? "minus.circle.fill"
+                           : "circle")
+                .foregroundStyle(state != .none ? Color.accentColor : Color.secondary)
+                .font(.system(size: 20))
+        }
+        .buttonStyle(.plain)
     }
 }
 

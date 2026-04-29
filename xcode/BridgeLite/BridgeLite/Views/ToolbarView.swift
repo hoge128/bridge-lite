@@ -1,5 +1,67 @@
 import SwiftUI
 
+// MARK: - Liquid Glass style view mode picker
+
+private struct ViewModePicker: View {
+    @Binding var selection: ViewMode
+
+    var body: some View {
+        HStack(spacing: 2) {
+            pill("すべての写真", mode: .all)
+            pill("デイリー",     mode: .daily)
+        }
+        .padding(3)
+        .background {
+            Capsule()
+                .fill(.ultraThinMaterial)
+                .overlay(
+                    Capsule()
+                        .strokeBorder(
+                            LinearGradient(
+                                colors: [.white.opacity(0.45), .white.opacity(0.10)],
+                                startPoint: .top, endPoint: .bottom
+                            ),
+                            lineWidth: 0.75
+                        )
+                )
+        }
+        .shadow(color: .black.opacity(0.10), radius: 6, x: 0, y: 3)
+        .shadow(color: .black.opacity(0.06), radius: 1, x: 0, y: 1)
+    }
+
+    private func pill(_ label: String, mode: ViewMode) -> some View {
+        let isSelected = selection == mode
+        return Text(label)
+            .font(.system(size: 12, weight: isSelected ? .semibold : .regular))
+            .foregroundStyle(isSelected ? AnyShapeStyle(Color.primary) : AnyShapeStyle(Color.secondary))
+            .padding(.horizontal, 14)
+            .padding(.vertical, 5)
+            .background {
+                if isSelected {
+                    Capsule()
+                        .fill(.regularMaterial)
+                        .overlay(
+                            Capsule()
+                                .strokeBorder(
+                                    LinearGradient(
+                                        colors: [.white.opacity(0.70), .white.opacity(0.20)],
+                                        startPoint: .top, endPoint: .bottom
+                                    ),
+                                    lineWidth: 0.5
+                                )
+                        )
+                        .shadow(color: .black.opacity(0.08), radius: 2, x: 0, y: 1)
+                }
+            }
+            .contentShape(Capsule())
+            .onTapGesture {
+                withAnimation(.easeInOut(duration: 0.15)) { selection = mode }
+            }
+    }
+}
+
+// MARK: -
+
 struct ToolbarView: ToolbarContent {
     @Environment(LibraryStore.self) private var store
 
@@ -24,6 +86,8 @@ struct ToolbarView: ToolbarContent {
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .transition(.opacity)
+            } else if !store.viewerMode && !store.compareMode {
+                ViewModePicker(selection: $settings.viewMode)
             }
         }
 

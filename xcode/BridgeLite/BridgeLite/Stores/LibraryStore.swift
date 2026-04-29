@@ -653,6 +653,49 @@ final class LibraryStore {
         Array(Set(exifData.values.compactMap { $0.artist })).sorted()
     }
 
+    // MARK: - Daily grouping
+
+    struct DailyGroup: Identifiable {
+        let date: Date
+        let ids: [UInt64]
+        var id: Date { date }
+    }
+
+    var dailyGroups: [DailyGroup] {
+        let cal = Calendar.current
+        var grouped: [Date: [UInt64]] = [:]
+        for id in visibleIDs {
+            let day = cal.startOfDay(for: photoDate(for: id))
+            grouped[day, default: []].append(id)
+        }
+        let asc = settings.sortAscending
+        let sortedDays = grouped.keys.sorted { asc ? $0 < $1 : $0 > $1 }
+        return sortedDays.map { DailyGroup(date: $0, ids: grouped[$0]!) }
+    }
+
+    func photoDate(for id: UInt64) -> Date {
+        if let dt = exifData[id]?.datetime, let d = Self.exifDateParser.date(from: dt) { return d }
+        return entries[id]?.createdDate ?? .distantPast
+    }
+
+    private static let exifDateParser: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        return f
+    }()
+
+    func selectGroupIDs(_ ids: [UInt64]) {
+        for id in ids { selectedIDs.insert(id) }
+        if primaryID == nil { primaryID = ids.first }
+    }
+
+    func deselectGroupIDs(_ ids: [UInt64]) {
+        let toRemove = Set(ids)
+        selectedIDs.subtract(toRemove)
+        if let pid = primaryID, toRemove.contains(pid) { primaryID = selectedIDs.first }
+    }
+
     // MARK: - Private
 
     func setThumbnail(id: UInt64, image: CGImage) {

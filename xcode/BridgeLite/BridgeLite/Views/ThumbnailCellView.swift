@@ -6,6 +6,7 @@ struct ThumbnailCellView: View {
     @Environment(LibraryStore.self) private var store
     @State private var isHovered = false
 
+    private var cellSize: CGFloat { store.settings.thumbnailSize }
     private var isSelected: Bool { store.selectedIDs.contains(entry.id) }
     private var thumbnail: CGImage? { store.thumbnailImages[entry.id] }
     private var xmp: XmpData? { store.xmpData[entry.id] }
@@ -34,16 +35,18 @@ struct ThumbnailCellView: View {
         }
     }
 
-    // MARK: - Strict mode (180×180 square, filename + rating below)
+    // MARK: - Strict mode (square tile sized by slider, filename + rating below)
 
     private var strictBody: some View {
         VStack(spacing: 4) {
             ZStack {
+                // scaledToFit でアスペクト比が合わない場合に生じるレターボックス部分の地色
+                Color.secondary.opacity(0.08)
                 ThumbnailImageView(cgImage: thumbnail)
-                    .frame(width: 180, height: 180)
+                    .frame(width: cellSize, height: cellSize)
                 colorLabelStrip
             }
-            .frame(width: 180, height: 180)
+            .frame(width: cellSize, height: cellSize)
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(alignment: .topLeading) { flagView.padding(5) }
             .overlay(alignment: .topTrailing) {
@@ -66,7 +69,7 @@ struct ThumbnailCellView: View {
                     .truncationMode(.middle)
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
-            .frame(width: 180)
+            .frame(width: cellSize)
         }
         .onHover { isHovered = $0 }
         .contextMenu { cellContextMenu }
@@ -224,7 +227,7 @@ struct ThumbnailImageView: View {
         if let img = cgImage {
             Image(decorative: img, scale: 1.0)
                 .resizable()
-                .scaledToFill()
+                .scaledToFit() // Fill ではなく Fit: タイル内で写真を見切れさせない
         } else {
             Rectangle()
                 .fill(Color.secondary.opacity(0.15))
