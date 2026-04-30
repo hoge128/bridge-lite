@@ -11,6 +11,7 @@ struct GroupCompareView: View {
     }
 
     private var allGroupMembers: [UInt64] {
+        if store.filter.flatten { return [currentRepID] }
         guard let entry = store.entries[currentRepID],
               let members = store.shotGroups[entry.shotId],
               members.count > 1 else {
