@@ -41,6 +41,8 @@
 		EB98541B8291C56BC7DAAE8C /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */; };
 		F049B58AD623462639BFDA52 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */; };
 		FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */; };
+		AA11CCDD00112233AABB4455 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB22DDEE11223344BBCC5566 /* HelpView.swift */; };
+		FF6611225566778811009900 /* Help.md in Resources */ = {isa = PBXBuildFile; fileRef = CC33EEFF22334455CCDD6677 /* Help.md */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -84,6 +86,9 @@
 		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
 		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
 		B2C3D4E5F601234567890ABC /* StorageProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageProbe.swift; sourceTree = "<group>"; };
+		BB22DDEE11223344BBCC5566 /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
+		DD44FF0033445566DDEE7788 /* Help.md */ = {isa = PBXFileReference; lastKnownFileType = text; name = ja; path = "ja.lproj/Help.md"; sourceTree = "<group>"; };
+		EE5500114455667700FF8899 /* Help.md */ = {isa = PBXFileReference; lastKnownFileType = text; name = en; path = "en.lproj/Help.md"; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -178,6 +183,7 @@
 			children = (
 				49A54E1E164617C20BDC0BE8 /* Assets.xcassets */,
 				D132956D2FA32E2B008F5B21 /* AppIcon.icon */,
+				CC33EEFF22334455CCDD6677 /* Help.md */,
 				851B10EDFF439C8C3987E4B6 /* Info.plist */,
 				1C59E59994061A04481C6A6A /* Localizable.xcstrings */,
 			);
@@ -199,6 +205,7 @@
 			isa = PBXGroup;
 			children = (
 				A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */,
+				BB22DDEE11223344BBCC5566 /* HelpView.swift */,
 				2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */,
 				449E124463D6E6D28958EBE9 /* FilterPanelView.swift */,
 				6755AF2D84F34A478B534A17 /* ExifHistogramView.swift */,
@@ -281,6 +288,7 @@
 				D132956E2FA32E2B008F5B21 /* AppIcon.icon in Resources */,
 				3D9618AA9A9F30F68301F355 /* Localizable.xcstrings in Resources */,
 				639D3ABDDEE404D4558F0932 /* libbridge_ffi.a in Resources */,
+				FF6611225566778811009900 /* Help.md in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -343,10 +351,23 @@
 				C4D5E6F7A8B9C001D2E3F4A5 /* GroupCompareView.swift in Sources */,
 				BD135BC5DA5312F04B946CC4 /* XmpData.swift in Sources */,
 				B381E002D017743456FC7713 /* bridge-ffi.swift in Sources */,
+				AA11CCDD00112233AABB4455 /* HelpView.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
 /* End PBXSourcesBuildPhase section */
+
+/* Begin PBXVariantGroup section */
+		CC33EEFF22334455CCDD6677 /* Help.md */ = {
+			isa = PBXVariantGroup;
+			children = (
+				DD44FF0033445566DDEE7788 /* ja */,
+				EE5500114455667700FF8899 /* en */,
+			);
+			name = "Help.md";
+			sourceTree = "<group>";
+		};
+/* End PBXVariantGroup section */
 
 /* Begin XCBuildConfiguration section */
 		503F5A21107CC36D395657C5 /* Release */ = {

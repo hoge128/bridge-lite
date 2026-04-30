@@ -66,6 +66,12 @@ struct BridgeLiteApp: App {
         .windowResizability(.contentSize)
         .defaultPosition(.center)
 
+        Window("Help", id: "help") {
+            HelpView()
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+
         Settings {
             SettingsView()
                 .environment(SettingsStore.shared)
@@ -120,6 +126,12 @@ struct BridgeLiteCommands: Commands {
             Button("Label Yellow") { store?.applyLabel(2) }.keyboardShortcut("7", modifiers: [])
             Button("Label Green")  { store?.applyLabel(3) }.keyboardShortcut("8", modifiers: [])
             Button("Label Blue")   { store?.applyLabel(4) }.keyboardShortcut("9", modifiers: [])
+        }
+        CommandGroup(replacing: .help) {
+            Button("BridgeLite Help") {
+                openWindow(id: "help")
+            }
+            .keyboardShortcut("?", modifiers: [.command])
         }
     }
 }
