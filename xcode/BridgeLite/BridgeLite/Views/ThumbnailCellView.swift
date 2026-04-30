@@ -43,7 +43,7 @@ struct ThumbnailCellView: View {
             .overlay(alignment: .topTrailing) {
                 identifierBadge
                     .padding(4)
-                    .opacity(photoKind == .sooc ? (isHovered ? 1 : 0) : 1)
+                    .opacity(store.filter.flatten ? 0 : (photoKind == .sooc ? (isHovered ? 1 : 0) : 1))
                     .animation(.easeInOut(duration: 0.15), value: isHovered)
             }
             .overlay { selectionStroke(cornerRadius: 6) }

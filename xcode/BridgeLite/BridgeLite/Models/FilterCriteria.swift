@@ -42,6 +42,8 @@ struct FilterCriteria: Sendable, Equatable {
     var filterLabels: Set<XmpLabel> = []
     var filterKinds: Set<PhotoKind> = []
     var cameraOnly: Bool = false
+    var flatten: Bool = false
+    var excludedExtensions: Set<String> = []   // lowercase, e.g. "jpg", "arw"
 
     var isActive: Bool {
         !excludedCameras.isEmpty || !excludedLenses.isEmpty || !excludedArtists.isEmpty ||
@@ -51,10 +53,15 @@ struct FilterCriteria: Sendable, Equatable {
         !apertureMin.isEmpty || !apertureMax.isEmpty ||
         !dateMin.isEmpty || !dateMax.isEmpty ||
         !filterRatings.isEmpty || !filterLabels.isEmpty ||
-        !filterKinds.isEmpty || cameraOnly
+        !filterKinds.isEmpty || cameraOnly || flatten || !excludedExtensions.isEmpty
     }
 
     func matches(entry: PhotoEntry, exif: ExifData?, xmp: XmpData?) -> Bool {
+        // Extension filter (flatten mode only)
+        if flatten, !excludedExtensions.isEmpty,
+           excludedExtensions.contains(entry.url.pathExtension.lowercased()) {
+            return false
+        }
         // Camera-only filter: exclude images without camera Make/Model (e.g. screenshots, web images)
         if cameraOnly, let exif = exif {
             let hasCameraTag = !(exif.make ?? "").isEmpty || !(exif.model ?? "").isEmpty

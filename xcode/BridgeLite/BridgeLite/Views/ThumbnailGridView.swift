@@ -31,29 +31,64 @@ struct ThumbnailGridView: View {
     }
 
     var body: some View {
-        ZStack {
-            if store.currentDirectoryURL == nil {
-                emptyStateContent
-            } else if store.settings.viewMode == .daily {
-                dailyGrid
-            } else {
-                strictGrid
+        VStack(spacing: 0) {
+            if store.filter.flatten {
+                flattenBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
             }
+            ZStack {
+                if store.currentDirectoryURL == nil {
+                    emptyStateContent
+                } else if store.settings.viewMode == .daily {
+                    dailyGrid
+                } else {
+                    strictGrid
+                }
 
-            if isDropTargeted {
-                Color.blue.opacity(0.15)
-                    .allowsHitTesting(false)
+                if isDropTargeted {
+                    Color.blue.opacity(0.15)
+                        .allowsHitTesting(false)
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
+            // background に置くことでクリックは前面 SwiftUI ビューへ直行し、
+            // ドラッグは登録型(.fileURL)を探す AppKit drag system が背後のビューも見つけてくれる
+            .background {
+                FolderDropTargetView(isTargeted: $isDropTargeted) { url in
+                    Task { await store.openDirectory(url) }
+                }
             }
         }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
-        // background に置くことでクリックは前面 SwiftUI ビューへ直行し、
-        // ドラッグは登録型(.fileURL)を探す AppKit drag system が背後のビューも見つけてくれる
-        .background {
-            FolderDropTargetView(isTargeted: $isDropTargeted) { url in
-                Task { await store.openDirectory(url) }
+        .animation(.easeInOut(duration: 0.2), value: store.filter.flatten)
+    }
+
+    private var flattenBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "square.grid.3x3")
+                .font(.caption2)
+                .foregroundStyle(.orange)
+            Text("Flatten")
+                .font(.caption2.bold())
+                .foregroundStyle(.orange)
+            Text("— showing all files individually")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                store.filter.flatten = false
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
+            .buttonStyle(.plain)
+            .help("Turn off Flatten")
         }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Color.orange.opacity(0.08))
+        .overlay(alignment: .bottom) { Divider() }
     }
 
     // MARK: - Empty state

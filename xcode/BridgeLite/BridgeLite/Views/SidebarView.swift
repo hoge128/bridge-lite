@@ -127,7 +127,8 @@ struct SidebarView: View {
                         .padding(.horizontal, 8)
                         .padding(.top, 6)
 
-                        if let members = store.shotGroups[entry.shotId], members.count > 1 {
+                        if !store.filter.flatten,
+                           let members = store.shotGroups[entry.shotId], members.count > 1 {
                             VariationStripView(selectedID: entry.id, members: members)
                         }
 

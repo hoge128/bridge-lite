@@ -469,11 +469,12 @@ final class LibraryStore {
 
     func applyRating(_ stars: Int) {
         guard !selectedIDs.isEmpty, let db = database else { return }
-        // Expand to group targets based on propagation settings
+        // Expand to group targets based on propagation settings (bypassed in flatten mode)
         var allTargets: [(entry: PhotoEntry, old: Int?)] = []
         for id in selectedIDs {
             guard let entry = entries[id] else { continue }
-            for targetID in groupTargets(for: id, entry: entry) {
+            let targets: [UInt64] = filter.flatten ? [id] : groupTargets(for: id, entry: entry)
+            for targetID in targets {
                 guard let te = entries[targetID] else { continue }
                 allTargets.append((entry: te, old: xmpData[targetID]?.rating))
                 var current = xmpData[targetID] ?? XmpData()
@@ -509,7 +510,8 @@ final class LibraryStore {
         var allTargets: [(entry: PhotoEntry, old: XmpLabel?)] = []
         for id in selectedIDs {
             guard let entry = entries[id] else { continue }
-            for targetID in groupTargets(for: id, entry: entry) {
+            let targets: [UInt64] = filter.flatten ? [id] : groupTargets(for: id, entry: entry)
+            for targetID in targets {
                 guard let te = entries[targetID] else { continue }
                 allTargets.append((entry: te, old: xmpData[targetID]?.label))
                 var current = xmpData[targetID] ?? XmpData()
@@ -539,7 +541,9 @@ final class LibraryStore {
 
     private func recomputeVisible() {
         let liveReps: Set<UInt64>
-        if !filter.filterKinds.isEmpty {
+        if filter.flatten {
+            liveReps = Set(orderedIDs)
+        } else if !filter.filterKinds.isEmpty {
             liveReps = computeRepresentativesForKinds(filter.filterKinds, groups: shotGroups, entries: entries)
         } else {
             liveReps = computeRepresentatives(groups: shotGroups, entries: entries)
@@ -599,6 +603,10 @@ final class LibraryStore {
         case .exifDate:
             return photoDate(for: a).compare(photoDate(for: b))
         }
+    }
+
+    var availableExtensions: [String] {
+        Array(Set(entries.values.map { $0.url.pathExtension.lowercased() }).filter { !$0.isEmpty }).sorted()
     }
 
     var availableCameras: [String] {

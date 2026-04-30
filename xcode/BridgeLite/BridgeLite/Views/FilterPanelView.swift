@@ -219,48 +219,74 @@ struct FilterPanelView: View {
                     .padding(.horizontal)
                     .padding(.top, 4)
 
+                HStack {
+                    Text("Flatten")
+                        .font(.caption)
+                    Spacer()
+                    Toggle("", isOn: $store.filter.flatten)
+                        .toggleStyle(.switch)
+                        .labelsHidden()
+                        .controlSize(.small)
+                }
+                .padding(.horizontal, 12)
+                .help("Show every file individually. Disables grouping and replaces the kind filter with an extension filter.")
+
                 // File Kind
                 SectionBox("File Type") {
                     VStack(alignment: .leading, spacing: 4) {
-                        Toggle(isOn: Binding(
-                            get: { store.filter.filterKinds.contains(.raw) },
-                            set: { on in
-                                if on { store.filter.filterKinds.insert(.raw) }
-                                else  { store.filter.filterKinds.remove(.raw) }
+                        if store.filter.flatten {
+                            ForEach(store.availableExtensions, id: \.self) { ext in
+                                Toggle(isOn: Binding(
+                                    get: { !store.filter.excludedExtensions.contains(ext) },
+                                    set: { on in
+                                        if on { store.filter.excludedExtensions.remove(ext) }
+                                        else  { store.filter.excludedExtensions.insert(ext) }
+                                    }
+                                )) { Text(".\(ext.uppercased())").font(.caption).monospaced() }
+                                .toggleStyle(.checkbox)
+                                .help("Uncheck extensions to exclude them from results")
                             }
-                        )) { Text("RAW").font(.caption) }
-                        .toggleStyle(.checkbox)
-                        .help("Use RAW as the representative thumbnail per group (groups without RAW are hidden)")
+                        } else {
+                            Toggle(isOn: Binding(
+                                get: { store.filter.filterKinds.contains(.raw) },
+                                set: { on in
+                                    if on { store.filter.filterKinds.insert(.raw) }
+                                    else  { store.filter.filterKinds.remove(.raw) }
+                                }
+                            )) { Text("RAW").font(.caption) }
+                            .toggleStyle(.checkbox)
+                            .help("Use RAW as the representative thumbnail per group (groups without RAW are hidden)")
 
-                        Toggle(isOn: Binding(
-                            get: { store.filter.filterKinds.contains(.sooc) },
-                            set: { on in
-                                if on { store.filter.filterKinds.insert(.sooc) }
-                                else  { store.filter.filterKinds.remove(.sooc) }
-                            }
-                        )) { Text(PhotoKind.sooc.localizedName).font(.caption) }
-                        .toggleStyle(.checkbox)
-                        .help("Use camera JPEG as the representative thumbnail per group (groups without JPEG are hidden)")
+                            Toggle(isOn: Binding(
+                                get: { store.filter.filterKinds.contains(.sooc) },
+                                set: { on in
+                                    if on { store.filter.filterKinds.insert(.sooc) }
+                                    else  { store.filter.filterKinds.remove(.sooc) }
+                                }
+                            )) { Text(PhotoKind.sooc.localizedName).font(.caption) }
+                            .toggleStyle(.checkbox)
+                            .help("Use camera JPEG as the representative thumbnail per group (groups without JPEG are hidden)")
 
-                        Toggle(isOn: Binding(
-                            get: { store.filter.filterKinds.contains(.developed) },
-                            set: { on in
-                                if on { store.filter.filterKinds.insert(.developed) }
-                                else  { store.filter.filterKinds.remove(.developed) }
-                            }
-                        )) { Text(PhotoKind.developed.localizedName).font(.caption) }
-                        .toggleStyle(.checkbox)
-                        .help("Use developed JPEG as the representative thumbnail per group (groups without developed JPEG are hidden)")
+                            Toggle(isOn: Binding(
+                                get: { store.filter.filterKinds.contains(.developed) },
+                                set: { on in
+                                    if on { store.filter.filterKinds.insert(.developed) }
+                                    else  { store.filter.filterKinds.remove(.developed) }
+                                }
+                            )) { Text(PhotoKind.developed.localizedName).font(.caption) }
+                            .toggleStyle(.checkbox)
+                            .help("Use developed JPEG as the representative thumbnail per group (groups without developed JPEG are hidden)")
 
-                        Toggle(isOn: Binding(
-                            get: { store.filter.filterKinds.contains(.indeterminate) },
-                            set: { on in
-                                if on { store.filter.filterKinds.insert(.indeterminate) }
-                                else  { store.filter.filterKinds.remove(.indeterminate) }
-                            }
-                        )) { Text(PhotoKind.indeterminate.localizedName).font(.caption) }
-                        .toggleStyle(.checkbox)
-                        .help("Show only images where origin cannot be determined (no camera EXIF metadata)")
+                            Toggle(isOn: Binding(
+                                get: { store.filter.filterKinds.contains(.indeterminate) },
+                                set: { on in
+                                    if on { store.filter.filterKinds.insert(.indeterminate) }
+                                    else  { store.filter.filterKinds.remove(.indeterminate) }
+                                }
+                            )) { Text(PhotoKind.indeterminate.localizedName).font(.caption) }
+                            .toggleStyle(.checkbox)
+                            .help("Show only images where origin cannot be determined (no camera EXIF metadata)")
+                        }
 
                         Divider()
 
