@@ -609,6 +609,22 @@
         }
       }
     },
+    "Clear Cache" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Clear Cache"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャッシュを削除"
+          }
+        }
+      }
+    },
     "Clear Label" : {
       "localizations" : {
         "en" : {
@@ -637,22 +653,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "評価解除"
-          }
-        }
-      }
-    },
-    "Clear Cache" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Clear Cache"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "キャッシュを削除"
           }
         }
       }
@@ -721,22 +721,6 @@
         }
       }
     },
-    "Database Size" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Database Size"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "データベースサイズ"
-          }
-        }
-      }
-    },
     "Database error: %@" : {
       "localizations" : {
         "en" : {
@@ -749,6 +733,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "DB エラー: %@"
+          }
+        }
+      }
+    },
+    "Database Size" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Database Size"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "データベースサイズ"
           }
         }
       }
@@ -968,6 +968,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "露出"
+          }
+        }
+      }
+    },
+    "F" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "F"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "F"
           }
         }
       }
@@ -2291,6 +2308,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "レーティング"
+          }
+        }
+      }
+    },
+    "SS" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SS"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SS"
           }
         }
       }

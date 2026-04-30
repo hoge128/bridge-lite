@@ -127,6 +127,8 @@ struct SidebarView: View {
                         .padding(.horizontal, 8)
                         .padding(.top, 6)
 
+                        ExifQuickBar(exif: store.exifData[entry.id])
+
                         if !store.filter.flatten,
                            let members = store.shotGroups[entry.shotId], members.count > 1 {
                             VariationStripView(selectedID: entry.id, members: members)
@@ -305,6 +307,54 @@ struct RGBHistogramView: View {
         let c1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6, y: clamp(p1.y + (p2.y - p0.y) / 6))
         let c2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6, y: clamp(p2.y - (p3.y - p1.y) / 6))
         return (c1, c2)
+    }
+}
+
+// MARK: - Exif Quick Bar
+
+struct ExifQuickBar: View {
+    let exif: ExifData?
+
+    private var isoText: String { exif?.iso.map { "\($0)" } ?? "--" }
+    private var ssText: String {
+        guard let s = exif?.exposureTime else { return "--" }
+        return s.components(separatedBy: " ").first ?? s
+    }
+    private var fText: String { exif?.fnumber ?? "--" }
+
+    var body: some View {
+        HStack(spacing: 0) {
+            cell(label: "ISO", value: isoText, hasValue: exif?.iso != nil)
+            separator
+            cell(label: "SS", value: ssText, hasValue: exif?.exposureTime != nil)
+            separator
+            cell(label: "F", value: fText, hasValue: exif?.fnumber != nil)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.horizontal, 8)
+        .padding(.top, 6)
+        .padding(.bottom, 2)
+    }
+
+    private var separator: some View {
+        Rectangle()
+            .fill(Color.secondary.opacity(0.2))
+            .frame(width: 0.5, height: 30)
+    }
+
+    private func cell(label: String, value: String, hasValue: Bool) -> some View {
+        VStack(spacing: 2) {
+            Text(value)
+                .font(.system(size: 11, weight: .medium, design: .monospaced))
+                .foregroundStyle(hasValue ? .primary : .tertiary)
+                .lineLimit(1)
+                .minimumScaleFactor(0.75)
+            Text(LocalizedStringKey(label))
+                .font(.system(size: 9))
+                .foregroundStyle(.tertiary)
+        }
+        .frame(maxWidth: .infinity)
+        .padding(.vertical, 4)
     }
 }
 
