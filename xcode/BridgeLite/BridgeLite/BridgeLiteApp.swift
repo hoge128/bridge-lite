@@ -8,6 +8,10 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         NSWindow.allowsAutomaticWindowTabbing = false
     }
 
+    func applicationShouldTerminateAfterLastWindowClosed(_ sender: NSApplication) -> Bool {
+        return true
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         let target: URL
         if let folder = urls.first(where: { $0.hasDirectoryPath }) {
@@ -21,6 +25,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension NSNotification.Name {
     static let bridgeLiteOpenURL = NSNotification.Name("BridgeLiteOpenURL")
+}
+
+// MARK: - Window state monitor
+
+final class WindowStateMonitor: ObservableObject {
+    @Published var isFullScreen = false
+
+    init() {
+        NotificationCenter.default.addObserver(forName: NSWindow.didEnterFullScreenNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.isFullScreen = true
+        }
+        NotificationCenter.default.addObserver(forName: NSWindow.didExitFullScreenNotification, object: nil, queue: .main) { [weak self] _ in
+            self?.isFullScreen = false
+        }
+    }
 }
 
 // MARK: - FocusedValue key
@@ -41,6 +60,7 @@ extension FocusedValues {
 @main
 struct BridgeLiteApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @StateObject private var windowState = WindowStateMonitor()
 
     private static let _bootstrap: Void = {
         let lang = UserDefaults.standard.string(forKey: "language") ?? "en"
@@ -55,6 +75,7 @@ struct BridgeLiteApp: App {
         WindowGroup(id: "main") {
             ContentView()
                 .frame(minWidth: 900, minHeight: 600)
+                .focusedSceneObject(windowState)
         }
         .commands {
             BridgeLiteCommands()
@@ -81,6 +102,7 @@ struct BridgeLiteApp: App {
 
 struct BridgeLiteCommands: Commands {
     @FocusedValue(\.libraryStore) private var store: LibraryStore?
+    @FocusedObject private var windowState: WindowStateMonitor?
     @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
@@ -100,7 +122,7 @@ struct BridgeLiteCommands: Commands {
             Button("Quit BridgeLite") {
                 NSApplication.shared.terminate(nil)
             }
-            .keyboardShortcut("w", modifiers: .command)
+            .keyboardShortcut("q", modifiers: .command)
         }
         CommandMenu("View") {
             Toggle("Metadata", isOn: Binding(
@@ -114,6 +136,11 @@ struct BridgeLiteCommands: Commands {
                 store?.viewerMode = true
             }
             .disabled(store?.selectedID == nil)
+            Divider()
+            Button(windowState?.isFullScreen == true ? "Exit Full Screen" : "Enter Full Screen") {
+                NSApp.keyWindow?.toggleFullScreen(nil)
+            }
+            .keyboardShortcut("f", modifiers: [.command, .control])
         }
         CommandMenu("Rate") {
             Button("Clear Rating") { store?.applyRating(0) }.keyboardShortcut("0", modifiers: [])
