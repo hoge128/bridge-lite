@@ -992,11 +992,13 @@ final class LibraryStore {
         }
     }
 
-    private func dbURL() -> URL {
+    static func cacheDBURL() -> URL {
         let appSupport = FileManager.default.urls(
             for: .applicationSupportDirectory, in: .userDomainMask)[0]
         let dir = appSupport.appendingPathComponent("BridgeLite")
         try? FileManager.default.createDirectory(at: dir, withIntermediateDirectories: true)
         return dir.appendingPathComponent("cache.db")
     }
+
+    private func dbURL() -> URL { LibraryStore.cacheDBURL() }
 }

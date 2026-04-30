@@ -3,6 +3,8 @@ import SwiftUI
 struct SettingsView: View {
     @Environment(SettingsStore.self) private var settings
     @State private var showRestartAlert = false
+    @State private var cacheSize: Int64 = -1
+    @State private var showClearCacheAlert = false
 
     var body: some View {
         @Bindable var settings = settings
@@ -33,9 +35,37 @@ struct SettingsView: View {
             } header: {
                 Text("Filter Panel")
             }
+            Section("Cache") {
+                LabeledContent("Database Size") {
+                    if cacheSize < 0 {
+                        Text("Calculating…")
+                            .foregroundStyle(.secondary)
+                    } else {
+                        Text(ByteCountFormatter.string(fromByteCount: cacheSize, countStyle: .file))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                Button("Clear Cache", role: .destructive) {
+                    showClearCacheAlert = true
+                }
+                .disabled(cacheSize <= 0)
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 620)
+        .frame(width: 440, height: 720)
+        .onAppear { refreshCacheSize() }
+        .alert(
+            String(localized: "alert.cache.clear.title", defaultValue: "Clear Cache"),
+            isPresented: $showClearCacheAlert
+        ) {
+            Button(String(localized: "alert.cache.clear.button", defaultValue: "Clear"), role: .destructive) {
+                clearCacheFiles()
+            }
+            Button(String(localized: "alert.restart.button.later", defaultValue: "Cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "alert.cache.clear.message",
+                        defaultValue: "Thumbnails and EXIF data will be deleted from the cache. They will be rebuilt automatically when you next open a folder."))
+        }
         .alert(
             String(localized: "alert.restart.title", defaultValue: "Restart Required"),
             isPresented: $showRestartAlert
@@ -105,6 +135,24 @@ struct SettingsView: View {
         Image(systemName: "checkmark.circle.fill")
             .foregroundStyle(.secondary)
             .help("Always applied to itself")
+    }
+
+    private func refreshCacheSize() {
+        let base = LibraryStore.cacheDBURL().path
+        let fm = FileManager.default
+        cacheSize = [base, base + "-shm", base + "-wal"].reduce(0) { sum, path in
+            let attrs = try? fm.attributesOfItem(atPath: path)
+            return sum + (attrs?[.size] as? Int64 ?? 0)
+        }
+    }
+
+    private func clearCacheFiles() {
+        let base = LibraryStore.cacheDBURL().path
+        let fm = FileManager.default
+        for path in [base, base + "-shm", base + "-wal"] {
+            try? fm.removeItem(atPath: path)
+        }
+        cacheSize = 0
     }
 
     private func relaunchApp() {

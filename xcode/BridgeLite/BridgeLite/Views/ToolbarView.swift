@@ -83,6 +83,14 @@ struct ToolbarView: ToolbarContent {
             if store.isLoading {
                 ProgressView()
                     .scaleEffect(0.6)
+                Button(action: { store.cancelLoading() }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "xmark.circle")
+                        Text(String(localized: "Cancel scanning"))
+                    }
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
             } else if let msg = store.undoMessage {
                 Text(msg)
                     .font(.caption)

@@ -32,6 +32,7 @@ actor ScanPipeline {
             var idCounter: UInt64 = 1
             let allURLs = enumerator.allObjects.compactMap { $0 as? URL }
             for fileURL in allURLs {
+                try Task.checkCancellation()
                 let ext = fileURL.pathExtension.lowercased()
                 guard ScanPipeline.supportedExtensions.contains(ext) else { continue }
 

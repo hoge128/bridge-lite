@@ -23,6 +23,7 @@
 		740B6E0B825A83C207B42109 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6259A93CEB1040679F6D1C26 /* ToolbarView.swift */; };
 		74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */; };
 		757F65595D73658FC438F522 /* BridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */; };
+		A1B2C3D4E5F601234567890A /* StorageProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = B2C3D4E5F601234567890ABC /* StorageProbe.swift */; };
 		8EC4C73427A84EBEBE0034EE /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6755AF2D84F34A478B534A17 /* ExifHistogramView.swift */; };
 		8F544229F248278F9D38D074 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
 		9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8959834812C243F4AB214555 /* ViewerView.swift */; };
@@ -82,6 +83,7 @@
 		E8B64F29E109361726718A3C /* PhotoEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEntry.swift; sourceTree = "<group>"; };
 		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
 		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
+		B2C3D4E5F601234567890ABC /* StorageProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageProbe.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -188,6 +190,7 @@
 				B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */,
 				6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */,
 				F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */,
+				B2C3D4E5F601234567890ABC /* StorageProbe.swift */,
 			);
 			path = Bridging;
 			sourceTree = "<group>";
@@ -312,6 +315,7 @@
 			files = (
 				F049B58AD623462639BFDA52 /* AboutView.swift in Sources */,
 				757F65595D73658FC438F522 /* BridgeCore.swift in Sources */,
+				A1B2C3D4E5F601234567890A /* StorageProbe.swift in Sources */,
 				C5E75A4F20CD758BDD8C2EFC /* BridgeLiteApp.swift in Sources */,
 				20FA827723A350BA5FA21B62 /* ConcurrencyLimiter.swift in Sources */,
 				CF8892645373D041666BB500 /* ContentView.swift in Sources */,
