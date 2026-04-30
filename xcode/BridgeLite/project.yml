@@ -2,7 +2,7 @@ name: BridgeLite
 options:
   bundleIdPrefix: io.github.bridge-lite
   deploymentTarget:
-    macOS: "26.0"
+    macOS: "14.0"
   xcodeVersion: "16.3"
   generateEmptyDirectories: true
 
@@ -10,7 +10,7 @@ targets:
   BridgeLite:
     type: application
     platform: macOS
-    deploymentTarget: "26.0"
+    deploymentTarget: "14.0"
     sources:
       - path: BridgeLite
       - path: Generated
@@ -18,7 +18,7 @@ targets:
     settings:
       base:
         SWIFT_VERSION: 6.0
-        MACOSX_DEPLOYMENT_TARGET: "26.0"
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
         PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite
         PRODUCT_NAME: BridgeLite
         SWIFT_EMIT_LOC_STRINGS: YES
