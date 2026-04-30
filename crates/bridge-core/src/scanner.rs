@@ -4,12 +4,12 @@ use std::time::SystemTime;
 use walkdir::WalkDir;
 
 pub const SUPPORTED_EXTENSIONS: &[&str] = &[
-    "jpg", "jpeg", "png", "tif", "tiff", "bmp", "webp", "gif",
+    "jpg", "jpeg", "png", "tif", "tiff", "bmp", "webp", "gif", "heic", "heif",
 ];
 
 pub const RAW_EXTENSIONS: &[&str] = &[
     "arw", "cr2", "cr3", "nef", "orf", "rw2", "dng", "raf", "3fr", "fff", "iiq", "mos", "mrw",
-    "nrw", "pef", "srw", "x3f", "heic", "heif",
+    "nrw", "pef", "srw", "x3f",
 ];
 
 #[derive(Debug, Clone)]

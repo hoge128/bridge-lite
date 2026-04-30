@@ -1037,6 +1037,38 @@
         }
       }
     },
+    "kind.indeterminate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indeterminate"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "判定不能"
+          }
+        }
+      }
+    },
+    "kind.indeterminate.badge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IND"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "IND"
+          }
+        }
+      }
+    },
     "kind.raw" : {
       "localizations" : {
         "en" : {
@@ -1741,6 +1773,9 @@
           }
         }
       }
+    },
+    "Show only images where origin cannot be determined (no camera EXIF metadata)" : {
+
     },
     "Show only photos with checked ratings. Nothing checked = show all ratings" : {
       "localizations" : {

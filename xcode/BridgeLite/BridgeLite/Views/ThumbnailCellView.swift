@@ -16,7 +16,8 @@ struct ThumbnailCellView: View {
 
     private var photoKind: PhotoKind {
         if entry.isRaw { return .raw }
-        if (xmp?.developed == true) || (exif?.isDeveloped == true) { return .developed }
+        if entry.hasDevelopedSuffix || (xmp?.developed == true) || (exif?.isDeveloped == true) { return .developed }
+        if let exif = exif, (exif.make ?? "").isEmpty && (exif.model ?? "").isEmpty { return .indeterminate }
         return .sooc
     }
 
@@ -42,7 +43,7 @@ struct ThumbnailCellView: View {
             .overlay(alignment: .topTrailing) {
                 identifierBadge
                     .padding(4)
-                    .opacity(photoKind != .sooc || isHovered ? 1 : 0)
+                    .opacity(photoKind == .sooc ? (isHovered ? 1 : 0) : 1)
                     .animation(.easeInOut(duration: 0.15), value: isHovered)
             }
             .overlay { selectionStroke(cornerRadius: 6) }
@@ -105,6 +106,8 @@ struct ThumbnailCellView: View {
                     RoundedRectangle(cornerRadius: 3).fill(Color.orange.opacity(0.8))
                 case .developed:
                     RoundedRectangle(cornerRadius: 3).fill(Color.green.opacity(0.8))
+                case .indeterminate:
+                    RoundedRectangle(cornerRadius: 3).fill(Color.purple.opacity(0.8))
                 }
             }
     }

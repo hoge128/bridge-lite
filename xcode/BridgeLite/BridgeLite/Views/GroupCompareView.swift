@@ -242,6 +242,9 @@ private struct CompareMemberColumn: View {
         if entry.isRaw { return (PhotoKind.raw.localizedBadgeName, .orange) }
         let isDev = (xmp?.developed == true) || (exif?.isDeveloped == true)
         if isDev { return (PhotoKind.developed.localizedBadgeName, .green) }
+        if let exif = exif, (exif.make ?? "").isEmpty && (exif.model ?? "").isEmpty {
+            return (PhotoKind.indeterminate.localizedBadgeName, .purple)
+        }
         return (PhotoKind.sooc.localizedBadgeName, Color.primary.opacity(0.4))
     }
 

@@ -369,7 +369,8 @@ final class LibraryStore {
                 for mid in members {
                     guard let mentry = entries[mid] else { continue }
                     let kind: PhotoKind = mentry.isRaw ? .raw
-                        : isDevelopedMember(mid, groupMinDate: groupMinDate) ? .developed : .sooc
+                        : isDevelopedMember(mid, groupMinDate: groupMinDate) ? .developed
+                        : isIndeterminateMember(mid) ? .indeterminate : .sooc
                     if filter.filterKinds.contains(kind) { add(mentry.url) }
                 }
             }
@@ -791,6 +792,12 @@ final class LibraryStore {
         return false
     }
 
+    /// EXIF がロード済みでカメラ Make/Model が両方空 → カメラ直出しか現像済みか判断できない
+    private func isIndeterminateMember(_ id: UInt64) -> Bool {
+        guard let exif = exifData[id] else { return false }
+        return (exif.make ?? "").isEmpty && (exif.model ?? "").isEmpty
+    }
+
     private func computeRepresentativesForKinds(
         _ kinds: Set<PhotoKind>,
         groups: [UInt64: [UInt64]],
@@ -806,6 +813,7 @@ final class LibraryStore {
             var devMembers: [UInt64] = []
             var soocMembers: [UInt64] = []
             var rawMembers: [UInt64] = []
+            var indMembers: [UInt64] = []
 
             for id in members {
                 guard let entry = entries[id] else { continue }
@@ -813,6 +821,8 @@ final class LibraryStore {
                     rawMembers.append(id)
                 } else if isDevelopedMember(id, groupMinDate: groupMinDate) {
                     devMembers.append(id)
+                } else if isIndeterminateMember(id) {
+                    indMembers.append(id)
                 } else {
                     soocMembers.append(id)
                 }
@@ -824,6 +834,9 @@ final class LibraryStore {
             // カメラ出力: SOOC が存在するグループ
             } else if kinds.contains(.sooc), !soocMembers.isEmpty {
                 reps.insert(soocMembers[0])
+            // 判定不能: IND が存在するグループ
+            } else if kinds.contains(.indeterminate), !indMembers.isEmpty {
+                reps.insert(indMembers[0])
             // RAW: グループ内で最新タイムスタンプの RAW
             } else if kinds.contains(.raw), !rawMembers.isEmpty {
                 let newest = rawMembers.max {
@@ -881,6 +894,7 @@ final class LibraryStore {
     private func entryKind(id: UInt64, entry: PhotoEntry, groupMinDate: Date?) -> PhotoKind {
         if entry.isRaw { return .raw }
         if isDevelopedMember(id, groupMinDate: groupMinDate) { return .developed }
+        if isIndeterminateMember(id) { return .indeterminate }
         return .sooc
     }
 

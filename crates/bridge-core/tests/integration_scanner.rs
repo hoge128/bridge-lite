@@ -53,5 +53,8 @@ fn is_raw_detection() {
     assert!(!is_raw(Path::new("photo.jpg")));
     assert!(!is_raw(Path::new("photo.JPG")));
     assert!(!is_raw(Path::new("photo.png")));
+    assert!(!is_raw(Path::new("photo.heic")));
+    assert!(!is_raw(Path::new("photo.HEIC")));
+    assert!(!is_raw(Path::new("photo.heif")));
     assert!(!is_raw(Path::new("photo.txt")));
 }

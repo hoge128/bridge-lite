@@ -252,6 +252,16 @@ struct FilterPanelView: View {
                         .toggleStyle(.checkbox)
                         .help("Use developed JPEG as the representative thumbnail per group (groups without developed JPEG are hidden)")
 
+                        Toggle(isOn: Binding(
+                            get: { store.filter.filterKinds.contains(.indeterminate) },
+                            set: { on in
+                                if on { store.filter.filterKinds.insert(.indeterminate) }
+                                else  { store.filter.filterKinds.remove(.indeterminate) }
+                            }
+                        )) { Text(PhotoKind.indeterminate.localizedName).font(.caption) }
+                        .toggleStyle(.checkbox)
+                        .help("Show only images where origin cannot be determined (no camera EXIF metadata)")
+
                         Divider()
 
                         Toggle(isOn: $store.filter.cameraOnly) {

@@ -48,6 +48,8 @@ struct PropagationMatrix: Sendable, Equatable {
         case .developed:
             if developedToSooc { result.insert(.sooc) }
             if developedToRaw  { result.insert(.raw) }
+        case .indeterminate:
+            break
         }
         return result
     }
