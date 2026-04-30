@@ -1,25 +1,34 @@
 import SwiftUI
 
 struct AboutView: View {
-    @Environment(\.dismiss) private var dismiss
+    private static let version: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+    private static let copyright: String = Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String ?? ""
 
     var body: some View {
-        VStack(spacing: 16) {
-            Text("B")
-                .font(.system(size: 60, weight: .bold, design: .monospaced))
-                .foregroundStyle(.tint)
+        VStack(spacing: 12) {
+            Image(nsImage: NSApp.applicationIconImage)
+                .resizable()
+                .frame(width: 96, height: 96)
             Text("BridgeLite")
                 .font(.title2.bold())
-            Text("Lightweight RAW+JPG image viewer")
+            Text("Version \(Self.version)")
+                .font(.callout)
+                .foregroundStyle(.secondary)
+            Text("about.description")
                 .font(.caption)
                 .foregroundStyle(.secondary)
-            Text("Version 0.1.0")
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Divider()
+            Text(Self.copyright)
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
-            Button("Close") { dismiss() }
-                .keyboardShortcut(.escape)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
         }
-        .padding(32)
-        .frame(width: 300, height: 250)
+        .padding(.horizontal, 40)
+        .padding(.vertical, 48)
+        .frame(width: 390)
+        .fixedSize(horizontal: true, vertical: true)
     }
 }

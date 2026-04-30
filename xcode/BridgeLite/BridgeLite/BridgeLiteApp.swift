@@ -60,6 +60,12 @@ struct BridgeLiteApp: App {
             BridgeLiteCommands()
         }
 
+        Window("About BridgeLite", id: "about") {
+            AboutView()
+        }
+        .windowResizability(.contentSize)
+        .defaultPosition(.center)
+
         Settings {
             SettingsView()
                 .environment(SettingsStore.shared)
@@ -69,8 +75,14 @@ struct BridgeLiteApp: App {
 
 struct BridgeLiteCommands: Commands {
     @FocusedValue(\.libraryStore) private var store: LibraryStore?
+    @Environment(\.openWindow) private var openWindow
 
     var body: some Commands {
+        CommandGroup(replacing: .appInfo) {
+            Button("About BridgeLite") {
+                openWindow(id: "about")
+            }
+        }
         CommandGroup(replacing: .newItem) {
             Button("Open Folder…") {
                 store?.requestOpenFolder()
