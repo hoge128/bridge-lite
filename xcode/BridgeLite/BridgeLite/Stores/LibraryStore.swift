@@ -59,6 +59,8 @@ final class LibraryStore {
     // フォルダ切替時にキャンセルする fire-and-forget タスク
     private var exifLoadTask: Task<Void, Never>?
     private var thumbnailLoadTask: Task<Void, Never>?
+    // フォルダオープン本体タスク（ユーザーがキャンセル可能）
+    private var openDirTask: Task<Void, Never>?
 
     private(set) var currentDirectoryURL: URL?
     private var database: BridgeCoreDatabase?
@@ -73,7 +75,54 @@ final class LibraryStore {
         panel.allowsMultipleSelection = false
         panel.title = String(localized: "Open Folder")
         if panel.runModal() == .OK, let url = panel.url {
-            Task { await openDirectory(url) }
+            if settings.warnSlowStorage {
+                let kind = StorageProbe.probe(url: url)
+                if kind == .rotational || kind == .network {
+                    guard confirmSlowStorage(kind: kind) else { return }
+                }
+            }
+            cancelLoading()
+            openDirTask = Task { await openDirectory(url) }
+        }
+    }
+
+    private func confirmSlowStorage(kind: StorageKind) -> Bool {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(localized: "alert.slow_storage.title",
+                                   defaultValue: "This folder is on slow storage")
+        alert.informativeText = kind == .rotational
+            ? String(localized: "alert.slow_storage.message.hdd",
+                     defaultValue: "The selected folder is on a rotational hard disk. Scanning may take significantly longer than on an SSD, and overall app performance may be reduced. For best results, copy the photos to internal SSD storage first.")
+            : String(localized: "alert.slow_storage.message.network",
+                     defaultValue: "The selected folder is on a network volume. Scanning will be slow and unreliable on unstable connections.")
+        alert.addButton(withTitle: String(localized: "alert.slow_storage.continue",
+                                          defaultValue: "Continue"))
+        alert.addButton(withTitle: String(localized: "alert.slow_storage.cancel",
+                                          defaultValue: "Cancel"))
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = String(localized: "alert.slow_storage.suppress",
+                                                defaultValue: "Don't warn me again")
+
+        let resp = alert.runModal()
+        if alert.suppressionButton?.state == .on { settings.warnSlowStorage = false }
+        return resp == .alertFirstButtonReturn
+    }
+
+    func cancelLoading() {
+        openDirTask?.cancel()
+        openDirTask = nil
+        exifLoadTask?.cancel()
+        exifLoadTask = nil
+        thumbnailLoadTask?.cancel()
+        thumbnailLoadTask = nil
+        guard isLoading else { return }
+        isLoading = false
+        if orderedIDs.isEmpty {
+            statusMessage = ""
+            currentDirectoryURL = nil
+        } else {
+            statusMessage = String(format: String(localized: "%d photos"), orderedIDs.count)
         }
     }
 
@@ -94,9 +143,12 @@ final class LibraryStore {
                 let (entries, list) = try await BridgeCore.scanDirectory(url: url, db: db)
                 scanned = entries
                 lastImageList = list
+            } catch is CancellationError {
+                return
             } catch {
                 scanned = try await scanPipeline.scan(url: url)
             }
+            try Task.checkCancellation()
             ingest(scanned)
 
             // 並行: EXIF バッチ + XMP バッチ
@@ -139,6 +191,9 @@ final class LibraryStore {
                 format: String(localized: "%d photos"),
                 orderedIDs.count
             )
+        } catch is CancellationError {
+            // cancelLoading() が既に isLoading / currentDirectoryURL をリセット済み
+            return
         } catch {
             statusMessage = error.localizedDescription
         }
@@ -566,6 +621,25 @@ final class LibraryStore {
 
     func applyOrder() { recomputeVisible() }
 
+    /// 任意の FilterCriteria で絞り込んだ ID を返す（代表選定は現在の filter に従う）。
+    /// ヒストグラムの自軸クロスフィルタ集計用。ソート順は保証しない。
+    func filteredIDs(using customFilter: FilterCriteria) -> [UInt64] {
+        let liveReps: Set<UInt64>
+        if filter.flatten {
+            liveReps = Set(orderedIDs)
+        } else if !filter.filterKinds.isEmpty {
+            liveReps = computeRepresentativesForKinds(filter.filterKinds, groups: shotGroups, entries: entries)
+        } else {
+            liveReps = computeRepresentatives(groups: shotGroups, entries: entries)
+        }
+        let reps = orderedIDs.filter { liveReps.contains($0) }
+        guard customFilter.isActive else { return reps }
+        return reps.filter { id in
+            guard let entry = entries[id] else { return false }
+            return customFilter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id])
+        }
+    }
+
     private func sortedIDs(_ ids: [UInt64]) -> [UInt64] {
         let key = settings.sortKey
         let asc = settings.sortAscending
@@ -762,6 +836,7 @@ final class LibraryStore {
         exifLoadTask = nil
         thumbnailLoadTask?.cancel()
         thumbnailLoadTask = nil
+        // openDirTask は cancelLoading() 経由でキャンセルする（reset は openDirectory() 内から呼ばれるため自己キャンセル不可）
         pendingThumbnails = [:]
         pendingExif = [:]
         pendingXmp = [:]

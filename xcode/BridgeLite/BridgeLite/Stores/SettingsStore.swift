@@ -1,5 +1,28 @@
 import Foundation
 
+enum FilterSection: String, CaseIterable, Codable, Identifiable {
+    case fileType, camera, artist, lens, rating, label
+    case iso, focal, shutter, aperture, date
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .fileType: return String(localized: "File Type")
+        case .camera:   return String(localized: "Camera")
+        case .artist:   return String(localized: "Photographer")
+        case .lens:     return String(localized: "Lens")
+        case .rating:   return String(localized: "Rating")
+        case .label:    return String(localized: "Label")
+        case .iso:      return String(localized: "ISO")
+        case .focal:    return String(localized: "Focal Length")
+        case .shutter:  return String(localized: "Shutter")
+        case .aperture: return String(localized: "Aperture")
+        case .date:     return String(localized: "Date")
+        }
+    }
+}
+
 // [BETA DISABLED] .daily はスキャン中フリーズ未解決のため UI から非公開。
 // ViewModePicker を ToolbarView に戻すことで再有効化できる。
 enum ViewMode: String, CaseIterable {
@@ -83,6 +106,20 @@ final class SettingsStore {
                                            .flatMap(CompareNavMode.init(rawValue:))) ?? .memberFirst {
         didSet { UserDefaults.standard.set(compareNavMode.rawValue, forKey: "compareNavMode") }
     }
+    var filterSectionOrder: [FilterSection] = {
+        guard let data = UserDefaults.standard.data(forKey: "filterSectionOrder"),
+              let saved = try? JSONDecoder().decode([FilterSection].self, from: data),
+              !saved.isEmpty else { return FilterSection.allCases }
+        var result = saved.filter { FilterSection.allCases.contains($0) }
+        for s in FilterSection.allCases where !result.contains(s) { result.append(s) }
+        return result
+    }() {
+        didSet {
+            if let data = try? JSONEncoder().encode(filterSectionOrder) {
+                UserDefaults.standard.set(data, forKey: "filterSectionOrder")
+            }
+        }
+    }
 
     // MARK: - 伝播マトリクス (非対角 6 セル)
 
@@ -125,6 +162,9 @@ final class SettingsStore {
     }
     var confirmBulkRating: Bool = bool("confirmBulkRating", default: true) {
         didSet { UserDefaults.standard.set(confirmBulkRating, forKey: "confirmBulkRating") }
+    }
+    var warnSlowStorage: Bool = bool("warnSlowStorage", default: true) {
+        didSet { UserDefaults.standard.set(warnSlowStorage, forKey: "warnSlowStorage") }
     }
 }
 

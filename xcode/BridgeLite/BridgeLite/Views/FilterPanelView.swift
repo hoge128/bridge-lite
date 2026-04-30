@@ -4,9 +4,11 @@ struct FilterPanelView: View {
     @Environment(LibraryStore.self) private var store
 
     @State private var isResetHovered = false
-    @State private var ratingExpanded = true
+    @State private var fileTypeExpanded = true
     @State private var cameraExpanded = true
     @State private var artistExpanded = true
+    @State private var lensExpanded = true
+    @State private var ratingExpanded = true
     @State private var labelExpanded = true
     @State private var isoExpanded = true
     @State private var focalExpanded = true
@@ -15,6 +17,20 @@ struct FilterPanelView: View {
     @State private var dateExpanded = true
 
     // MARK: - Histogram bucket data
+
+    private enum HistogramAxis { case iso, focal, shutter, aperture, date }
+
+    private func idsForHistogram(excluding axis: HistogramAxis) -> [UInt64] {
+        var f = store.filter
+        switch axis {
+        case .iso:      f.isoMin = "";      f.isoMax = ""
+        case .focal:    f.focalMin = "";    f.focalMax = ""
+        case .shutter:  f.shutterMin = "";  f.shutterMax = ""
+        case .aperture: f.apertureMin = ""; f.apertureMax = ""
+        case .date:     f.dateMin = "";     f.dateMax = ""
+        }
+        return store.filteredIDs(using: f)
+    }
 
     private var isoBuckets: [ExifBucket] {
         typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
@@ -29,8 +45,8 @@ struct FilterPanelView: View {
             (">6k",    .infinity, "6401", ""),
         ]
         var counts = Array(repeating: 0, count: specs.count)
-        for exif in store.exifData.values {
-            guard let iso = exif.iso else { continue }
+        for id in idsForHistogram(excluding: .iso) {
+            guard let iso = store.exifData[id]?.iso else { continue }
             let d = Double(iso)
             for (i, spec) in specs.enumerated() {
                 if d <= spec.upTo { counts[i] += 1; break }
@@ -56,8 +72,8 @@ struct FilterPanelView: View {
             (">200",  .infinity, "200", ""),
         ]
         var counts = Array(repeating: 0, count: specs.count)
-        for exif in store.exifData.values {
-            guard let mm = exif.effectiveFocalMm else { continue }
+        for id in idsForHistogram(excluding: .focal) {
+            guard let mm = store.exifData[id]?.effectiveFocalMm else { continue }
             for (i, spec) in specs.enumerated() {
                 if mm <= spec.upTo { counts[i] += 1; break }
             }
@@ -82,8 +98,8 @@ struct FilterPanelView: View {
             ("<60",  .infinity,  "1/60",   ""),
         ]
         var counts = Array(repeating: 0, count: specs.count)
-        for exif in store.exifData.values {
-            guard let s = exif.shutterSeconds else { continue }
+        for id in idsForHistogram(excluding: .shutter) {
+            guard let s = store.exifData[id]?.shutterSeconds else { continue }
             for (i, spec) in specs.enumerated() {
                 if s <= spec.upTo { counts[i] += 1; break }
             }
@@ -108,8 +124,8 @@ struct FilterPanelView: View {
             (">11",   .infinity, "11",  ""),
         ]
         var counts = Array(repeating: 0, count: specs.count)
-        for exif in store.exifData.values {
-            guard let f = exif.fnumberValue else { continue }
+        for id in idsForHistogram(excluding: .aperture) {
+            guard let f = store.exifData[id]?.fnumberValue else { continue }
             for (i, spec) in specs.enumerated() {
                 if f <= spec.upTo { counts[i] += 1; break }
             }
@@ -139,7 +155,7 @@ struct FilterPanelView: View {
 
     private var dateBuckets: [ExifBucket] {
         let cal = Calendar.current
-        let dates = store.entries.keys.compactMap { photoDate(for: $0) }
+        let dates = idsForHistogram(excluding: .date).compactMap { photoDate(for: $0) }
         guard let minDate = dates.min(), let maxDate = dates.max() else { return [] }
         let daySpan = cal.dateComponents([.day], from: minDate, to: maxDate).day ?? 0
         return daySpan <= 14
@@ -231,375 +247,10 @@ struct FilterPanelView: View {
                 .padding(.horizontal, 12)
                 .help("Show every file individually. Disables grouping and replaces the kind filter with an extension filter.")
 
-                // File Kind
-                SectionBox("File Type") {
-                    VStack(alignment: .leading, spacing: 4) {
-                        if store.filter.flatten {
-                            ForEach(store.availableExtensions, id: \.self) { ext in
-                                Toggle(isOn: Binding(
-                                    get: { !store.filter.excludedExtensions.contains(ext) },
-                                    set: { on in
-                                        if on { store.filter.excludedExtensions.remove(ext) }
-                                        else  { store.filter.excludedExtensions.insert(ext) }
-                                    }
-                                )) { Text(".\(ext.uppercased())").font(.caption).monospaced() }
-                                .toggleStyle(.checkbox)
-                                .help("Uncheck extensions to exclude them from results")
-                            }
-                        } else {
-                            Toggle(isOn: Binding(
-                                get: { store.filter.filterKinds.contains(.raw) },
-                                set: { on in
-                                    if on { store.filter.filterKinds.insert(.raw) }
-                                    else  { store.filter.filterKinds.remove(.raw) }
-                                }
-                            )) { Text("RAW").font(.caption) }
-                            .toggleStyle(.checkbox)
-                            .help("Use RAW as the representative thumbnail per group (groups without RAW are hidden)")
-
-                            Toggle(isOn: Binding(
-                                get: { store.filter.filterKinds.contains(.sooc) },
-                                set: { on in
-                                    if on { store.filter.filterKinds.insert(.sooc) }
-                                    else  { store.filter.filterKinds.remove(.sooc) }
-                                }
-                            )) { Text(PhotoKind.sooc.localizedName).font(.caption) }
-                            .toggleStyle(.checkbox)
-                            .help("Use camera JPEG as the representative thumbnail per group (groups without JPEG are hidden)")
-
-                            Toggle(isOn: Binding(
-                                get: { store.filter.filterKinds.contains(.developed) },
-                                set: { on in
-                                    if on { store.filter.filterKinds.insert(.developed) }
-                                    else  { store.filter.filterKinds.remove(.developed) }
-                                }
-                            )) { Text(PhotoKind.developed.localizedName).font(.caption) }
-                            .toggleStyle(.checkbox)
-                            .help("Use developed JPEG as the representative thumbnail per group (groups without developed JPEG are hidden)")
-
-                            Toggle(isOn: Binding(
-                                get: { store.filter.filterKinds.contains(.indeterminate) },
-                                set: { on in
-                                    if on { store.filter.filterKinds.insert(.indeterminate) }
-                                    else  { store.filter.filterKinds.remove(.indeterminate) }
-                                }
-                            )) { Text(PhotoKind.indeterminate.localizedName).font(.caption) }
-                            .toggleStyle(.checkbox)
-                            .help("Show only images where origin cannot be determined (no camera EXIF metadata)")
-                        }
-
-                        Divider()
-
-                        Toggle(isOn: $store.filter.cameraOnly) {
-                            Text("Camera shots only")
-                                .font(.caption)
-                        }
-                        .toggleStyle(.checkbox)
-                        .help("Exclude images without camera Make/Model EXIF (screenshots, web images, etc.)")
-                    }
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                ForEach(store.settings.filterSectionOrder) { section in
+                    filterSectionView(for: section, filter: $store.filter)
+                        .padding(.horizontal, 8)
                 }
-                .padding(.horizontal, 8)
-
-                // Camera
-                if !store.availableCameras.isEmpty {
-                    GroupBox {
-                        DisclosureGroup(isExpanded: $cameraExpanded) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ForEach(store.availableCameras, id: \.self) { cam in
-                                    Toggle(cam, isOn: Binding(
-                                        get: { !store.filter.excludedCameras.contains(cam) },
-                                        set: { on in
-                                            if on { store.filter.excludedCameras.remove(cam) }
-                                            else  { store.filter.excludedCameras.insert(cam) }
-                                        }
-                                    ))
-                                    .font(.caption)
-                                    .toggleStyle(.checkbox)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 4)
-                        } label: {
-                            Button { cameraExpanded.toggle() } label: {
-                                Text("Camera")
-                                    .font(.caption2)
-                                    .kerning(1.2)
-                                    .foregroundStyle(.secondary)
-                                    .textCase(.uppercase)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Uncheck cameras to exclude them from results")
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                }
-
-                // Photographer (EXIF Artist)
-                if !store.availableArtists.isEmpty {
-                    GroupBox {
-                        DisclosureGroup(isExpanded: $artistExpanded) {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ForEach(store.availableArtists, id: \.self) { artist in
-                                    Toggle(artist, isOn: Binding(
-                                        get: { !store.filter.excludedArtists.contains(artist) },
-                                        set: { on in
-                                            if on { store.filter.excludedArtists.remove(artist) }
-                                            else  { store.filter.excludedArtists.insert(artist) }
-                                        }
-                                    ))
-                                    .font(.caption)
-                                    .toggleStyle(.checkbox)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 4)
-                        } label: {
-                            Button { artistExpanded.toggle() } label: {
-                                Text("Photographer")
-                                    .font(.caption2)
-                                    .kerning(1.2)
-                                    .foregroundStyle(.secondary)
-                                    .textCase(.uppercase)
-                            }
-                            .buttonStyle(.plain)
-                            .help("Uncheck photographers to exclude them (read from EXIF Artist field)")
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                }
-
-                // Lens
-                if !store.availableLenses.isEmpty {
-                    GroupBox {
-                        DisclosureGroup {
-                            VStack(alignment: .leading, spacing: 4) {
-                                ForEach(store.availableLenses, id: \.self) { lens in
-                                    Toggle(lens, isOn: Binding(
-                                        get: { !store.filter.excludedLenses.contains(lens) },
-                                        set: { on in
-                                            if on { store.filter.excludedLenses.remove(lens) }
-                                            else  { store.filter.excludedLenses.insert(lens) }
-                                        }
-                                    ))
-                                    .font(.caption)
-                                    .toggleStyle(.checkbox)
-                                    .frame(maxWidth: .infinity, alignment: .leading)
-                                }
-                            }
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.top, 4)
-                        } label: {
-                            Text("Lens")
-                                .font(.caption2)
-                                .kerning(1.2)
-                                .foregroundStyle(.secondary)
-                                .textCase(.uppercase)
-                                .help("Uncheck lenses to exclude them from results")
-                        }
-                    }
-                    .padding(.horizontal, 8)
-                }
-
-                // Rating
-                GroupBox {
-                    DisclosureGroup(isExpanded: $ratingExpanded) {
-                        VStack(alignment: .leading, spacing: 4) {
-                            Toggle(isOn: Binding(
-                                get: { store.filter.filterRatings.contains(0) },
-                                set: { on in
-                                    if on { store.filter.filterRatings.insert(0) }
-                                    else  { store.filter.filterRatings.remove(0) }
-                                }
-                            )) { Text("No Rating").font(.caption) }
-                            .toggleStyle(.checkbox)
-
-                            ForEach(1...5, id: \.self) { n in
-                                Toggle(isOn: Binding(
-                                    get: { store.filter.filterRatings.contains(n) },
-                                    set: { on in
-                                        if on { store.filter.filterRatings.insert(n) }
-                                        else  { store.filter.filterRatings.remove(n) }
-                                    }
-                                )) {
-                                    Text(String(repeating: "★", count: n))
-                                        .font(.caption)
-                                }
-                                .toggleStyle(.checkbox)
-                            }
-                        }
-                        .frame(maxWidth: .infinity, alignment: .leading)
-                        .padding(.top, 4)
-                    } label: {
-                        Button { ratingExpanded.toggle() } label: {
-                            Text("Rating")
-                                .font(.caption2)
-                                .kerning(1.2)
-                                .foregroundStyle(.secondary)
-                                .textCase(.uppercase)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Show only photos with checked ratings. Nothing checked = show all ratings")
-                    }
-                }
-                .padding(.horizontal, 8)
-
-                // Label
-                GroupBox {
-                    DisclosureGroup(isExpanded: $labelExpanded) {
-                        HStack(spacing: 6) {
-                            ForEach(XmpLabel.allCases, id: \.rawValue) { label in
-                                Circle()
-                                    .fill(label.color)
-                                    .frame(width: 18, height: 18)
-                                    .overlay(
-                                        Circle().stroke(
-                                            store.filter.filterLabels.contains(label)
-                                            ? Color.primary : Color.clear,
-                                            lineWidth: 2
-                                        )
-                                    )
-                                    .onTapGesture {
-                                        if store.filter.filterLabels.contains(label) {
-                                            store.filter.filterLabels.remove(label)
-                                        } else {
-                                            store.filter.filterLabels.insert(label)
-                                        }
-                                    }
-                                    .help(label.name)
-                            }
-                        }
-                        .padding(.top, 4)
-                    } label: {
-                        Button { labelExpanded.toggle() } label: {
-                            Text("Label")
-                                .font(.caption2)
-                                .kerning(1.2)
-                                .foregroundStyle(.secondary)
-                                .textCase(.uppercase)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Click to filter by label color. Multiple selection supported")
-                    }
-                }
-                .padding(.horizontal, 8)
-
-                // ISO range
-                GroupBox {
-                    DisclosureGroup(isExpanded: $isoExpanded) {
-                        @Bindable var store = store
-                        ExifHistogramView(
-                            bars: isoBuckets,
-                            minText: $store.filter.isoMin,
-                            maxText: $store.filter.isoMax
-                        )
-                    } label: {
-                        Button { isoExpanded.toggle() } label: {
-                            Text("ISO")
-                                .font(.caption2)
-                                .kerning(1.2)
-                                .foregroundStyle(.secondary)
-                                .textCase(.uppercase)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Filter by ISO sensitivity. Click bars to select range or type values directly")
-                    }
-                }
-                .padding(.horizontal, 8)
-
-                // Focal length (mm, 35mm equiv)
-                GroupBox {
-                    DisclosureGroup(isExpanded: $focalExpanded) {
-                        @Bindable var store = store
-                        ExifHistogramView(
-                            bars: focalBuckets,
-                            minText: $store.filter.focalMin,
-                            maxText: $store.filter.focalMax
-                        )
-                    } label: {
-                        Button { focalExpanded.toggle() } label: {
-                            Text("Focal Length")
-                                .font(.caption2)
-                                .kerning(1.2)
-                                .foregroundStyle(.secondary)
-                                .textCase(.uppercase)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Filter by focal length (35mm equiv). Click bars to select range")
-                    }
-                }
-                .padding(.horizontal, 8)
-
-                // Shutter speed (seconds, fractions OK: 1/200)
-                GroupBox {
-                    DisclosureGroup(isExpanded: $shutterExpanded) {
-                        @Bindable var store = store
-                        ExifHistogramView(
-                            bars: shutterBuckets,
-                            minText: $store.filter.shutterMin,
-                            maxText: $store.filter.shutterMax
-                        )
-                    } label: {
-                        Button { shutterExpanded.toggle() } label: {
-                            Text("Shutter")
-                                .font(.caption2)
-                                .kerning(1.2)
-                                .foregroundStyle(.secondary)
-                                .textCase(.uppercase)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Filter by shutter speed. 1/2000s shown as '2k', 1/60s as '60'")
-                    }
-                }
-                .padding(.horizontal, 8)
-
-                // Aperture (F値)
-                GroupBox {
-                    DisclosureGroup(isExpanded: $apertureExpanded) {
-                        @Bindable var store = store
-                        ExifHistogramView(
-                            bars: apertureBuckets,
-                            minText: $store.filter.apertureMin,
-                            maxText: $store.filter.apertureMax
-                        )
-                    } label: {
-                        Button { apertureExpanded.toggle() } label: {
-                            Text("Aperture")
-                                .font(.caption2)
-                                .kerning(1.2)
-                                .foregroundStyle(.secondary)
-                                .textCase(.uppercase)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Filter by aperture (F-number). Click bars to select range")
-                    }
-                }
-                .padding(.horizontal, 8)
-
-                // Date
-                GroupBox {
-                    DisclosureGroup(isExpanded: $dateExpanded) {
-                        @Bindable var store = store
-                        ExifHistogramView(
-                            bars: dateBuckets,
-                            minText: $store.filter.dateMin,
-                            maxText: $store.filter.dateMax
-                        )
-                    } label: {
-                        Button { dateExpanded.toggle() } label: {
-                            Text("Date")
-                                .font(.caption2)
-                                .kerning(1.2)
-                                .foregroundStyle(.secondary)
-                                .textCase(.uppercase)
-                        }
-                        .buttonStyle(.plain)
-                        .help("Filter by shooting date. Within 14 days = daily buckets, otherwise monthly")
-                    }
-                }
-                .padding(.horizontal, 8)
 
                 Divider()
                     .padding(.horizontal, 8)
@@ -630,6 +281,338 @@ struct FilterPanelView: View {
         }
         .frame(minWidth: 180)
         .background(.ultraThinMaterial)
+    }
+
+    // MARK: - Section views
+
+    @ViewBuilder
+    private func filterSectionView(for section: FilterSection, filter: Binding<FilterCriteria>) -> some View {
+        switch section {
+        case .fileType:
+            SectionBox("File Type", isExpanded: $fileTypeExpanded) {
+                VStack(alignment: .leading, spacing: 4) {
+                    if filter.wrappedValue.flatten {
+                        ForEach(store.availableExtensions, id: \.self) { ext in
+                            Toggle(isOn: Binding(
+                                get: { !filter.wrappedValue.excludedExtensions.contains(ext) },
+                                set: { on in
+                                    var f = filter.wrappedValue
+                                    if on { f.excludedExtensions.remove(ext) }
+                                    else  { f.excludedExtensions.insert(ext) }
+                                    filter.wrappedValue = f
+                                }
+                            )) { Text(".\(ext.uppercased())").font(.caption).monospaced() }
+                            .toggleStyle(.checkbox)
+                            .help("Uncheck extensions to exclude them from results")
+                        }
+                    } else {
+                        Toggle(isOn: Binding(
+                            get: { filter.wrappedValue.filterKinds.contains(.raw) },
+                            set: { on in
+                                var f = filter.wrappedValue
+                                if on { f.filterKinds.insert(.raw) } else { f.filterKinds.remove(.raw) }
+                                filter.wrappedValue = f
+                            }
+                        )) { Text("RAW").font(.caption) }
+                        .toggleStyle(.checkbox)
+                        .help("Use RAW as the representative thumbnail per group (groups without RAW are hidden)")
+
+                        Toggle(isOn: Binding(
+                            get: { filter.wrappedValue.filterKinds.contains(.sooc) },
+                            set: { on in
+                                var f = filter.wrappedValue
+                                if on { f.filterKinds.insert(.sooc) } else { f.filterKinds.remove(.sooc) }
+                                filter.wrappedValue = f
+                            }
+                        )) { Text(PhotoKind.sooc.localizedName).font(.caption) }
+                        .toggleStyle(.checkbox)
+                        .help("Use camera JPEG as the representative thumbnail per group (groups without JPEG are hidden)")
+
+                        Toggle(isOn: Binding(
+                            get: { filter.wrappedValue.filterKinds.contains(.developed) },
+                            set: { on in
+                                var f = filter.wrappedValue
+                                if on { f.filterKinds.insert(.developed) } else { f.filterKinds.remove(.developed) }
+                                filter.wrappedValue = f
+                            }
+                        )) { Text(PhotoKind.developed.localizedName).font(.caption) }
+                        .toggleStyle(.checkbox)
+                        .help("Use developed JPEG as the representative thumbnail per group (groups without developed JPEG are hidden)")
+
+                        Toggle(isOn: Binding(
+                            get: { filter.wrappedValue.filterKinds.contains(.indeterminate) },
+                            set: { on in
+                                var f = filter.wrappedValue
+                                if on { f.filterKinds.insert(.indeterminate) } else { f.filterKinds.remove(.indeterminate) }
+                                filter.wrappedValue = f
+                            }
+                        )) { Text(PhotoKind.indeterminate.localizedName).font(.caption) }
+                        .toggleStyle(.checkbox)
+                        .help("Show only images where origin cannot be determined (no camera EXIF metadata)")
+                    }
+
+                    Divider()
+
+                    Toggle(isOn: filter.cameraOnly) {
+                        Text("Camera shots only").font(.caption)
+                    }
+                    .toggleStyle(.checkbox)
+                    .help("Exclude images without camera Make/Model EXIF (screenshots, web images, etc.)")
+                }
+                .frame(maxWidth: .infinity, alignment: .leading)
+            }
+
+        case .camera:
+            if !store.availableCameras.isEmpty {
+                GroupBox {
+                    DisclosureGroup(isExpanded: $cameraExpanded) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(store.availableCameras, id: \.self) { cam in
+                                Toggle(cam, isOn: Binding(
+                                    get: { !filter.wrappedValue.excludedCameras.contains(cam) },
+                                    set: { on in
+                                        var f = filter.wrappedValue
+                                        if on { f.excludedCameras.remove(cam) } else { f.excludedCameras.insert(cam) }
+                                        filter.wrappedValue = f
+                                    }
+                                ))
+                                .font(.caption)
+                                .toggleStyle(.checkbox)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                    } label: {
+                        Button { cameraExpanded.toggle() } label: {
+                            Text("Camera")
+                                .font(.caption2).kerning(1.2)
+                                .foregroundStyle(.secondary).textCase(.uppercase)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Uncheck cameras to exclude them from results")
+                    }
+                }
+            }
+
+        case .artist:
+            if !store.availableArtists.isEmpty {
+                GroupBox {
+                    DisclosureGroup(isExpanded: $artistExpanded) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(store.availableArtists, id: \.self) { artist in
+                                Toggle(artist, isOn: Binding(
+                                    get: { !filter.wrappedValue.excludedArtists.contains(artist) },
+                                    set: { on in
+                                        var f = filter.wrappedValue
+                                        if on { f.excludedArtists.remove(artist) } else { f.excludedArtists.insert(artist) }
+                                        filter.wrappedValue = f
+                                    }
+                                ))
+                                .font(.caption)
+                                .toggleStyle(.checkbox)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                    } label: {
+                        Button { artistExpanded.toggle() } label: {
+                            Text("Photographer")
+                                .font(.caption2).kerning(1.2)
+                                .foregroundStyle(.secondary).textCase(.uppercase)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Uncheck photographers to exclude them (read from EXIF Artist field)")
+                    }
+                }
+            }
+
+        case .lens:
+            if !store.availableLenses.isEmpty {
+                GroupBox {
+                    DisclosureGroup(isExpanded: $lensExpanded) {
+                        VStack(alignment: .leading, spacing: 4) {
+                            ForEach(store.availableLenses, id: \.self) { lens in
+                                Toggle(lens, isOn: Binding(
+                                    get: { !filter.wrappedValue.excludedLenses.contains(lens) },
+                                    set: { on in
+                                        var f = filter.wrappedValue
+                                        if on { f.excludedLenses.remove(lens) } else { f.excludedLenses.insert(lens) }
+                                        filter.wrappedValue = f
+                                    }
+                                ))
+                                .font(.caption)
+                                .toggleStyle(.checkbox)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+                            }
+                        }
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .padding(.top, 4)
+                    } label: {
+                        Button { lensExpanded.toggle() } label: {
+                            Text("Lens")
+                                .font(.caption2).kerning(1.2)
+                                .foregroundStyle(.secondary).textCase(.uppercase)
+                        }
+                        .buttonStyle(.plain)
+                        .help("Uncheck lenses to exclude them from results")
+                    }
+                }
+            }
+
+        case .rating:
+            GroupBox {
+                DisclosureGroup(isExpanded: $ratingExpanded) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Toggle(isOn: Binding(
+                            get: { filter.wrappedValue.filterRatings.contains(0) },
+                            set: { on in
+                                var f = filter.wrappedValue
+                                if on { f.filterRatings.insert(0) } else { f.filterRatings.remove(0) }
+                                filter.wrappedValue = f
+                            }
+                        )) { Text("No Rating").font(.caption) }
+                        .toggleStyle(.checkbox)
+
+                        ForEach(1...5, id: \.self) { n in
+                            Toggle(isOn: Binding(
+                                get: { filter.wrappedValue.filterRatings.contains(n) },
+                                set: { on in
+                                    var f = filter.wrappedValue
+                                    if on { f.filterRatings.insert(n) } else { f.filterRatings.remove(n) }
+                                    filter.wrappedValue = f
+                                }
+                            )) {
+                                Text(String(repeating: "★", count: n)).font(.caption)
+                            }
+                            .toggleStyle(.checkbox)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+                } label: {
+                    Button { ratingExpanded.toggle() } label: {
+                        Text("Rating")
+                            .font(.caption2).kerning(1.2)
+                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Show only photos with checked ratings. Nothing checked = show all ratings")
+                }
+            }
+
+        case .label:
+            GroupBox {
+                DisclosureGroup(isExpanded: $labelExpanded) {
+                    HStack(spacing: 6) {
+                        ForEach(XmpLabel.allCases, id: \.rawValue) { label in
+                            Circle()
+                                .fill(label.color)
+                                .frame(width: 18, height: 18)
+                                .overlay(
+                                    Circle().stroke(
+                                        filter.wrappedValue.filterLabels.contains(label)
+                                        ? Color.primary : Color.clear,
+                                        lineWidth: 2
+                                    )
+                                )
+                                .onTapGesture {
+                                    var f = filter.wrappedValue
+                                    if f.filterLabels.contains(label) { f.filterLabels.remove(label) }
+                                    else { f.filterLabels.insert(label) }
+                                    filter.wrappedValue = f
+                                }
+                                .help(label.name)
+                        }
+                    }
+                    .padding(.top, 4)
+                } label: {
+                    Button { labelExpanded.toggle() } label: {
+                        Text("Label")
+                            .font(.caption2).kerning(1.2)
+                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Click to filter by label color. Multiple selection supported")
+                }
+            }
+
+        case .iso:
+            GroupBox {
+                DisclosureGroup(isExpanded: $isoExpanded) {
+                    ExifHistogramView(bars: isoBuckets, minText: filter.isoMin, maxText: filter.isoMax)
+                } label: {
+                    Button { isoExpanded.toggle() } label: {
+                        Text("ISO")
+                            .font(.caption2).kerning(1.2)
+                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Filter by ISO sensitivity. Click bars to select range or type values directly")
+                }
+            }
+
+        case .focal:
+            GroupBox {
+                DisclosureGroup(isExpanded: $focalExpanded) {
+                    ExifHistogramView(bars: focalBuckets, minText: filter.focalMin, maxText: filter.focalMax)
+                } label: {
+                    Button { focalExpanded.toggle() } label: {
+                        Text("Focal Length")
+                            .font(.caption2).kerning(1.2)
+                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Filter by focal length (35mm equiv). Click bars to select range")
+                }
+            }
+
+        case .shutter:
+            GroupBox {
+                DisclosureGroup(isExpanded: $shutterExpanded) {
+                    ExifHistogramView(bars: shutterBuckets, minText: filter.shutterMin, maxText: filter.shutterMax)
+                } label: {
+                    Button { shutterExpanded.toggle() } label: {
+                        Text("Shutter")
+                            .font(.caption2).kerning(1.2)
+                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Filter by shutter speed. 1/2000s shown as '2k', 1/60s as '60'")
+                }
+            }
+
+        case .aperture:
+            GroupBox {
+                DisclosureGroup(isExpanded: $apertureExpanded) {
+                    ExifHistogramView(bars: apertureBuckets, minText: filter.apertureMin, maxText: filter.apertureMax)
+                } label: {
+                    Button { apertureExpanded.toggle() } label: {
+                        Text("Aperture")
+                            .font(.caption2).kerning(1.2)
+                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Filter by aperture (F-number). Click bars to select range")
+                }
+            }
+
+        case .date:
+            GroupBox {
+                DisclosureGroup(isExpanded: $dateExpanded) {
+                    ExifHistogramView(bars: dateBuckets, minText: filter.dateMin, maxText: filter.dateMax)
+                } label: {
+                    Button { dateExpanded.toggle() } label: {
+                        Text("Date")
+                            .font(.caption2).kerning(1.2)
+                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Filter by shooting date. Within 14 days = daily buckets, otherwise monthly")
+                }
+            }
+        }
     }
 }
 

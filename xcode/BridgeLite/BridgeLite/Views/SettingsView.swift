@@ -25,9 +25,17 @@ struct SettingsView: View {
             } header: {
                 Text("Rating Propagation")
             }
+            Section {
+                filterOrderList
+                Text("Drag rows to reorder filter sections in the sidebar.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Filter Panel")
+            }
         }
         .formStyle(.grouped)
-        .frame(width: 440, height: 460)
+        .frame(width: 440, height: 620)
         .alert(
             String(localized: "alert.restart.title", defaultValue: "Restart Required"),
             isPresented: $showRestartAlert
@@ -75,6 +83,22 @@ struct SettingsView: View {
             }
         }
         .padding(.vertical, 4)
+    }
+
+    @ViewBuilder
+    private var filterOrderList: some View {
+        @Bindable var settings = settings
+        List {
+            ForEach(settings.filterSectionOrder) { section in
+                Text(section.localizedName)
+                    .font(.body)
+            }
+            .onMove { from, to in
+                settings.filterSectionOrder.move(fromOffsets: from, toOffset: to)
+            }
+        }
+        .listStyle(.bordered(alternatesRowBackgrounds: true))
+        .frame(height: 220)
     }
 
     private var lockedCell: some View {
