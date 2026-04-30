@@ -4,7 +4,7 @@ import Foundation
 /// Phase C.6 以降: BridgeCore.scanDirectory を使う
 /// 現時点では FileManager ベースのフォールバック実装
 actor ScanPipeline {
-    private static let supportedExtensions: Set<String> = [
+    static let supportedExtensionsSet: Set<String> = [
         // RAW
         "arw", "cr2", "cr3", "nef", "nrw", "rw2", "orf", "pef", "raf", "dng",
         // JPEG
@@ -34,7 +34,7 @@ actor ScanPipeline {
             for fileURL in allURLs {
                 try Task.checkCancellation()
                 let ext = fileURL.pathExtension.lowercased()
-                guard ScanPipeline.supportedExtensions.contains(ext) else { continue }
+                guard ScanPipeline.supportedExtensionsSet.contains(ext) else { continue }
 
                 let resourceValues = try? fileURL.resourceValues(
                     forKeys: [.fileSizeKey, .contentModificationDateKey, .creationDateKey, .isRegularFileKey]

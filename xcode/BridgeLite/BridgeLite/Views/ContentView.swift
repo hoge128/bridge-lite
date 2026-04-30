@@ -16,7 +16,7 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteOpenURL)) { notif in
                 guard let url = notif.object as? URL,
                       nsWindow?.isKeyWindow == true else { return }
-                Task { await store.openDirectory(url) }
+                store.loadFolder(url)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notif in
                 guard (notif.object as? NSWindow) === nsWindow else { return }

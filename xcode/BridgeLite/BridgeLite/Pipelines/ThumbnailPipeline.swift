@@ -59,6 +59,8 @@ enum ThumbnailPipeline {
                 await phashPipeline.enqueue(entry: entry, source: img, db: db)
             }
         }
+        // 成功・失敗・スキップに関わらず試行完了を通知（進捗バーが 99% 止まりになるのを防ぐ）
+        await store.noteThumbnailAttemptFinished()
     }
 
     static func generateWithImageIO(url: URL, maxPixels: Int) async -> CGImage? {

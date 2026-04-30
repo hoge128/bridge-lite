@@ -721,6 +721,38 @@
         }
       }
     },
+    "Counting files…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counting files…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ファイル数を確認中…"
+          }
+        }
+      }
+    },
+    "Counting… %d images" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Counting… %d images"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カウント中… %d 枚"
+          }
+        }
+      }
+    },
     "Daily" : {
       "localizations" : {
         "en" : {
@@ -1650,7 +1682,24 @@
         }
       }
     },
+    "Loading %d / %d" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loading %d / %d"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "読み込み中 %d / %d"
+          }
+        }
+      }
+    },
     "Loading thumbnails…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2083,7 +2132,24 @@
         }
       }
     },
+    "Scanning %d images…" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scanning %d images…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d 枚の画像をスキャン中…"
+          }
+        }
+      }
+    },
     "Scanning…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

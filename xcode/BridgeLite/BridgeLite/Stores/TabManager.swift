@@ -20,10 +20,11 @@ final class TabManager {
     // Open URL in the active tab if empty, otherwise in a new tab.
     func openInBestTab(url: URL) {
         if activeStore.currentDirectoryURL == nil {
-            Task { await activeStore.openDirectory(url) }
+            tabs[activeIndex].store.loadFolder(url)
         } else {
             addTab()
-            Task { await activeStore.openDirectory(url) }
+            // addTab() 後は activeIndex が更新されているので tabs[activeIndex] で取得
+            tabs[activeIndex].store.loadFolder(url)
         }
     }
 

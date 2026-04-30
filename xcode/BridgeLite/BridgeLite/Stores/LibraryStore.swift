@@ -43,6 +43,12 @@ final class LibraryStore {
     var statusMessage: String = ""
     var isLoading: Bool = false
 
+    enum ScanPhase { case idle, preScanning, scanning, loading }
+    private(set) var scanPhase: ScanPhase = .idle
+    private(set) var preScanTotalFiles: Int = 0
+    private(set) var preScanImageFiles: Int = 0
+    private(set) var loadedThumbnailCount: Int = 0
+
     // Undo
     private var undoStack: [(description: String, perform: () -> Void)] = []
     private(set) var undoMessage: String?
@@ -61,6 +67,8 @@ final class LibraryStore {
     private var thumbnailLoadTask: Task<Void, Never>?
     // フォルダオープン本体タスク（ユーザーがキャンセル可能）
     private var openDirTask: Task<Void, Never>?
+    // プリスキャンタスク（Task.detached なので明示的にキャンセルが必要）
+    private var preScanTask: Task<(Int, Int), Error>?
 
     private(set) var currentDirectoryURL: URL?
     private var database: BridgeCoreDatabase?
@@ -81,9 +89,15 @@ final class LibraryStore {
                     guard confirmSlowStorage(kind: kind) else { return }
                 }
             }
-            cancelLoading()
-            openDirTask = Task { await openDirectory(url) }
+            loadFolder(url)
         }
+    }
+
+    /// D&D・URL open・タブ切替など全エントリポイント共通のフォルダ開始メソッド。
+    /// openDirTask を登録することで cancelLoading() が全ルートで効くようになる。
+    func loadFolder(_ url: URL) {
+        cancelLoading()
+        openDirTask = Task { await openDirectory(url) }
     }
 
     private func confirmSlowStorage(kind: StorageKind) -> Bool {
@@ -110,12 +124,17 @@ final class LibraryStore {
     }
 
     func cancelLoading() {
+        preScanTask?.cancel()
+        preScanTask = nil
         openDirTask?.cancel()
         openDirTask = nil
         exifLoadTask?.cancel()
         exifLoadTask = nil
+        // thumbnailLoadTask は openDirectory 内で await しているため
+        // openDirTask.cancel() でキャンセルが伝播する。resume() 経由のみ別途キャンセル。
         thumbnailLoadTask?.cancel()
         thumbnailLoadTask = nil
+        scanPhase = .idle
         guard isLoading else { return }
         isLoading = false
         if orderedIDs.isEmpty {
@@ -129,21 +148,38 @@ final class LibraryStore {
     func openDirectory(_ url: URL) async {
         guard !isLoading else { return }
         isLoading = true
-        statusMessage = String(localized: "Scanning…")
+        scanPhase = .preScanning
+        preScanTotalFiles = 0
+        preScanImageFiles = 0
+        loadedThumbnailCount = 0
+        statusMessage = String(localized: "Counting files…")
         reset()
         currentDirectoryURL = url
 
         do {
+            // Phase 1: プリスキャン（拡張子カウント）
+            let (total, images) = try await runPreScan(url: url)
+            try Task.checkCancellation()
+            preScanTotalFiles = total
+            preScanImageFiles = images
+
+            // Phase 2: BridgeCore スキャン（Rust FFI、ブラックボックス）
+            scanPhase = .scanning
+            statusMessage = String(
+                format: String(localized: "Scanning %d images…"),
+                images
+            )
+
             let db = try BridgeCoreDatabase.open(path: dbURL())
             database = db
 
-            // Rust scan (with FileManager fallback)
             let scanned: [PhotoEntry]
             do {
                 let (entries, list) = try await BridgeCore.scanDirectory(url: url, db: db)
                 scanned = entries
                 lastImageList = list
             } catch is CancellationError {
+                scanPhase = .idle
                 return
             } catch {
                 scanned = try await scanPipeline.scan(url: url)
@@ -173,19 +209,23 @@ final class LibraryStore {
                 await pairingPipeline.noteExifReady(list: capturedList, db: db, store: self)
             }
 
-            // サムネイル → pHash → shot-group reindex (直列チェーン)
-            statusMessage = String(localized: "Loading thumbnails…")
+            // Phase 3: サムネイル → pHash → shot-group reindex（直列チェーン）
+            // thumbnailLoadTask に入れず直接 await することで isLoading / scanPhase を
+            // サムネイル完了まで維持し、オーバーレイの X/Y 進捗を最後まで表示させる。
+            scanPhase = .loading
+            statusMessage = String(
+                format: String(localized: "Loading %d / %d"),
+                0, orderedIDs.count
+            )
             // visibleIDs (sort order) first so top-of-grid thumbnails appear before off-screen ones
             let visibleSet = Set(visibleIDs)
             let entriesToLoad = visibleIDs.compactMap { entries[$0] }
                 + orderedIDs.filter { !visibleSet.contains($0) }.compactMap { entries[$0] }
             let capturedPhash = phashPipeline
             let capturedPairing = pairingPipeline
-            thumbnailLoadTask = Task {
-                await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash)
-                await capturedPhash.waitForAllPending()
-                await capturedPairing.notePhashReady(list: capturedList, db: db, store: self)
-            }
+            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash)
+            await capturedPhash.waitForAllPending()
+            await capturedPairing.notePhashReady(list: capturedList, db: db, store: self)
 
             statusMessage = String(
                 format: String(localized: "%d photos"),
@@ -193,11 +233,79 @@ final class LibraryStore {
             )
         } catch is CancellationError {
             // cancelLoading() が既に isLoading / currentDirectoryURL をリセット済み
+            scanPhase = .idle
             return
         } catch {
+            scanPhase = .idle
             statusMessage = error.localizedDescription
         }
         isLoading = false
+        scanPhase = .idle
+    }
+
+    // MARK: - プリスキャン
+
+    /// BridgeCore スキャン前にファイル数を素早く数えて分母を確定する。
+    /// AsyncStream で 100 件ごとに live update し、完了時に最終値を返す。
+    private func runPreScan(url: URL) async throws -> (Int, Int) {
+        guard preScanTask == nil else { return (0, 0) }
+
+        // [weak self] で MainActor に hop するため await を使う。
+        // Task.detached 内の await self?.updatePreScanCounts(...) が
+        // 100 件ごとに MainActor へ制御を渡し、UI を確実に更新する。
+        let task = Task.detached(priority: .userInitiated) { [weak self] () -> (Int, Int) in
+            let supported = ScanPipeline.supportedExtensionsSet
+            let fm = FileManager.default
+            guard let enumerator = fm.enumerator(
+                at: url,
+                includingPropertiesForKeys: nil,
+                options: [.skipsHiddenFiles, .skipsPackageDescendants]
+            ) else { return (0, 0) }
+            var total = 0, images = 0
+            while let obj = enumerator.nextObject() {
+                try Task.checkCancellation()
+                guard let fileURL = obj as? URL else { continue }
+                if fileURL.hasDirectoryPath { continue }
+                total += 1
+                if supported.contains(fileURL.pathExtension.lowercased()) { images += 1 }
+                if total % 100 == 0 {
+                    await self?.updatePreScanCounts(total: total, images: images)
+                }
+            }
+            return (total, images)
+        }
+        preScanTask = task
+        defer { preScanTask = nil }
+        let result = try await task.value
+        updatePreScanCounts(total: result.0, images: result.1)
+        return result
+    }
+
+    private func updatePreScanCounts(total: Int, images: Int) {
+        preScanTotalFiles = total
+        preScanImageFiles = images
+        statusMessage = String(
+            format: String(localized: "Counting… %d images"),
+            images
+        )
+    }
+
+    // MARK: - サムネイル進捗
+
+    /// サムネイル生成の試行完了を記録（成功・失敗問わず呼ぶこと）。
+    /// scanPhase == .loading のときのみカウントし、resume() 時の二重カウントを防ぐ。
+    func noteThumbnailAttemptFinished() {
+        guard scanPhase == .loading else { return }
+        loadedThumbnailCount += 1
+        let total = orderedIDs.count
+        // navigationTitle への負荷を抑えるため 50 件ごとまたは最終件で更新
+        let isLast = loadedThumbnailCount >= total
+        if isLast || loadedThumbnailCount % 50 == 0 {
+            statusMessage = String(
+                format: String(localized: "Loading %d / %d"),
+                loadedThumbnailCount, total
+            )
+        }
     }
 
     // MARK: - 選択操作
@@ -837,6 +945,10 @@ final class LibraryStore {
         thumbnailLoadTask?.cancel()
         thumbnailLoadTask = nil
         // openDirTask は cancelLoading() 経由でキャンセルする（reset は openDirectory() 内から呼ばれるため自己キャンセル不可）
+        // preScanTask も同様（openDirectory 内の runPreScan が pending 中の場合に備える）
+        preScanTask?.cancel()
+        preScanTask = nil
+        loadedThumbnailCount = 0
         pendingThumbnails = [:]
         pendingExif = [:]
         pendingXmp = [:]
