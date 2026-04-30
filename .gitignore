@@ -24,3 +24,7 @@ test/
 
 # macOS
 .DS_Store
+
+# Build archives and release DMGs
+archive/
+dmgs/
