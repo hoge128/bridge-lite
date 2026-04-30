@@ -102,6 +102,7 @@ impl FfiImageEntry {
 }
 
 /// EXIF result (found flag + fields).
+#[derive(Clone)]
 pub struct FfiExifResult {
     pub found: bool,
     pub make: String,
@@ -160,6 +161,11 @@ impl FfiExifResult {
             artist: e.artist.clone().unwrap_or_default(),
         }
     }
+}
+
+/// EXIF batch result — index-aligned with the ImageEntryList used to create it.
+pub struct FfiExifBatch {
+    results: Vec<FfiExifResult>,
 }
 
 /// XMP result (found flag + fields).
@@ -261,6 +267,7 @@ mod ffi {
         type ImageEntryList;
         type FfiImageEntry;
         type FfiExifResult;
+        type FfiExifBatch;
         type FfiXmpResult;
         type FfiOptionalBytes;
         type ShotGroupsMap;
@@ -287,6 +294,10 @@ mod ffi {
 
         // EXIF API
         fn bridge_fetch_exif(db: &BridgeDatabase, path: &str) -> FfiExifResult;
+        // Batch EXIF fetch — 1 SQLite connection, index-aligned with entries list
+        fn bridge_fetch_exif_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) -> FfiExifBatch;
+        fn ffi_exif_batch_count(r: &FfiExifBatch) -> usize;
+        fn ffi_exif_batch_exif_at(r: &FfiExifBatch, idx: usize) -> FfiExifResult;
         fn ffi_exif_found(r: &FfiExifResult) -> bool;
         fn ffi_exif_make(r: &FfiExifResult) -> String;
         fn ffi_exif_model(r: &FfiExifResult) -> String;
@@ -352,11 +363,11 @@ fn bridge_ffi_error_message(e: &BridgeFfiError) -> String {
 
 fn bridge_scan_directory(db: &BridgeDatabase, path: &str) -> ImageEntryList {
     let entries = bridge_core::scanner::scan_directory(PathBuf::from(path));
-    // Persist EXIF to DB for newly scanned entries (best-effort, blocking).
+    // Persist EXIF to DB for newly scanned entries in parallel (cache hits via
+    // one IN-clause query, misses parsed with rayon, written in one transaction).
     let db_path = db.db_path.clone();
-    for entry in &entries {
-        let _ = bridge_core::db::fetch_or_index(&entry.path, &db_path);
-    }
+    let paths: Vec<PathBuf> = entries.iter().map(|e| e.path.clone()).collect();
+    bridge_core::db::index_new_entries(&paths, &db_path);
     ImageEntryList { entries }
 }
 
@@ -403,6 +414,23 @@ fn ffi_exif_width(r: &FfiExifResult) -> i32 { r.width }
 fn ffi_exif_height(r: &FfiExifResult) -> i32 { r.height }
 fn ffi_exif_software(r: &FfiExifResult) -> String { r.software.clone() }
 fn ffi_exif_artist(r: &FfiExifResult) -> String { r.artist.clone() }
+
+fn bridge_fetch_exif_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) -> FfiExifBatch {
+    let paths: Vec<PathBuf> = entries.entries.iter().map(|e| e.path.clone()).collect();
+    let mut map = bridge_core::db::fetch_exif_batch(&paths, &db.db_path);
+    let results = paths
+        .into_iter()
+        .map(|p| {
+            map.remove(&p)
+                .map(|e| FfiExifResult::from_core(&e))
+                .unwrap_or_else(FfiExifResult::not_found)
+        })
+        .collect();
+    FfiExifBatch { results }
+}
+
+fn ffi_exif_batch_count(r: &FfiExifBatch) -> usize { r.results.len() }
+fn ffi_exif_batch_exif_at(r: &FfiExifBatch, idx: usize) -> FfiExifResult { r.results[idx].clone() }
 
 // ── XMP API impl ───────────────────────────────────────────────────────────
 

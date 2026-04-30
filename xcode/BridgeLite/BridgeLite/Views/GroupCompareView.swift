@@ -234,7 +234,7 @@ private struct CompareMemberColumn: View {
     @State private var isLoadingPreview = false
 
     private var entry: PhotoEntry? { store.entries[memberID] }
-    private var thumbnail: CGImage? { store.thumbnailImages[memberID] }
+    private var thumbnail: CGImage? { store.thumbnailImage(for: memberID) }
     private var xmp: XmpData? { store.xmpData[memberID] }
     private var exif: ExifData? { store.exifData[memberID] }
 

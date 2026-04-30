@@ -37,6 +37,18 @@ void* __swift_bridge__$Vec_FfiXmpResult$get_mut(void* vec_ptr, uintptr_t index);
 uintptr_t __swift_bridge__$Vec_FfiXmpResult$len(void* vec_ptr);
 void* __swift_bridge__$Vec_FfiXmpResult$as_ptr(void* vec_ptr);
 
+typedef struct FfiExifBatch FfiExifBatch;
+void __swift_bridge__$FfiExifBatch$_free(void* self);
+
+void* __swift_bridge__$Vec_FfiExifBatch$new(void);
+void __swift_bridge__$Vec_FfiExifBatch$drop(void* vec_ptr);
+void __swift_bridge__$Vec_FfiExifBatch$push(void* vec_ptr, void* item_ptr);
+void* __swift_bridge__$Vec_FfiExifBatch$pop(void* vec_ptr);
+void* __swift_bridge__$Vec_FfiExifBatch$get(void* vec_ptr, uintptr_t index);
+void* __swift_bridge__$Vec_FfiExifBatch$get_mut(void* vec_ptr, uintptr_t index);
+uintptr_t __swift_bridge__$Vec_FfiExifBatch$len(void* vec_ptr);
+void* __swift_bridge__$Vec_FfiExifBatch$as_ptr(void* vec_ptr);
+
 typedef struct FfiExifResult FfiExifResult;
 void __swift_bridge__$FfiExifResult$_free(void* self);
 
@@ -112,6 +124,9 @@ int64_t __swift_bridge__$ffi_image_entry_created_unix(void* entry);
 bool __swift_bridge__$ffi_image_entry_has_jpg_partner(void* entry);
 uint64_t __swift_bridge__$ffi_image_entry_shot_id(void* entry);
 void* __swift_bridge__$bridge_fetch_exif(void* db, struct RustStr path);
+void* __swift_bridge__$bridge_fetch_exif_for_entries(void* db, void* entries);
+uintptr_t __swift_bridge__$ffi_exif_batch_count(void* r);
+void* __swift_bridge__$ffi_exif_batch_exif_at(void* r, uintptr_t idx);
 bool __swift_bridge__$ffi_exif_found(void* r);
 void* __swift_bridge__$ffi_exif_make(void* r);
 void* __swift_bridge__$ffi_exif_model(void* r);

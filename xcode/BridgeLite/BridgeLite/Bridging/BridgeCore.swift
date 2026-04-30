@@ -75,6 +75,40 @@ enum BridgeCore {
         }.value
     }
 
+    /// 全エントリの EXIF を 1 SQLite 接続でバッチ取得する。
+    /// 個別 fetchExif × N の 6000 connection-open 問題を解消するために使用。
+    static func fetchExifBatch(list: BridgeCoreImageList, db: BridgeCoreDatabase) async -> [UInt64: ExifData] {
+        return await Task.detached(priority: .utility) {
+            let batch = bridge_fetch_exif_for_entries(db.inner, list.inner)
+            let count = Int(ffi_exif_batch_count(batch))
+            var result: [UInt64: ExifData] = [:]
+            result.reserveCapacity(count)
+            for i in 0..<count {
+                let r = ffi_exif_batch_exif_at(batch, UInt(i))
+                guard ffi_exif_found(r) else { continue }
+                let entry = image_entry_list_get(list.inner, UInt(i))
+                let id = ffi_image_entry_id(entry)
+                result[id] = ExifData(
+                    make:            ffi_exif_make(r).toString().nonEmpty,
+                    model:           ffi_exif_model(r).toString().nonEmpty,
+                    datetime:        ffi_exif_datetime(r).toString().nonEmpty,
+                    subsec:          ffi_exif_subsec(r).toString().nonEmpty,
+                    exposureTime:    ffi_exif_exposure(r).toString().nonEmpty,
+                    fnumber:         ffi_exif_fnumber(r).toString().nonEmpty,
+                    iso:             Int(ffi_exif_iso(r)).nonZero,
+                    focalLength:     ffi_exif_focal_length(r).toString().nonEmpty,
+                    focalLength35mm: Int(ffi_exif_focal_length_35mm(r)).nonNegative,
+                    lensName:        ffi_exif_lens_model(r).toString().nonEmpty,
+                    width:           Int(ffi_exif_width(r)).nonZero,
+                    height:          Int(ffi_exif_height(r)).nonZero,
+                    software:        ffi_exif_software(r).toString().nonEmpty,
+                    artist:          ffi_exif_artist(r).toString().nonEmpty
+                )
+            }
+            return result
+        }.value
+    }
+
     // MARK: XMP
 
     static func readXmp(url: URL) async -> XmpData? {
@@ -201,9 +235,6 @@ private extension Int {
 
 extension Data {
     init(rustVec: RustVec<UInt8>) {
-        let len = Int(rustVec.len())
-        var bytes = [UInt8](repeating: 0, count: len)
-        for i in 0..<len { bytes[i] = rustVec[i] }
-        self.init(bytes)
+        self.init(bytes: rustVec.as_ptr(), count: rustVec.len())
     }
 }

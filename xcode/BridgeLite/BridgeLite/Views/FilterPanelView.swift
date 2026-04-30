@@ -16,211 +16,6 @@ struct FilterPanelView: View {
     @State private var apertureExpanded = true
     @State private var dateExpanded = true
 
-    // MARK: - Histogram bucket data
-
-    private enum HistogramAxis { case iso, focal, shutter, aperture, date }
-
-    private func idsForHistogram(excluding axis: HistogramAxis) -> [UInt64] {
-        var f = store.filter
-        switch axis {
-        case .iso:      f.isoMin = "";      f.isoMax = ""
-        case .focal:    f.focalMin = "";    f.focalMax = ""
-        case .shutter:  f.shutterMin = "";  f.shutterMax = ""
-        case .aperture: f.apertureMin = ""; f.apertureMax = ""
-        case .date:     f.dateMin = "";     f.dateMax = ""
-        }
-        return store.filteredIDs(using: f)
-    }
-
-    private var isoBuckets: [ExifBucket] {
-        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
-        let specs: [Spec] = [
-            ("≤100",   100,      "",     "100"),
-            ("200",    200,      "101",  "200"),
-            ("400",    400,      "201",  "400"),
-            ("800",    800,      "401",  "800"),
-            ("1.6k",   1600,     "801",  "1600"),
-            ("3.2k",   3200,     "1601", "3200"),
-            ("6.4k",   6400,     "3201", "6400"),
-            (">6k",    .infinity, "6401", ""),
-        ]
-        var counts = Array(repeating: 0, count: specs.count)
-        for id in idsForHistogram(excluding: .iso) {
-            guard let iso = store.exifData[id]?.iso else { continue }
-            let d = Double(iso)
-            for (i, spec) in specs.enumerated() {
-                if d <= spec.upTo { counts[i] += 1; break }
-            }
-        }
-        return specs.enumerated().map { i, spec in
-            ExifBucket(label: spec.label, count: counts[i],
-                       minText: spec.minText, maxText: spec.maxText,
-                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo,
-                       upperBound: spec.upTo)
-        }
-    }
-
-    private var focalBuckets: [ExifBucket] {
-        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
-        let specs: [Spec] = [
-            ("≤24",   24,       "",    "24"),
-            ("35",    35,       "24",  "35"),
-            ("50",    50,       "35",  "50"),
-            ("85",    85,       "50",  "85"),
-            ("135",   135,      "85",  "135"),
-            ("200",   200,      "135", "200"),
-            (">200",  .infinity, "200", ""),
-        ]
-        var counts = Array(repeating: 0, count: specs.count)
-        for id in idsForHistogram(excluding: .focal) {
-            guard let mm = store.exifData[id]?.effectiveFocalMm else { continue }
-            for (i, spec) in specs.enumerated() {
-                if mm <= spec.upTo { counts[i] += 1; break }
-            }
-        }
-        return specs.enumerated().map { i, spec in
-            ExifBucket(label: spec.label, count: counts[i],
-                       minText: spec.minText, maxText: spec.maxText,
-                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo,
-                       upperBound: spec.upTo)
-        }
-    }
-
-    private var shutterBuckets: [ExifBucket] {
-        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
-        let specs: [Spec] = [
-            ("≥2k",  1.0 / 2000, "",       "1/2000"),
-            ("1k",   1.0 / 1000, "1/2000", "1/1000"),
-            ("500",  1.0 / 500,  "1/1000", "1/500"),
-            ("250",  1.0 / 250,  "1/500",  "1/250"),
-            ("125",  1.0 / 125,  "1/250",  "1/125"),
-            ("60",   1.0 / 60,   "1/125",  "1/60"),
-            ("<60",  .infinity,  "1/60",   ""),
-        ]
-        var counts = Array(repeating: 0, count: specs.count)
-        for id in idsForHistogram(excluding: .shutter) {
-            guard let s = store.exifData[id]?.shutterSeconds else { continue }
-            for (i, spec) in specs.enumerated() {
-                if s <= spec.upTo { counts[i] += 1; break }
-            }
-        }
-        return specs.enumerated().map { i, spec in
-            ExifBucket(label: spec.label, count: counts[i],
-                       minText: spec.minText, maxText: spec.maxText,
-                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo,
-                       upperBound: spec.upTo)
-        }
-    }
-
-    private var apertureBuckets: [ExifBucket] {
-        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
-        let specs: [Spec] = [
-            ("≤1.8",  1.8,      "",    "1.8"),
-            ("2.8",   2.8,      "1.8", "2.8"),
-            ("4",     4.0,      "2.8", "4"),
-            ("5.6",   5.6,      "4",   "5.6"),
-            ("8",     8.0,      "5.6", "8"),
-            ("11",    11.0,     "8",   "11"),
-            (">11",   .infinity, "11",  ""),
-        ]
-        var counts = Array(repeating: 0, count: specs.count)
-        for id in idsForHistogram(excluding: .aperture) {
-            guard let f = store.exifData[id]?.fnumberValue else { continue }
-            for (i, spec) in specs.enumerated() {
-                if f <= spec.upTo { counts[i] += 1; break }
-            }
-        }
-        return specs.enumerated().map { i, spec in
-            ExifBucket(label: spec.label, count: counts[i],
-                       minText: spec.minText, maxText: spec.maxText,
-                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo,
-                       upperBound: spec.upTo)
-        }
-    }
-
-    // MARK: - Date histogram buckets
-
-    private static let exifDateParser: DateFormatter = {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy:MM:dd HH:mm:ss"
-        return f
-    }()
-
-    private func photoDate(for id: UInt64) -> Date? {
-        if let dt = store.exifData[id]?.datetime,
-           let d = Self.exifDateParser.date(from: dt) { return d }
-        return store.entries[id]?.createdDate
-    }
-
-    private var dateBuckets: [ExifBucket] {
-        let cal = Calendar.current
-        let dates = idsForHistogram(excluding: .date).compactMap { photoDate(for: $0) }
-        guard let minDate = dates.min(), let maxDate = dates.max() else { return [] }
-        let daySpan = cal.dateComponents([.day], from: minDate, to: maxDate).day ?? 0
-        return daySpan <= 14
-            ? buildDailyBuckets(dates: dates, from: minDate, to: maxDate)
-            : buildMonthlyBuckets(dates: dates, from: minDate, to: maxDate)
-    }
-
-    private static let isoDateFormatter: DateFormatter = {
-        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "yyyy-MM-dd"; return f
-    }()
-    private static let monthLabelFormatter: DateFormatter = {
-        let f = DateFormatter(); f.locale = Locale(identifier: "en_US_POSIX"); f.dateFormat = "MMM"; return f
-    }()
-
-    private func buildMonthlyBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
-        let cal = Calendar.current
-        let isoFmt = Self.isoDateFormatter
-        let lblFmt = Self.monthLabelFormatter
-        let multiYear = cal.component(.year, from: minDate) != cal.component(.year, from: maxDate)
-        var buckets: [ExifBucket] = []
-        var cursor = cal.date(from: cal.dateComponents([.year, .month], from: minDate))!
-        while cursor <= maxDate {
-            let nextMonth = cal.date(byAdding: .month, value: 1, to: cursor)!
-            let lastDay = cal.date(byAdding: .day, value: -1, to: nextMonth)!
-            let count = dates.filter { $0 >= cursor && $0 < nextMonth }.count
-            let label: String
-            if multiYear {
-                let m = cal.component(.month, from: cursor)
-                let y = cal.component(.year, from: cursor) % 100
-                label = String(format: "%d/'%02d", m, y)
-            } else {
-                label = lblFmt.string(from: cursor)
-            }
-            buckets.append(ExifBucket(
-                label: label, count: count,
-                minText: isoFmt.string(from: cursor), maxText: isoFmt.string(from: lastDay),
-                lowerBound: cursor.timeIntervalSince1970, upperBound: lastDay.timeIntervalSince1970
-            ))
-            cursor = nextMonth
-        }
-        return buckets
-    }
-
-    private func buildDailyBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
-        let cal = Calendar.current
-        let isoFmt = Self.isoDateFormatter
-        var buckets: [ExifBucket] = []
-        var cursor = cal.startOfDay(for: minDate)
-        let end = cal.startOfDay(for: maxDate)
-        while cursor <= end {
-            let nextDay = cal.date(byAdding: .day, value: 1, to: cursor)!
-            let count = dates.filter { $0 >= cursor && $0 < nextDay }.count
-            let dateStr = isoFmt.string(from: cursor)
-            let m = cal.component(.month, from: cursor)
-            let d = cal.component(.day, from: cursor)
-            buckets.append(ExifBucket(
-                label: "\(m)/\(d)", count: count,
-                minText: dateStr, maxText: dateStr,
-                lowerBound: cursor.timeIntervalSince1970, upperBound: nextDay.timeIntervalSince1970 - 1
-            ))
-            cursor = nextDay
-        }
-        return buckets
-    }
-
     // MARK: - Body
 
     var body: some View {
@@ -541,7 +336,7 @@ struct FilterPanelView: View {
         case .iso:
             GroupBox {
                 DisclosureGroup(isExpanded: $isoExpanded) {
-                    ExifHistogramView(bars: isoBuckets, minText: filter.isoMin, maxText: filter.isoMax)
+                    ExifHistogramView(bars: store.isoBuckets, minText: filter.isoMin, maxText: filter.isoMax)
                 } label: {
                     Button { isoExpanded.toggle() } label: {
                         Text("ISO")
@@ -556,7 +351,7 @@ struct FilterPanelView: View {
         case .focal:
             GroupBox {
                 DisclosureGroup(isExpanded: $focalExpanded) {
-                    ExifHistogramView(bars: focalBuckets, minText: filter.focalMin, maxText: filter.focalMax)
+                    ExifHistogramView(bars: store.focalBuckets, minText: filter.focalMin, maxText: filter.focalMax)
                 } label: {
                     Button { focalExpanded.toggle() } label: {
                         Text("Focal Length")
@@ -571,7 +366,7 @@ struct FilterPanelView: View {
         case .shutter:
             GroupBox {
                 DisclosureGroup(isExpanded: $shutterExpanded) {
-                    ExifHistogramView(bars: shutterBuckets, minText: filter.shutterMin, maxText: filter.shutterMax)
+                    ExifHistogramView(bars: store.shutterBuckets, minText: filter.shutterMin, maxText: filter.shutterMax)
                 } label: {
                     Button { shutterExpanded.toggle() } label: {
                         Text("Shutter")
@@ -586,7 +381,7 @@ struct FilterPanelView: View {
         case .aperture:
             GroupBox {
                 DisclosureGroup(isExpanded: $apertureExpanded) {
-                    ExifHistogramView(bars: apertureBuckets, minText: filter.apertureMin, maxText: filter.apertureMax)
+                    ExifHistogramView(bars: store.apertureBuckets, minText: filter.apertureMin, maxText: filter.apertureMax)
                 } label: {
                     Button { apertureExpanded.toggle() } label: {
                         Text("Aperture")
@@ -601,7 +396,7 @@ struct FilterPanelView: View {
         case .date:
             GroupBox {
                 DisclosureGroup(isExpanded: $dateExpanded) {
-                    ExifHistogramView(bars: dateBuckets, minText: filter.dateMin, maxText: filter.dateMax)
+                    ExifHistogramView(bars: store.dateBuckets, minText: filter.dateMin, maxText: filter.dateMax)
                 } label: {
                     Button { dateExpanded.toggle() } label: {
                         Text("Date")

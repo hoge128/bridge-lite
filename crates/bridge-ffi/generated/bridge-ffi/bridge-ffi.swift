@@ -49,6 +49,15 @@ public func bridge_fetch_exif<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseR
         FfiExifResult(ptr: __swift_bridge__$bridge_fetch_exif(db.ptr, pathAsRustStr))
     })
 }
+public func bridge_fetch_exif_for_entries(_ db: BridgeDatabaseRef, _ entries: ImageEntryListRef) -> FfiExifBatch {
+    FfiExifBatch(ptr: __swift_bridge__$bridge_fetch_exif_for_entries(db.ptr, entries.ptr))
+}
+public func ffi_exif_batch_count(_ r: FfiExifBatchRef) -> UInt {
+    __swift_bridge__$ffi_exif_batch_count(r.ptr)
+}
+public func ffi_exif_batch_exif_at(_ r: FfiExifBatchRef, _ idx: UInt) -> FfiExifResult {
+    FfiExifResult(ptr: __swift_bridge__$ffi_exif_batch_exif_at(r.ptr, idx))
+}
 public func ffi_exif_found(_ r: FfiExifResultRef) -> Bool {
     __swift_bridge__$ffi_exif_found(r.ptr)
 }
@@ -395,6 +404,81 @@ extension FfiXmpResult: Vectorizable {
 
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
         __swift_bridge__$Vec_FfiXmpResult$len(vecPtr)
+    }
+}
+
+
+public class FfiExifBatch: FfiExifBatchRefMut {
+    var isOwned: Bool = true
+
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+
+    deinit {
+        if isOwned {
+            __swift_bridge__$FfiExifBatch$_free(ptr)
+        }
+    }
+}
+public class FfiExifBatchRefMut: FfiExifBatchRef {
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+}
+public class FfiExifBatchRef {
+    var ptr: UnsafeMutableRawPointer
+
+    public init(ptr: UnsafeMutableRawPointer) {
+        self.ptr = ptr
+    }
+}
+extension FfiExifBatch: Vectorizable {
+    public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
+        __swift_bridge__$Vec_FfiExifBatch$new()
+    }
+
+    public static func vecOfSelfFree(vecPtr: UnsafeMutableRawPointer) {
+        __swift_bridge__$Vec_FfiExifBatch$drop(vecPtr)
+    }
+
+    public static func vecOfSelfPush(vecPtr: UnsafeMutableRawPointer, value: FfiExifBatch) {
+        __swift_bridge__$Vec_FfiExifBatch$push(vecPtr, {value.isOwned = false; return value.ptr;}())
+    }
+
+    public static func vecOfSelfPop(vecPtr: UnsafeMutableRawPointer) -> Optional<Self> {
+        let pointer = __swift_bridge__$Vec_FfiExifBatch$pop(vecPtr)
+        if pointer == nil {
+            return nil
+        } else {
+            return (FfiExifBatch(ptr: pointer!) as! Self)
+        }
+    }
+
+    public static func vecOfSelfGet(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<FfiExifBatchRef> {
+        let pointer = __swift_bridge__$Vec_FfiExifBatch$get(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return FfiExifBatchRef(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfGetMut(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<FfiExifBatchRefMut> {
+        let pointer = __swift_bridge__$Vec_FfiExifBatch$get_mut(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return FfiExifBatchRefMut(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<FfiExifBatchRef> {
+        UnsafePointer<FfiExifBatchRef>(OpaquePointer(__swift_bridge__$Vec_FfiExifBatch$as_ptr(vecPtr)))
+    }
+
+    public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
+        __swift_bridge__$Vec_FfiExifBatch$len(vecPtr)
     }
 }
 

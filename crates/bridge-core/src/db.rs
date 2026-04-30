@@ -216,6 +216,34 @@ pub async fn fetch_exif_batch_async(
         .unwrap_or_default()
 }
 
+/// Index newly discovered files in parallel.
+///
+/// Strategy A: read cache hits with one IN-clause query (fast), then parse
+/// EXIF for misses in parallel via rayon, finally write all new rows in one
+/// BEGIN/COMMIT transaction (one SQLite writer, no contention).
+pub fn index_new_entries(paths: &[PathBuf], db_path: &Path) {
+    use rayon::prelude::*;
+    let cached = fetch_exif_batch(paths, db_path);
+    let misses: Vec<&PathBuf> = paths.iter().filter(|p| !cached.contains_key(*p)).collect();
+    if misses.is_empty() {
+        return;
+    }
+    let new_data: Vec<(PathBuf, i64, ExifData)> = misses
+        .par_iter()
+        .filter_map(|path| {
+            let mtime = file_mtime(path);
+            let exif = crate::metadata::read_exif_sync(path)?;
+            Some(((*path).clone(), mtime, exif))
+        })
+        .collect();
+    let Ok(conn) = Connection::open(db_path) else { return };
+    let _ = conn.execute_batch("BEGIN");
+    for (path, mtime, exif) in &new_data {
+        let _ = upsert(&conn, path, exif, *mtime);
+    }
+    let _ = conn.execute_batch("COMMIT");
+}
+
 // ── Thumbnail blob cache ───────────────────────────────────────────────────
 
 fn file_mtime(path: &Path) -> i64 {

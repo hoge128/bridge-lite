@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 import UniformTypeIdentifiers
 
@@ -10,7 +11,7 @@ final class LibraryStore {
     private(set) var shotGroups: [UInt64: [UInt64]] = [:]
 
     // @Observable state — UI が自動更新される
-    private(set) var thumbnailImages: [UInt64: CGImage] = [:]
+    private(set) var thumbnailBlobs: [UInt64: Data] = [:]
     private(set) var exifData: [UInt64: ExifData] = [:]
     private(set) var xmpData: [UInt64: XmpData] = [:]
 
@@ -56,11 +57,16 @@ final class LibraryStore {
     var canUndo: Bool { !undoStack.isEmpty }
 
     // Batch flush — coalesces rapid dict mutations to reduce @Observable invalidation frequency
-    private var pendingThumbnails: [UInt64: CGImage] = [:]
+    private var pendingThumbnails: [UInt64: Data] = [:]
     private var thumbnailFlushTask: Task<Void, Never>?
     private var pendingExif: [UInt64: ExifData] = [:]
     private var pendingXmp: [UInt64: XmpData] = [:]
     private var metaFlushTask: Task<Void, Never>?
+
+    // Per-entry change subjects — セルが自分の id のみ購読することで dict 全体観測を回避する
+    let thumbnailDidUpdate = PassthroughSubject<UInt64, Never>()
+    let exifDidUpdate = PassthroughSubject<UInt64, Never>()
+    let xmpDidUpdate = PassthroughSubject<UInt64, Never>()
 
     // フォルダ切替時にキャンセルする fire-and-forget タスク
     private var exifLoadTask: Task<Void, Never>?
@@ -187,25 +193,32 @@ final class LibraryStore {
             try Task.checkCancellation()
             ingest(scanned)
 
-            // 並行: EXIF バッチ + XMP バッチ
+            // 並行: EXIF バッチ（1 connection）+ XMP 並列
             let allEntries = orderedIDs.compactMap { entries[$0] }
             let capturedList = lastImageList
-            exifLoadTask = Task {
-                let exifLimiter = ConcurrencyLimiter(maxConcurrent: 8)
+            exifLoadTask = Task { [weak self] in
+                guard let self else { return }
+
+                // EXIF: 全件を 1 SQLite 接続で取得（fetch_exif_batch が 500 件チャンク IN 句を使用）
+                if let imageList = capturedList {
+                    let exifMap = await BridgeCore.fetchExifBatch(list: imageList, db: db)
+                    await self.mergeExifBatch(exifMap)
+                }
+
+                // XMP: 8 並列で読み込み（XMP batch は将来対応）
+                let xmpLimiter = ConcurrencyLimiter(maxConcurrent: 8)
                 await withTaskGroup(of: Void.self) { group in
                     for entry in allEntries {
                         group.addTask { [weak self] in
                             guard let self else { return }
-                            try? await exifLimiter.run {
-                                async let exif = BridgeCore.fetchExif(url: entry.url, db: db)
-                                async let xmp  = BridgeCore.readXmp(url: entry.url)
-                                let (e, x) = await (exif, xmp)
-                                await self.setExif(id: entry.id, exif: e)
-                                await self.setXmp(id: entry.id, xmp: x)
+                            try? await xmpLimiter.run {
+                                let xmp = await BridgeCore.readXmp(url: entry.url)
+                                await self.setXmp(id: entry.id, xmp: xmp)
                             }
                         }
                     }
                 }
+
                 await pairingPipeline.noteExifReady(list: capturedList, db: db, store: self)
             }
 
@@ -590,7 +603,7 @@ final class LibraryStore {
 
         for id in deletedIDs {
             entries.removeValue(forKey: id)
-            thumbnailImages.removeValue(forKey: id)
+            thumbnailBlobs.removeValue(forKey: id)
             exifData.removeValue(forKey: id)
             xmpData.removeValue(forKey: id)
         }
@@ -725,13 +738,12 @@ final class LibraryStore {
         if settings.viewMode == .daily {
             rebuildDailyGroups()
         }
+        recomputeAggregates(reps: reps)
     }
 
     func applyOrder() { recomputeVisible() }
 
-    /// 任意の FilterCriteria で絞り込んだ ID を返す（代表選定は現在の filter に従う）。
-    /// ヒストグラムの自軸クロスフィルタ集計用。ソート順は保証しない。
-    func filteredIDs(using customFilter: FilterCriteria) -> [UInt64] {
+    private func filteredIDs(using customFilter: FilterCriteria) -> [UInt64] {
         let liveReps: Set<UInt64>
         if filter.flatten {
             liveReps = Set(orderedIDs)
@@ -787,21 +799,16 @@ final class LibraryStore {
         }
     }
 
-    var availableExtensions: [String] {
-        Array(Set(entries.values.map { $0.url.pathExtension.lowercased() }).filter { !$0.isEmpty }).sorted()
-    }
-
-    var availableCameras: [String] {
-        Array(Set(exifData.values.compactMap { $0.cameraName })).sorted()
-    }
-
-    var availableLenses: [String] {
-        Array(Set(exifData.values.compactMap { $0.lensName })).sorted()
-    }
-
-    var availableArtists: [String] {
-        Array(Set(exifData.values.compactMap { $0.artist })).sorted()
-    }
+    // Aggregate cache — recomputed by recomputeAggregates() inside recomputeVisible()
+    private(set) var availableExtensions: [String] = []
+    private(set) var availableCameras: [String] = []
+    private(set) var availableLenses: [String] = []
+    private(set) var availableArtists: [String] = []
+    private(set) var isoBuckets: [ExifBucket] = []
+    private(set) var focalBuckets: [ExifBucket] = []
+    private(set) var shutterBuckets: [ExifBucket] = []
+    private(set) var apertureBuckets: [ExifBucket] = []
+    private(set) var dateBuckets: [ExifBucket] = []
 
     // MARK: - Daily grouping
     // [BETA DISABLED] ViewModePicker 非表示中は到達しない。削除しないこと。
@@ -845,6 +852,206 @@ final class LibraryStore {
         return f
     }()
 
+    private static let isoDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private static let monthLabelFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "MMM"
+        return f
+    }()
+
+    // MARK: - Aggregate cache
+
+    private enum HistogramAxis { case iso, focal, shutter, aperture, date }
+
+    private func filteredIDsExcluding(_ axis: HistogramAxis, from reps: [UInt64]) -> [UInt64] {
+        var f = filter
+        switch axis {
+        case .iso:      f.isoMin = "";      f.isoMax = ""
+        case .focal:    f.focalMin = "";    f.focalMax = ""
+        case .shutter:  f.shutterMin = "";  f.shutterMax = ""
+        case .aperture: f.apertureMin = ""; f.apertureMax = ""
+        case .date:     f.dateMin = "";     f.dateMax = ""
+        }
+        guard f.isActive else { return reps }
+        return reps.filter { id in
+            guard let entry = entries[id] else { return false }
+            return f.matches(entry: entry, exif: exifData[id], xmp: xmpData[id])
+        }
+    }
+
+    private func recomputeAggregates(reps: [UInt64]) {
+        availableExtensions = Array(Set(entries.values.map { $0.url.pathExtension.lowercased() }).filter { !$0.isEmpty }).sorted()
+        availableCameras = Array(Set(exifData.values.compactMap { $0.cameraName })).sorted()
+        availableLenses = Array(Set(exifData.values.compactMap { $0.lensName })).sorted()
+        availableArtists = Array(Set(exifData.values.compactMap { $0.artist })).sorted()
+        isoBuckets = buildISOBuckets(ids: filteredIDsExcluding(.iso, from: reps))
+        focalBuckets = buildFocalBuckets(ids: filteredIDsExcluding(.focal, from: reps))
+        shutterBuckets = buildShutterBuckets(ids: filteredIDsExcluding(.shutter, from: reps))
+        apertureBuckets = buildApertureBuckets(ids: filteredIDsExcluding(.aperture, from: reps))
+        dateBuckets = buildDateBuckets(ids: filteredIDsExcluding(.date, from: reps))
+    }
+
+    private func buildISOBuckets(ids: [UInt64]) -> [ExifBucket] {
+        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
+        let specs: [Spec] = [
+            ("≤100",   100,      "",     "100"),
+            ("200",    200,      "101",  "200"),
+            ("400",    400,      "201",  "400"),
+            ("800",    800,      "401",  "800"),
+            ("1.6k",   1600,     "801",  "1600"),
+            ("3.2k",   3200,     "1601", "3200"),
+            ("6.4k",   6400,     "3201", "6400"),
+            (">6k",    .infinity, "6401", ""),
+        ]
+        var counts = Array(repeating: 0, count: specs.count)
+        for id in ids {
+            guard let iso = exifData[id]?.iso else { continue }
+            let d = Double(iso)
+            for (i, spec) in specs.enumerated() { if d <= spec.upTo { counts[i] += 1; break } }
+        }
+        return specs.enumerated().map { i, spec in
+            ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
+                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    private func buildFocalBuckets(ids: [UInt64]) -> [ExifBucket] {
+        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
+        let specs: [Spec] = [
+            ("≤24",   24,       "",    "24"),
+            ("35",    35,       "24",  "35"),
+            ("50",    50,       "35",  "50"),
+            ("85",    85,       "50",  "85"),
+            ("135",   135,      "85",  "135"),
+            ("200",   200,      "135", "200"),
+            (">200",  .infinity, "200", ""),
+        ]
+        var counts = Array(repeating: 0, count: specs.count)
+        for id in ids {
+            guard let mm = exifData[id]?.effectiveFocalMm else { continue }
+            for (i, spec) in specs.enumerated() { if mm <= spec.upTo { counts[i] += 1; break } }
+        }
+        return specs.enumerated().map { i, spec in
+            ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
+                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    private func buildShutterBuckets(ids: [UInt64]) -> [ExifBucket] {
+        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
+        let specs: [Spec] = [
+            ("≥2k",  1.0 / 2000, "",       "1/2000"),
+            ("1k",   1.0 / 1000, "1/2000", "1/1000"),
+            ("500",  1.0 / 500,  "1/1000", "1/500"),
+            ("250",  1.0 / 250,  "1/500",  "1/250"),
+            ("125",  1.0 / 125,  "1/250",  "1/125"),
+            ("60",   1.0 / 60,   "1/125",  "1/60"),
+            ("<60",  .infinity,  "1/60",   ""),
+        ]
+        var counts = Array(repeating: 0, count: specs.count)
+        for id in ids {
+            guard let s = exifData[id]?.shutterSeconds else { continue }
+            for (i, spec) in specs.enumerated() { if s <= spec.upTo { counts[i] += 1; break } }
+        }
+        return specs.enumerated().map { i, spec in
+            ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
+                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    private func buildApertureBuckets(ids: [UInt64]) -> [ExifBucket] {
+        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
+        let specs: [Spec] = [
+            ("≤1.8",  1.8,      "",    "1.8"),
+            ("2.8",   2.8,      "1.8", "2.8"),
+            ("4",     4.0,      "2.8", "4"),
+            ("5.6",   5.6,      "4",   "5.6"),
+            ("8",     8.0,      "5.6", "8"),
+            ("11",    11.0,     "8",   "11"),
+            (">11",   .infinity, "11",  ""),
+        ]
+        var counts = Array(repeating: 0, count: specs.count)
+        for id in ids {
+            guard let f = exifData[id]?.fnumberValue else { continue }
+            for (i, spec) in specs.enumerated() { if f <= spec.upTo { counts[i] += 1; break } }
+        }
+        return specs.enumerated().map { i, spec in
+            ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
+                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    private func buildDateBuckets(ids: [UInt64]) -> [ExifBucket] {
+        let cal = Calendar.current
+        let dates = ids.compactMap { id -> Date? in
+            let d = photoDate(for: id)
+            return d == .distantPast ? nil : d
+        }
+        guard let minDate = dates.min(), let maxDate = dates.max() else { return [] }
+        let daySpan = cal.dateComponents([.day], from: minDate, to: maxDate).day ?? 0
+        return daySpan <= 14
+            ? buildDailyDateBuckets(dates: dates, from: minDate, to: maxDate)
+            : buildMonthlyDateBuckets(dates: dates, from: minDate, to: maxDate)
+    }
+
+    private func buildMonthlyDateBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
+        let cal = Calendar.current
+        let isoFmt = Self.isoDateFormatter
+        let lblFmt = Self.monthLabelFormatter
+        let multiYear = cal.component(.year, from: minDate) != cal.component(.year, from: maxDate)
+        var buckets: [ExifBucket] = []
+        var cursor = cal.date(from: cal.dateComponents([.year, .month], from: minDate))!
+        while cursor <= maxDate {
+            let nextMonth = cal.date(byAdding: .month, value: 1, to: cursor)!
+            let lastDay = cal.date(byAdding: .day, value: -1, to: nextMonth)!
+            let count = dates.filter { $0 >= cursor && $0 < nextMonth }.count
+            let label: String
+            if multiYear {
+                let m = cal.component(.month, from: cursor)
+                let y = cal.component(.year, from: cursor) % 100
+                label = String(format: "%d/'%02d", m, y)
+            } else {
+                label = lblFmt.string(from: cursor)
+            }
+            buckets.append(ExifBucket(
+                label: label, count: count,
+                minText: isoFmt.string(from: cursor), maxText: isoFmt.string(from: lastDay),
+                lowerBound: cursor.timeIntervalSince1970, upperBound: lastDay.timeIntervalSince1970
+            ))
+            cursor = nextMonth
+        }
+        return buckets
+    }
+
+    private func buildDailyDateBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
+        let cal = Calendar.current
+        let isoFmt = Self.isoDateFormatter
+        var buckets: [ExifBucket] = []
+        var cursor = cal.startOfDay(for: minDate)
+        let end = cal.startOfDay(for: maxDate)
+        while cursor <= end {
+            let nextDay = cal.date(byAdding: .day, value: 1, to: cursor)!
+            let count = dates.filter { $0 >= cursor && $0 < nextDay }.count
+            let dateStr = isoFmt.string(from: cursor)
+            let m = cal.component(.month, from: cursor)
+            let d = cal.component(.day, from: cursor)
+            buckets.append(ExifBucket(
+                label: "\(m)/\(d)", count: count,
+                minText: dateStr, maxText: dateStr,
+                lowerBound: cursor.timeIntervalSince1970, upperBound: nextDay.timeIntervalSince1970 - 1
+            ))
+            cursor = nextDay
+        }
+        return buckets
+    }
+
     func selectGroupIDs(_ ids: [UInt64]) {
         selectedIDs.formUnion(ids)
         if primaryID == nil { primaryID = ids.first }
@@ -858,20 +1065,32 @@ final class LibraryStore {
 
     // MARK: - Private
 
-    func setThumbnail(id: UInt64, image: CGImage) {
-        pendingThumbnails[id] = image
+    func setThumbnail(id: UInt64, jpeg: Data) {
+        pendingThumbnails[id] = jpeg
         guard thumbnailFlushTask == nil else { return }
         thumbnailFlushTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(50))
+            try? await Task.sleep(for: .milliseconds(250))
             guard let self else { return }
-            thumbnailImages.merge(pendingThumbnails) { _, new in new }
+            let flushed = pendingThumbnails
+            thumbnailBlobs.merge(flushed) { _, new in new }
             pendingThumbnails = [:]
             thumbnailFlushTask = nil
+            // サムネイルは sort/filter/aggregate に影響しないので recomputeVisible 不要
+            for id in flushed.keys { thumbnailDidUpdate.send(id) }
         }
+    }
+
+    func thumbnailImage(for id: UInt64) -> CGImage? {
+        ThumbnailDecodeCache.shared.decode(id: id, blob: thumbnailBlobs[id])
     }
 
     func setExif(id: UInt64, exif: ExifData?) {
         pendingExif[id] = exif ?? ExifData()
+        scheduleMetaFlush()
+    }
+
+    func mergeExifBatch(_ batch: [UInt64: ExifData]) {
+        pendingExif.merge(batch) { _, new in new }
         scheduleMetaFlush()
     }
 
@@ -884,16 +1103,21 @@ final class LibraryStore {
     private func scheduleMetaFlush() {
         guard metaFlushTask == nil else { return }
         metaFlushTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(50))
+            try? await Task.sleep(for: .milliseconds(250))
             guard let self else { return }
-            exifData.merge(pendingExif) { _, new in new }
-            xmpData.merge(pendingXmp) { _, new in new }
+            let flushedExif = pendingExif
+            let flushedXmp  = pendingXmp
+            exifData.merge(flushedExif) { _, new in new }
+            xmpData.merge(flushedXmp)  { _, new in new }
             pendingExif = [:]
             pendingXmp = [:]
             metaFlushTask = nil
             recomputeVisible()
+            for id in flushedExif.keys { exifDidUpdate.send(id) }
+            for id in flushedXmp.keys  { xmpDidUpdate.send(id) }
         }
     }
+
 
     func applyReindexedGroups(_ groups: [UInt64: [UInt64]]) {
         // Update each entry's shotId to match its reindexed group key
@@ -909,7 +1133,8 @@ final class LibraryStore {
     // MARK: - Tab lifecycle
 
     func suspend() {
-        thumbnailImages = [:]
+        thumbnailBlobs = [:]
+        ThumbnailDecodeCache.shared.evictAll()
     }
 
     func resume() {
@@ -925,7 +1150,8 @@ final class LibraryStore {
         entries = [:]
         orderedIDs = []
         shotGroups = [:]
-        thumbnailImages = [:]
+        thumbnailBlobs = [:]
+        ThumbnailDecodeCache.shared.evictAll()
         exifData = [:]
         xmpData = [:]
         visibleIDs = []

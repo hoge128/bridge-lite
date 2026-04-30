@@ -99,7 +99,7 @@ struct SidebarView: View {
             if let entry = selectedEntry {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        PreviewImageView(image: highResPreview ?? store.thumbnailImages[entry.id])
+                        PreviewImageView(image: highResPreview ?? store.thumbnailImage(for: entry.id))
                             .frame(maxWidth: .infinity)
                             .frame(height: 220)
                             .clipped()
@@ -148,7 +148,7 @@ struct SidebarView: View {
                     gpsCoordinate = nil
                     let url = entry.url
                     let isRaw = entry.isRaw
-                    let thumbFallback = store.thumbnailImages[entry.id]
+                    let thumbFallback = store.thumbnailImage(for: entry.id)
                     if isRaw {
                         if let jpeg = await BridgeCore.extractRawJpeg(url: url, quality: .preview) {
                             highResPreview = CGImage.fromJPEGData(jpeg)
@@ -428,7 +428,7 @@ struct VariationThumbView: View {
     @Environment(LibraryStore.self) private var store
     @State private var lastTap: Date?
 
-    private var thumbnail: CGImage? { store.thumbnailImages[entry.id] }
+    private var thumbnail: CGImage? { store.thumbnailImage(for: entry.id) }
     private var isDev: Bool {
         (store.xmpData[entry.id]?.developed == true) ||
         (store.exifData[entry.id]?.isDeveloped == true)

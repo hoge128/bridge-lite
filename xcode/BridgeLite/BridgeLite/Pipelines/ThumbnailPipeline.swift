@@ -3,7 +3,7 @@ import ImageIO
 import Foundation
 
 /// Thumbnail generation pipeline.
-/// Writes results directly to LibraryStore.thumbnailImages on the MainActor
+/// Writes JPEG blobs to LibraryStore.thumbnailBlobs on the MainActor
 /// so the grid updates reactively as each thumbnail finishes.
 enum ThumbnailPipeline {
     private static let limiter = ConcurrencyLimiter(maxConcurrent: 6)
@@ -31,32 +31,31 @@ enum ThumbnailPipeline {
         phashPipeline: PHashPipeline
     ) async {
         try? await limiter.run {
-            // 1. SQLite thumbnail cache — pHash already in DB from prior scan
-            if let jpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db),
-               let img = CGImage.fromJPEGData(jpeg) {
-                await store.setThumbnail(id: entry.id, image: img)
+            // 1. SQLite thumbnail cache — pHash already in DB from prior scan.
+            //    Use JPEG bytes directly: no decode needed for storage.
+            if let jpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db) {
+                await store.setThumbnail(id: entry.id, jpeg: jpeg)
                 return
             }
 
             // 2. ImageIO (skips RAW — handled by fallback below)
-            if let img = await generateWithImageIO(url: entry.url, maxPixels: 200) {
-                await store.setThumbnail(id: entry.id, image: img)
-                if let jpeg = img.jpegData(compressionQuality: 0.85) {
-                    await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
-                }
+            if let img = await generateWithImageIO(url: entry.url, maxPixels: 200),
+               let jpeg = img.jpegData(compressionQuality: 0.85) {
+                await store.setThumbnail(id: entry.id, jpeg: jpeg)
+                await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
                 await phashPipeline.enqueue(entry: entry, source: img, db: db)
                 return
             }
 
-            // 3. RAW: Rust IFD embedded JPEG extraction
+            // 3. RAW: Rust IFD embedded JPEG extraction.
+            //    Pass the raw JPEG directly; decode only for pHash.
             if entry.isRaw,
-               let jpeg = await BridgeCore.extractRawJpeg(url: entry.url, quality: .thumbnail),
-               let img = CGImage.fromJPEGData(jpeg) {
-                await store.setThumbnail(id: entry.id, image: img)
-                if let jpeg2 = img.jpegData(compressionQuality: 0.85) {
-                    await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg2, db: db)
+               let jpeg = await BridgeCore.extractRawJpeg(url: entry.url, quality: .thumbnail) {
+                await store.setThumbnail(id: entry.id, jpeg: jpeg)
+                await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
+                if let img = CGImage.fromJPEGData(jpeg) {
+                    await phashPipeline.enqueue(entry: entry, source: img, db: db)
                 }
-                await phashPipeline.enqueue(entry: entry, source: img, db: db)
             }
         }
         // 成功・失敗・スキップに関わらず試行完了を通知（進捗バーが 99% 止まりになるのを防ぐ）

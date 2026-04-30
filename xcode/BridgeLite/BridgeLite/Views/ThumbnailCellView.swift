@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 struct ThumbnailCellView: View {
@@ -8,11 +9,13 @@ struct ThumbnailCellView: View {
     @State private var dragSource = CellDragSource()
     @State private var dragInFlight = false
 
+    // @State で自分の id 分だけ保持し、dict 全体への @Observable 依存を排除
+    @State private var thumbnail: CGImage? = nil
+    @State private var xmp: XmpData? = nil
+    @State private var exif: ExifData? = nil
+
     private var cellSize: CGFloat { store.settings.thumbnailSize }
     private var isSelected: Bool { store.selectedIDs.contains(entry.id) }
-    private var thumbnail: CGImage? { store.thumbnailImages[entry.id] }
-    private var xmp: XmpData? { store.xmpData[entry.id] }
-    private var exif: ExifData? { store.exifData[entry.id] }
 
     private var photoKind: PhotoKind {
         if entry.isRaw { return .raw }
@@ -61,6 +64,20 @@ struct ThumbnailCellView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
             }
             .frame(width: cellSize)
+        }
+        .onAppear {
+            thumbnail = ThumbnailDecodeCache.shared.decode(id: entry.id, blob: store.thumbnailBlobs[entry.id])
+            xmp = store.xmpData[entry.id]
+            exif = store.exifData[entry.id]
+        }
+        .onReceive(store.thumbnailDidUpdate.filter { $0 == self.entry.id }) { _ in
+            thumbnail = ThumbnailDecodeCache.shared.decode(id: entry.id, blob: store.thumbnailBlobs[entry.id])
+        }
+        .onReceive(store.exifDidUpdate.filter { $0 == self.entry.id }) { _ in
+            exif = store.exifData[entry.id]
+        }
+        .onReceive(store.xmpDidUpdate.filter { $0 == self.entry.id }) { _ in
+            xmp = store.xmpData[entry.id]
         }
         .onHover { isHovered = $0 }
         .contextMenu { cellContextMenu }

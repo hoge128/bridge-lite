@@ -13,7 +13,7 @@ struct ViewerView: View {
     }
 
     private var thumbnail: CGImage? {
-        store.selectedID.flatMap { store.thumbnailImages[$0] }
+        store.selectedID.flatMap { store.thumbnailImage(for: $0) }
     }
 
     var body: some View {
