@@ -51,6 +51,7 @@ struct FolderView: View {
                 .toolbar {
                     ToolbarView()
                 }
+                .toolbar(store.viewerMode ? .hidden : .visible, for: .windowToolbar)
                 .navigationTitle({
                     let base = store.currentDirectoryURL?.lastPathComponent ?? "BridgeLite"
                     guard !store.statusMessage.isEmpty else { return base }

@@ -1,6 +1,7 @@
 import CoreGraphics
 import ImageIO
 import Foundation
+import SwiftUI
 
 /// Thumbnail generation pipeline.
 /// Writes JPEG blobs to LibraryStore.thumbnailBlobs on the MainActor
@@ -35,6 +36,13 @@ enum ThumbnailPipeline {
             //    Use JPEG bytes directly: no decode needed for storage.
             if let jpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db) {
                 await store.setThumbnail(id: entry.id, jpeg: jpeg)
+                if entry.isRaw {
+                    let url = entry.url
+                    let orient = await Task.detached(priority: .utility) {
+                        readRawOrientation(url)
+                    }.value
+                    await store.setThumbnailOrientation(id: entry.id, orientation: orient)
+                }
                 return
             }
 
@@ -51,7 +59,12 @@ enum ThumbnailPipeline {
             //    Pass the raw JPEG directly; decode only for pHash.
             if entry.isRaw,
                let jpeg = await BridgeCore.extractRawJpeg(url: entry.url, quality: .thumbnail) {
+                let url = entry.url
+                let orient = await Task.detached(priority: .utility) {
+                    readRawOrientation(url)
+                }.value
                 await store.setThumbnail(id: entry.id, jpeg: jpeg)
+                await store.setThumbnailOrientation(id: entry.id, orientation: orient)
                 await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
                 if let img = CGImage.fromJPEGData(jpeg) {
                     await phashPipeline.enqueue(entry: entry, source: img, db: db)
@@ -79,6 +92,42 @@ enum ThumbnailPipeline {
             ]
             return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
         }.value
+    }
+}
+
+// MARK: - Orientation helpers (shared with ViewerView / GroupCompareView)
+
+/// RAW ファイル URL から向きを読む。プロパティのみ参照し、ピクセルデコードは行わない。
+func readRawOrientation(_ url: URL) -> Image.Orientation {
+    guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return .up }
+    return Image.Orientation(readOrientation(src))
+}
+
+/// CGImageSource からフォーマット非依存で向きを取得する。
+/// - JPEG/HEIF: トップレベルの kCGImagePropertyOrientation
+/// - RAW/DNG/TIFF: kCGImagePropertyTIFFDictionary 内の kCGImagePropertyTIFFOrientation
+func readOrientation(_ src: CGImageSource) -> CGImagePropertyOrientation {
+    guard let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] else { return .up }
+    if let raw = props[kCGImagePropertyOrientation] as? UInt32,
+       let o = CGImagePropertyOrientation(rawValue: raw) { return o }
+    if let tiff = props[kCGImagePropertyTIFFDictionary] as? [CFString: Any],
+       let raw = tiff[kCGImagePropertyTIFFOrientation] as? UInt32,
+       let o = CGImagePropertyOrientation(rawValue: raw) { return o }
+    return .up
+}
+
+extension Image.Orientation {
+    init(_ cg: CGImagePropertyOrientation) {
+        switch cg {
+        case .up:            self = .up
+        case .upMirrored:    self = .upMirrored
+        case .down:          self = .down
+        case .downMirrored:  self = .downMirrored
+        case .left:          self = .left
+        case .leftMirrored:  self = .leftMirrored
+        case .right:         self = .right
+        case .rightMirrored: self = .rightMirrored
+        }
     }
 }
 

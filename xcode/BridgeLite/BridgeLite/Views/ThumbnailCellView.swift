@@ -11,6 +11,7 @@ struct ThumbnailCellView: View {
 
     // @State で自分の id 分だけ保持し、dict 全体への @Observable 依存を排除
     @State private var thumbnail: CGImage? = nil
+    @State private var thumbnailOrientation: Image.Orientation = .up
     @State private var xmp: XmpData? = nil
     @State private var exif: ExifData? = nil
 
@@ -37,7 +38,7 @@ struct ThumbnailCellView: View {
             ZStack {
                 // scaledToFit でアスペクト比が合わない場合に生じるレターボックス部分の地色
                 Color.secondary.opacity(0.08)
-                ThumbnailImageView(cgImage: thumbnail)
+                ThumbnailImageView(cgImage: thumbnail, orientation: thumbnailOrientation)
                     .frame(width: cellSize, height: cellSize)
                 colorLabelStrip
             }
@@ -67,11 +68,15 @@ struct ThumbnailCellView: View {
         }
         .onAppear {
             thumbnail = ThumbnailDecodeCache.shared.decode(id: entry.id, blob: store.thumbnailBlobs[entry.id])
+            thumbnailOrientation = entry.isRaw ? (store.thumbnailOrientations[entry.id] ?? .up) : .up
             xmp = store.xmpData[entry.id]
             exif = store.exifData[entry.id]
         }
         .onReceive(store.thumbnailDidUpdate.filter { $0 == self.entry.id }) { _ in
             thumbnail = ThumbnailDecodeCache.shared.decode(id: entry.id, blob: store.thumbnailBlobs[entry.id])
+            if entry.isRaw {
+                thumbnailOrientation = store.thumbnailOrientations[entry.id] ?? .up
+            }
         }
         .onReceive(store.exifDidUpdate.filter { $0 == self.entry.id }) { _ in
             exif = store.exifData[entry.id]
@@ -236,10 +241,11 @@ private struct CellDragBackingView: NSViewRepresentable {
 
 struct ThumbnailImageView: View {
     let cgImage: CGImage?
+    var orientation: Image.Orientation = .up
 
     var body: some View {
         if let img = cgImage {
-            Image(decorative: img, scale: 1.0)
+            Image(decorative: img, scale: 1.0, orientation: orientation)
                 .resizable()
                 .scaledToFit() // Fill ではなく Fit: タイル内で写真を見切れさせない
         } else {

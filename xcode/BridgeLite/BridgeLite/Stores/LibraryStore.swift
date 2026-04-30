@@ -14,6 +14,8 @@ final class LibraryStore {
     private(set) var thumbnailBlobs: [UInt64: Data] = [:]
     private(set) var exifData: [UInt64: ExifData] = [:]
     private(set) var xmpData: [UInt64: XmpData] = [:]
+    // RAW サムネイルの向き（埋め込み JPEG は orientation タグを持たないため別管理）
+    var thumbnailOrientations: [UInt64: Image.Orientation] = [:]
 
     // サブストア
     let settings: SettingsStore = .shared
@@ -1065,6 +1067,10 @@ final class LibraryStore {
 
     // MARK: - Private
 
+    func setThumbnailOrientation(id: UInt64, orientation: Image.Orientation) {
+        thumbnailOrientations[id] = orientation
+    }
+
     func setThumbnail(id: UInt64, jpeg: Data) {
         pendingThumbnails[id] = jpeg
         guard thumbnailFlushTask == nil else { return }
@@ -1134,6 +1140,7 @@ final class LibraryStore {
 
     func suspend() {
         thumbnailBlobs = [:]
+        thumbnailOrientations = [:]
         ThumbnailDecodeCache.shared.evictAll()
     }
 
@@ -1151,6 +1158,7 @@ final class LibraryStore {
         orderedIDs = []
         shotGroups = [:]
         thumbnailBlobs = [:]
+        thumbnailOrientations = [:]
         ThumbnailDecodeCache.shared.evictAll()
         exifData = [:]
         xmpData = [:]
