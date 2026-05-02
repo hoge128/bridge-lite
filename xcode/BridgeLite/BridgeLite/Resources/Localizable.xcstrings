@@ -2632,6 +2632,54 @@
         }
       }
     },
+    "settings.folder_watch.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Detects new files and adds them automatically"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "新しいファイルを検知して自動的に追加します"
+          }
+        }
+      }
+    },
+    "settings.folder_watch.section" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Folder Updates"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フォルダの自動更新"
+          }
+        }
+      }
+    },
+    "settings.folder_watch.toggle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-update folder"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フォルダを自動更新する"
+          }
+        }
+      }
+    },
     "settings.grouping.description" : {
       "localizations" : {
         "en" : {

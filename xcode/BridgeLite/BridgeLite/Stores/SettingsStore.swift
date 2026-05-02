@@ -295,6 +295,9 @@ final class SettingsStore {
     var warnSlowStorage: Bool = bool("warnSlowStorage", default: true) {
         didSet { UserDefaults.standard.set(warnSlowStorage, forKey: "warnSlowStorage") }
     }
+    var folderWatchEnabled: Bool = bool("folderWatchEnabled", default: true) {
+        didSet { UserDefaults.standard.set(folderWatchEnabled, forKey: "folderWatchEnabled") }
+    }
 
     // MARK: - メタデータ書き込み
     var jpgWriteMode: JpgWriteMode = (UserDefaults.standard.string(forKey: "jpgWriteMode")

@@ -111,6 +111,18 @@ struct SettingsView: View {
             } header: {
                 Text(String(localized: "settings.metadata.section", defaultValue: "Metadata"))
             }
+            Section {
+                Toggle(String(localized: "settings.folder_watch.toggle",
+                              defaultValue: "Auto-update folder"),
+                       isOn: $settings.folderWatchEnabled)
+                Text(String(localized: "settings.folder_watch.description",
+                            defaultValue: "Detects new files and adds them automatically"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text(String(localized: "settings.folder_watch.section",
+                            defaultValue: "Folder Updates"))
+            }
             Section("Cache") {
                 LabeledContent("Database Size") {
                     if cacheSize < 0 {

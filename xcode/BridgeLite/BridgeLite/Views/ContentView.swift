@@ -21,6 +21,9 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteRegroup)) { _ in
                 Task { await store.regroup() }
             }
+            .onChange(of: store.settings.folderWatchEnabled) { _, _ in
+                store.applyFolderWatchSetting()
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notif in
                 guard (notif.object as? NSWindow) === nsWindow else { return }
                 store.resume()

@@ -83,6 +83,11 @@ final class LibraryStore {
     private var database: BridgeCoreDatabase?
     private var lastImageList: BridgeCoreImageList?
 
+    // MARK: - Folder watch state
+    private var watcher: FolderWatcher?
+    private var pausedWatcherEventId: FSEventStreamEventId?
+    private var nextEntryID: UInt64 = 1
+
     // MARK: - 公開アクション
 
     func requestOpenFolder() {
@@ -133,6 +138,7 @@ final class LibraryStore {
     }
 
     func cancelLoading() {
+        watcher?.stop()
         preScanTask?.cancel()
         preScanTask = nil
         openDirTask?.cancel()
@@ -260,6 +266,7 @@ final class LibraryStore {
         }
         isLoading = false
         scanPhase = .idle
+        startFolderWatchIfEnabled()
     }
 
     // MARK: - プリスキャン
@@ -1313,12 +1320,15 @@ final class LibraryStore {
     // MARK: - Tab lifecycle
 
     func suspend() {
+        stopFolderWatch()
         thumbnailBlobs = [:]
         thumbnailOrientations = [:]
         ThumbnailDecodeCache.shared.evictAll()
     }
 
     func resume() {
+        startFolderWatchIfEnabled()
+        Task { await reconcileFolder() }
         guard let db = database, !orderedIDs.isEmpty else { return }
         let entriesToLoad = orderedIDs.compactMap { entries[$0] }
         let capturedPhash = phashPipeline
@@ -1328,6 +1338,10 @@ final class LibraryStore {
     }
 
     private func reset() {
+        watcher?.stop()
+        watcher = nil
+        pausedWatcherEventId = nil
+        nextEntryID = 1
         entries = [:]
         orderedIDs = []
         shotGroups = [:]
@@ -1382,6 +1396,7 @@ final class LibraryStore {
         entries = dict
         orderedIDs = ordered
         shotGroups = groups
+        nextEntryID = (ordered.max() ?? 0) + 1
         recomputeVisible()
     }
 
@@ -1521,4 +1536,212 @@ final class LibraryStore {
     }
 
     private func dbURL() -> URL { LibraryStore.cacheDBURL() }
+
+    // MARK: - Folder watch lifecycle
+
+    func startFolderWatchIfEnabled() {
+        guard settings.folderWatchEnabled,
+              let url = currentDirectoryURL,
+              !isLoading else { return }
+        if watcher == nil {
+            watcher = FolderWatcher { [weak self] event in
+                self?.handleFolderChange(event)
+            }
+        }
+        watcher?.start(at: url, sinceEventId: pausedWatcherEventId)
+        pausedWatcherEventId = nil
+    }
+
+    func stopFolderWatch() {
+        pausedWatcherEventId = watcher?.lastEventId
+        watcher?.stop()
+    }
+
+    func applyFolderWatchSetting() {
+        if settings.folderWatchEnabled {
+            startFolderWatchIfEnabled()
+        } else {
+            watcher?.stop()
+            watcher = nil
+            pausedWatcherEventId = nil
+        }
+    }
+
+    // MARK: - Folder change handler
+
+    private func handleFolderChange(_ event: FolderWatcher.Event) {
+        Task { await applyIncrementalChange() }
+    }
+
+    /// Re-scans the current directory and applies diff (add/remove) to the live store.
+    /// Uses `bridge_scan_directory` (full re-scan) to obtain correct shot_ids, then
+    /// maps Rust sequential IDs back to LibraryStore's stable nextEntryID-based IDs.
+    private func applyIncrementalChange() async {
+        guard let url = currentDirectoryURL, let db = database, !isLoading else { return }
+
+        guard let (freshEntries, freshList) = try? await BridgeCore.scanDirectory(url: url, db: db) else { return }
+
+        let existingPaths = Set(entries.values.map { $0.url.path })
+        let freshPathSet  = Set(freshEntries.map { $0.url.path })
+
+        let removedPaths = existingPaths.subtracting(freshPathSet)
+        let addedPaths   = freshPathSet.subtracting(existingPaths)
+
+        guard !removedPaths.isEmpty || !addedPaths.isEmpty else {
+            lastImageList = freshList
+            return
+        }
+
+        // 1. Remove stale entries
+        if !removedPaths.isEmpty {
+            let pathToID = Dictionary(uniqueKeysWithValues: entries.values.map { ($0.url.path, $0.id) })
+            let removedIDs = Set(removedPaths.compactMap { pathToID[$0] })
+            removeEntriesCore(removedIDs)
+        }
+
+        // 2. Add new entries (remap sequential Rust IDs to nextEntryID)
+        var newEntries: [PhotoEntry] = []
+        if !addedPaths.isEmpty {
+            for freshEntry in freshEntries where addedPaths.contains(freshEntry.url.path) {
+                let newID = nextEntryID
+                nextEntryID += 1
+                let remapped = PhotoEntry(
+                    id: newID,
+                    url: freshEntry.url,
+                    filename: freshEntry.filename,
+                    isRaw: freshEntry.isRaw,
+                    fileSize: freshEntry.fileSize,
+                    modifiedDate: freshEntry.modifiedDate,
+                    createdDate: freshEntry.createdDate,
+                    hasJpgPartner: freshEntry.hasJpgPartner,
+                    shotId: freshEntry.shotId
+                )
+                entries[newID] = remapped
+                orderedIDs.append(newID)
+                shotGroups[freshEntry.shotId, default: []].append(newID)
+                newEntries.append(remapped)
+            }
+        }
+
+        // 3. Update lastImageList and reindex shot groups.
+        //    freshList uses Rust sequential IDs (0,1,2,...); convert to store IDs via path.
+        lastImageList = freshList
+        let pathToStoreID = Dictionary(uniqueKeysWithValues: entries.values.map { ($0.url.path, $0.id) })
+        let rawGroups = await BridgeCore.reindexShotGroups(
+            list: freshList, db: db,
+            splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs),
+            phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold)
+        )
+        let convertedGroups = convertGroupsToStoreIDs(rawGroups, freshList: freshList, pathToStoreID: pathToStoreID)
+        applyReindexedGroups(convertedGroups)
+
+        // 4. Fire pipelines for newly added entries only
+        if !newEntries.isEmpty {
+            let capturedDB    = db
+            let capturedPhash = phashPipeline
+            let jpgWriteMode  = settings.jpgWriteMode
+            thumbnailLoadTask = Task { [weak self] in
+                guard let self else { return }
+                await ThumbnailPipeline.loadAll(entries: newEntries, store: self, db: capturedDB, phashPipeline: capturedPhash)
+            }
+            exifLoadTask = Task { [weak self] in
+                guard let self else { return }
+                let xmpLimiter = ConcurrencyLimiter(maxConcurrent: 8)
+                await withTaskGroup(of: Void.self) { group in
+                    for entry in newEntries {
+                        group.addTask { [weak self] in
+                            guard let self else { return }
+                            if let exif = await BridgeCore.fetchExif(url: entry.url, db: capturedDB) {
+                                await self.setExif(id: entry.id, exif: exif)
+                            }
+                            try? await xmpLimiter.run {
+                                let xmp = await BridgeCore.readXmp(url: entry.url, jpgWriteMode: jpgWriteMode)
+                                await self.setXmp(id: entry.id, xmp: xmp)
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        statusMessage = String(format: String(localized: "%d photos"), orderedIDs.count)
+    }
+
+    /// Removes entries from the store, cleaning up all secondary dicts and selection state.
+    private func removeEntriesCore(_ ids: Set<UInt64>) {
+        for id in ids {
+            entries.removeValue(forKey: id)
+            thumbnailBlobs.removeValue(forKey: id)
+            exifData.removeValue(forKey: id)
+            xmpData.removeValue(forKey: id)
+            thumbnailOrientations.removeValue(forKey: id)
+        }
+        orderedIDs.removeAll { ids.contains($0) }
+        for key in shotGroups.keys {
+            shotGroups[key]?.removeAll { ids.contains($0) }
+            if shotGroups[key]?.isEmpty == true { shotGroups.removeValue(forKey: key) }
+        }
+        selectedIDs.subtract(ids)
+        if let pid = primaryID, ids.contains(pid) {
+            primaryID = selectedIDs.first
+        }
+    }
+
+    /// Converts reindexShotGroups output (Rust sequential IDs) to LibraryStore IDs (path-based lookup).
+    private func convertGroupsToStoreIDs(
+        _ groups: [UInt64: [UInt64]],
+        freshList: BridgeCoreImageList,
+        pathToStoreID: [String: UInt64]
+    ) -> [UInt64: [UInt64]] {
+        let count = image_entry_list_count(freshList.inner)
+        var freshIDToPath: [UInt64: String] = [:]
+        freshIDToPath.reserveCapacity(Int(count))
+        for i in 0..<count {
+            let ffiEntry = image_entry_list_get(freshList.inner, UInt(i))
+            freshIDToPath[ffi_image_entry_id(ffiEntry)] = ffi_image_entry_path(ffiEntry).toString()
+        }
+
+        var result: [UInt64: [UInt64]] = [:]
+        result.reserveCapacity(groups.count)
+        for (shotId, freshMemberIDs) in groups {
+            let storeIDs = freshMemberIDs.compactMap { freshID -> UInt64? in
+                guard let path = freshIDToPath[freshID] else { return nil }
+                return pathToStoreID[path]
+            }
+            if !storeIDs.isEmpty { result[shotId] = storeIDs }
+        }
+        return result
+    }
+
+    /// Lightweight reconciliation on window resume: enumerate the directory and
+    /// synthesize add/remove events for any divergence missed while suspended.
+    private func reconcileFolder() async {
+        guard settings.folderWatchEnabled,
+              let url = currentDirectoryURL,
+              !isLoading else { return }
+
+        let supported = ScanPipeline.supportedExtensionsSet
+        let fm = FileManager.default
+        guard let enumerator = fm.enumerator(
+            at: url,
+            includingPropertiesForKeys: nil,
+            options: [.skipsHiddenFiles, .skipsPackageDescendants]
+        ) else { return }
+
+        var diskPaths = Set<String>()
+        while let obj = enumerator.nextObject() {
+            guard let fileURL = obj as? URL, !fileURL.hasDirectoryPath else { continue }
+            if supported.contains(fileURL.pathExtension.lowercased()) {
+                diskPaths.insert(fileURL.path)
+            }
+        }
+
+        let storePaths = Set(entries.values.map { $0.url.path })
+        let addedPaths   = diskPaths.subtracting(storePaths)
+        let removedPaths = storePaths.subtracting(diskPaths)
+
+        if !addedPaths.isEmpty || !removedPaths.isEmpty {
+            Task { await applyIncrementalChange() }
+        }
+    }
 }
