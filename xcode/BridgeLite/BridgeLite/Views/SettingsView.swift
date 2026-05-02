@@ -204,8 +204,11 @@ struct SettingsView: View {
                     .help(String(localized: "scope.cell.help.allInGroup", defaultValue: "Apply to all members of the shot group"))
                 scopeCell($s.dndScopeMode, value: .representative)
                     .help(String(localized: "scope.cell.help.representative", defaultValue: "Apply only to the representative photo"))
-                scopeCell($s.dndScopeMode, value: .askEachTime)
-                    .help(String(localized: "scope.cell.help.askEachTime", defaultValue: "Ask which scope each time"))
+                Text("—")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .gridCellAnchor(.center)
+                    .help(String(localized: "scope.dnd.option.help", defaultValue: "Hold ⌥ while dragging to use the other scope"))
             }
             GridRow {
                 Text("Delete").font(.caption)
@@ -218,6 +221,9 @@ struct SettingsView: View {
             }
         }
         .padding(.vertical, 4)
+        Text(String(localized: "scope.dnd.option.caption", defaultValue: "Drag & Drop: hold ⌥ while dragging to use the other scope."))
+            .font(.caption2)
+            .foregroundStyle(.secondary)
     }
 
     private func scopeCell(_ binding: Binding<GroupScopeMode>, value: GroupScopeMode) -> some View {

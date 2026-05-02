@@ -91,9 +91,9 @@ struct ThumbnailCellView: View {
             DragGesture(minimumDistance: 4)
                 .onChanged { _ in
                     guard !dragInFlight, let event = NSApp.currentEvent else { return }
-                    let ids = store.selectedIDs.contains(entry.id) ? store.selectedIDs : [entry.id]
-                    guard let scope = resolveDndScope() else { return }
                     dragInFlight = true
+                    let ids = store.selectedIDs.contains(entry.id) ? store.selectedIDs : [entry.id]
+                    let scope = resolveDndScope()
                     dragSource.urlsProvider = { self.store.urlsFor(ids: ids, scope: scope) }
                     dragSource.begin(event: event, cellSize: cellSize)
                 }
@@ -191,35 +191,12 @@ struct ThumbnailCellView: View {
 
     // MARK: - D&D scope
 
-    private func resolveDndScope() -> GroupScopeMode? {
-        switch store.settings.dndScopeMode {
-        case .representative, .allInGroup:
-            return store.settings.dndScopeMode
-        case .askEachTime:
-            return showDndAlert()
-        }
-    }
-
-    private func showDndAlert() -> GroupScopeMode? {
-        let alert = NSAlert()
-        alert.messageText = String(localized: "Choose drag scope")
-        alert.addButton(withTitle: String(localized: "Representative only"))
-        alert.addButton(withTitle: String(localized: "Entire group"))
-        alert.addButton(withTitle: String(localized: "Cancel"))
-        alert.showsSuppressionButton = true
-        alert.suppressionButton?.title = String(localized: "Don't ask again")
-
-        let resp = alert.runModal()
-        let chosen: GroupScopeMode?
-        switch resp {
-        case .alertFirstButtonReturn:  chosen = .representative
-        case .alertSecondButtonReturn: chosen = .allInGroup
-        default: chosen = nil
-        }
-        if alert.suppressionButton?.state == .on, let c = chosen {
-            store.settings.dndScopeMode = c
-        }
-        return chosen
+    /// 設定値をベースに、⌥ キーが押されていれば逆スコープを返す。
+    private func resolveDndScope() -> GroupScopeMode {
+        let base: GroupScopeMode = store.settings.dndScopeMode == .allInGroup ? .allInGroup : .representative
+        let optionHeld = NSEvent.modifierFlags.contains(.option)
+        guard optionHeld else { return base }
+        return base == .representative ? .allInGroup : .representative
     }
 
     private func selectionStroke(cornerRadius: CGFloat) -> some View {

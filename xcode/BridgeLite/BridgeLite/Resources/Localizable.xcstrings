@@ -354,6 +354,7 @@
       }
     },
     "All files in the group will be moved. Recoverable from Finder." : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -445,6 +446,54 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "昇順"
+          }
+        }
+      }
+    },
+    "Ask each time" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask each time"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "毎回確認"
+          }
+        }
+      }
+    },
+    "scope.dnd.option.caption" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag & Drop: hold ⌥ while dragging to use the other scope."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ドラッグ&ドロップ: ⌥ を押しながらドラッグすると逆のスコープになります。"
+          }
+        }
+      }
+    },
+    "scope.dnd.option.help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hold ⌥ while dragging to use the other scope"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌥ を押しながらドラッグすると逆のスコープになります"
           }
         }
       }
@@ -625,6 +674,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "コピーの範囲を選択"
+          }
+        }
+      }
+    },
+    "Choose delete scope" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose delete scope"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除範囲を選択"
+          }
+        }
+      }
+    },
+    "Choose drag scope" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Choose drag scope"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ドラッグ範囲を選択"
           }
         }
       }
@@ -821,6 +902,22 @@
         }
       }
     },
+    "Delete" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除"
+          }
+        }
+      }
+    },
     "Descending" : {
       "localizations" : {
         "en" : {
@@ -898,6 +995,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "ダブルクリックでフルパスを表示"
+          }
+        }
+      }
+    },
+    "Drag & Drop" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Drag & Drop"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ドラッグ&ドロップ"
           }
         }
       }
@@ -1381,6 +1494,22 @@
         }
       }
     },
+    "Group Scope" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Group Scope"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "グループスコープ"
+          }
+        }
+      }
+    },
     "Grouping" : {
       "localizations" : {
         "en" : {
@@ -1800,6 +1929,7 @@
       }
     },
     "Move %lld group(s) (%lld files) to Trash?" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2123,6 +2253,22 @@
         }
       }
     },
+    "Representative" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Representative"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "代表"
+          }
+        }
+      }
+    },
     "Representative only" : {
       "localizations" : {
         "en" : {
@@ -2221,6 +2367,54 @@
         }
       }
     },
+    "scope.cell.help.allInGroup" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apply to all members of the shot group"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "グループ内全メンバーに適用"
+          }
+        }
+      }
+    },
+    "scope.cell.help.askEachTime" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Ask which scope each time"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "操作のたびに確認"
+          }
+        }
+      }
+    },
+    "scope.cell.help.representative" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Apply only to the representative photo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "代表写真のみに適用"
+          }
+        }
+      }
+    },
     "Select a photo" : {
       "localizations" : {
         "en" : {
@@ -2253,6 +2447,22 @@
         }
       }
     },
+    "settings.grouping.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "These values rarely need adjustment. Changes take effect when you click Re-group."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "通常は変更不要です。変更は「再グループ化」を押したときに反映されます。"
+          }
+        }
+      }
+    },
     "settings.grouping.phash_threshold" : {
       "localizations" : {
         "en" : {
@@ -2265,22 +2475,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "pHash しきい値"
-          }
-        }
-      }
-    },
-    "settings.grouping.phash_threshold.help" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Hamming distance limit for rescuing EXIF-stripped files (IAD) into a confirmed group. Lower = stricter matching."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "EXIF 欠損ファイル (IAD) を確定グループに救済するための Hamming 距離の上限。小さいほど厳格な一致が必要になります。"
           }
         }
       }
@@ -2301,6 +2495,22 @@
         }
       }
     },
+    "settings.grouping.phash_threshold.help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hamming distance limit for rescuing EXIF-stripped files (IAD) into a confirmed group. Lower = stricter matching."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EXIF 欠損ファイル (IAD) を確定グループに救済するための Hamming 距離の上限。小さいほど厳格な一致が必要になります。"
+          }
+        }
+      }
+    },
     "settings.grouping.regroup_button" : {
       "localizations" : {
         "en" : {
@@ -2317,26 +2527,6 @@
         }
       }
     },
-    "settings.grouping.reset_button" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "Reset to Defaults" }
-        },
-        "ja" : {
-          "stringUnit" : { "state" : "translated", "value" : "初期値に戻す" }
-        }
-      }
-    },
-    "settings.grouping.reset_button.help" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "Restore split threshold to 2 s and pHash threshold to 15." }
-        },
-        "ja" : {
-          "stringUnit" : { "state" : "translated", "value" : "分割しきい値を 2 秒、pHash しきい値を 15 に戻します。" }
-        }
-      }
-    },
     "settings.grouping.regroup_button.help" : {
       "localizations" : {
         "en" : {
@@ -2349,6 +2539,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "サムネイルや EXIF を再スキャンせず、現在のしきい値でグルーピングを再適用します。"
+          }
+        }
+      }
+    },
+    "settings.grouping.reset_button" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset to Defaults"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "初期値に戻す"
+          }
+        }
+      }
+    },
+    "settings.grouping.reset_button.help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restore split threshold to 2 s and pHash threshold to 15."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "分割しきい値を 2 秒、pHash しきい値を 15 に戻します。"
           }
         }
       }
@@ -2369,26 +2591,6 @@
         }
       }
     },
-    "settings.tab.advanced" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "Advanced" }
-        },
-        "ja" : {
-          "stringUnit" : { "state" : "translated", "value" : "詳細設定" }
-        }
-      }
-    },
-    "settings.grouping.description" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "These values rarely need adjustment. Changes take effect when you click Re-group." }
-        },
-        "ja" : {
-          "stringUnit" : { "state" : "translated", "value" : "通常は変更不要です。変更は「再グループ化」を押したときに反映されます。" }
-        }
-      }
-    },
     "settings.grouping.split_threshold" : {
       "localizations" : {
         "en" : {
@@ -2401,6 +2603,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "分割しきい値"
+          }
+        }
+      }
+    },
+    "settings.grouping.split_threshold.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Same-name files (e.g. IMG_0001.CR3 + IMG_0001.JPG) are grouped together when their EXIF timestamps differ by no more than this value. Files exceeding the limit are split as same-name collisions from different cameras. Increase to tolerate larger clock offsets between RAW and JPEG; decrease to split more aggressively."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "同名ファイル（例: IMG_0001.CR3 + IMG_0001.JPG）の EXIF 撮影日時の差がこの秒数以内なら同一グループにまとめます。超えた場合は別カメラからの同名衝突と判定して別グループに分割します。大きくすると RAW・JPEG 間の時刻ズレを許容し、小さくするとより厳しく分割します。"
           }
         }
       }
@@ -2421,22 +2639,6 @@
         }
       }
     },
-    "settings.shortcut.section" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Keyboard Shortcuts"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "キーボードショートカット"
-          }
-        }
-      }
-    },
     "settings.shortcut.rating_keys" : {
       "localizations" : {
         "en" : {
@@ -2453,50 +2655,34 @@
         }
       }
     },
-    "viewer.meta.hide" : {
+    "settings.shortcut.section" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Hide Info (M)"
+            "value" : "Keyboard Shortcuts"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "情報を隠す (M)"
+            "value" : "キーボードショートカット"
           }
         }
       }
     },
-    "viewer.meta.show" : {
+    "settings.tab.advanced" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Show Info (M)"
+            "value" : "Advanced"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "情報を表示 (M)"
-          }
-        }
-      }
-    },
-    "shortcut.modifier.none" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Number keys (0–9)"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "数字キー（0〜9）"
+            "value" : "詳細設定"
           }
         }
       }
@@ -2533,18 +2719,18 @@
         }
       }
     },
-    "settings.grouping.split_threshold.description" : {
+    "shortcut.modifier.none" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Same-name files (e.g. IMG_0001.CR3 + IMG_0001.JPG) are grouped together when their EXIF timestamps differ by no more than this value. Files exceeding the limit are split as same-name collisions from different cameras. Increase to tolerate larger clock offsets between RAW and JPEG; decrease to split more aggressively."
+            "value" : "Number keys (0–9)"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "同名ファイル（例: IMG_0001.CR3 + IMG_0001.JPG）の EXIF 撮影日時の差がこの秒数以内なら同一グループにまとめます。超えた場合は別カメラからの同名衝突と判定して別グループに分割します。大きくすると RAW・JPEG 間の時刻ズレを許容し、小さくするとより厳しく分割します。"
+            "value" : "数字キー（0〜9）"
           }
         }
       }
@@ -3025,6 +3211,38 @@
         }
       }
     },
+    "viewer.meta.hide" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Info (M)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "情報を隠す (M)"
+          }
+        }
+      }
+    },
+    "viewer.meta.show" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Info (M)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "情報を表示 (M)"
+          }
+        }
+      }
+    },
     "Write failed: %@" : {
       "localizations" : {
         "en" : {
@@ -3069,166 +3287,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "黄"
-          }
-        }
-      }
-    },
-    "Ask each time" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ask each time"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "毎回確認"
-          }
-        }
-      }
-    },
-    "Choose delete scope" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose delete scope"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "削除範囲を選択"
-          }
-        }
-      }
-    },
-    "Choose drag scope" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Choose drag scope"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ドラッグ範囲を選択"
-          }
-        }
-      }
-    },
-    "Delete" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "削除"
-          }
-        }
-      }
-    },
-    "Drag & Drop" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Drag & Drop"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ドラッグ&ドロップ"
-          }
-        }
-      }
-    },
-    "Group Scope" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Group Scope"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "グループスコープ"
-          }
-        }
-      }
-    },
-    "Representative" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Representative"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "代表"
-          }
-        }
-      }
-    },
-    "scope.cell.help.allInGroup" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apply to all members of the shot group"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "グループ内全メンバーに適用"
-          }
-        }
-      }
-    },
-    "scope.cell.help.askEachTime" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Ask which scope each time"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "操作のたびに確認"
-          }
-        }
-      }
-    },
-    "scope.cell.help.representative" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Apply only to the representative photo"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "代表写真のみに適用"
           }
         }
       }
