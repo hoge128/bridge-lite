@@ -55,11 +55,7 @@ struct FolderView: View {
                     ToolbarView()
                 }
                 .toolbar(store.viewerMode ? .hidden : .visible, for: .windowToolbar)
-                .navigationTitle({
-                    let base = store.currentDirectoryURL?.lastPathComponent ?? "BridgeLite"
-                    guard !store.statusMessage.isEmpty else { return base }
-                    return "\(base) (\(store.statusMessage))"
-                }())
+                .navigationTitle(store.currentDirectoryURL?.lastPathComponent ?? "BridgeLite")
                 .onKeyPress(keys: [.tab], phases: .down) { press in
                     if store.viewerMode || store.compareMode { return .ignored }
                     store.cyclePairVariant(reverse: press.modifiers.contains(.shift))
@@ -189,10 +185,44 @@ private struct StatusBarView: View {
     var body: some View {
         @Bindable var settings = store.settings
         HStack(spacing: 8) {
-            Text(statusText)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
+            if store.isLoading {
+                Text(store.statusMessage)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .frame(width: 160, alignment: .leading)
+
+                if store.scanPhase == .loading && store.orderedIDs.count > 0 {
+                    ProgressView(
+                        value: Double(store.loadedThumbnailCount),
+                        total: Double(store.orderedIDs.count)
+                    )
+                    .progressViewStyle(.linear)
+                    .frame(width: 120)
+                    .controlSize(.mini)
+                } else {
+                    ProgressView()
+                        .progressViewStyle(.linear)
+                        .frame(width: 120)
+                        .controlSize(.mini)
+                }
+
+                Button { store.cancelLoading() } label: {
+                    Image(systemName: "xmark.circle.fill")
+                        .font(.system(size: 12))
+                        .foregroundStyle(.red)
+                        .padding(.horizontal, 4)
+                        .padding(.vertical, 1)
+                        .background(Color.red.opacity(0.10), in: Capsule())
+                }
+                .buttonStyle(.borderless)
+                .help(String(localized: "Cancel scanning"))
+            } else {
+                Text(statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+            }
 
             Spacer()
 
@@ -222,6 +252,7 @@ private struct StatusBarView: View {
         }
         return "\(total) items"
     }
+
 }
 
 // MARK: - WindowAccessor

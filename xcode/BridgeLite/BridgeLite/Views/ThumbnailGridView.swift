@@ -50,10 +50,6 @@ struct ThumbnailGridView: View {
                         .allowsHitTesting(false)
                 }
 
-                if store.isLoading {
-                    scanProgressOverlay
-                        .transition(.opacity.animation(.easeInOut(duration: 0.2)))
-                }
             }
             .frame(maxWidth: .infinity, maxHeight: .infinity)
             .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
@@ -94,43 +90,6 @@ struct ThumbnailGridView: View {
         .padding(.vertical, 5)
         .background(Color.orange.opacity(0.08))
         .overlay(alignment: .bottom) { Divider() }
-    }
-
-    // MARK: - Scan progress overlay
-
-    private var scanProgressOverlay: some View {
-        VStack(spacing: 12) {
-            if store.scanPhase == .loading && store.orderedIDs.count > 0 {
-                ProgressView(
-                    value: Double(store.loadedThumbnailCount),
-                    total: Double(store.orderedIDs.count)
-                )
-                .progressViewStyle(.linear)
-                .frame(width: 220)
-            } else {
-                ProgressView()
-            }
-
-            Text(store.statusMessage)
-                .font(.callout)
-                .foregroundStyle(.primary)
-                .lineLimit(1)
-
-            Button(action: { store.cancelLoading() }) {
-                HStack(spacing: 4) {
-                    Image(systemName: "xmark.circle")
-                    Text(String(localized: "Cancel scanning"))
-                }
-            }
-            .buttonStyle(.bordered)
-            .controlSize(.small)
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 18)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .shadow(color: .black.opacity(0.15), radius: 10, x: 0, y: 3)
-        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-        .allowsHitTesting(true)
     }
 
     // MARK: - Empty state
