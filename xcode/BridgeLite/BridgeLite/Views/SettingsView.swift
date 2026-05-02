@@ -67,6 +67,11 @@ struct SettingsView: View {
                 Text(String(localized: "settings.shortcut.section", defaultValue: "Keyboard Shortcuts"))
             }
             Section {
+                scopeGrid
+            } header: {
+                Text("Group Scope")
+            }
+            Section {
                 propagationGrid
                 Text("Row: source kind  ·  Column: kinds that receive the same rating/label.")
                     .font(.caption2)
@@ -168,6 +173,60 @@ struct SettingsView: View {
             }
             .help(String(localized: "settings.grouping.reset_button.help", defaultValue: "Restore split threshold to 2 s and pHash threshold to 15."))
         }
+    }
+
+    // MARK: - Group Scope grid
+
+    @ViewBuilder
+    private var scopeGrid: some View {
+        @Bindable var s = settings
+
+        Grid(alignment: .center, horizontalSpacing: 16, verticalSpacing: 8) {
+            GridRow {
+                Text("").gridCellAnchor(.center)
+                Text(GroupScopeMode.allInGroup.localizedName).font(.caption).foregroundStyle(.secondary)
+                Text(GroupScopeMode.representative.localizedName).font(.caption).foregroundStyle(.secondary)
+                Text(GroupScopeMode.askEachTime.localizedName).font(.caption).foregroundStyle(.secondary)
+            }
+            Divider().gridCellUnsizedAxes(.horizontal)
+            GridRow {
+                Text("Copy").font(.caption)
+                scopeCell($s.copyScopeMode, value: .allInGroup)
+                    .help(String(localized: "scope.cell.help.allInGroup", defaultValue: "Apply to all members of the shot group"))
+                scopeCell($s.copyScopeMode, value: .representative)
+                    .help(String(localized: "scope.cell.help.representative", defaultValue: "Apply only to the representative photo"))
+                scopeCell($s.copyScopeMode, value: .askEachTime)
+                    .help(String(localized: "scope.cell.help.askEachTime", defaultValue: "Ask which scope each time"))
+            }
+            GridRow {
+                Text("Drag & Drop").font(.caption)
+                scopeCell($s.dndScopeMode, value: .allInGroup)
+                    .help(String(localized: "scope.cell.help.allInGroup", defaultValue: "Apply to all members of the shot group"))
+                scopeCell($s.dndScopeMode, value: .representative)
+                    .help(String(localized: "scope.cell.help.representative", defaultValue: "Apply only to the representative photo"))
+                scopeCell($s.dndScopeMode, value: .askEachTime)
+                    .help(String(localized: "scope.cell.help.askEachTime", defaultValue: "Ask which scope each time"))
+            }
+            GridRow {
+                Text("Delete").font(.caption)
+                scopeCell($s.deleteScopeMode, value: .allInGroup)
+                    .help(String(localized: "scope.cell.help.allInGroup", defaultValue: "Apply to all members of the shot group"))
+                scopeCell($s.deleteScopeMode, value: .representative)
+                    .help(String(localized: "scope.cell.help.representative", defaultValue: "Apply only to the representative photo"))
+                scopeCell($s.deleteScopeMode, value: .askEachTime)
+                    .help(String(localized: "scope.cell.help.askEachTime", defaultValue: "Ask which scope each time"))
+            }
+        }
+        .padding(.vertical, 4)
+    }
+
+    private func scopeCell(_ binding: Binding<GroupScopeMode>, value: GroupScopeMode) -> some View {
+        Toggle("", isOn: Binding(
+            get: { binding.wrappedValue == value },
+            set: { if $0 { binding.wrappedValue = value } }
+        ))
+        .labelsHidden()
+        .gridCellAnchor(.center)
     }
 
     // MARK: - Rating Propagation grid

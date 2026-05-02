@@ -496,11 +496,12 @@ final class LibraryStore {
     func triggerCopy() {
         guard !selectedIDs.isEmpty else { return }
         let mode: CopyMode
-        if settings.confirmCopy {
+        switch settings.copyScopeMode {
+        case .representative: mode = .representativeOnly
+        case .allInGroup:     mode = .allInGroup
+        case .askEachTime:
             guard let m = showCopyAlert() else { return }
             mode = m
-        } else {
-            mode = .representativeOnly
         }
         copySelectedFiles(mode: mode)
     }
@@ -519,14 +520,21 @@ final class LibraryStore {
         alert.suppressionButton?.title = String(localized: "Don't ask again")
 
         let resp = alert.runModal()
-        if alert.suppressionButton?.state == .on { settings.confirmCopy = false }
-
+        let chosen: CopyMode?
         switch resp {
-        case .alertFirstButtonReturn:  return .representativeOnly
-        case .alertSecondButtonReturn: return hasKindFilter ? .filteredKindOnly : .allInGroup
-        case .alertThirdButtonReturn:  return hasKindFilter ? .allInGroup : nil
-        default: return nil
+        case .alertFirstButtonReturn:  chosen = .representativeOnly
+        case .alertSecondButtonReturn: chosen = hasKindFilter ? .filteredKindOnly : .allInGroup
+        case .alertThirdButtonReturn:  chosen = hasKindFilter ? .allInGroup : nil
+        default: chosen = nil
         }
+        if alert.suppressionButton?.state == .on, let c = chosen {
+            switch c {
+            case .representativeOnly: settings.copyScopeMode = .representative
+            case .allInGroup:         settings.copyScopeMode = .allInGroup
+            case .filteredKindOnly:   settings.copyScopeMode = .representative
+            }
+        }
+        return chosen
     }
 
     private func copySelectedFiles(mode: CopyMode) {
@@ -561,30 +569,89 @@ final class LibraryStore {
         NSPasteboard.general.writeObjects(urls as [NSURL])
     }
 
+    /// D&D の urlsProvider に渡す URL 配列を scope に従って生成する。
+    func urlsFor(ids: Set<UInt64>, scope: GroupScopeMode) -> [URL] {
+        var result: [URL] = []
+        var seen = Set<URL>()
+        func add(_ url: URL) { if seen.insert(url).inserted { result.append(url) } }
+        for id in ids {
+            guard let entry = entries[id] else { continue }
+            if scope == .allInGroup {
+                let members = shotGroups[entry.shotId] ?? [id]
+                members.compactMap { entries[$0]?.url }.forEach { add($0) }
+            } else {
+                add(entry.url)
+            }
+        }
+        return result
+    }
+
     // MARK: - 削除
 
     func triggerDelete() {
         guard !selectedIDs.isEmpty else { return }
-        if settings.confirmDelete {
-            let groupCount = selectedIDs.count
-            let fileCount = selectedIDs.reduce(0) { acc, id in
-                guard let entry = entries[id] else { return acc }
-                return acc + (shotGroups[entry.shotId]?.count ?? 1)
-            }
-            let alert = NSAlert()
-            alert.messageText = String(localized: "Move \(groupCount) group(s) (\(fileCount) files) to Trash?")
-            alert.informativeText = String(localized: "All files in the group will be moved. Recoverable from Finder.")
-            alert.alertStyle = .warning
-            alert.addButton(withTitle: String(localized: "Move to Trash"))
-            alert.addButton(withTitle: String(localized: "Cancel"))
-            alert.showsSuppressionButton = true
-            alert.suppressionButton?.title = String(localized: "Don't ask again")
-
-            let resp = alert.runModal()
-            if alert.suppressionButton?.state == .on { settings.confirmDelete = false }
-            if resp != .alertFirstButtonReturn { return }
+        switch settings.deleteScopeMode {
+        case .representative: deleteSelectedRepresentatives()
+        case .allInGroup:     deleteSelectedGroups()
+        case .askEachTime:
+            guard let scope = showDeleteAlert() else { return }
+            if scope == .representative { deleteSelectedRepresentatives() }
+            else { deleteSelectedGroups() }
         }
-        deleteSelectedGroups()
+    }
+
+    private func showDeleteAlert() -> GroupScopeMode? {
+        let alert = NSAlert()
+        alert.messageText = String(localized: "Choose delete scope")
+        alert.alertStyle = .warning
+        alert.addButton(withTitle: String(localized: "Representative only"))
+        alert.addButton(withTitle: String(localized: "Entire group"))
+        alert.addButton(withTitle: String(localized: "Cancel"))
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = String(localized: "Don't ask again")
+
+        let resp = alert.runModal()
+        let chosen: GroupScopeMode?
+        switch resp {
+        case .alertFirstButtonReturn:  chosen = .representative
+        case .alertSecondButtonReturn: chosen = .allInGroup
+        default: chosen = nil
+        }
+        if alert.suppressionButton?.state == .on, let c = chosen {
+            settings.deleteScopeMode = c
+        }
+        return chosen
+    }
+
+    private func deleteSelectedRepresentatives() {
+        var deletedIDs: Set<UInt64> = []
+        var fileCount = 0
+        for repId in selectedIDs {
+            guard let entry = entries[repId] else { continue }
+            try? FileManager.default.trashItem(at: entry.url, resultingItemURL: nil)
+            let xmpURL = entry.url.deletingPathExtension().appendingPathExtension("xmp")
+            if FileManager.default.fileExists(atPath: xmpURL.path) {
+                try? FileManager.default.trashItem(at: xmpURL, resultingItemURL: nil)
+            }
+            deletedIDs.insert(repId)
+            fileCount += 1
+        }
+        for id in deletedIDs {
+            entries.removeValue(forKey: id)
+            thumbnailBlobs.removeValue(forKey: id)
+            exifData.removeValue(forKey: id)
+            xmpData.removeValue(forKey: id)
+        }
+        orderedIDs = orderedIDs.filter { !deletedIDs.contains($0) }
+        var newGroups: [UInt64: [UInt64]] = [:]
+        for id in orderedIDs {
+            guard let e = entries[id] else { continue }
+            newGroups[e.shotId, default: []].append(id)
+        }
+        shotGroups = newGroups
+        recomputeVisible()
+        deselectAll()
+        showUndoMessage(String(localized: "Moved \(fileCount) file(s) to Trash (recoverable from Finder)"))
     }
 
     private func deleteSelectedGroups() {

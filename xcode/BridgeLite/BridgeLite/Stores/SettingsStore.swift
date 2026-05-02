@@ -35,6 +35,22 @@ enum CompareNavMode: String {
     case groupFirst   // ←→ = グループ間移動 / Ctrl+Tab = グループ内メンバー移動
 }
 
+enum GroupScopeMode: String, CaseIterable, Identifiable {
+    case allInGroup
+    case representative
+    case askEachTime
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .allInGroup:   return String(localized: "Entire group")
+        case .representative: return String(localized: "Representative")
+        case .askEachTime:  return String(localized: "Ask each time")
+        }
+    }
+}
+
 enum RatingShortcutModifier: String, CaseIterable, Identifiable {
     case none, command, control
 
@@ -106,11 +122,13 @@ final class SettingsStore {
     static let shared = SettingsStore()
 
     init() {
-        // 起動直後は applied = current として Re-group ボタンを無効状態で開始する。
         let split = UserDefaults.standard.integer(forKey: "groupingSplitThresholdSecs")
         let phash = UserDefaults.standard.integer(forKey: "groupingPhashHammingThreshold")
         self.appliedGroupingSplitThresholdSecs = split > 0 ? split : 2
         self.appliedGroupingPhashHammingThreshold = phash > 0 ? phash : 15
+        // 旧 confirmCopy / confirmDelete キーを削除（プロパティ初期化時に移行済み）
+        UserDefaults.standard.removeObject(forKey: "confirmCopy")
+        UserDefaults.standard.removeObject(forKey: "confirmDelete")
     }
 
     var language: String = UserDefaults.standard.string(forKey: "language") ?? "en" {
@@ -214,13 +232,36 @@ final class SettingsStore {
             || appliedGroupingPhashHammingThreshold != groupingPhashHammingThreshold
     }
 
+    // MARK: - グループスコープ
+    var copyScopeMode: GroupScopeMode = {
+        if let raw = UserDefaults.standard.string(forKey: "copyScopeMode"),
+           let mode = GroupScopeMode(rawValue: raw) { return mode }
+        if let old = UserDefaults.standard.object(forKey: "confirmCopy") as? Bool {
+            return old ? .askEachTime : .representative
+        }
+        return .askEachTime
+    }() {
+        didSet { UserDefaults.standard.set(copyScopeMode.rawValue, forKey: "copyScopeMode") }
+    }
+    var dndScopeMode: GroupScopeMode = {
+        if let raw = UserDefaults.standard.string(forKey: "dndScopeMode"),
+           let mode = GroupScopeMode(rawValue: raw) { return mode }
+        return .representative
+    }() {
+        didSet { UserDefaults.standard.set(dndScopeMode.rawValue, forKey: "dndScopeMode") }
+    }
+    var deleteScopeMode: GroupScopeMode = {
+        if let raw = UserDefaults.standard.string(forKey: "deleteScopeMode"),
+           let mode = GroupScopeMode(rawValue: raw) { return mode }
+        if let old = UserDefaults.standard.object(forKey: "confirmDelete") as? Bool {
+            return old ? .askEachTime : .allInGroup
+        }
+        return .askEachTime
+    }() {
+        didSet { UserDefaults.standard.set(deleteScopeMode.rawValue, forKey: "deleteScopeMode") }
+    }
+
     // MARK: - 確認ダイアログ
-    var confirmCopy: Bool = bool("confirmCopy", default: true) {
-        didSet { UserDefaults.standard.set(confirmCopy, forKey: "confirmCopy") }
-    }
-    var confirmDelete: Bool = bool("confirmDelete", default: true) {
-        didSet { UserDefaults.standard.set(confirmDelete, forKey: "confirmDelete") }
-    }
     var confirmBulkRating: Bool = bool("confirmBulkRating", default: true) {
         didSet { UserDefaults.standard.set(confirmBulkRating, forKey: "confirmBulkRating") }
     }
