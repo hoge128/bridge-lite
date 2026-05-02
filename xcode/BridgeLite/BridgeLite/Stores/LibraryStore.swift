@@ -1314,9 +1314,7 @@ final class LibraryStore {
                     await MainActor.run { [weak self] in
                         guard let self else { return }
                         luminanceScores.merge(computed) { _, new in new }
-                        if !filter.luminanceMin.isEmpty || !filter.luminanceMax.isEmpty {
-                            recomputeVisible()
-                        }
+                        recomputeVisible()
                     }
                 }
             }
