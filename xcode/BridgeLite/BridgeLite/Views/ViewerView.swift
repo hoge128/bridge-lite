@@ -48,10 +48,6 @@ struct ViewerView: View {
                     .foregroundStyle(.secondary)
             }
 
-            if isLoadingFullRes, let entry = selectedEntry {
-                LoadingCard(filename: entry.filename, sizeText: entry.formattedFileSize)
-            }
-
             VStack {
                 HStack {
                     Button("Close") { store.viewerMode = false }
@@ -193,46 +189,3 @@ private struct ViewerMetaOverlay: View {
     }
 }
 
-// MARK: - Loading card
-
-private struct LoadingCard: View {
-    let filename: String
-    let sizeText: String
-    @State private var ringRotation: Double = 0
-
-    var body: some View {
-        VStack(spacing: 14) {
-            ZStack {
-                Circle()
-                    .stroke(Color.white.opacity(0.18), lineWidth: 4)
-                    .frame(width: 56, height: 56)
-                Circle()
-                    .trim(from: 0, to: 0.28)
-                    .stroke(Color.white, style: StrokeStyle(lineWidth: 4, lineCap: .round))
-                    .frame(width: 56, height: 56)
-                    .rotationEffect(.degrees(ringRotation))
-            }
-            Text(filename)
-                .font(.system(.callout, design: .monospaced))
-                .foregroundStyle(.white)
-                .lineLimit(1)
-                .truncationMode(.middle)
-            Text(sizeText)
-                .font(.caption)
-                .foregroundStyle(.white.opacity(0.7))
-        }
-        .padding(.horizontal, 24)
-        .padding(.vertical, 18)
-        .frame(maxWidth: 320)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 14))
-        .overlay(
-            RoundedRectangle(cornerRadius: 14)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
-        )
-        .onAppear {
-            withAnimation(.linear(duration: 1.0).repeatForever(autoreverses: false)) {
-                ringRotation = 360
-            }
-        }
-    }
-}
