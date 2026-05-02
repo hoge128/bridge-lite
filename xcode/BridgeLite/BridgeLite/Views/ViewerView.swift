@@ -7,6 +7,7 @@ struct ViewerView: View {
     @State private var fullRes: (CGImage, Image.Orientation)?
     @State private var isLoadingFullRes = false
     @State private var keyMonitor: Any?
+    @State private var xmp: XmpData? = nil
 
     private var selectedEntry: PhotoEntry? {
         store.selectedID.flatMap { store.entries[$0] }
@@ -17,6 +18,7 @@ struct ViewerView: View {
     }
 
     var body: some View {
+        @Bindable var store = store
         ZStack {
             Color.black.ignoresSafeArea()
 
@@ -48,6 +50,14 @@ struct ViewerView: View {
                         .padding()
                     Spacer()
                     HStack(spacing: 16) {
+                        Button {
+                            store.viewerShowsMeta.toggle()
+                        } label: {
+                            Image(systemName: store.viewerShowsMeta ? "info.circle.fill" : "info.circle")
+                        }
+                        .help(store.viewerShowsMeta
+                              ? String(localized: "viewer.meta.hide", defaultValue: "Hide Info (M)")
+                              : String(localized: "viewer.meta.show", defaultValue: "Show Info (M)"))
                         Button("Prev") { store.navigatePrev() }
                             .keyboardShortcut(.leftArrow, modifiers: [])
                         Button("Next") { store.navigateNext() }
@@ -56,20 +66,43 @@ struct ViewerView: View {
                     .padding()
                 }
                 Spacer()
+
+                HStack(alignment: .bottom) {
+                    if store.viewerShowsMeta, let entry = selectedEntry {
+                        ViewerMetaOverlay(entry: entry, xmp: xmp)
+                            .padding([.leading, .bottom], 16)
+                            .transition(.opacity)
+                    }
+                    Spacer()
+                }
             }
         }
+        .animation(.easeInOut(duration: 0.15), value: store.viewerShowsMeta)
         .onAppear {
+            xmp = store.selectedID.flatMap { store.xmpData[$0] }
             let s = store
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-                guard event.keyCode == 53 else { return event } // Escape
-                s.viewerMode = false
-                return nil // consume して GroupCompareView の Escape が連鎖しないようにする
+                if event.keyCode == 53 { // Escape
+                    s.viewerMode = false
+                    return nil
+                }
+                let mods = event.modifierFlags.intersection([.command, .control, .option, .shift])
+                if event.keyCode == 46, mods.isEmpty { // m: toggle metadata overlay
+                    s.viewerShowsMeta.toggle()
+                    return nil
+                }
+                return event
             }
         }
         .onDisappear {
             if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
         }
+        .onReceive(store.xmpDidUpdate) { id in
+            guard id == store.selectedID else { return }
+            xmp = store.xmpData[id]
+        }
         .task(id: store.selectedID) {
+            xmp = store.selectedID.flatMap { store.xmpData[$0] }
             fullRes = nil
             guard let id = store.selectedID,
                   let entry = store.entries[id] else { return }
@@ -106,6 +139,47 @@ struct ViewerView: View {
     }
 }
 
+// MARK: - Metadata overlay
+
+private struct ViewerMetaOverlay: View {
+    let entry: PhotoEntry
+    let xmp: XmpData?
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 5) {
+            if let label = xmp?.label {
+                HStack(spacing: 5) {
+                    Circle()
+                        .fill(label.color)
+                        .frame(width: 9, height: 9)
+                    Text(label.name)
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+            }
+            if let rating = xmp?.rating, rating > 0 {
+                Text(String(repeating: "★", count: rating))
+                    .font(.system(size: 13, weight: .bold))
+                    .foregroundStyle(.yellow.opacity(0.9))
+            }
+            Text(entry.filename)
+                .font(.system(.caption, design: .monospaced))
+                .foregroundStyle(.white.opacity(0.9))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: 300)
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .overlay(
+            RoundedRectangle(cornerRadius: 10)
+                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+        )
+    }
+}
+
+// MARK: - Loading card
 
 private struct LoadingCard: View {
     let filename: String

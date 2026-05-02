@@ -33,6 +33,7 @@ final class LibraryStore {
 
     var columnVisibility: NavigationSplitViewVisibility = .all
     var viewerMode: Bool = false
+    var viewerShowsMeta: Bool = true
     var compareMode: Bool = false
     var compareAnchorID: UInt64? = nil
     var gridColumnCount: Int = 4

@@ -2453,6 +2453,38 @@
         }
       }
     },
+    "viewer.meta.hide" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Hide Info (M)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "情報を隠す (M)"
+          }
+        }
+      }
+    },
+    "viewer.meta.show" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Show Info (M)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "情報を表示 (M)"
+          }
+        }
+      }
+    },
     "shortcut.modifier.none" : {
       "localizations" : {
         "en" : {
