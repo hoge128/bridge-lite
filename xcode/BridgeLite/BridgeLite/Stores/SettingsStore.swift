@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 
 enum FilterSection: String, CaseIterable, Codable, Identifiable {
@@ -32,6 +33,28 @@ enum ViewMode: String, CaseIterable {
 enum CompareNavMode: String {
     case memberFirst  // ←→ = グループ内メンバー移動 / Ctrl+Tab = グループ間移動
     case groupFirst   // ←→ = グループ間移動 / Ctrl+Tab = グループ内メンバー移動
+}
+
+enum RatingShortcutModifier: String, CaseIterable, Identifiable {
+    case none, command, control
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .none:    return String(localized: "shortcut.modifier.none", defaultValue: "Number keys (0–9)")
+        case .command: return String(localized: "shortcut.modifier.command", defaultValue: "⌘ + Number (⌘0–⌘9)")
+        case .control: return String(localized: "shortcut.modifier.control", defaultValue: "⌃ + Number (⌃0–⌃9)")
+        }
+    }
+
+    var nsEventModifierFlags: NSEvent.ModifierFlags {
+        switch self {
+        case .none:    return []
+        case .command: return .command
+        case .control: return .control
+        }
+    }
 }
 
 enum SortKey: String, CaseIterable {
@@ -113,6 +136,10 @@ final class SettingsStore {
     var compareNavMode: CompareNavMode = (UserDefaults.standard.string(forKey: "compareNavMode")
                                            .flatMap(CompareNavMode.init(rawValue:))) ?? .memberFirst {
         didSet { UserDefaults.standard.set(compareNavMode.rawValue, forKey: "compareNavMode") }
+    }
+    var ratingShortcutModifier: RatingShortcutModifier = (UserDefaults.standard.string(forKey: "ratingShortcutModifier")
+                                                          .flatMap(RatingShortcutModifier.init(rawValue:))) ?? .none {
+        didSet { UserDefaults.standard.set(ratingShortcutModifier.rawValue, forKey: "ratingShortcutModifier") }
     }
     var filterSectionOrder: [FilterSection] = {
         guard let data = UserDefaults.standard.data(forKey: "filterSectionOrder"),

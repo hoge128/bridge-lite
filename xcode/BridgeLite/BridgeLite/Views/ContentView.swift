@@ -65,19 +65,6 @@ struct FolderView: View {
                     store.cyclePairVariant(reverse: press.modifiers.contains(.shift))
                     return .handled
                 }
-                .onKeyPress(characters: CharacterSet(charactersIn: "012345"), phases: .down) { press in
-                    if store.viewerMode { return .ignored }
-                    if let n = Int(press.characters) { store.triggerRating(n); return .handled }
-                    return .ignored
-                }
-                .onKeyPress(characters: CharacterSet(charactersIn: "6789"), phases: .down) { press in
-                    if store.viewerMode { return .ignored }
-                    let labelMap: [Character: UInt8] = ["6": 1, "7": 2, "8": 3, "9": 4]
-                    if let ch = press.characters.first, let raw = labelMap[ch] {
-                        store.applyLabel(raw); return .handled
-                    }
-                    return .ignored
-                }
                 .background {
                     Group {
                         Button("") { store.selectAll() }
@@ -138,6 +125,22 @@ struct FolderView: View {
                    s.primaryID != nil {
                     s.viewerMode = true
                     return nil
+                }
+                // 0-9 rating / label keys (works in all modes: grid, viewer, compare)
+                if !(NSApp.keyWindow?.firstResponder is NSTextView),
+                   let ch = event.charactersIgnoringModifiers?.first,
+                   ch >= "0" && ch <= "9" {
+                    let mods = event.modifierFlags.intersection([.shift, .command, .control, .option])
+                    let required = s.settings.ratingShortcutModifier.nsEventModifierFlags
+                    if mods == required {
+                        let labelMap: [Character: UInt8] = ["6": 1, "7": 2, "8": 3, "9": 4]
+                        if let n = Int(String(ch)), n <= 5 {
+                            s.triggerRating(n)
+                        } else if let raw = labelMap[ch] {
+                            s.applyLabel(raw)
+                        }
+                        return nil
+                    }
                 }
                 // Arrow keys — text view がフォーカスを持っている場合はスルー
                 guard !(NSApp.keyWindow?.firstResponder is NSTextView),

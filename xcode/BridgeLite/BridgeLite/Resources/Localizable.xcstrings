@@ -2421,6 +2421,86 @@
         }
       }
     },
+    "settings.shortcut.section" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Keyboard Shortcuts"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キーボードショートカット"
+          }
+        }
+      }
+    },
+    "settings.shortcut.rating_keys" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rating / Label Keys"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "評価 / ラベルキー"
+          }
+        }
+      }
+    },
+    "shortcut.modifier.none" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Number keys (0–9)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "数字キー（0〜9）"
+          }
+        }
+      }
+    },
+    "shortcut.modifier.command" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌘ + Number (⌘0–⌘9)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌘ + 数字（⌘0〜⌘9）"
+          }
+        }
+      }
+    },
+    "shortcut.modifier.control" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌃ + Number (⌃0–⌃9)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌃ + 数字（⌃0〜⌃9）"
+          }
+        }
+      }
+    },
     "settings.grouping.split_threshold.description" : {
       "localizations" : {
         "en" : {

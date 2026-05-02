@@ -56,6 +56,17 @@ struct SettingsView: View {
                 }
             }
             Section {
+                Picker(String(localized: "settings.shortcut.rating_keys", defaultValue: "Rating / Label Keys"),
+                       selection: $settings.ratingShortcutModifier) {
+                    ForEach(RatingShortcutModifier.allCases) { mode in
+                        Text(mode.localizedName).tag(mode)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+            } header: {
+                Text(String(localized: "settings.shortcut.section", defaultValue: "Keyboard Shortcuts"))
+            }
+            Section {
                 propagationGrid
                 Text("Row: source kind  ·  Column: kinds that receive the same rating/label.")
                     .font(.caption2)

@@ -144,16 +144,16 @@ struct BridgeLiteCommands: Commands {
             .keyboardShortcut("f", modifiers: [.command, .control])
         }
         CommandMenu("Rate") {
-            Button("Clear Rating") { store?.applyRating(0) }.keyboardShortcut("0", modifiers: [])
+            Button("Clear Rating") { store?.triggerRating(0) }.disabled(store == nil)
             ForEach(1...5, id: \.self) { n in
-                Button("\(n) Star\(n == 1 ? "" : "s")") { store?.applyRating(n) }
-                    .keyboardShortcut(KeyEquivalent(Character("\(n)")), modifiers: [])
+                Button("\(n) Star\(n == 1 ? "" : "s")") { store?.triggerRating(n) }
+                    .disabled(store == nil)
             }
             Divider()
-            Button("Label Red")    { store?.applyLabel(1) }.keyboardShortcut("6", modifiers: [])
-            Button("Label Yellow") { store?.applyLabel(2) }.keyboardShortcut("7", modifiers: [])
-            Button("Label Green")  { store?.applyLabel(3) }.keyboardShortcut("8", modifiers: [])
-            Button("Label Blue")   { store?.applyLabel(4) }.keyboardShortcut("9", modifiers: [])
+            Button("Label Red")    { store?.applyLabel(1) }.disabled(store == nil)
+            Button("Label Yellow") { store?.applyLabel(2) }.disabled(store == nil)
+            Button("Label Green")  { store?.applyLabel(3) }.disabled(store == nil)
+            Button("Label Blue")   { store?.applyLabel(4) }.disabled(store == nil)
         }
         CommandGroup(replacing: .help) {
             Button("BridgeLite Help") {
