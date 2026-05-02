@@ -400,7 +400,7 @@ mod tests {
     fn reads_embedded_jpg_rating() {
         // DSE06419.JPG was rated 3 stars in Adobe Bridge (embedded XMP, no sidecar).
         let jpg = Path::new("/Users/itotsum/work/bridge-lite/test/20260221/jpg/DSE06419.JPG");
-        let data = read_metadata(jpg).expect("embedded XMP should be readable");
+        let data = read_metadata(jpg, false).expect("embedded XMP should be readable");
         assert_eq!(data.rating, Some(3), "Bridge embedded xmp:Rating=3 should be read");
         assert_eq!(data.flag, None);
     }
@@ -577,7 +577,7 @@ mod tests {
         std::fs::copy(src_jpg, &tmp_jpg).expect("copy test JPG");
 
         let data_in = XmpData { rating: Some(5), label: Some(Label::Red), flag: None, developed: false };
-        write_metadata(&tmp_jpg, &data_in).expect("write_embedded should succeed");
+        write_metadata(&tmp_jpg, &data_in, false).expect("write_embedded should succeed");
 
         // Must NOT have created a sidecar
         assert!(
@@ -585,7 +585,7 @@ mod tests {
             "write_metadata must not create a sidecar for JPG"
         );
 
-        let data_out = read_metadata(&tmp_jpg).expect("read_embedded should succeed");
+        let data_out = read_metadata(&tmp_jpg, false).expect("read_embedded should succeed");
         assert_eq!(data_out.rating, Some(5));
         assert_eq!(data_out.label, Some(Label::Red));
         assert_eq!(data_out.flag, None);
@@ -609,7 +609,7 @@ mod tests {
         let btime_before = std::fs::metadata(&tmp_jpg).unwrap().st_birthtime();
 
         let data = XmpData { rating: Some(2), label: None, flag: None, developed: false };
-        write_metadata(&tmp_jpg, &data).expect("write_embedded should succeed");
+        write_metadata(&tmp_jpg, &data, false).expect("write_embedded should succeed");
 
         let btime_after = std::fs::metadata(&tmp_jpg).unwrap().st_birthtime();
         assert_eq!(btime_before, btime_after, "btime must be preserved after embedded write");

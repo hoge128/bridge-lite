@@ -116,6 +116,35 @@ pub fn normalize_stem(s: &str) -> String {
     }
 }
 
+/// Returns true if the stem looks like a camera-generated filename following the DCF
+/// (Design Rule for Camera File System, JEITA CP-3461) convention.
+///
+/// Matches all major manufacturers:
+/// - Sony:           DSC02087, _DSC0001  (Adobe RGB)
+/// - Canon:          IMG_0001, _MG_0001  (Adobe RGB)
+/// - Nikon:          DSC_0001, _DSC0001  (Adobe RGB)
+/// - Fujifilm:       DSCF0001, _DSF0001  (Adobe RGB)
+/// - Olympus/OM:     PB040001  (P + month + day + seq)
+/// - Panasonic:      P1000001  (P + folder + seq)
+/// - Ricoh/Pentax:   IMGP0001
+/// - Leica:          L1000001
+///
+/// Rule: (optional _) + letters-and-underscores prefix + 4–7 trailing digits, total 5–9 chars.
+pub fn is_camera_generated_stem(stem: &str) -> bool {
+    let s = stem.to_ascii_lowercase();
+    let len = s.len();
+    if !(5..=9).contains(&len) {
+        return false;
+    }
+    let trailing_digits = s.bytes().rev().take_while(|b| b.is_ascii_digit()).count();
+    if !(4..=7).contains(&trailing_digits) {
+        return false;
+    }
+    let prefix = &s[..len - trailing_digits];
+    prefix.bytes().all(|b| b.is_ascii_alphabetic() || b == b'_')
+        && prefix.bytes().any(|b| b.is_ascii_alphabetic())
+}
+
 pub fn compute_shot_id(normalized_stem: &str) -> u64 {
     use std::hash::{Hash, Hasher};
     let mut h = std::collections::hash_map::DefaultHasher::new();
@@ -209,7 +238,7 @@ pub fn scan_directory(path: PathBuf) -> Vec<ImageEntry> {
 
 #[cfg(test)]
 mod tests {
-    use super::{compute_shot_id, normalize_stem};
+    use super::{compute_shot_id, is_camera_generated_stem, normalize_stem};
 
     fn sid(s: &str) -> u64 { compute_shot_id(&normalize_stem(s)) }
 
@@ -247,6 +276,36 @@ mod tests {
         // Multiple suffixes are stripped in sequence
         assert_eq!(sid("foo"), sid("foo-edit-copy"));
         assert_eq!(normalize_stem("bar-v2-copy"), normalize_stem("bar"));
+    }
+
+    #[test]
+    fn camera_generated_stem_detection() {
+        let matches = [
+            "DSC02087",  // Sony ARW/JPG
+            "DSC_0001",  // Nikon sRGB
+            "_DSC0001",  // Nikon Adobe RGB
+            "IMG_0001",  // Canon sRGB
+            "_MG_0001",  // Canon Adobe RGB
+            "DSCF0001",  // Fujifilm sRGB
+            "_DSF0001",  // Fujifilm Adobe RGB
+            "PB040001",  // Olympus/OM System (P + month + day + seq)
+            "P1000001",  // Panasonic (P + folder + seq)
+            "IMGP0001",  // Ricoh / Pentax
+            "L1000001",  // Leica
+        ];
+        for s in &matches {
+            assert!(is_camera_generated_stem(s), "{s} should match camera pattern");
+        }
+        let no_matches = [
+            "portrait_final", // human name, too long
+            "edited_v2",      // human name, only 1 trailing digit
+            "wedding",        // no trailing digits
+            "IMG001",         // only 3 trailing digits
+            "photo",          // no digits
+        ];
+        for s in &no_matches {
+            assert!(!is_camera_generated_stem(s), "{s} should not match camera pattern");
+        }
     }
 
     #[test]

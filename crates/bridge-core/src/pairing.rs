@@ -206,11 +206,31 @@ pub fn reindex_shot_groups(
         })
         .collect();
 
+    // Returns the raw file stem (before normalization) of the first member of a group.
+    let group_stem = |sid: u64| -> Option<String> {
+        let first_id = *working.get(&sid)?.first()?;
+        let filename = &images.get(first_id)?.filename;
+        std::path::Path::new(filename)
+            .file_stem()
+            .and_then(|s| s.to_str())
+            .map(|s| s.to_string())
+    };
+
     // For each IAD group, find the first confirmed group within hamming threshold.
     let mut iad_to_confirmed: HashMap<u64, u64> = HashMap::new();
     for &iad_id in group_ids.iter().filter(|&&id| is_iad[&id]) {
         let Some(ha) = group_phash[&iad_id] else { continue };
+        let iad_stem = group_stem(iad_id);
         for &conf_id in group_ids.iter().filter(|&&id| !is_iad[&id]) {
+            // If both groups have DCF camera-generated stems they are distinct shots
+            // (e.g. DSC02087 vs DSC02086). Skip rescue to avoid burst-shot false merges.
+            if let (Some(ia), Some(ca)) = (&iad_stem, group_stem(conf_id)) {
+                if crate::scanner::is_camera_generated_stem(ia)
+                    && crate::scanner::is_camera_generated_stem(&ca)
+                {
+                    continue;
+                }
+            }
             let Some(hb) = group_phash[&conf_id] else { continue };
             if crate::phash::hamming(ha, hb) <= phash_hamming_threshold {
                 iad_to_confirmed.insert(iad_id, conf_id);
@@ -277,6 +297,20 @@ mod tests {
             path: PathBuf::from(format!("/tmp/img{id}.jpg")),
             filename: format!("img{id}.jpg"),
             is_raw: false,
+            file_size: 1000,
+            modified: Some(SystemTime::UNIX_EPOCH),
+            created:  Some(SystemTime::UNIX_EPOCH),
+            has_jpg_partner: false,
+            shot_id,
+        }
+    }
+
+    fn make_entry_with_filename(id: usize, shot_id: u64, filename: &str) -> ImageEntry {
+        ImageEntry {
+            id,
+            path: PathBuf::from(format!("/tmp/{filename}")),
+            filename: filename.to_string(),
+            is_raw: filename.to_ascii_lowercase().ends_with(".arw"),
             file_size: 1000,
             modified: Some(SystemTime::UNIX_EPOCH),
             created:  Some(SystemTime::UNIX_EPOCH),
@@ -420,5 +454,41 @@ mod tests {
 
         let groups = reindex_shot_groups(&mut images, &exif, &phashes, DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
         assert_eq!(groups.len(), 1, "IAD rescue should work regardless of timestamp");
+    }
+
+    #[test]
+    fn iad_camera_stem_not_rescued_into_camera_confirmed() {
+        // DSC02087.JPG (IAD, DCF camera name) must NOT rescue into DSC02086 group (confirmed).
+        // Reproduces the inada/ test case: three files incorrectly merged into one group.
+        let mut images = vec![
+            make_entry_with_filename(0, 10, "DSC02087.JPG"),
+            make_entry_with_filename(1, 20, "DSC02086.JPG"),
+        ];
+        let mut exif = HashMap::new();
+        exif.insert(1, exif_with_datetime("2026:04:28 13:45:24", None)); // entry 1 confirmed
+        let mut phashes = HashMap::new();
+        phashes.insert(0, 0x0000_0000_0000_0FFFu64);
+        phashes.insert(1, 0x0000_0000_0000_1FFFu64); // hamming = 1 (burst-like similarity)
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes, DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
+        assert_eq!(groups.len(), 2, "camera-named IAD must not rescue into camera-named confirmed");
+        assert_ne!(images[0].shot_id, images[1].shot_id);
+    }
+
+    #[test]
+    fn iad_non_camera_stem_still_rescues_into_camera_confirmed() {
+        // portrait_edit.jpg (IAD, non-camera name) CAN still rescue into DSC02086 group.
+        // This is the primary Tier 4 use case: EXIF-stripped developed image.
+        let mut images = vec![
+            make_entry_with_filename(0, 10, "portrait_edit.jpg"),
+            make_entry_with_filename(1, 20, "DSC02086.ARW"),
+        ];
+        let mut exif = HashMap::new();
+        exif.insert(1, exif_with_datetime("2026:04:28 13:45:24", None));
+        let mut phashes = HashMap::new();
+        phashes.insert(0, 0x0000_0000_0000_0FFFu64);
+        phashes.insert(1, 0x0000_0000_0000_1FFFu64); // hamming = 1
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes, DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
+        assert_eq!(groups.len(), 1, "non-camera IAD should still rescue into confirmed");
+        assert_eq!(images[0].shot_id, images[1].shot_id);
     }
 }
