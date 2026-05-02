@@ -660,6 +660,7 @@ final class LibraryStore {
                 var current = xmpData[targetID] ?? XmpData()
                 current.rating = stars == 0 ? nil : stars
                 xmpData[targetID] = current
+                xmpDidUpdate.send(targetID)
                 let x = current; let url = te.url
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
             }
@@ -675,6 +676,7 @@ final class LibraryStore {
                 var current = self.xmpData[te.id] ?? XmpData()
                 current.rating = old
                 self.xmpData[te.id] = current
+                self.xmpDidUpdate.send(te.id)
                 let x = current; let url = te.url
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
             }
@@ -697,6 +699,7 @@ final class LibraryStore {
                 var current = xmpData[targetID] ?? XmpData()
                 current.label = newLabel
                 xmpData[targetID] = current
+                xmpDidUpdate.send(targetID)
                 let x = current; let url = te.url
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
             }
@@ -709,6 +712,7 @@ final class LibraryStore {
                 var current = self.xmpData[te.id] ?? XmpData()
                 current.label = old
                 self.xmpData[te.id] = current
+                self.xmpDidUpdate.send(te.id)
                 let x = current; let url = te.url
                 Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
             }
