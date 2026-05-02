@@ -25,6 +25,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
 extension NSNotification.Name {
     static let bridgeLiteOpenURL = NSNotification.Name("BridgeLiteOpenURL")
+    static let bridgeLiteRegroup = NSNotification.Name("BridgeLiteRegroup")
 }
 
 // MARK: - Window state monitor

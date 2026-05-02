@@ -18,6 +18,9 @@ struct ContentView: View {
                       nsWindow?.isKeyWindow == true else { return }
                 store.loadFolder(url)
             }
+            .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteRegroup)) { _ in
+                Task { await store.regroup() }
+            }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notif in
                 guard (notif.object as? NSWindow) === nsWindow else { return }
                 store.resume()

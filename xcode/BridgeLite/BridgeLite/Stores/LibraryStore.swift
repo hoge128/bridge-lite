@@ -221,7 +221,7 @@ final class LibraryStore {
                     }
                 }
 
-                await pairingPipeline.noteExifReady(list: capturedList, db: db, store: self)
+                await pairingPipeline.noteExifReady(list: capturedList, db: db, store: self, splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs), phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold))
             }
 
             // Phase 3: サムネイル → pHash → shot-group reindex（直列チェーン）
@@ -240,7 +240,9 @@ final class LibraryStore {
             let capturedPairing = pairingPipeline
             await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash)
             await capturedPhash.waitForAllPending()
-            await capturedPairing.notePhashReady(list: capturedList, db: db, store: self)
+            await capturedPairing.notePhashReady(list: capturedList, db: db, store: self, splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs), phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold))
+            settings.appliedGroupingSplitThresholdSecs = settings.groupingSplitThresholdSecs
+            settings.appliedGroupingPhashHammingThreshold = settings.groupingPhashHammingThreshold
 
             statusMessage = String(
                 format: String(localized: "%d photos"),
@@ -1124,6 +1126,26 @@ final class LibraryStore {
         }
     }
 
+
+    /// 設定の閾値を使ってグループを再計算する。スキャン済みデータ（EXIF/pHash）はそのまま使用。
+    func regroup() async {
+        guard let list = lastImageList, let db = database else {
+            // フォルダ未オープンでも applied を current に揃え、ボタンを無効化する。
+            settings.appliedGroupingSplitThresholdSecs = settings.groupingSplitThresholdSecs
+            settings.appliedGroupingPhashHammingThreshold = settings.groupingPhashHammingThreshold
+            return
+        }
+        let split = settings.groupingSplitThresholdSecs
+        let phash = settings.groupingPhashHammingThreshold
+        let groups = await BridgeCore.reindexShotGroups(
+            list: list, db: db,
+            splitThresholdSecs: Int64(split),
+            phashHammingThreshold: UInt32(phash)
+        )
+        applyReindexedGroups(groups)
+        settings.appliedGroupingSplitThresholdSecs = split
+        settings.appliedGroupingPhashHammingThreshold = phash
+    }
 
     func applyReindexedGroups(_ groups: [UInt64: [UInt64]]) {
         // Update each entry's shotId to match its reindexed group key

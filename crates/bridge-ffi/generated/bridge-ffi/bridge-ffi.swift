@@ -162,8 +162,8 @@ public func bridge_extract_raw_jpeg<GenericToRustStr: ToRustStr>(_ path: Generic
         FfiOptionalBytes(ptr: __swift_bridge__$bridge_extract_raw_jpeg(pathAsRustStr, quality))
     })
 }
-public func bridge_reindex_shot_groups(_ db: BridgeDatabaseRef, _ entries: ImageEntryListRef) -> ShotGroupsMap {
-    ShotGroupsMap(ptr: __swift_bridge__$bridge_reindex_shot_groups(db.ptr, entries.ptr))
+public func bridge_reindex_shot_groups(_ db: BridgeDatabaseRef, _ entries: ImageEntryListRef, _ split_threshold_secs: Int64, _ phash_hamming_threshold: UInt32) -> ShotGroupsMap {
+    ShotGroupsMap(ptr: __swift_bridge__$bridge_reindex_shot_groups(db.ptr, entries.ptr, split_threshold_secs, phash_hamming_threshold))
 }
 public func shot_groups_map_count(_ m: ShotGroupsMapRef) -> UInt {
     __swift_bridge__$shot_groups_map_count(m.ptr)

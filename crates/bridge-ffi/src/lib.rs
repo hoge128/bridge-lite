@@ -338,7 +338,7 @@ mod ffi {
         fn bridge_extract_raw_jpeg(path: &str, quality: u8) -> FfiOptionalBytes;
 
         // Shot grouping API
-        fn bridge_reindex_shot_groups(db: &BridgeDatabase, entries: &ImageEntryList) -> ShotGroupsMap;
+        fn bridge_reindex_shot_groups(db: &BridgeDatabase, entries: &ImageEntryList, split_threshold_secs: i64, phash_hamming_threshold: u32) -> ShotGroupsMap;
         fn shot_groups_map_count(m: &ShotGroupsMap) -> usize;
         fn shot_groups_map_shot_id_at(m: &ShotGroupsMap, idx: usize) -> u64;
         fn shot_groups_map_members_for(m: &ShotGroupsMap, shot_id: u64) -> Vec<u64>;
@@ -521,6 +521,8 @@ fn bridge_extract_raw_jpeg(path: &str, quality: u8) -> FfiOptionalBytes {
 fn bridge_reindex_shot_groups(
     db: &BridgeDatabase,
     entries: &ImageEntryList,
+    split_threshold_secs: i64,
+    phash_hamming_threshold: u32,
 ) -> ShotGroupsMap {
     let mut images: Vec<CoreImageEntry> = entries.entries.clone();
 
@@ -541,6 +543,8 @@ fn bridge_reindex_shot_groups(
         &mut images,
         &exif_by_id,
         &phash_by_id,
+        split_threshold_secs,
+        phash_hamming_threshold,
     );
 
     let mut shot_ids: Vec<u64> = groups.keys().cloned().collect();

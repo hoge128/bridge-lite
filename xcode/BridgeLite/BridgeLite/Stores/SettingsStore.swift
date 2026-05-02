@@ -82,6 +82,14 @@ struct PropagationMatrix: Sendable, Equatable {
 final class SettingsStore {
     static let shared = SettingsStore()
 
+    init() {
+        // 起動直後は applied = current として Re-group ボタンを無効状態で開始する。
+        let split = UserDefaults.standard.integer(forKey: "groupingSplitThresholdSecs")
+        let phash = UserDefaults.standard.integer(forKey: "groupingPhashHammingThreshold")
+        self.appliedGroupingSplitThresholdSecs = split > 0 ? split : 2
+        self.appliedGroupingPhashHammingThreshold = phash > 0 ? phash : 15
+    }
+
     var language: String = UserDefaults.standard.string(forKey: "language") ?? "en" {
         didSet { UserDefaults.standard.set(language, forKey: "language") }
     }
@@ -151,6 +159,32 @@ final class SettingsStore {
             developedToSooc: developedToSooc,
             developedToRaw:  developedToRaw
         )
+    }
+
+    // MARK: - グルーピング閾値
+
+    var groupingSplitThresholdSecs: Int = {
+        let v = UserDefaults.standard.integer(forKey: "groupingSplitThresholdSecs")
+        return v > 0 ? v : 2
+    }() {
+        didSet { UserDefaults.standard.set(groupingSplitThresholdSecs, forKey: "groupingSplitThresholdSecs") }
+    }
+    var groupingPhashHammingThreshold: Int = {
+        let v = UserDefaults.standard.integer(forKey: "groupingPhashHammingThreshold")
+        return v > 0 ? v : 15
+    }() {
+        didSet { UserDefaults.standard.set(groupingPhashHammingThreshold, forKey: "groupingPhashHammingThreshold") }
+    }
+
+    /// 直近に reindex を適用したときの値。永続化しない（実行時のみ）。
+    /// 起動直後は current と一致させて Re-group ボタンをグレーアウトさせる。
+    var appliedGroupingSplitThresholdSecs: Int
+    var appliedGroupingPhashHammingThreshold: Int
+
+    /// Stepper の現在値が、直近に適用された値と異なるか。Re-group ボタンの有効/無効に使う。
+    var groupingNeedsApply: Bool {
+        appliedGroupingSplitThresholdSecs != groupingSplitThresholdSecs
+            || appliedGroupingPhashHammingThreshold != groupingPhashHammingThreshold
     }
 
     // MARK: - 確認ダイアログ

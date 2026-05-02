@@ -157,7 +157,7 @@ bool __swift_bridge__$ffi_optional_bytes_found(void* r);
 void* __swift_bridge__$ffi_optional_bytes_data(void* r);
 void __swift_bridge__$bridge_store_cached_thumbnail(void* db, struct RustStr path, struct __private__FfiSlice jpeg);
 void* __swift_bridge__$bridge_extract_raw_jpeg(struct RustStr path, uint8_t quality);
-void* __swift_bridge__$bridge_reindex_shot_groups(void* db, void* entries);
+void* __swift_bridge__$bridge_reindex_shot_groups(void* db, void* entries, int64_t split_threshold_secs, uint32_t phash_hamming_threshold);
 uintptr_t __swift_bridge__$shot_groups_map_count(void* m);
 uint64_t __swift_bridge__$shot_groups_map_shot_id_at(void* m, uintptr_t idx);
 void* __swift_bridge__$shot_groups_map_members_for(void* m, uint64_t shot_id);

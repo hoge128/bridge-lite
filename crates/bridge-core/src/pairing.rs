@@ -12,25 +12,6 @@ fn parse_datetime_secs(dt: &str) -> Option<i64> {
         .map(|ndt| ndt.and_utc().timestamp())
 }
 
-fn find_root(canonical: &mut HashMap<u64, u64>, id: u64) -> u64 {
-    // Iterative path-halving compression.
-    let mut cur = id;
-    loop {
-        match canonical.get(&cur).copied() {
-            Some(parent) if parent != cur => {
-                // Path compression: point cur → grandparent when possible.
-                if let Some(&grandparent) = canonical.get(&parent) {
-                    canonical.insert(cur, grandparent);
-                    cur = grandparent;
-                } else {
-                    cur = parent;
-                }
-            }
-            _ => return cur,
-        }
-    }
-}
-
 /// Derive a new shot_id when splitting a stem-based group by timestamp.
 /// Mixes the original shot_id with the cluster's earliest timestamp so that the
 /// same split always produces the same ID (deterministic, collision-resistant).
@@ -51,15 +32,14 @@ fn derive_split_id(base: u64, cluster: &[usize], exif: &HashMap<usize, ExifData>
 }
 
 /// Split a single stem-based group into temporal clusters if any two members are
-/// more than `SPLIT_THRESHOLD_SECS` apart. Members without EXIF datetimes are kept
+/// more than `split_threshold_secs` apart. Members without EXIF datetimes are kept
 /// in the first (earliest) cluster.
 fn split_by_timestamp(
     members: &[usize],
     exif: &HashMap<usize, ExifData>,
     original_shot_id: u64,
+    split_threshold_secs: i64,
 ) -> Vec<(u64, Vec<usize>)> {
-    const SPLIT_THRESHOLD_SECS: i64 = 10;
-
     let mut timestamped: Vec<(usize, Option<i64>)> = members
         .iter()
         .map(|&id| {
@@ -75,7 +55,7 @@ fn split_by_timestamp(
         return vec![(original_shot_id, members.to_vec())];
     }
     let span = all_ts.iter().max().unwrap() - all_ts.iter().min().unwrap();
-    if span <= SPLIT_THRESHOLD_SECS {
+    if span <= split_threshold_secs {
         return vec![(original_shot_id, members.to_vec())];
     }
 
@@ -93,7 +73,7 @@ fn split_by_timestamp(
                 if current.is_empty() {
                     cluster_start = t;
                     current.push(id);
-                } else if t - cluster_start <= SPLIT_THRESHOLD_SECS {
+                } else if t - cluster_start <= split_threshold_secs {
                     current.push(id);
                 } else {
                     clusters.push(std::mem::take(&mut current));
@@ -137,31 +117,48 @@ fn sort_groups(groups: &mut HashMap<u64, Vec<usize>>, images: &[ImageEntry]) {
     }
 }
 
-/// Re-group images by EXIF timestamp after all EXIF data has been indexed.
+/// Returns true when every member of a group lacks an EXIF datetime (IAD = Indeterminate).
+/// IAD groups are candidates for phash-based rescue into confirmed groups.
+fn is_iad_group(members: &[usize], exif: &HashMap<usize, ExifData>) -> bool {
+    !members.is_empty()
+        && members.iter().all(|&id| {
+            exif.get(&id).and_then(|e| e.datetime.as_deref()).is_none()
+        })
+}
+
+/// Default EXIF datetime gap (seconds) above which same-stem files are split into separate groups.
+pub const DEFAULT_SPLIT_THRESHOLD_SECS: i64 = 2;
+
+/// Default pHash Hamming distance threshold for IAD rescue.
+/// IAD rescue is constrained to IAD→confirmed only, so a looser threshold is safe.
+/// Cross-format exports (e.g. RAW → HEIC/PNG/WebP) typically land at hamming ≤ 14;
+/// clearly different images are typically hamming ≥ 20.
+pub const DEFAULT_PHASH_HAMMING_THRESHOLD: u32 = 15;
+
+/// Re-group images after all EXIF and pHash data have been indexed.
 ///
-/// Two operations are applied in sequence:
+/// Three tiers are applied in order:
 ///
-/// 1. **Split** — any stem-based group whose members span more than 10 seconds is
-///    broken into temporal clusters.  EXIF-lacking members stay in the earliest cluster.
+/// 1. **Tier 1** — same normalised stem ∧ EXIF datetime span ≤ 2s → same group.
+/// 2. **Tier 2** — same normalised stem ∧ EXIF datetime span > 2s → split into
+///    temporal sub-groups (handles cross-camera same-name collisions).
+/// 3. **Tier 3** — different normalised stems → always separate groups.
+///    pHash is never used to merge confirmed groups, eliminating burst-shot false merges.
 ///
-/// 2. **Merge** — images in different groups that share the same `(datetime, subsec)`
-///    pair are unified into one group.  The `subsec` requirement prevents merging
-///    consecutive single-second shots on cameras without sub-second timestamps.
+/// **Tier 4 (IAD rescue)** — groups whose *every* member lacks an EXIF datetime are
+/// matched against confirmed groups (those with at least one EXIF datetime) via pHash.
+/// If `hamming(phash_IAD, phash_confirmed) ≤ PHASH_HAMMING_THRESHOLD`, the IAD group
+/// is absorbed into the confirmed group.  This rescues manually-renamed developed images
+/// with stripped EXIF.  IAD-to-IAD merges are never performed.
 ///
 /// Mutates `images[*].shot_id` to reflect the new grouping and returns the new
 /// `shot_groups` map.
-/// Hamming distance threshold for pHash similarity.
-/// Kept tight (≤2) so that only true duplicates (copy/rename of the same JPEG) are merged.
-/// Consecutive shots of visually similar scenes typically differ by 4+ bits; a threshold
-/// of 8 was too permissive and caused false merges for burst sequences.
-const PHASH_HAMMING_THRESHOLD: u32 = 2;
-/// Maximum datetime gap (seconds) for pHash-based merging.
-const PHASH_DATETIME_WINDOW_SECS: i64 = 2;
-
 pub fn reindex_shot_groups(
     images: &mut [ImageEntry],
     exif: &HashMap<usize, ExifData>,
     phashes: &HashMap<usize, u64>,
+    split_threshold_secs: i64,
+    phash_hamming_threshold: u32,
 ) -> HashMap<u64, Vec<usize>> {
     // ── Phase 1: seed from stem-based shot_id ─────────────────────────────
     let mut groups: HashMap<u64, Vec<usize>> = HashMap::new();
@@ -169,13 +166,13 @@ pub fn reindex_shot_groups(
         groups.entry(entry.shot_id).or_default().push(entry.id);
     }
 
-    // ── Phase 2: split groups with large timestamp spans ──────────────────
+    // ── Phase 2: split groups with large timestamp spans (Tier 1 / Tier 2) ─
     let shot_ids: Vec<u64> = groups.keys().cloned().collect();
     let mut working: HashMap<u64, Vec<usize>> = HashMap::new();
 
     for shot_id in shot_ids {
         let members = groups.remove(&shot_id).unwrap();
-        let subgroups = split_by_timestamp(&members, exif, shot_id);
+        let subgroups = split_by_timestamp(&members, exif, shot_id, split_threshold_secs);
         for (new_id, subgroup) in subgroups {
             if new_id != shot_id {
                 for &id in &subgroup {
@@ -188,115 +185,46 @@ pub fn reindex_shot_groups(
         }
     }
 
-    // ── Phase 3: merge groups with identical (datetime, subsec) ───────────
-    // Only merge when subsec is present: prevents false merges on cameras that
-    // don't record sub-second timestamps.
-    let mut ts_index: HashMap<(String, String), Vec<u64>> = HashMap::new();
-    for (&shot_id, members) in &working {
-        for &id in members {
-            if let Some(e) = exif.get(&id) {
-                if let (Some(dt), Some(ss)) = (&e.datetime, &e.subsec) {
-                    let entry = ts_index.entry((dt.clone(), ss.clone())).or_default();
-                    if !entry.contains(&shot_id) {
-                        entry.push(shot_id);
-                    }
-                }
-            }
-        }
-    }
-
-    let mut canonical: HashMap<u64, u64> = HashMap::new();
-    for group_ids in ts_index.values() {
-        if group_ids.len() <= 1 { continue; }
-        let first = find_root(&mut canonical, group_ids[0]);
-        for &gid in &group_ids[1..] {
-            let root = find_root(&mut canonical, gid);
-            if root != first {
-                canonical.insert(root, first);
-            }
-        }
-    }
-
-    // Apply Phase-3 canonical merges before Phase 4.
-    let working = if canonical.is_empty() {
-        working
-    } else {
-        let mut merged: HashMap<u64, Vec<usize>> = HashMap::new();
-        for (shot_id, members) in working {
-            let canon = find_root(&mut canonical, shot_id);
-            let target = merged.entry(canon).or_default();
-            for id in members {
-                if !target.contains(&id) {
-                    target.push(id);
-                }
-            }
-        }
-        for (&canon_id, members) in &merged {
-            for &id in members {
-                if let Some(entry) = images.get_mut(id) {
-                    entry.shot_id = canon_id;
-                }
-            }
-        }
-        merged
-    };
-
-    // ── Phase 4: pHash merge ──────────────────────────────────────────────
-    // For each group compute a representative pHash (bit-wise majority vote across
-    // members) and the earliest datetime.  Then merge groups whose representative
-    // pHashes are within PHASH_HAMMING_THRESHOLD bits AND whose datetimes are within
-    // PHASH_DATETIME_WINDOW_SECS.  datetime constraint prevents false merges on
-    // visually-similar scenes from different sessions.
-    let mut working = working;
+    // ── Tier 4: IAD-rescue phash merge ────────────────────────────────────
+    // Classify each group as IAD (all members lack EXIF datetime) or confirmed.
+    // Only merge IAD → confirmed; confirmed-confirmed merges are forbidden.
     let group_ids: Vec<u64> = working.keys().cloned().collect();
 
-    // Build per-group (representative_phash, earliest_datetime_secs).
-    let group_meta: HashMap<u64, (Option<u64>, Option<i64>)> = group_ids
+    let is_iad: HashMap<u64, bool> = group_ids
         .iter()
         .map(|&sid| {
             let members = working.get(&sid).map(|v| v.as_slice()).unwrap_or(&[]);
-            let rep_phash = majority_vote_phash(members, phashes);
-            let earliest_ts = members
-                .iter()
-                .filter_map(|&id| {
-                    exif.get(&id)?.datetime.as_deref().and_then(parse_datetime_secs)
-                })
-                .min();
-            (sid, (rep_phash, earliest_ts))
+            (sid, is_iad_group(members, exif))
         })
         .collect();
 
-    let mut phash_canonical: HashMap<u64, u64> = HashMap::new();
-    let ids: Vec<u64> = group_ids.clone();
-    for i in 0..ids.len() {
-        for j in (i + 1)..ids.len() {
-            let a = ids[i];
-            let b = ids[j];
-            let (Some(ha), Some(ta)) = group_meta[&a] else { continue };
-            let (Some(hb), Some(tb)) = group_meta[&b] else { continue };
-            if crate::phash::hamming(ha, hb) > PHASH_HAMMING_THRESHOLD {
-                continue;
-            }
-            if (ta - tb).abs() > PHASH_DATETIME_WINDOW_SECS {
-                continue;
-            }
-            let ra = find_root(&mut phash_canonical, a);
-            let rb = find_root(&mut phash_canonical, b);
-            if ra != rb {
-                // Prefer the smaller id as canonical root for determinism.
-                if ra < rb {
-                    phash_canonical.insert(rb, ra);
-                } else {
-                    phash_canonical.insert(ra, rb);
-                }
+    let group_phash: HashMap<u64, Option<u64>> = group_ids
+        .iter()
+        .map(|&sid| {
+            let members = working.get(&sid).map(|v| v.as_slice()).unwrap_or(&[]);
+            (sid, majority_vote_phash(members, phashes))
+        })
+        .collect();
+
+    // For each IAD group, find the first confirmed group within hamming threshold.
+    let mut iad_to_confirmed: HashMap<u64, u64> = HashMap::new();
+    for &iad_id in group_ids.iter().filter(|&&id| is_iad[&id]) {
+        let Some(ha) = group_phash[&iad_id] else { continue };
+        for &conf_id in group_ids.iter().filter(|&&id| !is_iad[&id]) {
+            let Some(hb) = group_phash[&conf_id] else { continue };
+            if crate::phash::hamming(ha, hb) <= phash_hamming_threshold {
+                iad_to_confirmed.insert(iad_id, conf_id);
+                break;
             }
         }
     }
 
-    if !phash_canonical.is_empty() {
+    let mut working = if iad_to_confirmed.is_empty() {
+        working
+    } else {
         let mut final_groups: HashMap<u64, Vec<usize>> = HashMap::new();
         for (shot_id, members) in working {
-            let canon = find_root(&mut phash_canonical, shot_id);
+            let canon = iad_to_confirmed.get(&shot_id).copied().unwrap_or(shot_id);
             let target = final_groups.entry(canon).or_default();
             for id in members {
                 if !target.contains(&id) {
@@ -311,8 +239,8 @@ pub fn reindex_shot_groups(
                 }
             }
         }
-        working = final_groups;
-    }
+        final_groups
+    };
 
     sort_groups(&mut working, images);
     working
@@ -370,9 +298,9 @@ mod tests {
         let mut images = vec![make_entry(0, 1), make_entry(1, 1)];
         let mut exif = HashMap::new();
         exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
-        exif.insert(1, exif_with_datetime("2026:04:21 10:00:05", None));
+        exif.insert(1, exif_with_datetime("2026:04:21 10:00:01", None)); // 1s gap (≤ 2s)
 
-        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new());
+        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new(), DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
         assert_eq!(groups.len(), 1);
         let g = groups.values().next().unwrap();
         assert_eq!(g.len(), 2);
@@ -385,34 +313,9 @@ mod tests {
         exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
         exif.insert(1, exif_with_datetime("2026:04:21 10:00:30", None)); // 30s gap
 
-        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new());
+        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new(), DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
         assert_eq!(groups.len(), 2, "should split into two groups");
         assert_ne!(images[0].shot_id, images[1].shot_id, "shot_id should differ after split");
-    }
-
-    #[test]
-    fn merges_cross_group_same_subsec() {
-        let mut images = vec![make_entry(0, 1), make_entry(1, 2)];
-        let mut exif = HashMap::new();
-        // Same datetime + subsec but different stem groups → should merge
-        exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", Some("500")));
-        exif.insert(1, exif_with_datetime("2026:04:21 10:00:00", Some("500")));
-
-        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new());
-        assert_eq!(groups.len(), 1, "should merge into one group");
-        assert_eq!(images[0].shot_id, images[1].shot_id);
-    }
-
-    #[test]
-    fn no_merge_without_subsec() {
-        let mut images = vec![make_entry(0, 1), make_entry(1, 2)];
-        let mut exif = HashMap::new();
-        // Same datetime second but NO subsec → must not merge (could be consecutive shots)
-        exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
-        exif.insert(1, exif_with_datetime("2026:04:21 10:00:00", None));
-
-        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new());
-        assert_eq!(groups.len(), 2, "must not merge without subsec");
     }
 
     #[test]
@@ -423,7 +326,7 @@ mod tests {
         exif.insert(1, exif_with_datetime("2026:04:21 10:01:00", None)); // 60s gap
         // id=2 has no EXIF
 
-        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new());
+        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new(), DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
         // id=0 and id=2 (no EXIF) should be in one group; id=1 in another
         assert_eq!(groups.len(), 2);
         let group_of_0 = images[0].shot_id;
@@ -432,82 +335,90 @@ mod tests {
     }
 
     #[test]
-    fn merges_by_phash_with_close_datetime() {
-        // Two entries in different stem groups, close datetime, low hamming distance → merge
-        let mut images = vec![make_entry(0, 10), make_entry(1, 20)];
+    fn different_stems_not_merged_even_with_same_datetime() {
+        // Tier 3: different stem groups are never merged regardless of datetime or subsec.
+        let mut images = vec![make_entry(0, 1), make_entry(1, 2)];
         let mut exif = HashMap::new();
         exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
-        exif.insert(1, exif_with_datetime("2026:04:21 10:00:01", None)); // 1s diff
+        exif.insert(1, exif_with_datetime("2026:04:21 10:00:00", None));
+
+        let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new(), DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
+        assert_eq!(groups.len(), 2, "different stems must never merge");
+    }
+
+    #[test]
+    fn iad_group_merges_into_confirmed_by_phash() {
+        // Tier 4: IAD group (no EXIF datetime) + confirmed group + close phash → merge.
+        let mut images = vec![make_entry(0, 10), make_entry(1, 20)];
+        let mut exif = HashMap::new();
+        // Only entry 1 has EXIF datetime (confirmed); entry 0 is IAD.
+        exif.insert(1, exif_with_datetime("2026:04:21 10:00:00", None));
         let mut phashes = HashMap::new();
         phashes.insert(0, 0x0000_0000_0000_0FFFu64);
         phashes.insert(1, 0x0000_0000_0000_1FFFu64); // hamming = 1
 
-        let groups = reindex_shot_groups(&mut images, &exif, &phashes);
-        assert_eq!(groups.len(), 1, "should merge by pHash + close datetime");
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes, DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
+        assert_eq!(groups.len(), 1, "IAD group should merge into confirmed group via phash");
         assert_eq!(images[0].shot_id, images[1].shot_id);
     }
 
     #[test]
-    fn no_phash_merge_when_datetime_far() {
-        // Low hamming but datetime 60s apart → must NOT merge
+    fn confirmed_confirmed_never_merge_by_phash() {
+        // Burst-shot safety: two confirmed groups (both have EXIF) must never merge by phash.
         let mut images = vec![make_entry(0, 10), make_entry(1, 20)];
         let mut exif = HashMap::new();
         exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
-        exif.insert(1, exif_with_datetime("2026:04:21 10:01:00", None)); // 60s diff
+        exif.insert(1, exif_with_datetime("2026:04:21 10:00:01", None)); // 1s apart, close phash
         let mut phashes = HashMap::new();
         phashes.insert(0, 0x0000_0000_0000_0FFFu64);
         phashes.insert(1, 0x0000_0000_0000_1FFFu64); // hamming = 1
 
-        let groups = reindex_shot_groups(&mut images, &exif, &phashes);
-        assert_eq!(groups.len(), 2, "must not merge when datetime is far apart");
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes, DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
+        assert_eq!(groups.len(), 2, "confirmed-confirmed must never merge by phash (burst-shot safety)");
         assert_ne!(images[0].shot_id, images[1].shot_id);
     }
 
     #[test]
-    fn no_phash_merge_when_distance_above_threshold() {
-        // Close datetime but high hamming → must NOT merge
+    fn iad_no_merge_when_hamming_too_high() {
+        // IAD + confirmed group but high hamming distance → no rescue merge.
         let mut images = vec![make_entry(0, 10), make_entry(1, 20)];
         let mut exif = HashMap::new();
-        exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
-        exif.insert(1, exif_with_datetime("2026:04:21 10:00:01", None));
+        exif.insert(1, exif_with_datetime("2026:04:21 10:00:00", None)); // entry 1 is confirmed
+        // entry 0 has no EXIF (IAD)
         let mut phashes = HashMap::new();
         phashes.insert(0, 0x0000_FFFF_0000_FFFFu64);
         phashes.insert(1, 0xFFFF_0000_FFFF_0000u64); // hamming = 32
 
-        let groups = reindex_shot_groups(&mut images, &exif, &phashes);
-        assert_eq!(groups.len(), 2, "must not merge when hamming distance is high");
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes, DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
+        assert_eq!(groups.len(), 2, "must not merge IAD when hamming distance is high");
     }
 
     #[test]
-    fn aeb_group_members_not_split_by_phash() {
-        // 3 members in same stem group; one has distant pHash → no split (Phase 4 only merges)
-        let mut images = vec![make_entry(0, 1), make_entry(1, 1), make_entry(2, 1)];
-        let mut exif = HashMap::new();
-        exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
-        exif.insert(1, exif_with_datetime("2026:04:21 10:00:01", None));
-        exif.insert(2, exif_with_datetime("2026:04:21 10:00:01", None));
-        let mut phashes = HashMap::new();
-        phashes.insert(0, 0x0000_FFFF_0000_FFFFu64);
-        phashes.insert(1, 0x0000_0000_0000_FFFFu64);
-        phashes.insert(2, 0xFFFF_0000_FFFF_0000u64); // very different
-
-        let groups = reindex_shot_groups(&mut images, &exif, &phashes);
-        // All 3 share the same stem-based shot_id → stay in 1 group regardless
-        assert_eq!(groups.len(), 1, "Phase 4 must not split existing groups");
-    }
-
-    #[test]
-    fn month_boundary_datetime_diff() {
-        // 2026-03-31 23:59:59 and 2026-04-01 00:00:01 → 2 second gap
+    fn iad_iad_never_merge() {
+        // Two IAD groups (both lack EXIF datetime) must never merge even with close phash.
         let mut images = vec![make_entry(0, 10), make_entry(1, 20)];
-        let mut exif = HashMap::new();
-        exif.insert(0, exif_with_datetime("2026:03:31 23:59:59", None));
-        exif.insert(1, exif_with_datetime("2026:04:01 00:00:01", None));
+        let exif: HashMap<usize, ExifData> = HashMap::new(); // no EXIF for either
         let mut phashes = HashMap::new();
         phashes.insert(0, 0x0000_0000_0000_0FFFu64);
         phashes.insert(1, 0x0000_0000_0000_1FFFu64); // hamming = 1
 
-        let groups = reindex_shot_groups(&mut images, &exif, &phashes);
-        assert_eq!(groups.len(), 1, "month boundary with 2s gap should merge");
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes, DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
+        assert_eq!(groups.len(), 2, "IAD-IAD must not merge");
+        assert_ne!(images[0].shot_id, images[1].shot_id);
+    }
+
+    #[test]
+    fn iad_rescue_works_without_datetime_constraint() {
+        // IAD rescue has no datetime window — EXIF timestamp of the confirmed group is irrelevant.
+        let mut images = vec![make_entry(0, 10), make_entry(1, 20)];
+        let mut exif = HashMap::new();
+        exif.insert(1, exif_with_datetime("2026:03:31 23:59:59", None)); // confirmed, month boundary
+        // entry 0 has no EXIF (IAD)
+        let mut phashes = HashMap::new();
+        phashes.insert(0, 0x0000_0000_0000_0FFFu64);
+        phashes.insert(1, 0x0000_0000_0000_1FFFu64); // hamming = 1
+
+        let groups = reindex_shot_groups(&mut images, &exif, &phashes, DEFAULT_SPLIT_THRESHOLD_SECS, DEFAULT_PHASH_HAMMING_THRESHOLD);
+        assert_eq!(groups.len(), 1, "IAD rescue should work regardless of timestamp");
     }
 }

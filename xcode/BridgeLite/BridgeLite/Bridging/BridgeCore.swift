@@ -189,9 +189,14 @@ enum BridgeCore {
 
     // MARK: Shot grouping
 
-    static func reindexShotGroups(list: BridgeCoreImageList, db: BridgeCoreDatabase) async -> [UInt64: [UInt64]] {
+    static func reindexShotGroups(
+        list: BridgeCoreImageList,
+        db: BridgeCoreDatabase,
+        splitThresholdSecs: Int64 = 2,
+        phashHammingThreshold: UInt32 = 15
+    ) async -> [UInt64: [UInt64]] {
         return await Task.detached(priority: .userInitiated) {
-            let map = bridge_reindex_shot_groups(db.inner, list.inner)
+            let map = bridge_reindex_shot_groups(db.inner, list.inner, splitThresholdSecs, phashHammingThreshold)
             let count = shot_groups_map_count(map)
             var result: [UInt64: [UInt64]] = [:]
             result.reserveCapacity(Int(count))
