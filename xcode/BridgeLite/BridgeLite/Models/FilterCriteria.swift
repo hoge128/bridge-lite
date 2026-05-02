@@ -38,6 +38,8 @@ struct FilterCriteria: Sendable, Equatable {
     var apertureMax: String = ""
     var dateMin: String = ""
     var dateMax: String = ""
+    var luminanceMin: String = ""
+    var luminanceMax: String = ""
     var filterRatings: Set<Int> = []
     var filterLabels: Set<XmpLabel> = []
     var filterKinds: Set<PhotoKind> = []
@@ -52,11 +54,12 @@ struct FilterCriteria: Sendable, Equatable {
         !shutterMin.isEmpty || !shutterMax.isEmpty ||
         !apertureMin.isEmpty || !apertureMax.isEmpty ||
         !dateMin.isEmpty || !dateMax.isEmpty ||
+        !luminanceMin.isEmpty || !luminanceMax.isEmpty ||
         !filterRatings.isEmpty || !filterLabels.isEmpty ||
         !filterKinds.isEmpty || cameraOnly || flatten || !excludedExtensions.isEmpty
     }
 
-    func matches(entry: PhotoEntry, exif: ExifData?, xmp: XmpData?) -> Bool {
+    func matches(entry: PhotoEntry, exif: ExifData?, xmp: XmpData?, luminance: Int? = nil) -> Bool {
         // Extension filter (flatten mode only)
         if flatten, !excludedExtensions.isEmpty,
            excludedExtensions.contains(entry.url.pathExtension.lowercased()) {
@@ -118,6 +121,11 @@ struct FilterCriteria: Sendable, Equatable {
         // Label filter
         if !filterLabels.isEmpty {
             guard let label = xmp?.label, filterLabels.contains(label) else { return false }
+        }
+        // Luminance filter
+        if let lum = luminance {
+            if let min = Int(luminanceMin), lum < min { return false }
+            if let max = Int(luminanceMax), lum > max { return false }
         }
         return true
     }

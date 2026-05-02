@@ -127,6 +127,12 @@ struct SidebarView: View {
                         .padding(.horizontal, 8)
                         .padding(.top, 6)
 
+                        if let lum = store.luminanceScores[entry.id] {
+                            LuminanceBarView(score: lum)
+                                .padding(.horizontal, 8)
+                                .padding(.top, 4)
+                        }
+
                         ExifQuickBar(exif: store.exifData[entry.id])
 
                         if !store.filter.flatten,
@@ -692,5 +698,36 @@ struct XmpSectionView: View {
         .padding(.horizontal, 8)
         .padding(.top, 8)
         .padding(.bottom, 12)
+    }
+}
+
+// MARK: - Luminance Bar
+
+struct LuminanceBarView: View {
+    let score: Int  // 0–255
+
+    var body: some View {
+        HStack(spacing: 6) {
+            GeometryReader { geo in
+                let w = geo.size.width
+                let h = geo.size.height
+                let x = CGFloat(score) / 255.0 * w
+                ZStack(alignment: .leading) {
+                    LinearGradient(colors: [.black, .white], startPoint: .leading, endPoint: .trailing)
+                        .clipShape(RoundedRectangle(cornerRadius: 3))
+                    Rectangle()
+                        .fill(.white)
+                        .frame(width: 2, height: h)
+                        .offset(x: min(max(x - 1, 0), w - 2))
+                        .blendMode(.difference)
+                }
+            }
+            .frame(height: 10)
+
+            Text("\(score)")
+                .font(.system(size: 9, design: .monospaced))
+                .foregroundStyle(.secondary)
+                .frame(width: 22, alignment: .trailing)
+        }
     }
 }

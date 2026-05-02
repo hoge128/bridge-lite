@@ -226,6 +226,12 @@ enum BridgeCore {
     static func isRaw(url: URL) -> Bool {
         bridge_is_raw(url.path)
     }
+
+    static func hasImagesBeyondScanDepth(url: URL) async -> Bool {
+        return await Task.detached(priority: .utility) {
+            bridge_has_images_beyond_scan_depth(url.path)
+        }.value
+    }
 }
 
 // MARK: - RawJpegQuality

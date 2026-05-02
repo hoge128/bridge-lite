@@ -36,6 +36,10 @@ struct ThumbnailGridView: View {
                 flattenBanner
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
+            if store.depthExceeded {
+                depthExceededBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
             ZStack {
                 if store.currentDirectoryURL == nil {
                     emptyStateContent
@@ -62,6 +66,7 @@ struct ThumbnailGridView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: store.filter.flatten)
+        .animation(.easeInOut(duration: 0.2), value: store.depthExceeded)
     }
 
     private var flattenBanner: some View {
@@ -89,6 +94,34 @@ struct ThumbnailGridView: View {
         .padding(.horizontal, 10)
         .padding(.vertical, 5)
         .background(Color.orange.opacity(0.08))
+        .overlay(alignment: .bottom) { Divider() }
+    }
+
+    private var depthExceededBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "folder.badge.questionmark")
+                .font(.caption2)
+                .foregroundStyle(.yellow)
+            Text("Depth limit reached")
+                .font(.caption2.bold())
+                .foregroundStyle(.yellow)
+            Text("— some images beyond 10 folder levels are not shown")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                store.depthExceeded = false
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Dismiss")
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Color.yellow.opacity(0.08))
         .overlay(alignment: .bottom) { Divider() }
     }
 

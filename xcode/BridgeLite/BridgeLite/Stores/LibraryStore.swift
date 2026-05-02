@@ -46,6 +46,7 @@ final class LibraryStore {
     private(set) var visibleIDs: [UInt64] = []
     var statusMessage: String = ""
     var isLoading: Bool = false
+    var depthExceeded: Bool = false
 
     enum ScanPhase { case idle, preScanning, scanning, loading }
     private(set) var scanPhase: ScanPhase = .idle
@@ -163,6 +164,7 @@ final class LibraryStore {
     func openDirectory(_ url: URL) async {
         guard !isLoading else { return }
         isLoading = true
+        depthExceeded = false
         scanPhase = .preScanning
         preScanTotalFiles = 0
         preScanImageFiles = 0
@@ -201,6 +203,12 @@ final class LibraryStore {
             }
             try Task.checkCancellation()
             ingest(scanned)
+
+            // 深さ超過チェック（スキャンをブロックしない）
+            Task { [weak self] in
+                guard let self else { return }
+                self.depthExceeded = await BridgeCore.hasImagesBeyondScanDepth(url: url)
+            }
 
             // 並行: EXIF バッチ（1 connection）+ XMP 並列
             let allEntries = orderedIDs.compactMap { entries[$0] }
@@ -647,6 +655,7 @@ final class LibraryStore {
         for id in deletedIDs {
             entries.removeValue(forKey: id)
             thumbnailBlobs.removeValue(forKey: id)
+            luminanceScores.removeValue(forKey: id)
             exifData.removeValue(forKey: id)
             xmpData.removeValue(forKey: id)
         }
@@ -684,6 +693,7 @@ final class LibraryStore {
         for id in deletedIDs {
             entries.removeValue(forKey: id)
             thumbnailBlobs.removeValue(forKey: id)
+            luminanceScores.removeValue(forKey: id)
             exifData.removeValue(forKey: id)
             xmpData.removeValue(forKey: id)
         }
@@ -894,7 +904,7 @@ final class LibraryStore {
         } else {
             filtered = reps.filter { id in
                 guard let entry = entries[id] else { return false }
-                return filter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id])
+                return filter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id], luminance: luminanceScores[id])
             }
         }
         visibleIDs = sortedIDs(filtered)
@@ -919,7 +929,7 @@ final class LibraryStore {
         guard customFilter.isActive else { return reps }
         return reps.filter { id in
             guard let entry = entries[id] else { return false }
-            return customFilter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id])
+            return customFilter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id], luminance: luminanceScores[id])
         }
     }
 
@@ -972,6 +982,10 @@ final class LibraryStore {
     private(set) var shutterBuckets: [ExifBucket] = []
     private(set) var apertureBuckets: [ExifBucket] = []
     private(set) var dateBuckets: [ExifBucket] = []
+    private(set) var luminanceBuckets: [ExifBucket] = []
+
+    // 輝度スコア（0–255）— サムネイル到着後にバックグラウンド計算
+    private(set) var luminanceScores: [UInt64: Int] = [:]
 
     // MARK: - Daily grouping
     // [BETA DISABLED] ViewModePicker 非表示中は到達しない。削除しないこと。
@@ -1031,21 +1045,22 @@ final class LibraryStore {
 
     // MARK: - Aggregate cache
 
-    private enum HistogramAxis { case iso, focal, shutter, aperture, date }
+    private enum HistogramAxis { case iso, focal, shutter, aperture, date, luminance }
 
     private func filteredIDsExcluding(_ axis: HistogramAxis, from reps: [UInt64]) -> [UInt64] {
         var f = filter
         switch axis {
-        case .iso:      f.isoMin = "";      f.isoMax = ""
-        case .focal:    f.focalMin = "";    f.focalMax = ""
-        case .shutter:  f.shutterMin = "";  f.shutterMax = ""
-        case .aperture: f.apertureMin = ""; f.apertureMax = ""
-        case .date:     f.dateMin = "";     f.dateMax = ""
+        case .iso:       f.isoMin = "";       f.isoMax = ""
+        case .focal:     f.focalMin = "";     f.focalMax = ""
+        case .shutter:   f.shutterMin = "";   f.shutterMax = ""
+        case .aperture:  f.apertureMin = "";  f.apertureMax = ""
+        case .date:      f.dateMin = "";      f.dateMax = ""
+        case .luminance: f.luminanceMin = ""; f.luminanceMax = ""
         }
         guard f.isActive else { return reps }
         return reps.filter { id in
             guard let entry = entries[id] else { return false }
-            return f.matches(entry: entry, exif: exifData[id], xmp: xmpData[id])
+            return f.matches(entry: entry, exif: exifData[id], xmp: xmpData[id], luminance: luminanceScores[id])
         }
     }
 
@@ -1059,6 +1074,7 @@ final class LibraryStore {
         shutterBuckets = buildShutterBuckets(ids: filteredIDsExcluding(.shutter, from: reps))
         apertureBuckets = buildApertureBuckets(ids: filteredIDsExcluding(.aperture, from: reps))
         dateBuckets = buildDateBuckets(ids: filteredIDsExcluding(.date, from: reps))
+        luminanceBuckets = buildLuminanceBuckets(ids: filteredIDsExcluding(.luminance, from: reps))
     }
 
     private func buildISOBuckets(ids: [UInt64]) -> [ExifBucket] {
@@ -1215,6 +1231,46 @@ final class LibraryStore {
         return buckets
     }
 
+    private func buildLuminanceBuckets(ids: [UInt64]) -> [ExifBucket] {
+        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
+        let specs: [Spec] = [
+            ("0",   31,        "",    "31"),
+            ("32",  63,        "32",  "63"),
+            ("64",  95,        "64",  "95"),
+            ("96",  127,       "96",  "127"),
+            ("128", 159,       "128", "159"),
+            ("160", 191,       "160", "191"),
+            ("192", 223,       "192", "223"),
+            ("255", .infinity, "224", ""),
+        ]
+        var counts = Array(repeating: 0, count: specs.count)
+        for id in ids {
+            guard let lum = luminanceScores[id] else { continue }
+            let d = Double(lum)
+            for (i, spec) in specs.enumerated() { if d <= spec.upTo { counts[i] += 1; break } }
+        }
+        return specs.enumerated().map { i, spec in
+            ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
+                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    // BT.709 輝度平均を 0–255 の整数で返す（32×32 グレースケールに縮小して計算）
+    private nonisolated static func computeLuminance(jpeg: Data) -> Int? {
+        guard let src = CGImageSourceCreateWithData(jpeg as CFData, nil),
+              let img = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }
+        let side = 32
+        var pixels = [UInt8](repeating: 0, count: side * side)
+        guard let ctx = CGContext(
+            data: &pixels, width: side, height: side,
+            bitsPerComponent: 8, bytesPerRow: side,
+            space: CGColorSpaceCreateDeviceGray(),
+            bitmapInfo: CGImageAlphaInfo.none.rawValue
+        ) else { return nil }
+        ctx.draw(img, in: CGRect(x: 0, y: 0, width: side, height: side))
+        return pixels.reduce(0, { $0 + Int($1) }) / (side * side)
+    }
+
     func selectGroupIDs(_ ids: [UInt64]) {
         selectedIDs.formUnion(ids)
         if primaryID == nil { primaryID = ids.first }
@@ -1244,6 +1300,26 @@ final class LibraryStore {
             thumbnailFlushTask = nil
             // サムネイルは sort/filter/aggregate に影響しないので recomputeVisible 不要
             for id in flushed.keys { thumbnailDidUpdate.send(id) }
+            // 輝度スコアをバックグラウンドで計算（未計算分のみ）
+            let toCompute = flushed.filter { luminanceScores[$0.key] == nil }
+            if !toCompute.isEmpty {
+                Task.detached(priority: .utility) { [weak self] in
+                    var computed: [UInt64: Int] = [:]
+                    for (id, jpeg) in toCompute {
+                        if let score = LibraryStore.computeLuminance(jpeg: jpeg) {
+                            computed[id] = score
+                        }
+                    }
+                    guard !computed.isEmpty else { return }
+                    await MainActor.run { [weak self] in
+                        guard let self else { return }
+                        luminanceScores.merge(computed) { _, new in new }
+                        if !filter.luminanceMin.isEmpty || !filter.luminanceMax.isEmpty {
+                            recomputeVisible()
+                        }
+                    }
+                }
+            }
         }
     }
 
@@ -1323,6 +1399,7 @@ final class LibraryStore {
         stopFolderWatch()
         thumbnailBlobs = [:]
         thumbnailOrientations = [:]
+        luminanceScores = [:]
         ThumbnailDecodeCache.shared.evictAll()
     }
 
@@ -1347,6 +1424,7 @@ final class LibraryStore {
         shotGroups = [:]
         thumbnailBlobs = [:]
         thumbnailOrientations = [:]
+        luminanceScores = [:]
         ThumbnailDecodeCache.shared.evictAll()
         exifData = [:]
         xmpData = [:]
@@ -1672,6 +1750,7 @@ final class LibraryStore {
         for id in ids {
             entries.removeValue(forKey: id)
             thumbnailBlobs.removeValue(forKey: id)
+            luminanceScores.removeValue(forKey: id)
             exifData.removeValue(forKey: id)
             xmpData.removeValue(forKey: id)
             thumbnailOrientations.removeValue(forKey: id)

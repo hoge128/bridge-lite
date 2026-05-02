@@ -15,6 +15,7 @@ struct FilterPanelView: View {
     @State private var shutterExpanded = true
     @State private var apertureExpanded = true
     @State private var dateExpanded = true
+    @State private var luminanceExpanded = true
 
     // MARK: - Body
 
@@ -405,6 +406,21 @@ struct FilterPanelView: View {
                     }
                     .buttonStyle(.plain)
                     .help("Filter by shooting date. Within 14 days = daily buckets, otherwise monthly")
+                }
+            }
+
+        case .luminance:
+            GroupBox {
+                DisclosureGroup(isExpanded: $luminanceExpanded) {
+                    ExifHistogramView(bars: store.luminanceBuckets, minText: filter.luminanceMin, maxText: filter.luminanceMax)
+                } label: {
+                    Button { luminanceExpanded.toggle() } label: {
+                        Text("Luminance")
+                            .font(.caption2).kerning(1.2)
+                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Filter by average luminance (0 = dark, 255 = bright)")
                 }
             }
         }

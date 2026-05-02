@@ -164,5 +164,6 @@ uint64_t __swift_bridge__$shot_groups_map_shot_id_at(void* m, uintptr_t idx);
 void* __swift_bridge__$shot_groups_map_members_for(void* m, uint64_t shot_id);
 bool __swift_bridge__$bridge_is_raw(struct RustStr path);
 void* __swift_bridge__$bridge_developed_keywords(void);
+bool __swift_bridge__$bridge_has_images_beyond_scan_depth(struct RustStr path);
 
 

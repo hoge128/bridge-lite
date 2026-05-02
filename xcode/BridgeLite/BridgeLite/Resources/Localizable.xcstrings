@@ -24,6 +24,22 @@
         }
       }
     },
+    "— some images beyond 10 folder levels are not shown" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "— some images beyond 10 folder levels are not shown"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "— フォルダ階層が 10 段を超えた画像は表示されていません"
+          }
+        }
+      }
+    },
     ".%@" : {
 
     },
@@ -991,6 +1007,22 @@
         }
       }
     },
+    "Depth limit reached" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Depth limit reached"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "深さの上限に達しました"
+          }
+        }
+      }
+    },
     "Descending" : {
       "localizations" : {
         "en" : {
@@ -1020,6 +1052,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "現像済み"
+          }
+        }
+      }
+    },
+    "Dismiss" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Dismiss"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "閉じる"
           }
         }
       }
@@ -1340,6 +1388,9 @@
           }
         }
       }
+    },
+    "Filter by average luminance (0 = dark, 255 = bright)" : {
+
     },
     "Filter by focal length (35mm equiv). Click bars to select range" : {
       "localizations" : {
@@ -2045,6 +2096,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "サムネイル読み込み中…"
+          }
+        }
+      }
+    },
+    "Luminance" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Luminance"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "輝度"
           }
         }
       }

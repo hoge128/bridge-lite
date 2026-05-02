@@ -3,23 +3,24 @@ import Foundation
 
 enum FilterSection: String, CaseIterable, Codable, Identifiable {
     case fileType, camera, artist, lens, rating, label
-    case iso, focal, shutter, aperture, date
+    case iso, focal, shutter, aperture, date, luminance
 
     var id: String { rawValue }
 
     var localizedName: String {
         switch self {
-        case .fileType: return String(localized: "File Type")
-        case .camera:   return String(localized: "Camera")
-        case .artist:   return String(localized: "Photographer")
-        case .lens:     return String(localized: "Lens")
-        case .rating:   return String(localized: "Rating")
-        case .label:    return String(localized: "Label")
-        case .iso:      return String(localized: "ISO")
-        case .focal:    return String(localized: "Focal Length")
-        case .shutter:  return String(localized: "Shutter")
-        case .aperture: return String(localized: "Aperture")
-        case .date:     return String(localized: "Date")
+        case .fileType:   return String(localized: "File Type")
+        case .camera:     return String(localized: "Camera")
+        case .artist:     return String(localized: "Photographer")
+        case .lens:       return String(localized: "Lens")
+        case .rating:     return String(localized: "Rating")
+        case .label:      return String(localized: "Label")
+        case .iso:        return String(localized: "ISO")
+        case .focal:      return String(localized: "Focal Length")
+        case .shutter:    return String(localized: "Shutter")
+        case .aperture:   return String(localized: "Aperture")
+        case .date:       return String(localized: "Date")
+        case .luminance:  return String(localized: "Luminance")
         }
     }
 }

@@ -152,11 +152,32 @@ pub fn compute_shot_id(normalized_stem: &str) -> u64 {
     h.finish()
 }
 
+pub const SCAN_MAX_DEPTH: usize = 10;
+
+/// Returns true if any supported image file exists beyond `depth` levels under `path`.
+/// Stops at the first match, so the cost is O(1) in the common (no violation) case.
+pub fn has_images_beyond_depth(path: &Path, depth: usize) -> bool {
+    WalkDir::new(path)
+        .min_depth(depth + 1)
+        .max_depth(depth + 1)
+        .follow_links(true)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .filter(|e| e.file_type().is_file())
+        .any(|e| {
+            e.path()
+                .extension()
+                .and_then(|x| x.to_str())
+                .map(|x| SUPPORTED_EXTENSIONS.contains(&x.to_lowercase().as_str()))
+                .unwrap_or(false)
+        })
+}
+
 pub fn scan_directory(path: PathBuf) -> Vec<ImageEntry> {
     let mut entries = Vec::new();
 
     for dir_entry in WalkDir::new(&path)
-        .max_depth(10)
+        .max_depth(SCAN_MAX_DEPTH)
         .follow_links(true)
         .into_iter()
         .filter_map(|e| e.ok())

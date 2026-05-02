@@ -347,6 +347,7 @@ mod ffi {
         // Constants / utilities
         fn bridge_is_raw(path: &str) -> bool;
         fn bridge_developed_keywords() -> Vec<String>;
+        fn bridge_has_images_beyond_scan_depth(path: &str) -> bool;
     }
 }
 
@@ -586,4 +587,11 @@ fn bridge_developed_keywords() -> Vec<String> {
         .iter()
         .map(|s| s.to_string())
         .collect()
+}
+
+fn bridge_has_images_beyond_scan_depth(path: &str) -> bool {
+    bridge_core::scanner::has_images_beyond_depth(
+        Path::new(path),
+        bridge_core::scanner::SCAN_MAX_DEPTH,
+    )
 }

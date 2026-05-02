@@ -187,6 +187,11 @@ public func bridge_is_raw<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr)
 public func bridge_developed_keywords() -> RustVec<RustString> {
     RustVec(ptr: __swift_bridge__$bridge_developed_keywords())
 }
+public func bridge_has_images_beyond_scan_depth<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr) -> Bool {
+    return path.toRustStr({ pathAsRustStr in
+        __swift_bridge__$bridge_has_images_beyond_scan_depth(pathAsRustStr)
+    })
+}
 
 public class ShotGroupsMap: ShotGroupsMapRefMut {
     var isOwned: Bool = true
