@@ -28,12 +28,13 @@ targets:
         # swift-bridge C headers exposed via bridging header
         HEADER_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/include
         SWIFT_OBJC_BRIDGING_HEADER: BridgeLite/BridgeLite-Bridging-Header.h
+        EXCLUDED_ARCHS: x86_64
     info:
       path: BridgeLite/Resources/Info.plist
       properties:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite
-        CFBundleVersion: "1"
-        CFBundleShortVersionString: "0.1.0"
+        CFBundleVersion: "2"
+        CFBundleShortVersionString: "0.1.1"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"
