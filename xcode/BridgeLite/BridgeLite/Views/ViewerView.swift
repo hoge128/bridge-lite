@@ -17,6 +17,11 @@ struct ViewerView: View {
         store.selectedID.flatMap { store.thumbnailImage(for: $0) }
     }
 
+    private var shouldShowOverlay: Bool {
+        guard store.viewerShowsMeta, selectedEntry != nil else { return false }
+        return (xmp?.rating ?? 0) > 0 || xmp?.label != nil
+    }
+
     var body: some View {
         @Bindable var store = store
         ZStack {
@@ -68,10 +73,12 @@ struct ViewerView: View {
                 Spacer()
 
                 HStack(alignment: .bottom) {
-                    if store.viewerShowsMeta, let entry = selectedEntry {
-                        ViewerMetaOverlay(entry: entry, xmp: xmp)
-                            .padding([.leading, .bottom], 16)
-                            .transition(.opacity)
+                    if shouldShowOverlay, let entry = selectedEntry {
+                        ViewerMetaOverlay(entry: entry, xmp: xmp) {
+                            store.viewerShowsMeta = false
+                        }
+                        .padding([.leading, .bottom], 16)
+                        .transition(.opacity)
                     }
                     Spacer()
                 }
@@ -144,37 +151,40 @@ struct ViewerView: View {
 private struct ViewerMetaOverlay: View {
     let entry: PhotoEntry
     let xmp: XmpData?
+    let onHide: () -> Void
+
+    private var bgColor: Color {
+        xmp?.label?.color.opacity(0.45) ?? Color(white: 0.08, opacity: 0.72)
+    }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 5) {
-            if let label = xmp?.label {
-                HStack(spacing: 5) {
-                    Circle()
-                        .fill(label.color)
-                        .frame(width: 9, height: 9)
-                    Text(label.name)
-                        .font(.caption)
-                        .foregroundStyle(.white.opacity(0.85))
-                }
+        HStack(spacing: 7) {
+            Button(action: onHide) {
+                Image(systemName: "chevron.down")
+                    .font(.system(size: 9, weight: .semibold))
+                    .foregroundStyle(.white.opacity(0.65))
             }
-            if let rating = xmp?.rating, rating > 0 {
-                Text(String(repeating: "★", count: rating))
-                    .font(.system(size: 13, weight: .bold))
-                    .foregroundStyle(.yellow.opacity(0.9))
-            }
+            .buttonStyle(.plain)
+
             Text(entry.filename)
-                .font(.system(.caption, design: .monospaced))
+                .font(.system(.caption2, design: .monospaced))
                 .foregroundStyle(.white.opacity(0.9))
                 .lineLimit(1)
                 .truncationMode(.middle)
-                .frame(maxWidth: 300)
+                .frame(maxWidth: 220)
+
+            if let rating = xmp?.rating, rating > 0 {
+                Text(String(repeating: "★", count: rating))
+                    .font(.system(size: 10, weight: .bold))
+                    .foregroundStyle(.yellow.opacity(0.95))
+            }
         }
-        .padding(.horizontal, 12)
-        .padding(.vertical, 8)
-        .background(.ultraThinMaterial, in: RoundedRectangle(cornerRadius: 10))
+        .padding(.horizontal, 9)
+        .padding(.vertical, 5)
+        .background(bgColor, in: RoundedRectangle(cornerRadius: 7))
         .overlay(
-            RoundedRectangle(cornerRadius: 10)
-                .stroke(Color.white.opacity(0.1), lineWidth: 1)
+            RoundedRectangle(cornerRadius: 7)
+                .stroke(Color.white.opacity(0.12), lineWidth: 1)
         )
     }
 }
