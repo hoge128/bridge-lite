@@ -18,8 +18,11 @@ struct ViewerView: View {
     }
 
     private var shouldShowOverlay: Bool {
-        guard store.viewerShowsMeta, selectedEntry != nil else { return false }
-        return (xmp?.rating ?? 0) > 0 || xmp?.label != nil
+        store.viewerShowsMeta && selectedEntry != nil
+    }
+
+    private var hasRatingOrLabel: Bool {
+        (xmp?.rating ?? 0) > 0 || xmp?.label != nil
     }
 
     var body: some View {
@@ -87,6 +90,7 @@ struct ViewerView: View {
         .animation(.easeInOut(duration: 0.15), value: store.viewerShowsMeta)
         .onAppear {
             xmp = store.selectedID.flatMap { store.xmpData[$0] }
+            store.viewerShowsMeta = hasRatingOrLabel
             let s = store
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 if event.keyCode == 53 { // Escape
