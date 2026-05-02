@@ -73,6 +73,33 @@ enum RatingShortcutModifier: String, CaseIterable, Identifiable {
     }
 }
 
+enum JpgWriteMode: String, CaseIterable, Identifiable {
+    case embed, sidecar
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .embed:   return String(localized: "jpg_write_mode.embed",   defaultValue: "Embed")
+        case .sidecar: return String(localized: "jpg_write_mode.sidecar", defaultValue: "Sidecar")
+        }
+    }
+}
+
+enum JpgSidecarConflictPolicy: String, CaseIterable, Identifiable {
+    case ask, alwaysPropagate, neverPropagate
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .ask:             return String(localized: "jpg_conflict_policy.ask",              defaultValue: "Ask each time")
+        case .alwaysPropagate: return String(localized: "jpg_conflict_policy.always_propagate", defaultValue: "Always propagate")
+        case .neverPropagate:  return String(localized: "jpg_conflict_policy.never_propagate",  defaultValue: "Never propagate")
+        }
+    }
+}
+
 enum SortKey: String, CaseIterable {
     case filename, createdDate, modifiedDate, fileSize, rating, exifDate
 
@@ -267,6 +294,16 @@ final class SettingsStore {
     }
     var warnSlowStorage: Bool = bool("warnSlowStorage", default: true) {
         didSet { UserDefaults.standard.set(warnSlowStorage, forKey: "warnSlowStorage") }
+    }
+
+    // MARK: - メタデータ書き込み
+    var jpgWriteMode: JpgWriteMode = (UserDefaults.standard.string(forKey: "jpgWriteMode")
+                                       .flatMap(JpgWriteMode.init(rawValue:))) ?? .embed {
+        didSet { UserDefaults.standard.set(jpgWriteMode.rawValue, forKey: "jpgWriteMode") }
+    }
+    var jpgSidecarConflictPolicy: JpgSidecarConflictPolicy = (UserDefaults.standard.string(forKey: "jpgSidecarConflictPolicy")
+                                                               .flatMap(JpgSidecarConflictPolicy.init(rawValue:))) ?? .ask {
+        didSet { UserDefaults.standard.set(jpgSidecarConflictPolicy.rawValue, forKey: "jpgSidecarConflictPolicy") }
     }
 }
 

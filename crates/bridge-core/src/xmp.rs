@@ -107,10 +107,13 @@ impl Flag {
 // Callers use these and never need to know JPG vs RAW.
 
 /// Read XMP metadata from an image file.
-/// - Non-RAW (JPG/TIFF/PNG): tries embedded XMP first, falls back to sidecar
-///   (for files written by a previous bridge-lite version that used sidecars).
-/// - RAW (ARW/CR2/…): reads sidecar only.
-pub fn read_metadata(image_path: &Path) -> Option<XmpData> {
+/// - DNG: embedded first, sidecar fallback (DNG embeds develop metadata by convention).
+/// - RAW (non-DNG): sidecar only.
+/// - Non-RAW (JPG/TIFF/PNG):
+///   - `jpg_use_sidecar = false` (Embed mode): embedded first, sidecar fallback.
+///   - `jpg_use_sidecar = true`  (Sidecar mode): sidecar first, embedded fallback
+///     (ensures sidecar-written values take priority over any pre-existing embedded XMP).
+pub fn read_metadata(image_path: &Path, jpg_use_sidecar: bool) -> Option<XmpData> {
     let ext_is_dng = image_path
         .extension()
         .and_then(|e| e.to_str())
@@ -124,16 +127,31 @@ pub fn read_metadata(image_path: &Path) -> Option<XmpData> {
         read_embedded(image_path).or_else(|| read_sidecar(image_path))
     } else if crate::scanner::is_raw(image_path) {
         read_sidecar(image_path)
+    } else if jpg_use_sidecar {
+        read_sidecar(image_path).or_else(|| read_embedded(image_path))
     } else {
         read_embedded(image_path).or_else(|| read_sidecar(image_path))
     }
 }
 
+/// Returns `true` if the file has embedded XMP containing at least one of:
+/// rating, color label, or pick/reject flag.
+/// Always returns `false` for RAW files (they never use embedded XMP in this app).
+/// Used to detect embed/sidecar conflicts before showing the propagation prompt.
+pub fn jpg_has_rated_embedded_xmp(image_path: &Path) -> bool {
+    if crate::scanner::is_raw(image_path) { return false; }
+    match read_embedded(image_path) {
+        Some(data) => data.rating.is_some() || data.label.is_some() || data.flag.is_some(),
+        None => false,
+    }
+}
+
 /// Write XMP metadata to an image file. btime is preserved on all paths.
-/// - Non-RAW: embeds into the image file (APP1 segment for JPEG).
-/// - RAW: writes/updates a stem-only `.xmp` sidecar. The RAW body is never touched.
-pub fn write_metadata(image_path: &Path, data: &XmpData) -> io::Result<()> {
-    if crate::scanner::is_raw(image_path) {
+/// - RAW: always writes/updates a stem-only `.xmp` sidecar. The RAW body is never touched.
+/// - Non-RAW (e.g. JPEG): embeds into the file when `jpg_use_sidecar` is false,
+///   or writes a `.xmp` sidecar when `jpg_use_sidecar` is true.
+pub fn write_metadata(image_path: &Path, data: &XmpData, jpg_use_sidecar: bool) -> io::Result<()> {
+    if crate::scanner::is_raw(image_path) || jpg_use_sidecar {
         write_sidecar(image_path, data)
     } else {
         write_embedded(image_path, data)

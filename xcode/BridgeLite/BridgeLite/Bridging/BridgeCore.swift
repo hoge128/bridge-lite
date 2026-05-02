@@ -111,9 +111,10 @@ enum BridgeCore {
 
     // MARK: XMP
 
-    static func readXmp(url: URL) async -> XmpData? {
+    static func readXmp(url: URL, jpgWriteMode: JpgWriteMode = .embed) async -> XmpData? {
+        let jpgUseSidecar = jpgWriteMode == .sidecar
         return await Task.detached(priority: .utility) {
-            let r = bridge_read_xmp(url.path)
+            let r = bridge_read_xmp(url.path, jpgUseSidecar)
             guard ffi_xmp_found(r) else { return nil }
             let ratingRaw = Int(ffi_xmp_rating(r))
             return XmpData(
@@ -124,14 +125,22 @@ enum BridgeCore {
         }.value
     }
 
-    static func writeXmp(url: URL, xmp: XmpData, db: BridgeCoreDatabase) async -> Bool {
+    static func jpgHasRatedEmbeddedXmp(url: URL) async -> Bool {
+        return await Task.detached(priority: .utility) {
+            bridge_jpg_has_rated_embedded_xmp(url.path)
+        }.value
+    }
+
+    static func writeXmp(url: URL, xmp: XmpData, db: BridgeCoreDatabase, jpgWriteMode: JpgWriteMode = .embed) async -> Bool {
+        let jpgUseSidecar = jpgWriteMode == .sidecar
         return await Task.detached(priority: .utility) {
             bridge_write_xmp(
                 db.inner,
                 url.path,
                 Int32(xmp.rating ?? -1),
                 xmp.label?.rawValue ?? 0,
-                0
+                0,
+                jpgUseSidecar
             )
         }.value
     }

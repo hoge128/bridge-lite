@@ -103,9 +103,9 @@ public func ffi_exif_software(_ r: FfiExifResultRef) -> RustString {
 public func ffi_exif_artist(_ r: FfiExifResultRef) -> RustString {
     RustString(ptr: __swift_bridge__$ffi_exif_artist(r.ptr))
 }
-public func bridge_read_xmp<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr) -> FfiXmpResult {
+public func bridge_read_xmp<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr, _ jpg_use_sidecar: Bool) -> FfiXmpResult {
     return path.toRustStr({ pathAsRustStr in
-        FfiXmpResult(ptr: __swift_bridge__$bridge_read_xmp(pathAsRustStr))
+        FfiXmpResult(ptr: __swift_bridge__$bridge_read_xmp(pathAsRustStr, jpg_use_sidecar))
     })
 }
 public func ffi_xmp_found(_ r: FfiXmpResultRef) -> Bool {
@@ -123,9 +123,14 @@ public func ffi_xmp_flag(_ r: FfiXmpResultRef) -> UInt8 {
 public func ffi_xmp_developed(_ r: FfiXmpResultRef) -> Bool {
     __swift_bridge__$ffi_xmp_developed(r.ptr)
 }
-public func bridge_write_xmp<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ rating: Int32, _ label: UInt8, _ flag: UInt8) -> Bool {
+public func bridge_write_xmp<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ rating: Int32, _ label: UInt8, _ flag: UInt8, _ jpg_use_sidecar: Bool) -> Bool {
     return path.toRustStr({ pathAsRustStr in
-        __swift_bridge__$bridge_write_xmp(db.ptr, pathAsRustStr, rating, label, flag)
+        __swift_bridge__$bridge_write_xmp(db.ptr, pathAsRustStr, rating, label, flag, jpg_use_sidecar)
+    })
+}
+public func bridge_jpg_has_rated_embedded_xmp<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr) -> Bool {
+    return path.toRustStr({ pathAsRustStr in
+        __swift_bridge__$bridge_jpg_has_rated_embedded_xmp(pathAsRustStr)
     })
 }
 public func bridge_compute_phash_from_luma(_ pixels: UnsafeBufferPointer<UInt8>) -> UInt64 {

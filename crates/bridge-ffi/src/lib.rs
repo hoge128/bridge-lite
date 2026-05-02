@@ -315,13 +315,14 @@ mod ffi {
         fn ffi_exif_artist(r: &FfiExifResult) -> String;
 
         // XMP API
-        fn bridge_read_xmp(path: &str) -> FfiXmpResult;
+        fn bridge_read_xmp(path: &str, jpg_use_sidecar: bool) -> FfiXmpResult;
         fn ffi_xmp_found(r: &FfiXmpResult) -> bool;
         fn ffi_xmp_rating(r: &FfiXmpResult) -> i32;
         fn ffi_xmp_label(r: &FfiXmpResult) -> u8;
         fn ffi_xmp_flag(r: &FfiXmpResult) -> u8;
         fn ffi_xmp_developed(r: &FfiXmpResult) -> bool;
-        fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, flag: u8) -> bool;
+        fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, flag: u8, jpg_use_sidecar: bool) -> bool;
+        fn bridge_jpg_has_rated_embedded_xmp(path: &str) -> bool;
 
         // pHash API
         fn bridge_compute_phash_from_luma(pixels: &[u8]) -> u64;
@@ -434,12 +435,16 @@ fn ffi_exif_batch_exif_at(r: &FfiExifBatch, idx: usize) -> FfiExifResult { r.res
 
 // ── XMP API impl ───────────────────────────────────────────────────────────
 
-fn bridge_read_xmp(path: &str) -> FfiXmpResult {
+fn bridge_read_xmp(path: &str, jpg_use_sidecar: bool) -> FfiXmpResult {
     let p = Path::new(path);
-    bridge_core::xmp::read_metadata(p)
+    bridge_core::xmp::read_metadata(p, jpg_use_sidecar)
         .as_ref()
         .map(FfiXmpResult::from_core)
         .unwrap_or_else(FfiXmpResult::not_found)
+}
+
+fn bridge_jpg_has_rated_embedded_xmp(path: &str) -> bool {
+    bridge_core::xmp::jpg_has_rated_embedded_xmp(Path::new(path))
 }
 
 fn ffi_xmp_found(r: &FfiXmpResult) -> bool { r.found }
@@ -448,7 +453,7 @@ fn ffi_xmp_label(r: &FfiXmpResult) -> u8 { r.label }
 fn ffi_xmp_flag(r: &FfiXmpResult) -> u8 { r.flag }
 fn ffi_xmp_developed(r: &FfiXmpResult) -> bool { r.developed }
 
-fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, flag: u8) -> bool {
+fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, flag: u8, jpg_use_sidecar: bool) -> bool {
     let p = Path::new(path);
     let data = CoreXmpData {
         rating: if rating >= 0 { Some(rating.clamp(0, 5) as u8) } else { None },
@@ -456,7 +461,7 @@ fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, fla
         flag: flag_from_u8(flag),
         developed: false,
     };
-    let ok = bridge_core::xmp::write_metadata(p, &data).is_ok();
+    let ok = bridge_core::xmp::write_metadata(p, &data, jpg_use_sidecar).is_ok();
     if ok {
         bridge_core::db::update_xmp(p, &db.db_path, &data);
     }

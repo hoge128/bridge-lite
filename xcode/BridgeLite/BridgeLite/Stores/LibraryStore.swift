@@ -210,12 +210,13 @@ final class LibraryStore {
 
                 // XMP: 8 並列で読み込み（XMP batch は将来対応）
                 let xmpLimiter = ConcurrencyLimiter(maxConcurrent: 8)
+                let jpgWriteMode = settings.jpgWriteMode
                 await withTaskGroup(of: Void.self) { group in
                     for entry in allEntries {
                         group.addTask { [weak self] in
                             guard let self else { return }
                             try? await xmpLimiter.run {
-                                let xmp = await BridgeCore.readXmp(url: entry.url)
+                                let xmp = await BridgeCore.readXmp(url: entry.url, jpgWriteMode: jpgWriteMode)
                                 await self.setXmp(id: entry.id, xmp: xmp)
                             }
                         }
@@ -717,8 +718,8 @@ final class LibraryStore {
 
     func applyRating(_ stars: Int) {
         guard !selectedIDs.isEmpty, let db = database else { return }
-        // Expand to group targets based on propagation settings (bypassed in flatten mode)
         var allTargets: [(entry: PhotoEntry, old: Int?)] = []
+        var writeList:  [(entry: PhotoEntry, xmp: XmpData)] = []
         for id in selectedIDs {
             guard let entry = entries[id] else { continue }
             let targets: [UInt64] = filter.flatten ? [id] : groupTargets(for: id, entry: entry)
@@ -729,8 +730,7 @@ final class LibraryStore {
                 current.rating = stars == 0 ? nil : stars
                 xmpData[targetID] = current
                 xmpDidUpdate.send(targetID)
-                let x = current; let url = te.url
-                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
+                writeList.append((te, current))
             }
         }
         recomputeVisible()
@@ -746,9 +746,19 @@ final class LibraryStore {
                 self.xmpData[te.id] = current
                 self.xmpDidUpdate.send(te.id)
                 let x = current; let url = te.url
-                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
+                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: self.settings.jpgWriteMode) }
             }
             self.recomputeVisible()
+        }
+        let mode = settings.jpgWriteMode
+        let policy = settings.jpgSidecarConflictPolicy
+        Task {
+            for (te, x) in writeList {
+                _ = await BridgeCore.writeXmp(url: te.url, xmp: x, db: db, jpgWriteMode: mode)
+            }
+            if mode == .sidecar {
+                await self.checkAndHandleEmbedConflict(writeList: writeList, db: db, policy: policy)
+            }
         }
     }
 
@@ -758,6 +768,7 @@ final class LibraryStore {
         let pivot = primaryID.flatMap { xmpData[$0]?.label }
         let newLabel: XmpLabel? = pivot == label ? nil : label
         var allTargets: [(entry: PhotoEntry, old: XmpLabel?)] = []
+        var writeList:  [(entry: PhotoEntry, xmp: XmpData)] = []
         for id in selectedIDs {
             guard let entry = entries[id] else { continue }
             let targets: [UInt64] = filter.flatten ? [id] : groupTargets(for: id, entry: entry)
@@ -768,8 +779,7 @@ final class LibraryStore {
                 current.label = newLabel
                 xmpData[targetID] = current
                 xmpDidUpdate.send(targetID)
-                let x = current; let url = te.url
-                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
+                writeList.append((te, current))
             }
         }
         recomputeVisible()
@@ -782,10 +792,80 @@ final class LibraryStore {
                 self.xmpData[te.id] = current
                 self.xmpDidUpdate.send(te.id)
                 let x = current; let url = te.url
-                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db) }
+                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: self.settings.jpgWriteMode) }
             }
             self.recomputeVisible()
         }
+        let mode = settings.jpgWriteMode
+        let policy = settings.jpgSidecarConflictPolicy
+        Task {
+            for (te, x) in writeList {
+                _ = await BridgeCore.writeXmp(url: te.url, xmp: x, db: db, jpgWriteMode: mode)
+            }
+            if mode == .sidecar {
+                await self.checkAndHandleEmbedConflict(writeList: writeList, db: db, policy: policy)
+            }
+        }
+    }
+
+    // MARK: - 埋め込み XMP 競合ハンドラ
+
+    private func checkAndHandleEmbedConflict(
+        writeList: [(entry: PhotoEntry, xmp: XmpData)],
+        db: BridgeCoreDatabase,
+        policy: JpgSidecarConflictPolicy
+    ) async {
+        guard policy != .neverPropagate else { return }
+
+        var conflicting: [(entry: PhotoEntry, xmp: XmpData)] = []
+        for (entry, xmp) in writeList {
+            guard !entry.isRaw else { continue }
+            let hasEmbedded = await BridgeCore.jpgHasRatedEmbeddedXmp(url: entry.url)
+            if hasEmbedded { conflicting.append((entry, xmp)) }
+        }
+        guard !conflicting.isEmpty else { return }
+
+        let shouldPropagate: Bool
+        if policy == .alwaysPropagate {
+            shouldPropagate = true
+        } else {
+            shouldPropagate = showEmbedConflictAlert(conflicting: conflicting)
+        }
+
+        if shouldPropagate {
+            for (entry, xmp) in conflicting {
+                _ = await BridgeCore.writeXmp(url: entry.url, xmp: xmp, db: db, jpgWriteMode: .embed)
+            }
+        }
+    }
+
+    @MainActor
+    private func showEmbedConflictAlert(conflicting: [(entry: PhotoEntry, xmp: XmpData)]) -> Bool {
+        let count = conflicting.count
+        let listedFiles = conflicting.prefix(10).map { "• \($0.entry.filename)" }.joined(separator: "\n")
+        let remainder = count > 10
+            ? "\n" + String(format: String(localized: "alert.embed_conflict.more",
+                                           defaultValue: "…and %lld more file(s)"), count - 10)
+            : ""
+
+        let alert = NSAlert()
+        alert.messageText = String(localized: "alert.embed_conflict.title",
+                                   defaultValue: "Embedded XMP Detected")
+        alert.informativeText = String(format: String(localized: "alert.embed_conflict.header",
+                                                      defaultValue: "%lld JPEG file(s) already have ratings or labels embedded directly. Propagate the new value to the embedded XMP as well?"), count)
+                                + "\n\n" + listedFiles + remainder
+        alert.addButton(withTitle: String(localized: "alert.embed_conflict.propagate", defaultValue: "Propagate"))
+        alert.addButton(withTitle: String(localized: "alert.embed_conflict.skip",      defaultValue: "Skip"))
+        alert.showsSuppressionButton = true
+        alert.suppressionButton?.title = String(localized: "alert.embed_conflict.suppress",
+                                                defaultValue: "Remember this choice")
+
+        let resp = alert.runModal()
+        let propagate = resp == .alertFirstButtonReturn
+        if alert.suppressionButton?.state == .on {
+            settings.jpgSidecarConflictPolicy = propagate ? .alwaysPropagate : .neverPropagate
+        }
+        return propagate
     }
 
 
