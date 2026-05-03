@@ -45,6 +45,8 @@ actor RAWRenderPipeline {
     private func renderWithCIRAWFilter(url: URL, maxWidth: Int) async -> Data? {
         await Task.detached(priority: .userInitiated) { () -> Data? in
             let ctx = CIContext(options: [.useSoftwareRenderer: false])
+            // CIRAWFilter returns nil for formats not supported by the OS RAW pipeline.
+            // Canon CR2 is not supported on macOS 26; CIRAWFilter silently returns nil.
             guard let filter = CIRAWFilter(imageURL: url) else { return nil }
             // Scale based on longer side to handle portrait and landscape equally
             let nativeSize = filter.nativeSize

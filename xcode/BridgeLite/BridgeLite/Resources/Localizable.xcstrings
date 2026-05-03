@@ -2557,6 +2557,54 @@
         }
       }
     },
+    "raw.limited.preview.badge" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thumbnail only"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サムネイルのみ"
+          }
+        }
+      }
+    },
+    "raw.limited.preview.notice" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded thumbnail only — CR2 RAW rendering is not available on macOS 26"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "埋め込みサムネイルのみ — macOS 26 で CR2 RAW レンダリングは非対応"
+          }
+        }
+      }
+    },
+    "raw.limited.preview.tooltip" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This CR2 file only contains an 18 KB embedded thumbnail. Full-resolution RAW rendering is not supported on macOS 26."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この CR2 ファイルには 18 KB の埋め込みサムネイルのみが含まれています。macOS 26 ではフル解像度の RAW レンダリングは非対応です。"
+          }
+        }
+      }
+    },
     "render.badge.embedded" : {
       "localizations" : {
         "en" : {

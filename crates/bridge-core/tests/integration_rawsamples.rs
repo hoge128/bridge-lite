@@ -21,6 +21,7 @@ fn check_thumb(filename: &str) -> String {
     }
 }
 
+
 fn check_exif(filename: &str) -> String {
     let path = test_dir().join(filename);
     if !path.exists() {
@@ -46,6 +47,52 @@ fn check_exif(filename: &str) -> String {
 #[test] fn thumb_olympus_orf(){ println!("ORF  {}", check_thumb("RAW_OLYMPUS_EM5.ORF")); }
 #[test] fn thumb_pentax_pef() { println!("PEF  {}", check_thumb("RAW_PENTAX_K1.PEF")); }
 #[test] fn thumb_leica_dng()  { println!("DNG  {}", check_thumb("RAW_LEICA_M10.DNG")); }
+
+// ── Preview extraction (Quality::Preview — used by ThumbnailPipeline) ─────────
+//
+// These must not regress to None — ThumbnailPipeline falls back to
+// CGImageSourceCreateImageAtIndex which crashes on macOS 26 for proprietary RAW.
+
+fn assert_preview(filename: &str) {
+    let path = test_dir().join(filename);
+    if !path.exists() { return; }
+    let result = extract(&path, Quality::Preview);
+    assert!(
+        result.is_some(),
+        "{filename}: Quality::Preview returned None — thumbnail grid will show nothing"
+    );
+}
+
+fn assert_full(filename: &str) {
+    let path = test_dir().join(filename);
+    if !path.exists() { return; }
+    let result = extract(&path, Quality::Full);
+    assert!(
+        result.is_some(),
+        "{filename}: Quality::Full returned None — viewer falls through to ImageIO which may crash"
+    );
+}
+
+#[test] fn preview_canon_cr2()  { assert_preview("RAW_CANON_EOS_5DMARK3.CR2"); }
+#[test] fn preview_canon_cr3()  { assert_preview("RAW_CANON_EOS_R5.CR3"); }
+#[test] fn preview_nikon_nef()  { assert_preview("RAW_NIKON_Z6II.NEF"); }
+#[test] fn preview_sony_arw()   { assert_preview("RAW_SONY_ILCE7RM4.ARW"); }
+#[test] fn preview_pana_rw2()   { assert_preview("RAW_PANASONIC_GH6.RW2"); }
+#[test] fn preview_fuji_raf()   { assert_preview("RAW_FUJIFILM_XT5.RAF"); }
+#[test] fn preview_olympus_orf(){ assert_preview("RAW_OLYMPUS_EM5.ORF"); }
+#[test] fn preview_pentax_pef() { assert_preview("RAW_PENTAX_K1.PEF"); }
+#[test] fn preview_leica_dng()  { assert_preview("RAW_LEICA_M10.DNG"); }
+
+// ── Full extraction (Quality::Full — used by ViewerView) ──────────────────────
+#[test] fn full_canon_cr2()  { assert_full("RAW_CANON_EOS_5DMARK3.CR2"); }
+#[test] fn full_canon_cr3()  { assert_full("RAW_CANON_EOS_R5.CR3"); }
+#[test] fn full_nikon_nef()  { assert_full("RAW_NIKON_Z6II.NEF"); }
+#[test] fn full_sony_arw()   { assert_full("RAW_SONY_ILCE7RM4.ARW"); }
+#[test] fn full_pana_rw2()   { assert_full("RAW_PANASONIC_GH6.RW2"); }
+#[test] fn full_fuji_raf()   { assert_full("RAW_FUJIFILM_XT5.RAF"); }
+#[test] fn full_olympus_orf(){ assert_full("RAW_OLYMPUS_EM5.ORF"); }
+#[test] fn full_pentax_pef() { assert_full("RAW_PENTAX_K1.PEF"); }
+#[test] fn full_leica_dng()  { assert_full("RAW_LEICA_M10.DNG"); }
 
 // ── EXIF reading ──────────────────────────────────────────────────────────────
 #[test] fn exif_canon_cr2()  { println!("CR2  {}", check_exif("RAW_CANON_EOS_5DMARK3.CR2")); }

@@ -63,14 +63,34 @@ pub fn extract(path: &Path, quality: Quality) -> Option<Vec<u8>> {
         0x0055 => extract_rw2(path, quality),    // Panasonic RW2
         0x4F52 => extract_orf(path, quality),    // Olympus ORF
         0x002A => {
-            // Standard TIFF: try kamadak-exif first, fall back to SubIFD walk
-            let ifd = match quality {
-                Quality::Thumbnail => In::THUMBNAIL,
-                Quality::Preview   => In::PRIMARY,
-                Quality::Full      => In(2),
-            };
-            extract_from_ifd(path, ifd)
-                .or_else(|| extract_tiff_subifd(path, is_le, quality))
+            // Standard TIFF: try kamadak-exif IFDs, fall back to SubIFD walk.
+            //
+            // IFD layout varies by format:
+            //   CR2  – IFD1=small JPEG (~18 KB); IFD2=uncompressed RGB (no JPEG)
+            //   PEF  – IFD1=small JPEG (~7 KB);  IFD2=large JPEG (~4 MB)
+            //   ARW  – IFD1=small JPEG;           SubIFDs=large previews
+            //   NEF  – IFD1=small JPEG;           SubIFDs=large previews
+            //
+            // Quality::Preview should return the best-quality JPEG available:
+            //   1. In::PRIMARY (IFD0) — standard EXIF
+            //   2. In(2)             — PEF IFD2 large preview
+            //   3. In::THUMBNAIL     — CR2/PEF IFD1 small thumbnail (last resort)
+            //   4. SubIFD walk       — NEF/DNG/ARW
+            match quality {
+                Quality::Thumbnail =>
+                    extract_from_ifd(path, In::THUMBNAIL)
+                        .or_else(|| extract_tiff_subifd(path, is_le, quality)),
+                Quality::Preview =>
+                    extract_from_ifd(path, In::PRIMARY)
+                        .or_else(|| extract_from_ifd(path, In(2)))
+                        .or_else(|| extract_from_ifd(path, In::THUMBNAIL))
+                        .or_else(|| extract_tiff_subifd(path, is_le, quality)),
+                Quality::Full =>
+                    extract_from_ifd(path, In(2))
+                        .or_else(|| extract_from_ifd(path, In::PRIMARY))
+                        .or_else(|| extract_from_ifd(path, In::THUMBNAIL))
+                        .or_else(|| extract_tiff_subifd(path, is_le, quality)),
+            }
         }
         _ => None,
     }

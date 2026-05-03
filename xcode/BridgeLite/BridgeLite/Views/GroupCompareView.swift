@@ -296,6 +296,11 @@ private struct CompareMemberColumn: View {
     private var xmp: XmpData? { store.xmpData[memberID] }
     private var exif: ExifData? { store.exifData[memberID] }
 
+    // CR2 on macOS 26: CIRAWFilter unsupported; only an 18 KB embedded thumbnail is available.
+    private var isLimitedRawPreview: Bool {
+        entry?.url.pathExtension.lowercased() == "cr2"
+    }
+
     private var kindLabel: (text: String, color: Color) {
         guard let entry else { return ("", .clear) }
         if entry.isRaw { return (PhotoKind.raw.localizedBadgeName, .orange) }
@@ -338,8 +343,10 @@ private struct CompareMemberColumn: View {
             isLoadingPreview = true
             previewImage = await loadPreview(entry: entry)
             isLoadingPreview = false
-            // Auto-render for RAW: show embedded first, then replace
+            // Auto-render for RAW: show embedded first, then replace.
+            // Skip for formats with no full-res JPEG (e.g. CR2) since CIRAWFilter will return nil.
             if entry.isRaw,
+               !isLimitedRawPreview,
                SettingsStore.shared.autoRenderRawCompare,
                let db = store.cacheDatabase {
                 isRendering = true
@@ -417,6 +424,29 @@ private struct CompareMemberColumn: View {
                     .padding(.vertical, 3)
                     .background(label.color.opacity(0.85), in: RoundedRectangle(cornerRadius: 4))
                     .padding(8)
+            }
+
+            // Bottom-center: limited preview notice for formats with no full-res embedded JPEG
+            if isLimitedRawPreview {
+                VStack {
+                    Spacer()
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 9, weight: .semibold))
+                            .foregroundStyle(.yellow.opacity(0.85))
+                        Text(String(localized: "raw.limited.preview.badge",
+                                    defaultValue: "Thumbnail only"))
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.white.opacity(0.8))
+                    }
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 3)
+                    .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
+                    .help(String(localized: "raw.limited.preview.tooltip",
+                                 defaultValue: "This CR2 file only contains an 18 KB embedded thumbnail. Full-resolution RAW rendering is not supported on macOS 26."))
+                    .padding(.bottom, 6)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
             }
 
             // Top-leading: render status badge (RAW files only)

@@ -30,6 +30,11 @@ struct ViewerView: View {
         store.viewerShowsMeta && selectedEntry != nil
     }
 
+    // CR2 on macOS 26: CIRAWFilter unsupported; only an 18 KB embedded thumbnail is available.
+    private var isLimitedRawPreview: Bool {
+        selectedEntry?.url.pathExtension.lowercased() == "cr2"
+    }
+
     private var hasRatingOrLabel: Bool {
         (xmp?.rating ?? 0) > 0 || xmp?.label != nil
     }
@@ -59,6 +64,27 @@ struct ViewerView: View {
                     Image(systemName: "photo")
                         .font(.system(size: 80))
                         .foregroundStyle(.secondary)
+                }
+
+                if isLimitedRawPreview {
+                    VStack {
+                        Spacer()
+                        HStack(spacing: 5) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.yellow.opacity(0.85))
+                            Text(String(localized: "raw.limited.preview.notice",
+                                        defaultValue: "Embedded thumbnail only — CR2 RAW rendering is not available on macOS 26"))
+                                .font(.system(size: 11))
+                                .foregroundStyle(.white.opacity(0.75))
+                        }
+                        .padding(.horizontal, 10)
+                        .padding(.vertical, 5)
+                        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+                        .help(String(localized: "raw.limited.preview.tooltip",
+                                     defaultValue: "This CR2 file only contains an 18 KB embedded thumbnail. Full-resolution RAW rendering is not supported on macOS 26."))
+                        .padding(.bottom, 14)
+                    }
                 }
 
                 VStack {
@@ -212,7 +238,7 @@ struct ViewerView: View {
 
     @ViewBuilder
     private var renderButton: some View {
-        if let entry = selectedEntry, entry.isRaw {
+        if let entry = selectedEntry, entry.isRaw, !isLimitedRawPreview {
             if isRendering {
                 ProgressView()
                     .controlSize(.small)
