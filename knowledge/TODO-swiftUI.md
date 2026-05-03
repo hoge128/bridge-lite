@@ -206,6 +206,56 @@ cargo tree -p bridge-core の iced/muda/image_hasher → なし
 
 ---
 
+## Post-Migration: キャッシュ改善 (将来課題)
+
+Phase G 完了後に判明した改善候補。優先度順。
+
+### Cache-1: `fetch_thumb` ヒット時に `cached_at` を更新する
+
+**現状**: `cached_at` は `store_thumb`（サムネイル書き込み時）にのみ更新される。ファイルが変更されなければ `store_thumb` は呼ばれないため、毎日開くフォルダでも `cached_at` は最初にキャッシュした日付のまま。TTL を超えると頻繁に使うサムネイルも削除・再生成される。
+
+**解決策**: `fetch_thumb` でヒット時に `UPDATE thumbnails SET cached_at = strftime('%s','now') WHERE path = ?` を発行する。
+
+**懸念点**: 並列スキャン時に多数の小さな write が集中し、WAL モードでも lock 待ちが発生する可能性がある。バッチ更新（チャネル経由で蓄積 → 定期フラッシュ）を検討。
+
+**難易度**: Medium
+
+---
+
+### Cache-2: SQLite キャッシュのサイズ上限
+
+**現状**: TTL（経過日数）のみが制御手段。短期間に大量スキャンすると TTL 期間中はサイズが増え続ける。
+
+**解決策**: `prune_cache()` で TTL 削除後にサイズチェックを行い、上限超過なら `cached_at` の古い順に行を削除する。
+
+```sql
+SELECT SUM(LENGTH(jpeg)) FROM thumbnails;
+-- 上限超過なら:
+DELETE FROM thumbnails WHERE path IN (
+  SELECT path FROM thumbnails ORDER BY cached_at ASC LIMIT ?
+);
+```
+
+**ユーザー設定**: General タブの「キャッシュ保持期間」の隣に「最大サイズ」Picker（5 GB / 10 GB / 20 GB / 無制限）を追加。
+
+**難易度**: Low〜Medium
+
+---
+
+### Cache-3: ボリューム UUID ベースのキャッシュキー（SD カード再マウント対策）
+
+**現状**: キャッシュキーはファイルの絶対パス（例: `/Volumes/SD_CARD/Photos/001.jpg`）。SD カードが `/Volumes/SD_CARD 1` に再マウントされると別キャッシュとして扱われ、重複蓄積が起きる。
+
+**`canonicalize()` では解決できない理由**: 再マウントはシンボリックリンクではなく別マウントポイントであるため、`canonicalize()` を通しても異なるパスのままになる。また NAS などネットワークドライブでは `canonicalize()` の I/O コストが問題になる（1 ファイルあたり 1〜50 ms）。
+
+**本質的な解決策**: `getattrlist()` / `FSGetVolumeInfo()` で volume UUID + inode 番号を取得し、それをキャッシュキーにする。パスに依存しないため再マウント・移動・リネーム後もキャッシュが有効になる。
+
+**懸念点**: Rust から macOS 固有 API を呼ぶ実装コストが高い。また FAT32 フォーマットの SD カードは inode が安定しない。
+
+**難易度**: High
+
+---
+
 ## 検証チェックリスト (全フェーズ)
 
 | チェック項目 | 対象フェーズ | 状態 |
