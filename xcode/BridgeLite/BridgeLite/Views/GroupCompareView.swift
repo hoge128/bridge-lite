@@ -7,6 +7,7 @@ struct GroupCompareView: View {
     @Environment(LibraryStore.self) private var store
     @State private var currentRepID: UInt64
     @State private var imageFilesOnly: Bool = false
+    @State private var lastMemberTap: (id: UInt64, time: Date)?
 
     init(initialID: UInt64) {
         _currentRepID = State(initialValue: initialID)
@@ -60,7 +61,7 @@ struct GroupCompareView: View {
                                     isFocused: store.primaryID == memberID
                                 )
                                 .frame(height: cellHeight)
-                                .onTapGesture { store.selectEntry(memberID) }
+                                .onTapGesture { handleMemberTap(memberID) }
                             }
                         }
                         .padding(.horizontal, 12)
@@ -73,7 +74,10 @@ struct GroupCompareView: View {
         .background {
             Group {
                 Button("") {
-                    if store.primaryID != nil { store.viewerMode = true }
+                    if store.primaryID != nil {
+                        store.viewerCompareGroupMembers = groupMembers
+                        store.viewerMode = true
+                    }
                 }
                 .keyboardShortcut(.space, modifiers: [])
                 // Ctrl+Tab: mode に応じてグループ間/メンバー間移動
@@ -243,6 +247,20 @@ struct GroupCompareView: View {
               let idx = members.firstIndex(of: current),
               idx > 0 else { return }
         store.selectEntry(members[idx - 1])
+    }
+
+    private func handleMemberTap(_ memberID: UInt64) {
+        if let last = lastMemberTap,
+           last.id == memberID,
+           Date().timeIntervalSince(last.time) < NSEvent.doubleClickInterval {
+            store.selectEntry(memberID)
+            store.viewerCompareGroupMembers = groupMembers
+            store.viewerMode = true
+            lastMemberTap = nil
+            return
+        }
+        lastMemberTap = (id: memberID, time: Date())
+        store.selectEntry(memberID)
     }
 
     private func closeCompare() {

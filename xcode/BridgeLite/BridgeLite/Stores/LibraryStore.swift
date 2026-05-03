@@ -36,6 +36,8 @@ final class LibraryStore {
     var viewerShowsMeta: Bool = false
     var compareMode: Bool = false
     var compareAnchorID: UInt64? = nil
+    // When ViewerView is entered from CompareMode, restricts arrow-key navigation to this list.
+    var viewerCompareGroupMembers: [UInt64]? = nil
     var gridColumnCount: Int = 4
     var showFilters: Bool = true
     var showSidebar: Bool = true
@@ -401,6 +403,25 @@ final class LibraryStore {
         }
         guard let idx = visibleIDs.firstIndex(of: id), idx > 0 else { return }
         selectEntry(visibleIDs[idx - 1])
+    }
+
+    // Navigation used inside ViewerView: restricted to compare group members when entered from CompareMode.
+    func navigateViewerNext() {
+        if let members = viewerCompareGroupMembers {
+            guard let id = primaryID, let idx = members.firstIndex(of: id), idx + 1 < members.count else { return }
+            selectEntry(members[idx + 1])
+        } else {
+            navigateNext()
+        }
+    }
+
+    func navigateViewerPrev() {
+        if let members = viewerCompareGroupMembers {
+            guard let id = primaryID, let idx = members.firstIndex(of: id), idx > 0 else { return }
+            selectEntry(members[idx - 1])
+        } else {
+            navigatePrev()
+        }
     }
 
     func navigateUp() {
@@ -1470,6 +1491,7 @@ final class LibraryStore {
         viewerMode = false
         compareMode = false
         compareAnchorID = nil
+        viewerCompareGroupMembers = nil
         lastImageList = nil
         pairingPipeline = PairingPipeline()
         phashPipeline = PHashPipeline()

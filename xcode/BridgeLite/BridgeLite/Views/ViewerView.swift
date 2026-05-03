@@ -80,9 +80,9 @@ struct ViewerView: View {
                             .allowsHitTesting(showInfoButton)
                             .animation(.spring(response: 0.28, dampingFraction: 0.78), value: showInfoButton)
                             renderButton
-                            Button("Prev") { store.navigatePrev() }
+                            Button("Prev") { store.navigateViewerPrev() }
                                 .keyboardShortcut(.leftArrow, modifiers: [])
-                            Button("Next") { store.navigateNext() }
+                            Button("Next") { store.navigateViewerNext() }
                                 .keyboardShortcut(.rightArrow, modifiers: [])
                         }
                         .padding()
@@ -167,6 +167,7 @@ struct ViewerView: View {
             if let m = magnifyMonitor { NSEvent.removeMonitor(m); magnifyMonitor = nil }
             if let m = clickMonitor   { NSEvent.removeMonitor(m); clickMonitor   = nil }
             infoHideTask?.cancel()
+            store.viewerCompareGroupMembers = nil
         }
         .onReceive(store.xmpDidUpdate) { id in
             guard id == store.selectedID else { return }
