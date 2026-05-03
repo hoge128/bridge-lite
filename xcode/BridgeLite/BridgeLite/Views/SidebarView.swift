@@ -87,7 +87,7 @@ struct SidebarView: View {
     @Environment(LibraryStore.self) private var store
     @State private var highResPreview: CGImage? = nil
     @State private var rgbHistogram: RGBHistogram = .empty
-    @State private var gpsCoordinate: (lat: Double, lon: Double)? = nil
+    @State private var gpsCoordinate: (lat: Double, lon: Double, alt: Double?)? = nil
     @State private var lastPreviewTap: Date?
     @State private var rawRendered: CGImage? = nil
     @State private var isRendering = false
@@ -245,7 +245,7 @@ struct SidebarView: View {
         .padding(.vertical, 4)
     }
 
-    private static func extractGPS(url: URL) async -> (lat: Double, lon: Double)? {
+    private static func extractGPS(url: URL) async -> (lat: Double, lon: Double, alt: Double?)? {
         return await Task.detached(priority: .utility) {
             guard let src = CGImageSourceCreateWithURL(url as CFURL, nil),
                   let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [String: Any],
@@ -255,7 +255,10 @@ struct SidebarView: View {
             else { return nil }
             let latRef = gps[kCGImagePropertyGPSLatitudeRef as String] as? String ?? "N"
             let lonRef = gps[kCGImagePropertyGPSLongitudeRef as String] as? String ?? "E"
-            return (lat: latRef == "S" ? -lat : lat, lon: lonRef == "W" ? -lon : lon)
+            let altRaw = gps[kCGImagePropertyGPSAltitude as String] as? Double
+            let altRef = gps[kCGImagePropertyGPSAltitudeRef as String] as? Int ?? 0
+            let alt: Double? = altRaw.map { altRef == 1 ? -$0 : $0 }
+            return (lat: latRef == "S" ? -lat : lat, lon: lonRef == "W" ? -lon : lon, alt: alt)
         }.value
     }
 
@@ -425,7 +428,7 @@ struct ExifQuickBar: View {
 // MARK: - GPS
 
 struct GpsSectionView: View {
-    let coordinate: (lat: Double, lon: Double)
+    let coordinate: (lat: Double, lon: Double, alt: Double?)
     @State private var isExpanded = true
 
     var body: some View {
@@ -434,6 +437,9 @@ struct GpsSectionView: View {
                 Grid(alignment: .leading, horizontalSpacing: 8, verticalSpacing: 4) {
                     MetaRow(key: "Latitude",  value: formatted(coordinate.lat, axis: .lat))
                     MetaRow(key: "Longitude", value: formatted(coordinate.lon, axis: .lon))
+                    if let alt = coordinate.alt {
+                        MetaRow(key: "Altitude", value: String(format: "%.1f m", alt))
+                    }
                 }
                 Button {
                     let s = "maps://?ll=\(coordinate.lat),\(coordinate.lon)"
@@ -703,11 +709,26 @@ struct ExifSectionView: View {
                     if let fl = exif.focalLength {
                         MetaRow(key: "Focal", value: fl)
                     }
+                    if let fl35 = exif.focalLength35mm {
+                        MetaRow(key: "Focal (35mm)", value: "\(fl35) mm")
+                    }
+                    if let ev = exif.exposureBias {
+                        MetaRow(key: "Exp. Bias", value: ev)
+                    }
+                    if let wb = exif.whiteBalance {
+                        MetaRow(key: "White Balance", value: wb)
+                    }
+                    if let fl = exif.flash {
+                        MetaRow(key: "Flash", value: fl)
+                    }
                     if let res = exif.resolutionString {
                         MetaRow(key: "Resolution", value: res)
                     }
                     if let sw = exif.software {
                         MetaRow(key: "Software", value: sw)
+                    }
+                    if let artist = exif.artist {
+                        MetaRow(key: "Artist", value: artist)
                     }
                 }
             } else {

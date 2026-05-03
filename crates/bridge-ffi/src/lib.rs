@@ -119,6 +119,9 @@ pub struct FfiExifResult {
     pub height: i32,
     pub software: String,
     pub artist: String,
+    pub exposure_bias: String,
+    pub flash: String,
+    pub white_balance: String,
 }
 
 impl FfiExifResult {
@@ -139,6 +142,9 @@ impl FfiExifResult {
             height: -1,
             software: String::new(),
             artist: String::new(),
+            exposure_bias: String::new(),
+            flash: String::new(),
+            white_balance: String::new(),
         }
     }
 
@@ -159,6 +165,9 @@ impl FfiExifResult {
             height: e.height.map(|v| v as i32).unwrap_or(-1),
             software: e.software.clone().unwrap_or_default(),
             artist: e.artist.clone().unwrap_or_default(),
+            exposure_bias: e.exposure_bias.clone().unwrap_or_default(),
+            flash: e.flash.clone().unwrap_or_default(),
+            white_balance: e.white_balance.clone().unwrap_or_default(),
         }
     }
 }
@@ -313,6 +322,9 @@ mod ffi {
         fn ffi_exif_height(r: &FfiExifResult) -> i32;
         fn ffi_exif_software(r: &FfiExifResult) -> String;
         fn ffi_exif_artist(r: &FfiExifResult) -> String;
+        fn ffi_exif_exposure_bias(r: &FfiExifResult) -> String;
+        fn ffi_exif_flash(r: &FfiExifResult) -> String;
+        fn ffi_exif_white_balance(r: &FfiExifResult) -> String;
 
         // XMP API
         fn bridge_read_xmp(path: &str, jpg_use_sidecar: bool) -> FfiXmpResult;
@@ -422,6 +434,9 @@ fn ffi_exif_width(r: &FfiExifResult) -> i32 { r.width }
 fn ffi_exif_height(r: &FfiExifResult) -> i32 { r.height }
 fn ffi_exif_software(r: &FfiExifResult) -> String { r.software.clone() }
 fn ffi_exif_artist(r: &FfiExifResult) -> String { r.artist.clone() }
+fn ffi_exif_exposure_bias(r: &FfiExifResult) -> String { r.exposure_bias.clone() }
+fn ffi_exif_flash(r: &FfiExifResult) -> String { r.flash.clone() }
+fn ffi_exif_white_balance(r: &FfiExifResult) -> String { r.white_balance.clone() }
 
 fn bridge_fetch_exif_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) -> FfiExifBatch {
     let paths: Vec<PathBuf> = entries.entries.iter().map(|e| e.path.clone()).collect();

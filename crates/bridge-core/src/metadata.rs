@@ -17,6 +17,12 @@ pub struct ExifData {
     pub height: Option<u32>,
     pub software: Option<String>,
     pub artist: Option<String>,
+    /// ExposureBiasValue formatted as "+1.0 EV" / "-0.7 EV" / "0 EV".
+    pub exposure_bias: Option<String>,
+    /// Flash status decoded from the Flash SHORT bitmask.
+    pub flash: Option<String>,
+    /// WhiteBalance: "Auto" or "Manual".
+    pub white_balance: Option<String>,
 }
 
 pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
@@ -96,6 +102,40 @@ pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
     let width = pixel_dim(&exif, Tag::PixelXDimension);
     let height = pixel_dim(&exif, Tag::PixelYDimension);
 
+    let exposure_bias = exif
+        .get_field(Tag::ExposureBiasValue, In::PRIMARY)
+        .and_then(|f| {
+            if let exif::Value::SRational(v) = &f.value {
+                v.first().map(|r| format_srational_ev(r.num, r.denom))
+            } else {
+                None
+            }
+        });
+
+    let flash = exif
+        .get_field(Tag::Flash, In::PRIMARY)
+        .and_then(|f| {
+            if let exif::Value::Short(v) = &f.value {
+                v.first().map(|&n| decode_flash(n))
+            } else {
+                None
+            }
+        });
+
+    let white_balance = exif
+        .get_field(Tag::WhiteBalance, In::PRIMARY)
+        .and_then(|f| {
+            if let exif::Value::Short(v) = &f.value {
+                v.first().map(|&n| match n {
+                    0 => "Auto".to_string(),
+                    1 => "Manual".to_string(),
+                    _ => format!("{}", n),
+                })
+            } else {
+                None
+            }
+        });
+
     Some(ExifData {
         make: get_ascii(Tag::Make),
         model: get_ascii(Tag::Model),
@@ -115,6 +155,9 @@ pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
         height,
         software: get_ascii(Tag::Software),
         artist: get_ascii(Tag::Artist),
+        exposure_bias,
+        flash,
+        white_balance,
     })
 }
 
@@ -158,6 +201,13 @@ fn read_exif_from_cr3(path: &std::path::Path) -> Option<ExifData> {
             .or_else(|| tiff_long(cmt2.as_ref()?, 0xA003)),
         software: None,
         artist:   None,
+        exposure_bias: tiff_srational_ev(cmt2.as_ref(), 0x9204),
+        flash: ri(cmt2.as_ref(), 0x9209).map(decode_flash),
+        white_balance: ri(cmt2.as_ref(), 0xA403).map(|n| match n {
+            0 => "Auto".to_string(),
+            1 => "Manual".to_string(),
+            _ => format!("{}", n),
+        }),
     })
 }
 
@@ -301,6 +351,48 @@ fn pixel_dim(exif: &exif::Exif, tag: exif::Tag) -> Option<u32> {
             exif::Value::Short(v) => v.first().map(|&n| n as u32),
             _ => None,
         }
+    })
+}
+
+fn format_srational_ev(num: i32, denom: i32) -> String {
+    if denom == 0 { return "0 EV".to_string(); }
+    let val = num as f64 / denom as f64;
+    if val > 0.0 {
+        format!("+{:.1} EV", val)
+    } else if val < 0.0 {
+        format!("{:.1} EV", val)
+    } else {
+        "0 EV".to_string()
+    }
+}
+
+fn decode_flash(v: u16) -> String {
+    let fired = v & 0x01 != 0;
+    let no_function = (v >> 5) & 0x01 != 0;
+    if no_function { return "No flash function".to_string(); }
+    let mode = (v >> 3) & 0x03;
+    let prefix = match mode {
+        1 => "Compulsory, ",
+        2 => "Auto, ",
+        _ => "",
+    };
+    if fired { format!("{}Fired", prefix) } else { format!("{}Did not fire", prefix) }
+}
+
+fn tiff_srational_ev(data: Option<&Vec<u8>>, tag: u16) -> Option<String> {
+    let data = data?;
+    tiff_find_tag(data, tag, |d, le, val, _cnt, typ| {
+        if typ != 10 { return None; }
+        let off = val as usize;
+        let b = d.get(off..off + 8)?;
+        let (num, den) = if le {
+            (i32::from_le_bytes([b[0], b[1], b[2], b[3]]),
+             i32::from_le_bytes([b[4], b[5], b[6], b[7]]))
+        } else {
+            (i32::from_be_bytes([b[0], b[1], b[2], b[3]]),
+             i32::from_be_bytes([b[4], b[5], b[6], b[7]]))
+        };
+        Some(format_srational_ev(num, den))
     })
 }
 

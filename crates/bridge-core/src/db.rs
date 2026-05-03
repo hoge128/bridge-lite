@@ -14,7 +14,8 @@ use crate::xmp::XmpData;
 /// v2: software column populated.
 /// v3: subsec column added (SubSecTimeOriginal for timestamp grouping).
 /// v4: artist column added (EXIF Artist tag).
-pub const EXIF_SCHEMA_VERSION: i32 = 4;
+/// v5: exposure_bias, flash, white_balance added; forced re-index to populate new fields.
+pub const EXIF_SCHEMA_VERSION: i32 = 5;
 
 fn init_schema(conn: &Connection) -> Result<()> {
     conn.execute_batch(
@@ -22,23 +23,26 @@ fn init_schema(conn: &Connection) -> Result<()> {
         PRAGMA journal_mode = WAL;
 
         CREATE TABLE IF NOT EXISTS images (
-            path        TEXT PRIMARY KEY,
-            filename    TEXT NOT NULL,
-            file_size   INTEGER,
-            make        TEXT,
-            model       TEXT,
-            datetime    TEXT,
-            subsec      TEXT,
-            exposure    TEXT,
-            fnumber     TEXT,
-            iso         INTEGER,
-            focal_len   TEXT,
-            img_width   INTEGER,
-            img_height  INTEGER,
-            software    TEXT,
-            artist      TEXT,
-            mtime       INTEGER,
-            indexed_at  INTEGER DEFAULT (strftime('%s', 'now'))
+            path          TEXT PRIMARY KEY,
+            filename      TEXT NOT NULL,
+            file_size     INTEGER,
+            make          TEXT,
+            model         TEXT,
+            datetime      TEXT,
+            subsec        TEXT,
+            exposure      TEXT,
+            fnumber       TEXT,
+            iso           INTEGER,
+            focal_len     TEXT,
+            img_width     INTEGER,
+            img_height    INTEGER,
+            software      TEXT,
+            artist        TEXT,
+            exposure_bias TEXT,
+            flash         TEXT,
+            white_balance TEXT,
+            mtime         INTEGER,
+            indexed_at    INTEGER DEFAULT (strftime('%s', 'now'))
         );
 
         CREATE INDEX IF NOT EXISTS idx_images_datetime ON images(datetime);
@@ -129,6 +133,9 @@ fn migrate_image_columns(conn: &Connection) {
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN focal_len_35mm  INTEGER;");
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN lens_model      TEXT;");
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN artist          TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN exposure_bias  TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN flash          TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN white_balance  TEXT;");
     let _ = conn.execute_batch("ALTER TABLE thumbnails ADD COLUMN cached_at  INTEGER;");
     let _ = conn.execute_batch("ALTER TABLE phashes    ADD COLUMN cached_at  INTEGER;");
     let _ = conn.execute_batch(
@@ -184,7 +191,8 @@ pub fn fetch_exif_batch(
             .join(",");
         let sql = format!(
             "SELECT path, mtime, make, model, datetime, subsec, exposure, fnumber, iso, \
-                    focal_len, focal_len_35mm, lens_model, img_width, img_height, software, artist \
+                    focal_len, focal_len_35mm, lens_model, img_width, img_height, software, artist, \
+                    exposure_bias, flash, white_balance \
              FROM images WHERE path IN ({placeholders})"
         );
         let Ok(mut stmt) = conn.prepare(&sql) else { continue };
@@ -212,6 +220,9 @@ pub fn fetch_exif_batch(
                     height: row.get(13)?,
                     software: row.get(14)?,
                     artist: row.get(15)?,
+                    exposure_bias: row.get(16)?,
+                    flash: row.get(17)?,
+                    white_balance: row.get(18)?,
                 },
             ))
         }) else {
@@ -344,7 +355,8 @@ fn query_exif(conn: &Connection, path: &Path, mtime: i64) -> Option<ExifData> {
     let path_str = path.to_string_lossy();
     conn.query_row(
         "SELECT make, model, datetime, subsec, exposure, fnumber, iso, focal_len,
-                focal_len_35mm, lens_model, img_width, img_height, software, artist
+                focal_len_35mm, lens_model, img_width, img_height, software, artist,
+                exposure_bias, flash, white_balance
          FROM images WHERE path = ?1 AND mtime = ?2",
         params![path_str.as_ref(), mtime],
         |row| {
@@ -363,6 +375,9 @@ fn query_exif(conn: &Connection, path: &Path, mtime: i64) -> Option<ExifData> {
                 height: row.get(11)?,
                 software: row.get(12)?,
                 artist: row.get(13)?,
+                exposure_bias: row.get(14)?,
+                flash: row.get(15)?,
+                white_balance: row.get(16)?,
             })
         },
     )
@@ -460,13 +475,14 @@ pub async fn fetch_phash_batch_async(
         .unwrap_or_default()
 }
 
-/// Delete thumbnail and pHash cache entries older than `max_age_days` days,
-/// then VACUUM to reclaim disk space.
+/// Delete thumbnail and pHash cache entries older than `max_age_days` days.
 ///
-/// Rows that have never been cached via `store_thumb` / `store_phash` with the
-/// new schema (i.e. `cached_at IS NULL`) are treated as maximally old and also
-/// removed.  The `images` (EXIF) table is not pruned here because its rows are
-/// text-only and negligibly small.
+/// Only rows with a valid `cached_at` value are considered; rows where
+/// `cached_at IS NULL` (migrated from a pre-TTL schema) are kept so that a
+/// schema upgrade alone does not silently evict the entire thumbnail cache.
+/// VACUUM is intentionally omitted: in WAL mode SQLite reclaims pages
+/// incrementally, and running VACUUM here would briefly hold an exclusive lock
+/// that blocks concurrent thumbnail generation during startup.
 pub fn prune_cache(db_path: &Path, max_age_days: u32) {
     let Ok(conn) = Connection::open(db_path) else { return };
     let _ = conn.busy_timeout(std::time::Duration::from_secs(5));
@@ -476,9 +492,8 @@ pub fn prune_cache(db_path: &Path, max_age_days: u32) {
         .as_secs() as i64
         - (max_age_days as i64 * 86_400);
     let _ = conn.execute_batch(&format!(
-        "DELETE FROM thumbnails WHERE COALESCE(cached_at, 0) < {cutoff};
-         DELETE FROM phashes    WHERE COALESCE(cached_at, 0) < {cutoff};
-         VACUUM;"
+        "DELETE FROM thumbnails WHERE cached_at IS NOT NULL AND cached_at < {cutoff};
+         DELETE FROM phashes    WHERE cached_at IS NOT NULL AND cached_at < {cutoff};"
     ));
 }
 
@@ -493,8 +508,9 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result
     conn.execute(
         "INSERT INTO images
             (path, filename, make, model, datetime, subsec, exposure, fnumber, iso,
-             focal_len, focal_len_35mm, lens_model, img_width, img_height, software, artist, mtime)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17)
+             focal_len, focal_len_35mm, lens_model, img_width, img_height, software, artist,
+             exposure_bias, flash, white_balance, mtime)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)
          ON CONFLICT(path) DO UPDATE SET
             make=excluded.make, model=excluded.model,
             datetime=excluded.datetime, subsec=excluded.subsec,
@@ -506,6 +522,9 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result
             img_width=excluded.img_width, img_height=excluded.img_height,
             software=excluded.software,
             artist=excluded.artist,
+            exposure_bias=excluded.exposure_bias,
+            flash=excluded.flash,
+            white_balance=excluded.white_balance,
             mtime=excluded.mtime,
             indexed_at=strftime('%s','now')",
         params![
@@ -525,6 +544,9 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result
             exif.height,
             exif.software,
             exif.artist,
+            exif.exposure_bias,
+            exif.flash,
+            exif.white_balance,
             mtime,
         ],
     )?;

@@ -103,6 +103,15 @@ public func ffi_exif_software(_ r: FfiExifResultRef) -> RustString {
 public func ffi_exif_artist(_ r: FfiExifResultRef) -> RustString {
     RustString(ptr: __swift_bridge__$ffi_exif_artist(r.ptr))
 }
+public func ffi_exif_exposure_bias(_ r: FfiExifResultRef) -> RustString {
+    RustString(ptr: __swift_bridge__$ffi_exif_exposure_bias(r.ptr))
+}
+public func ffi_exif_flash(_ r: FfiExifResultRef) -> RustString {
+    RustString(ptr: __swift_bridge__$ffi_exif_flash(r.ptr))
+}
+public func ffi_exif_white_balance(_ r: FfiExifResultRef) -> RustString {
+    RustString(ptr: __swift_bridge__$ffi_exif_white_balance(r.ptr))
+}
 public func bridge_read_xmp<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr, _ jpg_use_sidecar: Bool) -> FfiXmpResult {
     return path.toRustStr({ pathAsRustStr in
         FfiXmpResult(ptr: __swift_bridge__$bridge_read_xmp(pathAsRustStr, jpg_use_sidecar))

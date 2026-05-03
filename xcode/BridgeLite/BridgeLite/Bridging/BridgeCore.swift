@@ -68,9 +68,12 @@ enum BridgeCore {
                 focalLength35mm: Int(ffi_exif_focal_length_35mm(r)).nonNegative,
                 lensName:        ffi_exif_lens_model(r).toString().nonEmpty,
                 width:           Int(ffi_exif_width(r)).nonZero,
-                height:        Int(ffi_exif_height(r)).nonZero,
-                software:      ffi_exif_software(r).toString().nonEmpty,
-                artist:        ffi_exif_artist(r).toString().nonEmpty
+                height:          Int(ffi_exif_height(r)).nonZero,
+                software:        ffi_exif_software(r).toString().nonEmpty,
+                artist:          ffi_exif_artist(r).toString().nonEmpty,
+                exposureBias:    ffi_exif_exposure_bias(r).toString().nonEmpty,
+                flash:           ffi_exif_flash(r).toString().nonEmpty,
+                whiteBalance:    ffi_exif_white_balance(r).toString().nonEmpty
             )
         }.value
     }
@@ -102,7 +105,10 @@ enum BridgeCore {
                         width:           Int(ffi_exif_width(r)).nonZero,
                         height:          Int(ffi_exif_height(r)).nonZero,
                         software:        ffi_exif_software(r).toString().nonEmpty,
-                        artist:          ffi_exif_artist(r).toString().nonEmpty
+                        artist:          ffi_exif_artist(r).toString().nonEmpty,
+                        exposureBias:    ffi_exif_exposure_bias(r).toString().nonEmpty,
+                        flash:           ffi_exif_flash(r).toString().nonEmpty,
+                        whiteBalance:    ffi_exif_white_balance(r).toString().nonEmpty
                     )
                 } else {
                     // EXIF コンテナが無いファイル（PNG/BMP/GIF/WebP 等）を IND と判定できるよう空レコードを格納。
