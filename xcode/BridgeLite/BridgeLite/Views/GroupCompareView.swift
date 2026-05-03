@@ -1,6 +1,7 @@
 import CoreGraphics
 import ImageIO
 import SwiftUI
+import CoreImage
 
 struct GroupCompareView: View {
     @Environment(LibraryStore.self) private var store
@@ -233,6 +234,9 @@ private struct CompareMemberColumn: View {
     @Environment(LibraryStore.self) private var store
     @State private var previewImage: (CGImage, Image.Orientation)?
     @State private var isLoadingPreview = false
+    @State private var rawRendered: (CGImage, Image.Orientation)?
+    @State private var isRendering = false
+    @State private var showRendered = false
 
     private var entry: PhotoEntry? { store.entries[memberID] }
     private var thumbnail: CGImage? { store.thumbnailImage(for: memberID) }
@@ -250,8 +254,9 @@ private struct CompareMemberColumn: View {
         return (PhotoKind.sooc.localizedBadgeName, Color.primary.opacity(0.4))
     }
 
-    // Displayed image: high-res preview when ready, thumbnail (pre-rotated) as placeholder.
+    // Displayed image: rendered > high-res preview > thumbnail placeholder.
     private var displayPair: (CGImage, Image.Orientation)? {
+        if showRendered, let r = rawRendered { return r }
         if let p = previewImage { return p }
         if let t = thumbnail { return (t, .up) }
         return nil
@@ -274,10 +279,24 @@ private struct CompareMemberColumn: View {
         }
         .task(id: memberID) {
             previewImage = nil
+            rawRendered = nil
+            showRendered = false
             guard let entry = store.entries[memberID] else { return }
             isLoadingPreview = true
-            defer { isLoadingPreview = false }
             previewImage = await loadPreview(entry: entry)
+            isLoadingPreview = false
+            // Auto-render for RAW: show embedded first, then replace
+            if entry.isRaw,
+               SettingsStore.shared.autoRenderRawCompare,
+               let db = store.cacheDatabase {
+                let engine = RAWRenderEngine(rawValue: SettingsStore.shared.rawRenderEngine) ?? .apple
+                isRendering = true
+                defer { isRendering = false }
+                rawRendered = await RAWRenderPipeline.shared.render(
+                    url: entry.url, engine: engine, target: .compare, db: db
+                )
+                if rawRendered != nil { showRendered = true }
+            }
         }
     }
 
@@ -336,6 +355,7 @@ private struct CompareMemberColumn: View {
                     )
             }
 
+            // Top-trailing: file kind badge
             let label = kindLabel
             if !label.text.isEmpty {
                 Text(label.text)
@@ -345,6 +365,46 @@ private struct CompareMemberColumn: View {
                     .padding(.vertical, 3)
                     .background(label.color.opacity(0.85), in: RoundedRectangle(cornerRadius: 4))
                     .padding(8)
+            }
+
+            // Top-leading: render status badge (RAW files only)
+            if let entry = entry, entry.isRaw {
+                Group {
+                    if isRendering {
+                        HStack(spacing: 4) {
+                            ProgressView().controlSize(.mini)
+                            Text(String(localized: "render.loading", defaultValue: "Rendering…"))
+                                .font(.system(size: 10, weight: .semibold))
+                                .foregroundStyle(.white)
+                        }
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 3)
+                        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
+                    } else if rawRendered != nil {
+                        Button {
+                            showRendered.toggle()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: showRendered ? "wand.and.stars.inverse" : "wand.and.stars")
+                                    .font(.system(size: 9, weight: .semibold))
+                                Text(showRendered
+                                     ? String(localized: "render.badge.rendered", defaultValue: "Rendered")
+                                     : String(localized: "render.badge.embedded", defaultValue: "Embedded"))
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
+                        }
+                        .buttonStyle(.plain)
+                        .help(showRendered
+                              ? String(localized: "render.toggle.embedded", defaultValue: "Show embedded preview")
+                              : String(localized: "render.toggle.rendered", defaultValue: "Show rendered preview"))
+                    }
+                }
+                .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
             }
         }
     }

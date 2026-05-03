@@ -309,6 +309,20 @@ final class SettingsStore {
                                                                .flatMap(JpgSidecarConflictPolicy.init(rawValue:))) ?? .ask {
         didSet { UserDefaults.standard.set(jpgSidecarConflictPolicy.rawValue, forKey: "jpgSidecarConflictPolicy") }
     }
+
+    // MARK: - RAW レンダリング
+    var rawRenderEngine: String = UserDefaults.standard.string(forKey: "rawRenderEngine") ?? "apple" {
+        didSet { UserDefaults.standard.set(rawRenderEngine, forKey: "rawRenderEngine") }
+    }
+    var autoRenderRawThumbnails: Bool = bool("autoRenderRawThumbnails", default: false) {
+        didSet { UserDefaults.standard.set(autoRenderRawThumbnails, forKey: "autoRenderRawThumbnails") }
+    }
+    var autoRenderRawCompare: Bool = bool("autoRenderRawCompare", default: true) {
+        didSet { UserDefaults.standard.set(autoRenderRawCompare, forKey: "autoRenderRawCompare") }
+    }
+    var autoRenderRawSidebar: Bool = bool("autoRenderRawSidebar", default: true) {
+        didSet { UserDefaults.standard.set(autoRenderRawSidebar, forKey: "autoRenderRawSidebar") }
+    }
 }
 
 // UserDefaults.object が nil のとき `default` を返す (Bool には bool(forKey:) が 0 扱いするため)。

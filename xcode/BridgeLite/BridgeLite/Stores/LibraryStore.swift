@@ -82,6 +82,7 @@ final class LibraryStore {
 
     private(set) var currentDirectoryURL: URL?
     private var database: BridgeCoreDatabase?
+    var cacheDatabase: BridgeCoreDatabase? { database }
     private var lastImageList: BridgeCoreImageList?
 
     // MARK: - Folder watch state
@@ -1323,6 +1324,23 @@ final class LibraryStore {
 
     func thumbnailImage(for id: UInt64) -> CGImage? {
         ThumbnailDecodeCache.shared.decode(id: id, blob: thumbnailBlobs[id])
+    }
+
+    /// RAW サムネイルを選択エンジンでバックグラウンドレンダリングし、完了後に差し替える。
+    /// `autoRenderRawThumbnails` が false の場合は何もしない。
+    func autoRenderThumbnailIfNeeded(entry: PhotoEntry, db: BridgeCoreDatabase) {
+        guard SettingsStore.shared.autoRenderRawThumbnails, entry.isRaw else { return }
+        let engine = RAWRenderEngine(rawValue: SettingsStore.shared.rawRenderEngine) ?? .apple
+        Task { [weak self] in
+            guard let (img, _) = await RAWRenderPipeline.shared.render(
+                url: entry.url, engine: engine, target: .sidebar, db: db
+            ) else { return }
+            guard let scaled = img.scaledToFit(maxPixels: 200),
+                  let thumbJpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
+            guard let self else { return }
+            ThumbnailDecodeCache.shared.evict(id: entry.id)
+            setThumbnail(id: entry.id, jpeg: thumbJpeg)
+        }
     }
 
     func setExif(id: UInt64, exif: ExifData?) {

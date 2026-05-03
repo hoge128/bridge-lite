@@ -186,6 +186,47 @@ enum BridgeCore {
         }.value
     }
 
+    // MARK: Rendered thumbnail cache
+
+    static func fetchCachedRendered(url: URL, engine: String, width: Int, db: BridgeCoreDatabase) async -> Data? {
+        return await Task.detached(priority: .utility) {
+            let r = bridge_fetch_cached_rendered(db.inner, url.path, engine, UInt32(width))
+            guard ffi_optional_bytes_found(r) else { return nil }
+            return Data(rustVec: ffi_optional_bytes_data(r))
+        }.value
+    }
+
+    static func storeCachedRendered(url: URL, engine: String, width: Int, data: Data, db: BridgeCoreDatabase) async {
+        await Task.detached(priority: .utility) {
+            data.withUnsafeBytes { raw in
+                bridge_store_cached_rendered(db.inner, url.path, engine, UInt32(width), raw.bindMemory(to: UInt8.self))
+            }
+        }.value
+    }
+
+    static func clearRenderedCache(db: BridgeCoreDatabase) async {
+        await Task.detached(priority: .utility) {
+            bridge_clear_rendered_cache(db.inner)
+        }.value
+    }
+
+    static func clearRenderedCache(dbPath: URL) async {
+        await Task.detached(priority: .utility) {
+            guard let db = try? BridgeCoreDatabase.open(path: dbPath) else { return }
+            bridge_clear_rendered_cache(db.inner)
+        }.value
+    }
+
+    // MARK: RAW render (Rust engine)
+
+    static func renderRawRust(url: URL, maxWidth: UInt32) async -> Data? {
+        return await Task.detached(priority: .userInitiated) {
+            let r = bridge_render_raw_rust(url.path, maxWidth)
+            guard ffi_optional_bytes_found(r) else { return nil }
+            return Data(rustVec: ffi_optional_bytes_data(r))
+        }.value
+    }
+
     // MARK: RAW embedded JPEG
 
     static func extractRawJpeg(url: URL, quality: RawJpegQuality) async -> Data? {

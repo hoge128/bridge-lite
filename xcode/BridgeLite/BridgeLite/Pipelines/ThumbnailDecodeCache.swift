@@ -22,6 +22,10 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
         return img
     }
 
+    func evict(id: UInt64) {
+        cache.removeObject(forKey: NSNumber(value: id))
+    }
+
     func evictAll() {
         cache.removeAllObjects()
     }

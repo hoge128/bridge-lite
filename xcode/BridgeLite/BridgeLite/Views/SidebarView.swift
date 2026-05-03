@@ -89,6 +89,9 @@ struct SidebarView: View {
     @State private var rgbHistogram: RGBHistogram = .empty
     @State private var gpsCoordinate: (lat: Double, lon: Double)? = nil
     @State private var lastPreviewTap: Date?
+    @State private var rawRendered: CGImage? = nil
+    @State private var isRendering = false
+    @State private var showRendered = false
 
     private var selectedEntry: PhotoEntry? {
         store.selectedID.flatMap { store.entries[$0] }
@@ -99,7 +102,8 @@ struct SidebarView: View {
             if let entry = selectedEntry {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
-                        PreviewImageView(image: highResPreview ?? store.thumbnailImage(for: entry.id))
+                        let displayPreview: CGImage? = (showRendered ? rawRendered : nil) ?? highResPreview ?? store.thumbnailImage(for: entry.id)
+                        PreviewImageView(image: displayPreview)
                             .frame(maxWidth: .infinity)
                             .frame(height: 220)
                             .clipped()
@@ -114,6 +118,10 @@ struct SidebarView: View {
                                     lastPreviewTap = now
                                 }
                             }
+
+                        if entry.isRaw {
+                            sidebarRenderBar(entry: entry)
+                        }
 
                         Group {
                             if !entry.isRaw, !rgbHistogram.isEmpty {
@@ -152,12 +160,27 @@ struct SidebarView: View {
                     highResPreview = nil
                     rgbHistogram = .empty
                     gpsCoordinate = nil
+                    rawRendered = nil
+                    showRendered = false
                     let url = entry.url
                     let isRaw = entry.isRaw
                     let thumbFallback = store.thumbnailImage(for: entry.id)
                     if isRaw {
                         if let jpeg = await BridgeCore.extractRawJpeg(url: url, quality: .preview) {
                             highResPreview = CGImage.fromJPEGData(jpeg)
+                        }
+                        // Auto-render: show embedded first, then replace with engine output
+                        if SettingsStore.shared.autoRenderRawSidebar,
+                           let db = store.cacheDatabase {
+                            let engine = RAWRenderEngine(rawValue: SettingsStore.shared.rawRenderEngine) ?? .apple
+                            isRendering = true
+                            defer { isRendering = false }
+                            if let (img, _) = await RAWRenderPipeline.shared.render(
+                                url: url, engine: engine, target: .sidebar, db: db
+                            ) {
+                                rawRendered = img
+                                showRendered = true
+                            }
                         }
                     } else {
                         async let preview = ThumbnailPipeline.generateWithImageIO(url: url, maxPixels: 800)
@@ -185,6 +208,34 @@ struct SidebarView: View {
             }
         }
         .frame(minWidth: 260)
+    }
+
+    @ViewBuilder
+    private func sidebarRenderBar(entry: PhotoEntry) -> some View {
+        HStack(spacing: 8) {
+            if isRendering {
+                ProgressView().controlSize(.mini)
+                Text(String(localized: "render.loading", defaultValue: "Rendering…"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else if rawRendered != nil {
+                Button {
+                    showRendered.toggle()
+                } label: {
+                    Image(systemName: showRendered ? "wand.and.stars.inverse" : "wand.and.stars")
+                        .font(.caption)
+                    Text(showRendered
+                         ? String(localized: "render.toggle.embedded", defaultValue: "Show embedded preview")
+                         : String(localized: "render.toggle.rendered", defaultValue: "Show rendered preview"))
+                        .font(.caption2)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 4)
     }
 
     private static func extractGPS(url: URL) async -> (lat: Double, lon: Double)? {

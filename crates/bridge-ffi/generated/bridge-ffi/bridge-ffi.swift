@@ -162,6 +162,28 @@ public func bridge_store_cached_thumbnail<GenericToRustStr: ToRustStr>(_ db: Bri
         __swift_bridge__$bridge_store_cached_thumbnail(db.ptr, pathAsRustStr, jpeg.toFfiSlice())
     })
 }
+public func bridge_fetch_cached_rendered<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ engine: GenericToRustStr, _ width: UInt32) -> FfiOptionalBytes {
+    return engine.toRustStr({ engineAsRustStr in
+        return path.toRustStr({ pathAsRustStr in
+        FfiOptionalBytes(ptr: __swift_bridge__$bridge_fetch_cached_rendered(db.ptr, pathAsRustStr, engineAsRustStr, width))
+    })
+    })
+}
+public func bridge_store_cached_rendered<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ engine: GenericToRustStr, _ width: UInt32, _ jpeg: UnsafeBufferPointer<UInt8>) {
+    engine.toRustStr({ engineAsRustStr in
+        path.toRustStr({ pathAsRustStr in
+        __swift_bridge__$bridge_store_cached_rendered(db.ptr, pathAsRustStr, engineAsRustStr, width, jpeg.toFfiSlice())
+    })
+    })
+}
+public func bridge_clear_rendered_cache(_ db: BridgeDatabaseRef) {
+    __swift_bridge__$bridge_clear_rendered_cache(db.ptr)
+}
+public func bridge_render_raw_rust<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr, _ max_width: UInt32) -> FfiOptionalBytes {
+    return path.toRustStr({ pathAsRustStr in
+        FfiOptionalBytes(ptr: __swift_bridge__$bridge_render_raw_rust(pathAsRustStr, max_width))
+    })
+}
 public func bridge_extract_raw_jpeg<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr, _ quality: UInt8) -> FfiOptionalBytes {
     return path.toRustStr({ pathAsRustStr in
         FfiOptionalBytes(ptr: __swift_bridge__$bridge_extract_raw_jpeg(pathAsRustStr, quality))

@@ -8,6 +8,9 @@ struct ViewerView: View {
     @State private var isLoadingFullRes = false
     @State private var keyMonitor: Any?
     @State private var xmp: XmpData? = nil
+    @State private var rawRendered: (CGImage, Image.Orientation)?
+    @State private var isRendering = false
+    @State private var showRendered = false
 
     private var selectedEntry: PhotoEntry? {
         store.selectedID.flatMap { store.entries[$0] }
@@ -25,12 +28,17 @@ struct ViewerView: View {
         (xmp?.rating ?? 0) > 0 || xmp?.label != nil
     }
 
+    private var displayPair: (CGImage, Image.Orientation)? {
+        if showRendered, let r = rawRendered { return r }
+        return fullRes
+    }
+
     var body: some View {
         @Bindable var store = store
         ZStack {
             Color.black.ignoresSafeArea()
 
-            if let (img, orient) = fullRes {
+            if let (img, orient) = displayPair {
                 Image(decorative: img, scale: 1.0, orientation: orient)
                     .resizable()
                     .scaledToFit()
@@ -62,6 +70,7 @@ struct ViewerView: View {
                         .help(store.viewerShowsMeta
                               ? String(localized: "viewer.meta.hide", defaultValue: "Hide Info (M)")
                               : String(localized: "viewer.meta.show", defaultValue: "Show Info (M)"))
+                        renderButton
                         Button("Prev") { store.navigatePrev() }
                             .keyboardShortcut(.leftArrow, modifiers: [])
                         Button("Next") { store.navigateNext() }
@@ -111,11 +120,53 @@ struct ViewerView: View {
         .task(id: store.selectedID) {
             xmp = store.selectedID.flatMap { store.xmpData[$0] }
             fullRes = nil
+            rawRendered = nil
+            showRendered = false
             guard let id = store.selectedID,
                   let entry = store.entries[id] else { return }
             isLoadingFullRes = true
             defer { isLoadingFullRes = false }
             fullRes = await loadFullRes(entry: entry)
+        }
+    }
+
+    @ViewBuilder
+    private var renderButton: some View {
+        if let entry = selectedEntry, entry.isRaw {
+            if isRendering {
+                ProgressView()
+                    .controlSize(.small)
+                    .help(String(localized: "render.loading", defaultValue: "Rendering…"))
+            } else if rawRendered != nil {
+                Button {
+                    showRendered.toggle()
+                } label: {
+                    Image(systemName: showRendered ? "wand.and.stars.inverse" : "wand.and.stars")
+                }
+                .help(showRendered
+                      ? String(localized: "render.toggle.embedded", defaultValue: "Show embedded preview")
+                      : String(localized: "render.toggle.rendered", defaultValue: "Show rendered preview"))
+            } else {
+                Button {
+                    triggerRender(entry: entry)
+                } label: {
+                    Image(systemName: "wand.and.stars")
+                }
+                .help(String(localized: "render.button", defaultValue: "Render with engine"))
+            }
+        }
+    }
+
+    private func triggerRender(entry: PhotoEntry) {
+        guard let db = store.cacheDatabase else { return }
+        let engine = RAWRenderEngine(rawValue: SettingsStore.shared.rawRenderEngine) ?? .apple
+        Task {
+            isRendering = true
+            defer { isRendering = false }
+            rawRendered = await RAWRenderPipeline.shared.render(
+                url: entry.url, engine: engine, target: .viewer, db: db
+            )
+            if rawRendered != nil { showRendered = true }
         }
     }
 

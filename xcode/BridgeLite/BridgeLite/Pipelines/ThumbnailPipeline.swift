@@ -71,6 +71,8 @@ enum ThumbnailPipeline {
                 }
             }
         }
+        // Auto-render: fire-and-forget background replace for RAW thumbnails when enabled
+        await store.autoRenderThumbnailIfNeeded(entry: entry, db: db)
         // 成功・失敗・スキップに関わらず試行完了を通知（進捗バーが 99% 止まりになるのを防ぐ）
         await store.noteThumbnailAttemptFinished()
     }
@@ -143,5 +145,22 @@ extension CGImage {
         CGImageDestinationAddImage(dest, self, [kCGImageDestinationLossyCompressionQuality: compressionQuality] as CFDictionary)
         guard CGImageDestinationFinalize(dest) else { return nil }
         return data as Data
+    }
+
+    func scaledToFit(maxPixels: Int) -> CGImage? {
+        let w = width, h = height
+        guard w > maxPixels || h > maxPixels else { return self }
+        let scale = CGFloat(maxPixels) / CGFloat(max(w, h))
+        let newW = max(1, Int(CGFloat(w) * scale))
+        let newH = max(1, Int(CGFloat(h) * scale))
+        let cs = colorSpace ?? CGColorSpaceCreateDeviceRGB()
+        guard let ctx = CGContext(
+            data: nil, width: newW, height: newH,
+            bitsPerComponent: 8, bytesPerRow: 0,
+            space: cs, bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue
+        ) else { return nil }
+        ctx.interpolationQuality = .high
+        ctx.draw(self, in: CGRect(x: 0, y: 0, width: newW, height: newH))
+        return ctx.makeImage()
     }
 }

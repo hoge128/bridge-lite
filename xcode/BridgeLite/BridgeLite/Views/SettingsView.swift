@@ -5,6 +5,7 @@ struct SettingsView: View {
     @State private var showRestartAlert = false
     @State private var cacheSize: Int64 = -1
     @State private var showClearCacheAlert = false
+    @State private var showClearRenderCacheAlert = false
 
     var body: some View {
         TabView {
@@ -26,6 +27,18 @@ struct SettingsView: View {
         } message: {
             Text(String(localized: "alert.cache.clear.message",
                         defaultValue: "Thumbnails and EXIF data will be deleted from the cache. They will be rebuilt automatically when you next open a folder."))
+        }
+        .alert(
+            String(localized: "alert.render.cache.clear.title", defaultValue: "Clear Render Cache"),
+            isPresented: $showClearRenderCacheAlert
+        ) {
+            Button(String(localized: "alert.cache.clear.button", defaultValue: "Clear"), role: .destructive) {
+                Task { await BridgeCore.clearRenderedCache(dbPath: LibraryStore.cacheDBURL()) }
+            }
+            Button(String(localized: "alert.restart.button.later", defaultValue: "Cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "alert.render.cache.clear.message",
+                        defaultValue: "Rendered RAW previews will be deleted. They will be regenerated on demand."))
         }
         .alert(
             String(localized: "alert.restart.title", defaultValue: "Restart Required"),
@@ -122,6 +135,43 @@ struct SettingsView: View {
             } header: {
                 Text(String(localized: "settings.folder_watch.section",
                             defaultValue: "Folder Updates"))
+            }
+            Section(String(localized: "settings.render.section", defaultValue: "RAW Rendering")) {
+                Picker(String(localized: "settings.render.engine", defaultValue: "Rendering Engine"),
+                       selection: $settings.rawRenderEngine) {
+                    Text("Apple (CIRAWFilter)").tag("apple")
+                    Text("Rust (rawler)").tag("rust")
+                }
+                .pickerStyle(.radioGroup)
+                Text(String(localized: "settings.render.engine.help",
+                            defaultValue: "Apple uses CIRAWFilter (hardware-accelerated, equivalent to Photos.app). Rust uses rawler+imagepipe (deterministic, slower)."))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Toggle(String(localized: "settings.render.auto_compare",
+                              defaultValue: "Auto-render in Compare view"),
+                       isOn: $settings.autoRenderRawCompare)
+                Text(String(localized: "settings.render.auto_compare.description",
+                            defaultValue: "Automatically renders each RAW column when the Compare view opens. Results are cached and reused."))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Toggle(String(localized: "settings.render.auto_sidebar",
+                              defaultValue: "Auto-render in Sidebar preview"),
+                       isOn: $settings.autoRenderRawSidebar)
+                Text(String(localized: "settings.render.auto_sidebar.description",
+                            defaultValue: "Automatically renders the RAW preview in the right-side panel when selecting a photo. Results are cached and reused."))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Toggle(String(localized: "settings.render.auto_thumbnails",
+                              defaultValue: "Auto-render in Thumbnail grid"),
+                       isOn: $settings.autoRenderRawThumbnails)
+                Text(String(localized: "settings.render.auto_thumbnails.description",
+                            defaultValue: "Replaces RAW thumbnails in the grid with engine-rendered results during scanning. Off by default due to increased scan load."))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Button(String(localized: "settings.render.cache.clear", defaultValue: "Clear Render Cache"),
+                       role: .destructive) {
+                    showClearRenderCacheAlert = true
+                }
             }
             Section("Cache") {
                 LabeledContent("Database Size") {

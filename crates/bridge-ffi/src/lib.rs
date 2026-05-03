@@ -335,6 +335,14 @@ mod ffi {
         fn ffi_optional_bytes_data(r: &FfiOptionalBytes) -> Vec<u8>;
         fn bridge_store_cached_thumbnail(db: &BridgeDatabase, path: &str, jpeg: &[u8]);
 
+        // Rendered thumbnail cache API
+        fn bridge_fetch_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32) -> FfiOptionalBytes;
+        fn bridge_store_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32, jpeg: &[u8]);
+        fn bridge_clear_rendered_cache(db: &BridgeDatabase);
+
+        // RAW render (Rust engine: rawloader + imagepipe)
+        fn bridge_render_raw_rust(path: &str, max_width: u32) -> FfiOptionalBytes;
+
         // RAW embedded JPEG API (quality: 0=Thumbnail, 1=Preview, 2=Full)
         fn bridge_extract_raw_jpeg(path: &str, quality: u8) -> FfiOptionalBytes;
 
@@ -506,6 +514,33 @@ fn ffi_optional_bytes_data(r: &FfiOptionalBytes) -> Vec<u8> { r.data.clone() }
 fn bridge_store_cached_thumbnail(db: &BridgeDatabase, path: &str, jpeg: &[u8]) {
     let p = Path::new(path);
     bridge_core::db::store_thumb(p, &db.db_path, jpeg);
+}
+
+// ── Rendered thumbnail cache API impl ─────────────────────────────────────
+
+fn bridge_fetch_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32) -> FfiOptionalBytes {
+    let p = Path::new(path);
+    bridge_core::db::fetch_rendered(p, &db.db_path, engine, width)
+        .map(FfiOptionalBytes::some)
+        .unwrap_or_else(FfiOptionalBytes::none)
+}
+
+fn bridge_store_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32, jpeg: &[u8]) {
+    let p = Path::new(path);
+    bridge_core::db::store_rendered(p, &db.db_path, engine, width, jpeg);
+}
+
+fn bridge_clear_rendered_cache(db: &BridgeDatabase) {
+    bridge_core::db::clear_rendered(&db.db_path);
+}
+
+// ── RAW render (Rust engine) API impl ─────────────────────────────────────
+
+fn bridge_render_raw_rust(path: &str, max_width: u32) -> FfiOptionalBytes {
+    let p = Path::new(path);
+    bridge_core::render::render_raw_to_jpeg(p, max_width, 85)
+        .map(FfiOptionalBytes::some)
+        .unwrap_or_else(FfiOptionalBytes::none)
 }
 
 // ── RAW embedded JPEG API impl ─────────────────────────────────────────────

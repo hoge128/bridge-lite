@@ -62,6 +62,15 @@ fn init_schema(conn: &Connection) -> Result<()> {
             key   TEXT PRIMARY KEY,
             value TEXT
         );
+
+        CREATE TABLE IF NOT EXISTS rendered_thumbnails (
+            path   TEXT NOT NULL,
+            mtime  INTEGER NOT NULL,
+            engine TEXT NOT NULL,
+            width  INTEGER NOT NULL,
+            jpeg   BLOB NOT NULL,
+            PRIMARY KEY (path, engine, width)
+        );
         ",
     )
 }
@@ -277,6 +286,41 @@ pub fn store_thumb(path: &Path, db_path: &Path, jpeg: &[u8]) {
         "INSERT OR REPLACE INTO thumbnails (path, mtime, jpeg) VALUES (?1, ?2, ?3)",
         params![path.to_string_lossy().as_ref(), mtime, jpeg],
     );
+}
+
+// ── Rendered thumbnail cache ───────────────────────────────────────────────
+
+/// Return a rendered JPEG if the cached entry matches both the file's current mtime
+/// and the given engine/width combination.
+pub fn fetch_rendered(path: &Path, db_path: &Path, engine: &str, width: u32) -> Option<Vec<u8>> {
+    let conn = Connection::open(db_path).ok()?;
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(1));
+    let mtime = file_mtime(path);
+    conn.query_row(
+        "SELECT jpeg FROM rendered_thumbnails WHERE path = ?1 AND mtime = ?2 AND engine = ?3 AND width = ?4",
+        params![path.to_string_lossy().as_ref(), mtime, engine, width as i64],
+        |row| row.get(0),
+    )
+    .ok()
+}
+
+/// Persist a rendered JPEG blob.  Overwrites any prior entry with the same
+/// (path, engine, width) key.
+pub fn store_rendered(path: &Path, db_path: &Path, engine: &str, width: u32, jpeg: &[u8]) {
+    let Ok(conn) = Connection::open(db_path) else { return };
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(1));
+    let mtime = file_mtime(path);
+    let _ = conn.execute(
+        "INSERT OR REPLACE INTO rendered_thumbnails (path, mtime, engine, width, jpeg) VALUES (?1, ?2, ?3, ?4, ?5)",
+        params![path.to_string_lossy().as_ref(), mtime, engine, width as i64, jpeg],
+    );
+}
+
+/// Delete all rows from rendered_thumbnails.
+pub fn clear_rendered(db_path: &Path) {
+    let Ok(conn) = Connection::open(db_path) else { return };
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(1));
+    let _ = conn.execute("DELETE FROM rendered_thumbnails", []);
 }
 
 // ── Internal helpers ───────────────────────────────────────────────────────
