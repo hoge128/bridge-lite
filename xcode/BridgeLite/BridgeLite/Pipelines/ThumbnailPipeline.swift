@@ -25,6 +25,11 @@ enum ThumbnailPipeline {
         }
     }
 
+    // Thumbnail target size: 360pt (slider max) × 2x Retina = 720px
+    private static let targetPixels = 720
+    // Cached thumbnails below this size are too small for Retina and get regenerated
+    private static let minCachePixels = 400
+
     private static func loadOne(
         entry: PhotoEntry,
         store: LibraryStore,
@@ -32,22 +37,26 @@ enum ThumbnailPipeline {
         phashPipeline: PHashPipeline
     ) async {
         try? await limiter.run {
-            // 1. SQLite thumbnail cache — pHash already in DB from prior scan.
-            //    Use JPEG bytes directly: no decode needed for storage.
+            // 1. SQLite thumbnail cache — skip if too small for Retina (auto-migrate old 200px entries)
             if let jpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db) {
-                await store.setThumbnail(id: entry.id, jpeg: jpeg)
-                if entry.isRaw {
-                    let url = entry.url
-                    let orient = await Task.detached(priority: .utility) {
-                        readRawOrientation(url)
-                    }.value
-                    await store.setThumbnailOrientation(id: entry.id, orientation: orient)
+                let isAdequate = CGImage.fromJPEGData(jpeg)
+                    .map { max($0.width, $0.height) >= minCachePixels } ?? false
+                if isAdequate {
+                    await store.setThumbnail(id: entry.id, jpeg: jpeg)
+                    if entry.isRaw {
+                        let url = entry.url
+                        let orient = await Task.detached(priority: .utility) {
+                            readRawOrientation(url)
+                        }.value
+                        await store.setThumbnailOrientation(id: entry.id, orientation: orient)
+                    }
+                    return
                 }
-                return
+                // Cached thumbnail too small — fall through to regenerate at Retina resolution
             }
 
-            // 2. ImageIO (skips RAW — handled by fallback below)
-            if let img = await generateWithImageIO(url: entry.url, maxPixels: 200),
+            // 2. ImageIO for non-RAW (JPEG/HEIF/DNG/TIFF)
+            if let img = await generateWithImageIO(url: entry.url, maxPixels: targetPixels),
                let jpeg = img.jpegData(compressionQuality: 0.85) {
                 await store.setThumbnail(id: entry.id, jpeg: jpeg)
                 await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
@@ -55,20 +64,21 @@ enum ThumbnailPipeline {
                 return
             }
 
-            // 3. RAW: Rust IFD embedded JPEG extraction.
-            //    Pass the raw JPEG directly; decode only for pHash.
+            // 3. RAW: extract preview JPEG from IFD, scale to targetPixels, re-encode for cache.
+            //    Use .preview (mid-size IFD JPEG) instead of .thumbnail to ensure Retina sharpness.
             if entry.isRaw,
-               let jpeg = await BridgeCore.extractRawJpeg(url: entry.url, quality: .thumbnail) {
+               let rawJpeg = await BridgeCore.extractRawJpeg(url: entry.url, quality: .preview),
+               let rawImg = CGImage.fromJPEGData(rawJpeg) {
                 let url = entry.url
                 let orient = await Task.detached(priority: .utility) {
                     readRawOrientation(url)
                 }.value
+                let scaled = rawImg.scaledToFit(maxPixels: targetPixels) ?? rawImg
+                guard let jpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
                 await store.setThumbnail(id: entry.id, jpeg: jpeg)
                 await store.setThumbnailOrientation(id: entry.id, orientation: orient)
                 await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
-                if let img = CGImage.fromJPEGData(jpeg) {
-                    await phashPipeline.enqueue(entry: entry, source: img, db: db)
-                }
+                await phashPipeline.enqueue(entry: entry, source: scaled, db: db)
             }
         }
         // Auto-render: fire-and-forget background replace for RAW thumbnails when enabled
