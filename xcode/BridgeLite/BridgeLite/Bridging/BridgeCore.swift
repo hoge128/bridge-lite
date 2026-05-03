@@ -85,25 +85,30 @@ enum BridgeCore {
             result.reserveCapacity(count)
             for i in 0..<count {
                 let r = ffi_exif_batch_exif_at(batch, UInt(i))
-                guard ffi_exif_found(r) else { continue }
                 let entry = image_entry_list_get(list.inner, UInt(i))
                 let id = ffi_image_entry_id(entry)
-                result[id] = ExifData(
-                    make:            ffi_exif_make(r).toString().nonEmpty,
-                    model:           ffi_exif_model(r).toString().nonEmpty,
-                    datetime:        ffi_exif_datetime(r).toString().nonEmpty,
-                    subsec:          ffi_exif_subsec(r).toString().nonEmpty,
-                    exposureTime:    ffi_exif_exposure(r).toString().nonEmpty,
-                    fnumber:         ffi_exif_fnumber(r).toString().nonEmpty,
-                    iso:             Int(ffi_exif_iso(r)).nonZero,
-                    focalLength:     ffi_exif_focal_length(r).toString().nonEmpty,
-                    focalLength35mm: Int(ffi_exif_focal_length_35mm(r)).nonNegative,
-                    lensName:        ffi_exif_lens_model(r).toString().nonEmpty,
-                    width:           Int(ffi_exif_width(r)).nonZero,
-                    height:          Int(ffi_exif_height(r)).nonZero,
-                    software:        ffi_exif_software(r).toString().nonEmpty,
-                    artist:          ffi_exif_artist(r).toString().nonEmpty
-                )
+                if ffi_exif_found(r) {
+                    result[id] = ExifData(
+                        make:            ffi_exif_make(r).toString().nonEmpty,
+                        model:           ffi_exif_model(r).toString().nonEmpty,
+                        datetime:        ffi_exif_datetime(r).toString().nonEmpty,
+                        subsec:          ffi_exif_subsec(r).toString().nonEmpty,
+                        exposureTime:    ffi_exif_exposure(r).toString().nonEmpty,
+                        fnumber:         ffi_exif_fnumber(r).toString().nonEmpty,
+                        iso:             Int(ffi_exif_iso(r)).nonZero,
+                        focalLength:     ffi_exif_focal_length(r).toString().nonEmpty,
+                        focalLength35mm: Int(ffi_exif_focal_length_35mm(r)).nonNegative,
+                        lensName:        ffi_exif_lens_model(r).toString().nonEmpty,
+                        width:           Int(ffi_exif_width(r)).nonZero,
+                        height:          Int(ffi_exif_height(r)).nonZero,
+                        software:        ffi_exif_software(r).toString().nonEmpty,
+                        artist:          ffi_exif_artist(r).toString().nonEmpty
+                    )
+                } else {
+                    // EXIF コンテナが無いファイル（PNG/BMP/GIF/WebP 等）を IND と判定できるよう空レコードを格納。
+                    // nil のままだと isIndeterminateMember の guard で素通りし SOOC に誤分類される。
+                    result[id] = ExifData()
+                }
             }
             return result
         }.value
