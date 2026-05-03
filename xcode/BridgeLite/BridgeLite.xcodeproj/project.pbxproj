@@ -34,6 +34,7 @@
 		89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		8F544229F248278F9D38D074 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
 		9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8959834812C243F4AB214555 /* ViewerView.swift */; };
+		0554F7CF4D4F4DB0AE697020 /* ZoomableImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = C07C957F960E4B51B2577ABA /* ZoomableImage.swift */; };
 		2B41F6FBC7E044488751E828 /* FolderWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = 22151A806B8649B59CC92E83 /* FolderWatcher.swift */; };
 		A017CA3928F5411EB8A668A1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B123E21AF2DA71784C11365 /* SettingsStore.swift */; };
 		B381E002D017743456FC7713 /* bridge-ffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */; };
@@ -82,6 +83,7 @@
 		851B10EDFF439C8C3987E4B6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8897A02D7131985030D5B46D /* ExifHistogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExifHistogramView.swift; sourceTree = "<group>"; };
 		8959834812C243F4AB214555 /* ViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerView.swift; sourceTree = "<group>"; };
+		C07C957F960E4B51B2577ABA /* ZoomableImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomableImage.swift; sourceTree = "<group>"; };
 		9A4260412EA9F57B97926BB9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9CE46BEBEEE9B02A6F31B9F8 /* BridgeLite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BridgeLite.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCellView.swift; sourceTree = "<group>"; };
@@ -231,6 +233,7 @@
 				2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */,
 				6259A93CEB1040679F6D1C26 /* ToolbarView.swift */,
 				8959834812C243F4AB214555 /* ViewerView.swift */,
+				C07C957F960E4B51B2577ABA /* ZoomableImage.swift */,
 			);
 			path = Views;
 			sourceTree = "<group>";
@@ -349,6 +352,7 @@
 				AA11BB22CC33DD44EE55FF68 /* RAWRenderPipeline.swift in Sources */,
 				740B6E0B825A83C207B42109 /* ToolbarView.swift in Sources */,
 				9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */,
+				0554F7CF4D4F4DB0AE697020 /* ZoomableImage.swift in Sources */,
 				BD135BC5DA5312F04B946CC4 /* XmpData.swift in Sources */,
 				B381E002D017743456FC7713 /* bridge-ffi.swift in Sources */,
 			);

@@ -13,6 +13,10 @@ struct ViewerView: View {
     @State private var showRendered = false
     @State private var showInfoButton = false
     @State private var infoHideTask: Task<Void, Never>?
+    @State private var zoom = ZoomState()
+    @State private var scrollMonitor: Any?
+    @State private var magnifyMonitor: Any?
+    @State private var clickMonitor: Any?
 
     private var selectedEntry: PhotoEntry? {
         store.selectedID.flatMap { store.entries[$0] }
@@ -42,9 +46,7 @@ struct ViewerView: View {
                 Color.black.ignoresSafeArea()
 
                 if let (img, orient) = displayPair {
-                    Image(decorative: img, scale: 1.0, orientation: orient)
-                        .resizable()
-                        .scaledToFit()
+                    ZoomableImage(image: img, orientation: orient, zoom: zoom)
                 } else if let thumb = thumbnail {
                     // While loading: blurred + dimmed thumbnail as spatial placeholder.
                     // After failure (not loading): plain thumbnail as best-effort fallback.
@@ -108,6 +110,7 @@ struct ViewerView: View {
             xmp = store.selectedID.flatMap { store.xmpData[$0] }
             store.viewerShowsMeta = hasRatingOrLabel
             let s = store
+            let z = zoom
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 if event.keyCode == 53 { // Escape
                     s.viewerMode = false
@@ -118,11 +121,51 @@ struct ViewerView: View {
                     s.viewerShowsMeta.toggle()
                     return nil
                 }
+                // Arrow keys: pan when zoomed, otherwise let Prev/Next shortcut handle them
+                if mods.isEmpty, z.scale > 1.0 {
+                    let step: CGFloat = 50
+                    switch event.keyCode {
+                    case 123: z.offset.width  -= step; z.clampOffset(); z.baseOffset = z.offset; return nil
+                    case 124: z.offset.width  += step; z.clampOffset(); z.baseOffset = z.offset; return nil
+                    case 125: z.offset.height += step; z.clampOffset(); z.baseOffset = z.offset; return nil
+                    case 126: z.offset.height -= step; z.clampOffset(); z.baseOffset = z.offset; return nil
+                    default: break
+                    }
+                }
+                return event
+            }
+            scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+                if event.hasPreciseScrollingDeltas {
+                    // Trackpad two-finger scroll → pan (only when zoomed)
+                    guard z.scale > 1.0 else { return event }
+                    z.offset.width  += event.scrollingDeltaX
+                    z.offset.height -= event.scrollingDeltaY
+                    z.clampOffset()
+                    z.baseOffset = z.offset
+                } else {
+                    // Mouse wheel → zoom centered on cursor
+                    let cursor = viewerCursorFromCenter(event)
+                    z.applyScaleDelta(CGFloat(event.scrollingDeltaY) * 0.04, around: cursor)
+                }
+                return event
+            }
+            magnifyMonitor = NSEvent.addLocalMonitorForEvents(matching: .magnify) { event in
+                let cursor = viewerCursorFromCenter(event)
+                z.applyScaleDelta(CGFloat(event.magnification), around: cursor)
+                return event
+            }
+            clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
+                guard event.clickCount == 2 else { return event }
+                let cursor = viewerCursorFromCenter(event)
+                z.toggleFitOrHundred(at: cursor)
                 return event
             }
         }
         .onDisappear {
-            if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
+            if let m = keyMonitor  { NSEvent.removeMonitor(m); keyMonitor  = nil }
+            if let m = scrollMonitor  { NSEvent.removeMonitor(m); scrollMonitor  = nil }
+            if let m = magnifyMonitor { NSEvent.removeMonitor(m); magnifyMonitor = nil }
+            if let m = clickMonitor   { NSEvent.removeMonitor(m); clickMonitor   = nil }
             infoHideTask?.cancel()
         }
         .onReceive(store.xmpDidUpdate) { id in
@@ -134,6 +177,7 @@ struct ViewerView: View {
             fullRes = nil
             rawRendered = nil
             showRendered = false
+            zoom.reset()
             guard let id = store.selectedID,
                   let entry = store.entries[id] else { return }
             isLoadingFullRes = true
@@ -229,6 +273,13 @@ struct ViewerView: View {
             return (img, Image.Orientation(readOrientation(src)))
         }.value
     }
+}
+
+// Returns cursor position relative to the window content view center (SwiftUI coordinate: Y-down).
+private func viewerCursorFromCenter(_ event: NSEvent) -> CGPoint {
+    guard let window = event.window, let cv = window.contentView else { return .zero }
+    let loc = event.locationInWindow
+    return CGPoint(x: loc.x - cv.bounds.midX, y: cv.bounds.midY - loc.y)
 }
 
 // MARK: - Metadata overlay
