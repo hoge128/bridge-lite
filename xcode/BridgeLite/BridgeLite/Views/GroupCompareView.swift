@@ -19,9 +19,12 @@ struct GroupCompareView: View {
               members.count > 1 else {
             return [currentRepID]
         }
-        return members.sorted {
-            let da = store.entries[$0]?.createdDate ?? .distantPast
-            let db = store.entries[$1]?.createdDate ?? .distantPast
+        return members.sorted { a, b in
+            let oa = store.displayKind(for: a).displayOrder
+            let ob = store.displayKind(for: b).displayOrder
+            if oa != ob { return oa < ob }
+            let da = store.entries[a]?.createdDate ?? .distantPast
+            let db = store.entries[b]?.createdDate ?? .distantPast
             return da < db
         }
     }
@@ -205,9 +208,12 @@ struct GroupCompareView: View {
         if let entry = store.entries[repID],
            let group = store.shotGroups[entry.shotId],
            group.count > 1 {
-            members = group.sorted {
-                let da = store.entries[$0]?.createdDate ?? .distantPast
-                let db = store.entries[$1]?.createdDate ?? .distantPast
+            members = group.sorted { a, b in
+                let oa = store.displayKind(for: a).displayOrder
+                let ob = store.displayKind(for: b).displayOrder
+                if oa != ob { return oa < ob }
+                let da = store.entries[a]?.createdDate ?? .distantPast
+                let db = store.entries[b]?.createdDate ?? .distantPast
                 return da < db
             }
         } else {

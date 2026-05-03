@@ -1609,6 +1609,14 @@ final class LibraryStore {
         return .sooc
     }
 
+    func displayKind(for id: UInt64) -> PhotoKind {
+        guard let entry = entries[id] else { return .sooc }
+        let groupMinDate = shotGroups[entry.shotId]?
+            .compactMap { entries[$0]?.createdDate }
+            .min()
+        return entryKind(id: id, entry: entry, groupMinDate: groupMinDate)
+    }
+
     private func groupTargets(for id: UInt64, entry: PhotoEntry) -> [UInt64] {
         guard let members = shotGroups[entry.shotId], !members.isEmpty else { return [id] }
         let groupMinDate = members.compactMap { entries[$0]?.createdDate }.min()

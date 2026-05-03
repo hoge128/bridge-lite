@@ -22,6 +22,16 @@ extension PhotoKind {
         case .indeterminate: return String(localized: "kind.indeterminate.badge", defaultValue: "IND")
         }
     }
+
+    // SOOC → RAW → Developed → Indeterminate
+    var displayOrder: Int {
+        switch self {
+        case .sooc:          return 0
+        case .raw:           return 1
+        case .developed:     return 2
+        case .indeterminate: return 3
+        }
+    }
 }
 
 struct FilterCriteria: Sendable, Equatable {

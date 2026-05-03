@@ -144,7 +144,15 @@ struct SidebarView: View {
                         ExifQuickBar(exif: store.exifData[entry.id])
 
                         if !store.filter.flatten,
-                           let members = store.shotGroups[entry.shotId], members.count > 1 {
+                           let rawMembers = store.shotGroups[entry.shotId], rawMembers.count > 1 {
+                            let members = rawMembers.sorted { a, b in
+                                let oa = store.displayKind(for: a).displayOrder
+                                let ob = store.displayKind(for: b).displayOrder
+                                if oa != ob { return oa < ob }
+                                let da = store.entries[a]?.createdDate ?? .distantPast
+                                let db = store.entries[b]?.createdDate ?? .distantPast
+                                return da < db
+                            }
                             VariationStripView(selectedID: entry.id, members: members)
                         }
 
@@ -489,6 +497,10 @@ struct VariationThumbView: View {
         (store.xmpData[entry.id]?.developed == true) ||
         (store.exifData[entry.id]?.isDeveloped == true)
     }
+    private var isInd: Bool {
+        guard let exif = store.exifData[entry.id] else { return false }
+        return (exif.make ?? "").isEmpty && (exif.model ?? "").isEmpty
+    }
 
     var body: some View {
         ZStack(alignment: .bottomTrailing) {
@@ -500,10 +512,10 @@ struct VariationThumbView: View {
                         .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
                 )
 
-            let badge = entry.isRaw ? "R" : (isDev ? "DEV" : "J")
+            let badge = entry.isRaw ? "R" : (isDev ? "DEV" : (isInd ? "IND" : "J"))
             Text(badge)
                 .font(.system(size: 8, weight: .bold))
-                .foregroundStyle((entry.isRaw || isDev) ? Color.white : Color.primary)
+                .foregroundStyle((entry.isRaw || isDev || isInd) ? Color.white : Color.primary)
                 .padding(.horizontal, 3)
                 .padding(.vertical, 1)
                 .background {
@@ -511,6 +523,8 @@ struct VariationThumbView: View {
                         RoundedRectangle(cornerRadius: 2).fill(Color.orange.opacity(0.8))
                     } else if isDev {
                         RoundedRectangle(cornerRadius: 2).fill(Color.green.opacity(0.8))
+                    } else if isInd {
+                        RoundedRectangle(cornerRadius: 2).fill(Color.purple.opacity(0.8))
                     } else {
                         RoundedRectangle(cornerRadius: 2).fill(.ultraThinMaterial)
                     }
