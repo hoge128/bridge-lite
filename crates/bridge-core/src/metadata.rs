@@ -23,6 +23,10 @@ pub struct ExifData {
     pub flash: Option<String>,
     /// WhiteBalance: "Auto" or "Manual".
     pub white_balance: Option<String>,
+    /// EXIF ImageDescription tag (0x010E, ASCII). Read-only; write goes to XMP sidecar.
+    pub image_description: Option<String>,
+    /// EXIF UserComment tag (0x9286, UNDEFINED + 8-byte charset prefix). Read-only; write goes to XMP sidecar.
+    pub user_comment: Option<String>,
 }
 
 pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
@@ -158,7 +162,51 @@ pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
         exposure_bias,
         flash,
         white_balance,
+        image_description: get_ascii(Tag::ImageDescription),
+        user_comment: read_user_comment(&exif),
     })
+}
+
+/// Decode EXIF UserComment (tag 0x9286): UNDEFINED type with 8-byte charset prefix.
+/// Supports ASCII and UNICODE (UTF-16 with BOM detection) charsets.
+fn read_user_comment(exif: &exif::Exif) -> Option<String> {
+    use exif::{In, Tag, Value};
+    let field = exif.get_field(Tag::UserComment, In::PRIMARY)?;
+    let bytes = match &field.value {
+        Value::Undefined(v, _) => v.as_slice(),
+        _ => return None,
+    };
+    if bytes.len() < 8 {
+        return None;
+    }
+    let (head, body) = bytes.split_at(8);
+    let trim_str = |s: String| -> Option<String> {
+        let t = s.trim().trim_end_matches('\0').to_string();
+        if t.is_empty() { None } else { Some(t) }
+    };
+    match head {
+        b"ASCII\0\0\0" | b"\0\0\0\0\0\0\0\0" => {
+            std::str::from_utf8(body).ok()
+                .map(|s| s.to_string())
+                .and_then(trim_str)
+        }
+        b"UNICODE\0" => {
+            // BOM-based endian detection; fallback to big-endian (EXIF standard).
+            let (le, payload) = if body.len() >= 2 && body[0] == 0xFF && body[1] == 0xFE {
+                (true, &body[2..])
+            } else if body.len() >= 2 && body[0] == 0xFE && body[1] == 0xFF {
+                (false, &body[2..])
+            } else {
+                (false, body)
+            };
+            let units: Vec<u16> = payload.chunks_exact(2)
+                .map(|c| if le { u16::from_le_bytes([c[0], c[1]]) }
+                         else  { u16::from_be_bytes([c[0], c[1]]) })
+                .collect();
+            String::from_utf16(&units).ok().and_then(trim_str)
+        }
+        _ => None, // JIS and unknown charsets not supported
+    }
 }
 
 /// Canon CR3 (ISOBMFF): scan the file for CMT1 and CMT2 boxes, which contain
@@ -208,6 +256,8 @@ fn read_exif_from_cr3(path: &std::path::Path) -> Option<ExifData> {
             1 => "Manual".to_string(),
             _ => format!("{}", n),
         }),
+        image_description: r(cmt1.as_ref(), 0x010E),
+        user_comment: None, // UNDEFINED type; not decoded from CMT2 in Phase 1
     })
 }
 

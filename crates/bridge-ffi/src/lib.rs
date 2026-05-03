@@ -122,6 +122,8 @@ pub struct FfiExifResult {
     pub exposure_bias: String,
     pub flash: String,
     pub white_balance: String,
+    pub image_description: String,
+    pub user_comment: String,
 }
 
 impl FfiExifResult {
@@ -145,6 +147,8 @@ impl FfiExifResult {
             exposure_bias: String::new(),
             flash: String::new(),
             white_balance: String::new(),
+            image_description: String::new(),
+            user_comment: String::new(),
         }
     }
 
@@ -168,6 +172,8 @@ impl FfiExifResult {
             exposure_bias: e.exposure_bias.clone().unwrap_or_default(),
             flash: e.flash.clone().unwrap_or_default(),
             white_balance: e.white_balance.clone().unwrap_or_default(),
+            image_description: e.image_description.clone().unwrap_or_default(),
+            user_comment: e.user_comment.clone().unwrap_or_default(),
         }
     }
 }
@@ -184,6 +190,7 @@ pub struct FfiXmpResult {
     pub label: u8,
     pub flag: u8,
     pub developed: bool,
+    pub caption: String,
 }
 
 impl FfiXmpResult {
@@ -194,6 +201,7 @@ impl FfiXmpResult {
             label: 0,
             flag: 0,
             developed: false,
+            caption: String::new(),
         }
     }
 
@@ -217,6 +225,7 @@ impl FfiXmpResult {
             label: label_u8,
             flag: flag_u8,
             developed: d.developed,
+            caption: d.caption.clone().unwrap_or_default(),
         }
     }
 }
@@ -325,6 +334,8 @@ mod ffi {
         fn ffi_exif_exposure_bias(r: &FfiExifResult) -> String;
         fn ffi_exif_flash(r: &FfiExifResult) -> String;
         fn ffi_exif_white_balance(r: &FfiExifResult) -> String;
+        fn ffi_exif_image_description(r: &FfiExifResult) -> String;
+        fn ffi_exif_user_comment(r: &FfiExifResult) -> String;
 
         // XMP API
         fn bridge_read_xmp(path: &str, jpg_use_sidecar: bool) -> FfiXmpResult;
@@ -333,7 +344,8 @@ mod ffi {
         fn ffi_xmp_label(r: &FfiXmpResult) -> u8;
         fn ffi_xmp_flag(r: &FfiXmpResult) -> u8;
         fn ffi_xmp_developed(r: &FfiXmpResult) -> bool;
-        fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, flag: u8, jpg_use_sidecar: bool) -> bool;
+        fn ffi_xmp_caption(r: &FfiXmpResult) -> String;
+        fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, flag: u8, caption: &str, caption_present: bool, jpg_use_sidecar: bool) -> bool;
         fn bridge_jpg_has_rated_embedded_xmp(path: &str) -> bool;
 
         // pHash API
@@ -437,6 +449,8 @@ fn ffi_exif_artist(r: &FfiExifResult) -> String { r.artist.clone() }
 fn ffi_exif_exposure_bias(r: &FfiExifResult) -> String { r.exposure_bias.clone() }
 fn ffi_exif_flash(r: &FfiExifResult) -> String { r.flash.clone() }
 fn ffi_exif_white_balance(r: &FfiExifResult) -> String { r.white_balance.clone() }
+fn ffi_exif_image_description(r: &FfiExifResult) -> String { r.image_description.clone() }
+fn ffi_exif_user_comment(r: &FfiExifResult) -> String { r.user_comment.clone() }
 
 fn bridge_fetch_exif_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) -> FfiExifBatch {
     let paths: Vec<PathBuf> = entries.entries.iter().map(|e| e.path.clone()).collect();
@@ -474,14 +488,35 @@ fn ffi_xmp_rating(r: &FfiXmpResult) -> i32 { r.rating }
 fn ffi_xmp_label(r: &FfiXmpResult) -> u8 { r.label }
 fn ffi_xmp_flag(r: &FfiXmpResult) -> u8 { r.flag }
 fn ffi_xmp_developed(r: &FfiXmpResult) -> bool { r.developed }
+fn ffi_xmp_caption(r: &FfiXmpResult) -> String { r.caption.clone() }
 
-fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, flag: u8, jpg_use_sidecar: bool) -> bool {
+fn bridge_write_xmp(
+    db: &BridgeDatabase,
+    path: &str,
+    rating: i32,
+    label: u8,
+    flag: u8,
+    caption: &str,
+    caption_present: bool,
+    jpg_use_sidecar: bool,
+) -> bool {
     let p = Path::new(path);
+    // When caption_present=false (rating-only write), preserve the existing caption
+    // by reading the current XMP and passing it through unchanged.
+    let caption_value = if caption_present {
+        // Empty string = clear; non-empty = set
+        Some(caption.to_string())
+    } else {
+        // Preserve whatever is already in the XMP (None means don't touch)
+        bridge_core::xmp::read_metadata(p, jpg_use_sidecar)
+            .and_then(|d| d.caption)
+    };
     let data = CoreXmpData {
         rating: if rating >= 0 { Some(rating.clamp(0, 5) as u8) } else { None },
         label: label_from_u8(label),
         flag: flag_from_u8(flag),
         developed: false,
+        caption: caption_value,
     };
     let ok = bridge_core::xmp::write_metadata(p, &data, jpg_use_sidecar).is_ok();
     if ok {

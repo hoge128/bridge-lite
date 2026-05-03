@@ -18,6 +18,8 @@ struct ExifData: Sendable, Equatable {
     var exposureBias: String?
     var flash: String?
     var whiteBalance: String?
+    var imageDescription: String?  // EXIF tag 0x010E, read-only
+    var userComment: String?       // EXIF tag 0x9286, read-only
 
     var cameraName: String? {
         guard let model = model else { return make }

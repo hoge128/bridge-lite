@@ -125,9 +125,12 @@ pub fn ensure_schema(db_path: &Path) -> bool {
 /// ALTER TABLE fails silently when the column already exists, making this safe
 /// to call on every startup regardless of the current schema state.
 fn migrate_image_columns(conn: &Connection) {
-    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN rating         INTEGER;");
-    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN xmp_label      TEXT;");
-    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN xmp_flag       TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN rating                  INTEGER;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN xmp_label              TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN xmp_flag               TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN xmp_caption            TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN exif_image_description TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN exif_user_comment      TEXT;");
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN software        TEXT;");
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN mtime           INTEGER;");
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN focal_len_35mm  INTEGER;");
@@ -192,7 +195,8 @@ pub fn fetch_exif_batch(
         let sql = format!(
             "SELECT path, mtime, make, model, datetime, subsec, exposure, fnumber, iso, \
                     focal_len, focal_len_35mm, lens_model, img_width, img_height, software, artist, \
-                    exposure_bias, flash, white_balance \
+                    exposure_bias, flash, white_balance, \
+                    exif_image_description, exif_user_comment \
              FROM images WHERE path IN ({placeholders})"
         );
         let Ok(mut stmt) = conn.prepare(&sql) else { continue };
@@ -223,6 +227,8 @@ pub fn fetch_exif_batch(
                     exposure_bias: row.get(16)?,
                     flash: row.get(17)?,
                     white_balance: row.get(18)?,
+                    image_description: row.get(19)?,
+                    user_comment: row.get(20)?,
                 },
             ))
         }) else {
@@ -356,7 +362,8 @@ fn query_exif(conn: &Connection, path: &Path, mtime: i64) -> Option<ExifData> {
     conn.query_row(
         "SELECT make, model, datetime, subsec, exposure, fnumber, iso, focal_len,
                 focal_len_35mm, lens_model, img_width, img_height, software, artist,
-                exposure_bias, flash, white_balance
+                exposure_bias, flash, white_balance,
+                exif_image_description, exif_user_comment
          FROM images WHERE path = ?1 AND mtime = ?2",
         params![path_str.as_ref(), mtime],
         |row| {
@@ -378,6 +385,8 @@ fn query_exif(conn: &Connection, path: &Path, mtime: i64) -> Option<ExifData> {
                 exposure_bias: row.get(14)?,
                 flash: row.get(15)?,
                 white_balance: row.get(16)?,
+                image_description: row.get(17)?,
+                user_comment: row.get(18)?,
             })
         },
     )
@@ -394,8 +403,8 @@ pub fn update_xmp(path: &Path, db_path: &Path, data: &XmpData) {
     let label = data.label.map(|l| l.as_str().to_string());
     let flag  = data.flag.map(|f| f.as_str().to_string());
     let _ = conn.execute(
-        "UPDATE images SET rating=?1, xmp_label=?2, xmp_flag=?3 WHERE path=?4",
-        params![data.rating.map(|r| r as i64), label, flag, path_str.as_ref()],
+        "UPDATE images SET rating=?1, xmp_label=?2, xmp_flag=?3, xmp_caption=?4 WHERE path=?5",
+        params![data.rating.map(|r| r as i64), label, flag, data.caption, path_str.as_ref()],
     );
 }
 
@@ -509,8 +518,9 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result
         "INSERT INTO images
             (path, filename, make, model, datetime, subsec, exposure, fnumber, iso,
              focal_len, focal_len_35mm, lens_model, img_width, img_height, software, artist,
-             exposure_bias, flash, white_balance, mtime)
-         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20)
+             exposure_bias, flash, white_balance, mtime,
+             exif_image_description, exif_user_comment)
+         VALUES (?1,?2,?3,?4,?5,?6,?7,?8,?9,?10,?11,?12,?13,?14,?15,?16,?17,?18,?19,?20,?21,?22)
          ON CONFLICT(path) DO UPDATE SET
             make=excluded.make, model=excluded.model,
             datetime=excluded.datetime, subsec=excluded.subsec,
@@ -526,6 +536,8 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result
             flash=excluded.flash,
             white_balance=excluded.white_balance,
             mtime=excluded.mtime,
+            exif_image_description=excluded.exif_image_description,
+            exif_user_comment=excluded.exif_user_comment,
             indexed_at=strftime('%s','now')",
         params![
             path_str.as_ref(),
@@ -548,6 +560,8 @@ fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result
             exif.flash,
             exif.white_balance,
             mtime,
+            exif.image_description,
+            exif.user_comment,
         ],
     )?;
     Ok(())

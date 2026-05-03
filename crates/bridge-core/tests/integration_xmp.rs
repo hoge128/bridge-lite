@@ -7,7 +7,7 @@ fn roundtrip_write_then_read() {
     let fake_img = tmp_dir.join("test_img.ARW");
     std::fs::write(&fake_img, b"").unwrap();
 
-    let data_in = XmpData { rating: Some(4), label: Some(Label::Green), flag: None, developed: false };
+    let data_in = XmpData { rating: Some(4), label: Some(Label::Green), ..Default::default() };
     write_sidecar(&fake_img, &data_in).expect("write_sidecar should succeed");
 
     let data_out = read_sidecar(&fake_img).expect("read_sidecar should succeed");
@@ -25,7 +25,7 @@ fn roundtrip_reject_flag() {
     let fake_img = tmp_dir.join("reject_img.ARW");
     std::fs::write(&fake_img, b"").unwrap();
 
-    let data_in = XmpData { rating: None, label: None, flag: Some(Flag::Reject), developed: false };
+    let data_in = XmpData { flag: Some(Flag::Reject), ..Default::default() };
     write_sidecar(&fake_img, &data_in).unwrap();
     let data_out = read_sidecar(&fake_img).unwrap();
     assert_eq!(data_out.flag, Some(Flag::Reject));
@@ -41,7 +41,7 @@ fn write_includes_label_color_for_bridge_compat() {
     let fake_img = tmp_dir.join("test.ARW");
     std::fs::write(&fake_img, b"").unwrap();
 
-    let data_in = XmpData { rating: Some(3), label: Some(Label::Red), flag: None, developed: false };
+    let data_in = XmpData { rating: Some(3), label: Some(Label::Red), ..Default::default() };
     write_sidecar(&fake_img, &data_in).expect("write should succeed");
 
     let xml = std::fs::read_to_string(tmp_dir.join("test.xmp")).unwrap();
@@ -79,7 +79,7 @@ fn preserve_label_text_when_same_color() {
 <?xpacket end="w"?>"#).unwrap();
 
     // Write Red label — should preserve "Select" since it maps to same color
-    let data = XmpData { rating: None, label: Some(Label::Red), flag: None, developed: false };
+    let data = XmpData { label: Some(Label::Red), ..Default::default() };
     write_sidecar(&fake_img, &data).expect("write_sidecar should succeed");
 
     let xml_after = std::fs::read_to_string(&xmp_path).unwrap();
@@ -102,10 +102,10 @@ fn dng_falls_back_to_sidecar_when_no_embedded_xmp() {
     // Empty file: embedded XMP extraction will fail gracefully.
     std::fs::write(&fake_dng, b"").unwrap();
 
-    let data_in = XmpData { rating: Some(2), label: Some(Label::Blue), flag: None, developed: false };
+    let data_in = XmpData { rating: Some(2), label: Some(Label::Blue), ..Default::default() };
     write_sidecar(&fake_dng, &data_in).unwrap();
 
-    let data_out = read_metadata(&fake_dng)
+    let data_out = read_metadata(&fake_dng, false)
         .expect("read_metadata must fall back to sidecar for DNG when embedded XMP is absent");
     assert_eq!(data_out.rating, Some(2));
     assert_eq!(data_out.label, Some(Label::Blue));
@@ -136,7 +136,7 @@ fn overwrite_label_text_when_color_changes() {
 <?xpacket end="w"?>"#).unwrap();
 
     // Change to Yellow — "Select" must be overwritten with "Yellow"
-    let data = XmpData { rating: None, label: Some(Label::Yellow), flag: None, developed: false };
+    let data = XmpData { label: Some(Label::Yellow), ..Default::default() };
     write_sidecar(&fake_img, &data).expect("write_sidecar should succeed");
 
     let xml_after = std::fs::read_to_string(&xmp_path).unwrap();

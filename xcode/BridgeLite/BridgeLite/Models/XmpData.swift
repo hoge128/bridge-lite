@@ -4,6 +4,7 @@ struct XmpData: Sendable, Equatable {
     var rating: Int?       // 0-5, nil = unset
     var label: XmpLabel?
     var developed: Bool = false
+    var caption: String?   // dc:description (nil = unset, "" = clear on write)
 }
 
 enum XmpLabel: UInt8, Sendable, CaseIterable {

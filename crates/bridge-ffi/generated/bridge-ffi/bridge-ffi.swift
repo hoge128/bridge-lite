@@ -112,6 +112,12 @@ public func ffi_exif_flash(_ r: FfiExifResultRef) -> RustString {
 public func ffi_exif_white_balance(_ r: FfiExifResultRef) -> RustString {
     RustString(ptr: __swift_bridge__$ffi_exif_white_balance(r.ptr))
 }
+public func ffi_exif_image_description(_ r: FfiExifResultRef) -> RustString {
+    RustString(ptr: __swift_bridge__$ffi_exif_image_description(r.ptr))
+}
+public func ffi_exif_user_comment(_ r: FfiExifResultRef) -> RustString {
+    RustString(ptr: __swift_bridge__$ffi_exif_user_comment(r.ptr))
+}
 public func bridge_read_xmp<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr, _ jpg_use_sidecar: Bool) -> FfiXmpResult {
     return path.toRustStr({ pathAsRustStr in
         FfiXmpResult(ptr: __swift_bridge__$bridge_read_xmp(pathAsRustStr, jpg_use_sidecar))
@@ -132,9 +138,14 @@ public func ffi_xmp_flag(_ r: FfiXmpResultRef) -> UInt8 {
 public func ffi_xmp_developed(_ r: FfiXmpResultRef) -> Bool {
     __swift_bridge__$ffi_xmp_developed(r.ptr)
 }
-public func bridge_write_xmp<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ rating: Int32, _ label: UInt8, _ flag: UInt8, _ jpg_use_sidecar: Bool) -> Bool {
-    return path.toRustStr({ pathAsRustStr in
-        __swift_bridge__$bridge_write_xmp(db.ptr, pathAsRustStr, rating, label, flag, jpg_use_sidecar)
+public func ffi_xmp_caption(_ r: FfiXmpResultRef) -> RustString {
+    RustString(ptr: __swift_bridge__$ffi_xmp_caption(r.ptr))
+}
+public func bridge_write_xmp<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ rating: Int32, _ label: UInt8, _ flag: UInt8, _ caption: GenericToRustStr, _ caption_present: Bool, _ jpg_use_sidecar: Bool) -> Bool {
+    return caption.toRustStr({ captionAsRustStr in
+        return path.toRustStr({ pathAsRustStr in
+        __swift_bridge__$bridge_write_xmp(db.ptr, pathAsRustStr, rating, label, flag, captionAsRustStr, caption_present, jpg_use_sidecar)
+    })
     })
 }
 public func bridge_jpg_has_rated_embedded_xmp<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr) -> Bool {

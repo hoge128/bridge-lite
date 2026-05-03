@@ -57,23 +57,25 @@ enum BridgeCore {
             let r = bridge_fetch_exif(db.inner, url.path)
             guard ffi_exif_found(r) else { return nil }
             return ExifData(
-                make:          ffi_exif_make(r).toString().nonEmpty,
-                model:         ffi_exif_model(r).toString().nonEmpty,
-                datetime:      ffi_exif_datetime(r).toString().nonEmpty,
-                subsec:        ffi_exif_subsec(r).toString().nonEmpty,
-                exposureTime:  ffi_exif_exposure(r).toString().nonEmpty,
-                fnumber:       ffi_exif_fnumber(r).toString().nonEmpty,
-                iso:           Int(ffi_exif_iso(r)).nonZero,
-                focalLength:     ffi_exif_focal_length(r).toString().nonEmpty,
-                focalLength35mm: Int(ffi_exif_focal_length_35mm(r)).nonNegative,
-                lensName:        ffi_exif_lens_model(r).toString().nonEmpty,
-                width:           Int(ffi_exif_width(r)).nonZero,
-                height:          Int(ffi_exif_height(r)).nonZero,
-                software:        ffi_exif_software(r).toString().nonEmpty,
-                artist:          ffi_exif_artist(r).toString().nonEmpty,
-                exposureBias:    ffi_exif_exposure_bias(r).toString().nonEmpty,
-                flash:           ffi_exif_flash(r).toString().nonEmpty,
-                whiteBalance:    ffi_exif_white_balance(r).toString().nonEmpty
+                make:             ffi_exif_make(r).toString().nonEmpty,
+                model:            ffi_exif_model(r).toString().nonEmpty,
+                datetime:         ffi_exif_datetime(r).toString().nonEmpty,
+                subsec:           ffi_exif_subsec(r).toString().nonEmpty,
+                exposureTime:     ffi_exif_exposure(r).toString().nonEmpty,
+                fnumber:          ffi_exif_fnumber(r).toString().nonEmpty,
+                iso:              Int(ffi_exif_iso(r)).nonZero,
+                focalLength:      ffi_exif_focal_length(r).toString().nonEmpty,
+                focalLength35mm:  Int(ffi_exif_focal_length_35mm(r)).nonNegative,
+                lensName:         ffi_exif_lens_model(r).toString().nonEmpty,
+                width:            Int(ffi_exif_width(r)).nonZero,
+                height:           Int(ffi_exif_height(r)).nonZero,
+                software:         ffi_exif_software(r).toString().nonEmpty,
+                artist:           ffi_exif_artist(r).toString().nonEmpty,
+                exposureBias:     ffi_exif_exposure_bias(r).toString().nonEmpty,
+                flash:            ffi_exif_flash(r).toString().nonEmpty,
+                whiteBalance:     ffi_exif_white_balance(r).toString().nonEmpty,
+                imageDescription: ffi_exif_image_description(r).toString().nonEmpty,
+                userComment:      ffi_exif_user_comment(r).toString().nonEmpty
             )
         }.value
     }
@@ -92,23 +94,25 @@ enum BridgeCore {
                 let id = ffi_image_entry_id(entry)
                 if ffi_exif_found(r) {
                     result[id] = ExifData(
-                        make:            ffi_exif_make(r).toString().nonEmpty,
-                        model:           ffi_exif_model(r).toString().nonEmpty,
-                        datetime:        ffi_exif_datetime(r).toString().nonEmpty,
-                        subsec:          ffi_exif_subsec(r).toString().nonEmpty,
-                        exposureTime:    ffi_exif_exposure(r).toString().nonEmpty,
-                        fnumber:         ffi_exif_fnumber(r).toString().nonEmpty,
-                        iso:             Int(ffi_exif_iso(r)).nonZero,
-                        focalLength:     ffi_exif_focal_length(r).toString().nonEmpty,
-                        focalLength35mm: Int(ffi_exif_focal_length_35mm(r)).nonNegative,
-                        lensName:        ffi_exif_lens_model(r).toString().nonEmpty,
-                        width:           Int(ffi_exif_width(r)).nonZero,
-                        height:          Int(ffi_exif_height(r)).nonZero,
-                        software:        ffi_exif_software(r).toString().nonEmpty,
-                        artist:          ffi_exif_artist(r).toString().nonEmpty,
-                        exposureBias:    ffi_exif_exposure_bias(r).toString().nonEmpty,
-                        flash:           ffi_exif_flash(r).toString().nonEmpty,
-                        whiteBalance:    ffi_exif_white_balance(r).toString().nonEmpty
+                        make:             ffi_exif_make(r).toString().nonEmpty,
+                        model:            ffi_exif_model(r).toString().nonEmpty,
+                        datetime:         ffi_exif_datetime(r).toString().nonEmpty,
+                        subsec:           ffi_exif_subsec(r).toString().nonEmpty,
+                        exposureTime:     ffi_exif_exposure(r).toString().nonEmpty,
+                        fnumber:          ffi_exif_fnumber(r).toString().nonEmpty,
+                        iso:              Int(ffi_exif_iso(r)).nonZero,
+                        focalLength:      ffi_exif_focal_length(r).toString().nonEmpty,
+                        focalLength35mm:  Int(ffi_exif_focal_length_35mm(r)).nonNegative,
+                        lensName:         ffi_exif_lens_model(r).toString().nonEmpty,
+                        width:            Int(ffi_exif_width(r)).nonZero,
+                        height:           Int(ffi_exif_height(r)).nonZero,
+                        software:         ffi_exif_software(r).toString().nonEmpty,
+                        artist:           ffi_exif_artist(r).toString().nonEmpty,
+                        exposureBias:     ffi_exif_exposure_bias(r).toString().nonEmpty,
+                        flash:            ffi_exif_flash(r).toString().nonEmpty,
+                        whiteBalance:     ffi_exif_white_balance(r).toString().nonEmpty,
+                        imageDescription: ffi_exif_image_description(r).toString().nonEmpty,
+                        userComment:      ffi_exif_user_comment(r).toString().nonEmpty
                     )
                 } else {
                     // EXIF コンテナが無いファイル（PNG/BMP/GIF/WebP 等）を IND と判定できるよう空レコードを格納。
@@ -131,7 +135,8 @@ enum BridgeCore {
             return XmpData(
                 rating:    ratingRaw >= 0 ? ratingRaw : nil,
                 label:     XmpLabel(rawValue: ffi_xmp_label(r)),
-                developed: ffi_xmp_developed(r)
+                developed: ffi_xmp_developed(r),
+                caption:   ffi_xmp_caption(r).toString().nonEmpty
             )
         }.value
     }
@@ -142,8 +147,15 @@ enum BridgeCore {
         }.value
     }
 
-    static func writeXmp(url: URL, xmp: XmpData, db: BridgeCoreDatabase, jpgWriteMode: JpgWriteMode = .embed) async -> Bool {
+    static func writeXmp(
+        url: URL,
+        xmp: XmpData,
+        db: BridgeCoreDatabase,
+        jpgWriteMode: JpgWriteMode = .embed,
+        captionPresent: Bool = false
+    ) async -> Bool {
         let jpgUseSidecar = jpgWriteMode == .sidecar
+        let captionStr = xmp.caption ?? ""
         return await Task.detached(priority: .utility) {
             bridge_write_xmp(
                 db.inner,
@@ -151,6 +163,8 @@ enum BridgeCore {
                 Int32(xmp.rating ?? -1),
                 xmp.label?.rawValue ?? 0,
                 0,
+                captionStr,
+                captionPresent,
                 jpgUseSidecar
             )
         }.value

@@ -150,7 +150,7 @@ fn update_xmp_syncs_rating_label_flag() {
         rating: Some(3),
         label: Some(Label::Green),
         flag: Some(Flag::Pick),
-        developed: false,
+        ..Default::default()
     };
     update_xmp(&img, &db, &xmp);
 
@@ -188,7 +188,7 @@ fn update_xmp_clears_fields_when_none() {
     }
 
     // Clear everything
-    let xmp = XmpData { rating: None, label: None, flag: None, developed: false };
+    let xmp = XmpData { ..Default::default() };
     update_xmp(&img, &db, &xmp);
 
     {
@@ -215,7 +215,7 @@ fn update_xmp_no_panic_without_images_row() {
     // so the row is never inserted. The subsequent UPDATE silently affects
     // 0 rows. This must not panic.
     let img = make_fake_image(&dir, "new.arw");
-    let xmp = XmpData { rating: Some(2), label: None, flag: None, developed: false };
+    let xmp = XmpData { rating: Some(2), ..Default::default() };
     update_xmp(&img, &db, &xmp); // must not panic
 
     let _ = std::fs::remove_dir_all(&dir);

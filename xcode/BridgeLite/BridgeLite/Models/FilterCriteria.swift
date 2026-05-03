@@ -72,10 +72,11 @@ struct FilterCriteria: Sendable, Equatable {
     }
 
     func matches(entry: PhotoEntry, exif: ExifData?, xmp: XmpData?, luminance: Int? = nil) -> Bool {
-        // Filename search filter
-        if !nameSearch.isEmpty,
-           !entry.filename.localizedCaseInsensitiveContains(nameSearch) {
-            return false
+        // Filename / caption search filter (OR match)
+        if !nameSearch.isEmpty {
+            let hitName    = entry.filename.localizedCaseInsensitiveContains(nameSearch)
+            let hitCaption = (xmp?.caption ?? "").localizedCaseInsensitiveContains(nameSearch)
+            if !hitName && !hitCaption { return false }
         }
         // Extension filter (flatten mode only)
         if flatten, !excludedExtensions.isEmpty,

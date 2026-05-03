@@ -873,6 +873,49 @@ final class LibraryStore {
         }
     }
 
+    func applyCaption(_ caption: String?) {
+        guard !selectedIDs.isEmpty, let db = database else { return }
+        let newCaption: String? = (caption?.isEmpty == true) ? nil : caption
+        var allTargets: [(entry: PhotoEntry, old: String?)] = []
+        var writeList:  [(entry: PhotoEntry, xmp: XmpData)] = []
+        for id in selectedIDs {
+            guard let te = entries[id] else { continue }
+            allTargets.append((entry: te, old: xmpData[id]?.caption))
+            var current = xmpData[id] ?? XmpData()
+            current.caption = newCaption
+            xmpData[id] = current
+            xmpDidUpdate.send(id)
+            writeList.append((te, current))
+        }
+        recomputeVisible()
+        let desc = newCaption == nil
+            ? String(localized: "Clear Caption")
+            : String(localized: "Set Caption")
+        registerUndo(description: desc) { [weak self] in
+            guard let self, let db = self.database else { return }
+            for (te, old) in allTargets {
+                guard self.entries[te.id] != nil else { continue }
+                var current = self.xmpData[te.id] ?? XmpData()
+                current.caption = old
+                self.xmpData[te.id] = current
+                self.xmpDidUpdate.send(te.id)
+                let x = current; let url = te.url
+                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: self.settings.jpgWriteMode, captionPresent: true) }
+            }
+            self.recomputeVisible()
+        }
+        let mode = settings.jpgWriteMode
+        let policy = settings.jpgSidecarConflictPolicy
+        Task {
+            for (te, x) in writeList {
+                _ = await BridgeCore.writeXmp(url: te.url, xmp: x, db: db, jpgWriteMode: mode, captionPresent: true)
+            }
+            if mode == .sidecar {
+                await self.checkAndHandleEmbedConflict(writeList: writeList, db: db, policy: policy)
+            }
+        }
+    }
+
     // MARK: - 埋め込み XMP 競合ハンドラ
 
     private func checkAndHandleEmbedConflict(

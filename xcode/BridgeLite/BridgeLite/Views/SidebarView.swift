@@ -730,6 +730,12 @@ struct ExifSectionView: View {
                     if let artist = exif.artist {
                         MetaRow(key: "Artist", value: artist)
                     }
+                    if let desc = exif.imageDescription {
+                        MetaRow(key: "Description", value: desc)
+                    }
+                    if let comment = exif.userComment {
+                        MetaRow(key: "Comment", value: comment)
+                    }
                 }
             } else {
                 Text("—").foregroundStyle(.secondary).font(.caption)
@@ -745,9 +751,17 @@ struct ExifSectionView: View {
 struct XmpSectionView: View {
     let entryID: UInt64
     @State private var isExpanded = true
+    @State private var captionDraft: String = ""
+    @FocusState private var isCaptionFocused: Bool
     @Environment(LibraryStore.self) private var store
 
     var xmp: XmpData? { store.xmpData[entryID] }
+
+    private var hasMixedCaptions: Bool {
+        guard store.selectedIDs.count > 1 else { return false }
+        let first = store.xmpData[store.selectedIDs.first ?? 0]?.caption
+        return store.selectedIDs.dropFirst().contains { store.xmpData[$0]?.caption != first }
+    }
 
     var body: some View {
         SectionBox("XMP", isExpanded: $isExpanded) {
@@ -778,11 +792,74 @@ struct XmpSectionView: View {
                         .onTapGesture { store.applyLabel(label.rawValue) }
                     }
                 }
+
+                Divider()
+
+                VStack(alignment: .leading, spacing: 4) {
+                    Text("Caption")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+
+                    ZStack(alignment: .topLeading) {
+                        if captionDraft.isEmpty && !isCaptionFocused {
+                            Text(hasMixedCaptions
+                                 ? String(localized: "Multiple Values")
+                                 : String(localized: "Add caption…"))
+                                .font(.callout)
+                                .foregroundStyle(.tertiary)
+                                .padding(.top, 3)
+                                .padding(.leading, 4)
+                                .allowsHitTesting(false)
+                        }
+                        TextEditor(text: $captionDraft)
+                            .font(.callout)
+                            .frame(minHeight: 44, maxHeight: 120)
+                            .focused($isCaptionFocused)
+                            .scrollContentBackground(.hidden)
+                            .background(Color.secondary.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 4))
+                            .onChange(of: isCaptionFocused) { _, focused in
+                                if !focused { commitCaption() }
+                            }
+                    }
+
+                    if isCaptionFocused {
+                        HStack {
+                            Button(String(localized: "Cancel")) { cancelCaption() }
+                                .keyboardShortcut(.cancelAction)
+                            Spacer()
+                            Button(String(localized: "Save")) { commitCaption() }
+                                .keyboardShortcut(.return, modifiers: .command)
+                        }
+                        .font(.caption)
+                        .buttonStyle(.borderless)
+                    }
+                }
             }
         }
         .padding(.horizontal, 8)
         .padding(.top, 8)
         .padding(.bottom, 12)
+        .onChange(of: entryID) { _, _ in syncDraft() }
+        .onChange(of: xmp?.caption) { _, _ in
+            if !isCaptionFocused { syncDraft() }
+        }
+        .onAppear { syncDraft() }
+    }
+
+    private func syncDraft() {
+        captionDraft = xmp?.caption ?? ""
+    }
+
+    private func commitCaption() {
+        isCaptionFocused = false
+        let trimmed = captionDraft.trimmingCharacters(in: .whitespacesAndNewlines)
+        store.applyCaption(trimmed.isEmpty ? nil : trimmed)
+    }
+
+    private func cancelCaption() {
+        isCaptionFocused = false
+        syncDraft()
     }
 }
 

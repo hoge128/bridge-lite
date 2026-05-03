@@ -159,7 +159,7 @@ private struct SearchFieldContainer: View {
     var body: some View {
         NativeSearchField(
             text: $localText,
-            placeholder: String(localized: "Search by filename")
+            placeholder: String(localized: "Search filename or caption")
         )
         .frame(minWidth: 160, maxWidth: 260)
         .onChange(of: localText) { _, new in store.setNameSearch(new) }

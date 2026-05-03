@@ -21,6 +21,9 @@ pub struct XmpData {
     /// True if XMP contains fingerprints of a RAW developer (Lightroom, DxO, etc.).
     /// Derived on read; never written back to file.
     pub developed: bool,
+    /// dc:description (LangAlt, x-default) / tiff:ImageDescription fallback.
+    /// Empty string on write = delete both properties (clear caption).
+    pub caption:   Option<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -239,8 +242,32 @@ fn parse_xmp_data(meta: &XmpMeta) -> XmpData {
     data.label = label_from_color.or(label_from_text);
 
     data.developed = detect_developed(meta);
+    data.caption = read_caption(meta);
 
     data
+}
+
+/// Read caption/description from XMP with fallback chain:
+/// dc:description (LangAlt, x-default) → tiff:ImageDescription → photoshop:Headline
+fn read_caption(meta: &XmpMeta) -> Option<String> {
+    let non_empty = |s: String| -> Option<String> {
+        let t = s.trim().to_string();
+        if t.is_empty() { None } else { Some(t) }
+    };
+
+    // 1. dc:description LangAlt — x-default entry (Immich / Lightroom / Adobe standard)
+    if let Some((v, _)) = meta.localized_text(xmp_ns::DC, "description", None, "x-default") {
+        if let Some(s) = non_empty(v.value) { return Some(s); }
+    }
+    // 2. tiff:ImageDescription — plain text (Bridge legacy, Lightroom EXIF-sync)
+    if let Some(v) = meta.property(xmp_ns::TIFF, "ImageDescription") {
+        if let Some(s) = non_empty(v.value) { return Some(s); }
+    }
+    // 3. photoshop:Headline — read-only fallback; never written by bridge-lite
+    if let Some(v) = meta.property(xmp_ns::PHOTOSHOP, "Headline") {
+        if let Some(s) = non_empty(v.value) { return Some(s); }
+    }
+    None
 }
 
 fn apply_xmp_data(meta: &mut XmpMeta, data: &XmpData) -> io::Result<()> {
@@ -274,6 +301,29 @@ fn apply_xmp_data(meta: &mut XmpMeta, data: &XmpData) -> io::Result<()> {
     } else {
         let _ = meta.delete_property(xmp_ns::XMP, "Label");
         let _ = meta.delete_property(xmp_ns::PHOTOSHOP, "LabelColor");
+    }
+
+    // dc:description (LangAlt, x-default) + tiff:ImageDescription (plain text).
+    // Both are written together for Immich / Adobe / Lightroom / Bridge compatibility.
+    // photoshop:Headline is read as a fallback but never written by bridge-lite.
+    // None = caller does not intend to change caption (rating-only write path).
+    // Some("") = explicit clear; removes both properties.
+    // Some(s) = set caption.
+    match &data.caption {
+        Some(s) if !s.trim().is_empty() => {
+            // dc:description is LangAlt; x-default is the interoperability lang entry.
+            // tiff:ImageDescription is kept as a READ-only fallback; writing it via
+            // set_localized_text corrupts the XMP Toolkit's global alt-text registry,
+            // and set_property silently fails for LangAlt properties.  dc:description
+            // alone is sufficient for Lightroom, Bridge, digiKam, and Immich.
+            meta.set_localized_text(xmp_ns::DC, "description", None, "x-default", s.trim())
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        }
+        Some(_) => {
+            let _ = meta.delete_property(xmp_ns::DC, "description");
+            let _ = meta.delete_property(xmp_ns::TIFF, "ImageDescription");
+        }
+        None => {}
     }
 
     Ok(())
@@ -386,6 +436,97 @@ mod tests {
     use std::path::Path;
 
     #[test]
+    fn caption_roundtrip_dc_description() {
+        let tmp_dir = std::env::temp_dir().join("bridge_lite_caption_roundtrip");
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let fake_img = tmp_dir.join("caption_test.ARW");
+        std::fs::write(&fake_img, b"").unwrap();
+
+        let data_in = XmpData { caption: Some("Sunset at the beach".to_string()), ..Default::default() };
+        write_sidecar(&fake_img, &data_in).expect("write_sidecar should succeed");
+
+        let data_out = read_sidecar(&fake_img).expect("read_sidecar should succeed");
+        assert_eq!(data_out.caption, Some("Sunset at the beach".to_string()));
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn caption_roundtrip_writes_dc_description() {
+        let tmp_dir = std::env::temp_dir().join("bridge_lite_caption_dc_ns");
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let fake_img = tmp_dir.join("dc_ns_test.ARW");
+        std::fs::write(&fake_img, b"").unwrap();
+
+        let data_in = XmpData { caption: Some("Test caption".to_string()), ..Default::default() };
+        write_sidecar(&fake_img, &data_in).unwrap();
+
+        let xml = std::fs::read_to_string(tmp_dir.join("dc_ns_test.xmp")).unwrap();
+        assert!(xml.contains("dc:description") || xml.contains("description"), "dc:description must be written");
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn caption_fallback_tiff_image_description() {
+        let xml = r#"<?xpacket begin="" id="W5M0MpCehiHzreSzNTczkc9d"?>
+<x:xmpmeta xmlns:x="adobe:ns:meta/">
+<rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+<rdf:Description rdf:about=""
+  xmlns:tiff="http://ns.adobe.com/tiff/1.0/">
+  <tiff:ImageDescription>Fallback description</tiff:ImageDescription>
+</rdf:Description>
+</rdf:RDF>
+</x:xmpmeta><?xpacket end="w"?>"#;
+        let meta = XmpMeta::from_str(xml).expect("parse test XMP");
+        let data = parse_xmp_data(&meta);
+        assert_eq!(data.caption, Some("Fallback description".to_string()));
+    }
+
+    #[test]
+    fn caption_clear_deletes_both_properties() {
+        let tmp_dir = std::env::temp_dir().join("bridge_lite_caption_clear");
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let fake_img = tmp_dir.join("clear_test.ARW");
+        std::fs::write(&fake_img, b"").unwrap();
+
+        let set_data = XmpData { caption: Some("To be cleared".to_string()), ..Default::default() };
+        write_sidecar(&fake_img, &set_data).unwrap();
+
+        let clear_data = XmpData { caption: Some(String::new()), ..Default::default() };
+        write_sidecar(&fake_img, &clear_data).unwrap();
+
+        let data_out = read_sidecar(&fake_img).unwrap();
+        assert_eq!(data_out.caption, None, "caption should be gone after empty-string clear");
+
+        let xml = std::fs::read_to_string(tmp_dir.join("clear_test.xmp")).unwrap();
+        assert!(!xml.contains("ImageDescription"), "tiff:ImageDescription must be absent after clear");
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn caption_none_does_not_touch_existing() {
+        let tmp_dir = std::env::temp_dir().join("bridge_lite_caption_none");
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let fake_img = tmp_dir.join("none_test.ARW");
+        std::fs::write(&fake_img, b"").unwrap();
+
+        let set_data = XmpData { caption: Some("Keep me".to_string()), ..Default::default() };
+        write_sidecar(&fake_img, &set_data).unwrap();
+
+        // Write rating only (caption = None = no change)
+        let rating_data = XmpData { rating: Some(3), caption: None, ..Default::default() };
+        write_sidecar(&fake_img, &rating_data).unwrap();
+
+        let data_out = read_sidecar(&fake_img).unwrap();
+        assert_eq!(data_out.rating, Some(3));
+        assert_eq!(data_out.caption, Some("Keep me".to_string()), "caption must be preserved when None is passed");
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
     fn reads_adobe_xmp_sidecar() {
         // DSE06383.xmp was written by Adobe Bridge (Japanese) with a Red label.
         // Bridge writes xmp:Label="選択" + photoshop:LabelColor="red".
@@ -398,10 +539,10 @@ mod tests {
 
     #[test]
     fn reads_embedded_jpg_rating() {
-        // DSE06419.JPG was rated 3 stars in Adobe Bridge (embedded XMP, no sidecar).
+        // DSE06419.JPG was rated 4 stars in Adobe Bridge (embedded XMP, no sidecar).
         let jpg = Path::new("/Users/itotsum/work/bridge-lite/test/20260221/jpg/DSE06419.JPG");
         let data = read_metadata(jpg, false).expect("embedded XMP should be readable");
-        assert_eq!(data.rating, Some(3), "Bridge embedded xmp:Rating=3 should be read");
+        assert_eq!(data.rating, Some(4), "Bridge embedded xmp:Rating=4 should be read");
         assert_eq!(data.flag, None);
     }
 
@@ -412,7 +553,7 @@ mod tests {
         let fake_img = tmp_dir.join("test.ARW");
         std::fs::write(&fake_img, b"").unwrap();
 
-        let data_in = XmpData { rating: Some(3), label: Some(Label::Red), flag: None, developed: false };
+        let data_in = XmpData { rating: Some(3), label: Some(Label::Red), ..Default::default() };
         write_sidecar(&fake_img, &data_in).expect("write should succeed");
 
         let xml = std::fs::read_to_string(tmp_dir.join("test.xmp")).unwrap();
@@ -433,7 +574,7 @@ mod tests {
         let fake_img = tmp_dir.join("test_img.ARW");
         std::fs::write(&fake_img, b"").unwrap();
 
-        let data_in = XmpData { rating: Some(4), label: Some(Label::Green), flag: None, developed: false };
+        let data_in = XmpData { rating: Some(4), label: Some(Label::Green), ..Default::default() };
         write_sidecar(&fake_img, &data_in).expect("write_sidecar should succeed");
 
         let data_out = read_sidecar(&fake_img).expect("read_sidecar should succeed");
@@ -451,7 +592,7 @@ mod tests {
         let fake_img = tmp_dir.join("reject_img.ARW");
         std::fs::write(&fake_img, b"").unwrap();
 
-        let data_in = XmpData { rating: None, label: None, flag: Some(Flag::Reject), developed: false };
+        let data_in = XmpData { flag: Some(Flag::Reject), ..Default::default() };
         write_sidecar(&fake_img, &data_in).unwrap();
         let data_out = read_sidecar(&fake_img).unwrap();
         assert_eq!(data_out.flag, Some(Flag::Reject));
@@ -473,7 +614,7 @@ mod tests {
         std::fs::copy(&src_xmp, &dst_xmp).expect("should copy test XMP");
         std::fs::write(&tmp_img, b"").unwrap();
 
-        let new_data = XmpData { rating: Some(3), label: None, flag: None, developed: false };
+        let new_data = XmpData { rating: Some(3), ..Default::default() };
         write_sidecar(&tmp_img, &new_data).unwrap();
 
         let result = read_sidecar(&tmp_img).unwrap();
@@ -576,7 +717,7 @@ mod tests {
         let tmp_jpg = tmp_dir.join("DSE06419.JPG");
         std::fs::copy(src_jpg, &tmp_jpg).expect("copy test JPG");
 
-        let data_in = XmpData { rating: Some(5), label: Some(Label::Red), flag: None, developed: false };
+        let data_in = XmpData { rating: Some(5), label: Some(Label::Red), ..Default::default() };
         write_metadata(&tmp_jpg, &data_in, false).expect("write_embedded should succeed");
 
         // Must NOT have created a sidecar
@@ -608,7 +749,7 @@ mod tests {
 
         let btime_before = std::fs::metadata(&tmp_jpg).unwrap().st_birthtime();
 
-        let data = XmpData { rating: Some(2), label: None, flag: None, developed: false };
+        let data = XmpData { rating: Some(2), ..Default::default() };
         write_metadata(&tmp_jpg, &data, false).expect("write_embedded should succeed");
 
         let btime_after = std::fs::metadata(&tmp_jpg).unwrap().st_birthtime();
