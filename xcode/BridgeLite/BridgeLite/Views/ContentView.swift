@@ -11,7 +11,7 @@ struct ContentView: View {
     var body: some View {
         FolderView()
             .environment(store)
-            .focusedValue(\.libraryStore, store)
+            .focusedSceneValue(\.libraryStore, store)
             .background(WindowAccessor(window: $nsWindow))
             .task {
                 await BridgeCore.pruneCache(
