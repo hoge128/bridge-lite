@@ -63,7 +63,7 @@ struct FolderView: View {
                 .toolbar {
                     ToolbarView()
                 }
-                .toolbar(store.viewerMode ? .hidden : .visible, for: .windowToolbar)
+                .toolbar(store.viewerMode || store.compareMode ? .hidden : .visible, for: .windowToolbar)
                 .navigationTitle(store.currentDirectoryURL?.lastPathComponent ?? "BridgeLite")
                 .onKeyPress(keys: [.tab], phases: .down) { press in
                     if store.viewerMode || store.compareMode { return .ignored }

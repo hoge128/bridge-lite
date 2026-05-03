@@ -105,10 +105,17 @@ struct GroupCompareView: View {
 
             Spacer()
 
-            if let idx = store.visibleIDs.firstIndex(of: currentRepID) {
-                Text("\(idx + 1) / \(store.visibleIDs.count)")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+            HStack(spacing: 8) {
+                if let msg = store.undoMessage {
+                    Text(msg)
+                        .font(.caption)
+                        .foregroundStyle(.orange)
+                        .transition(.opacity)
+                } else if let idx = store.visibleIDs.firstIndex(of: currentRepID) {
+                    Text("\(idx + 1) / \(store.visibleIDs.count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             }
 
             Spacer()
