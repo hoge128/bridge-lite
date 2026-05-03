@@ -222,6 +222,13 @@ enum BridgeCore {
         }.value
     }
 
+    static func pruneCache(dbPath: URL, maxAgeDays: Int) async {
+        await Task.detached(priority: .background) {
+            guard let db = try? BridgeCoreDatabase.open(path: dbPath) else { return }
+            bridge_prune_cache(db.inner, UInt32(maxAgeDays))
+        }.value
+    }
+
     // MARK: RAW embedded JPEG
 
     static func extractRawJpeg(url: URL, quality: RawJpegQuality) async -> Data? {

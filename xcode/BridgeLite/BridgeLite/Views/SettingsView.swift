@@ -173,6 +173,19 @@ struct SettingsView: View {
                             .foregroundStyle(.secondary)
                     }
                 }
+                @Bindable var s = settings
+                Picker(
+                    String(localized: "settings.cache.ttl.label", defaultValue: "Cache Retention"),
+                    selection: $s.cacheTTLDays
+                ) {
+                    ForEach([30, 60, 90, 180, 365], id: \.self) { days in
+                        Text(cacheTTLLabel(days)).tag(days)
+                    }
+                }
+                Text(String(localized: "settings.cache.ttl.description",
+                            defaultValue: "Thumbnails and perceptual hashes not refreshed within this period are removed at the next launch."))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
                 Button("Clear Cache", role: .destructive) {
                     showClearCacheAlert = true
                 }
@@ -185,7 +198,9 @@ struct SettingsView: View {
     // MARK: - Advanced tab
 
     private var advancedTab: some View {
-        Form {
+        @Bindable var s = settings
+        let maxCacheMB = Int(ProcessInfo.processInfo.physicalMemory / 10 / (1024 * 1024) / 100) * 100
+        return Form {
             Section {
                 groupingControls
                 Text(String(localized: "settings.grouping.description",
@@ -194,6 +209,28 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             } header: {
                 Text("Grouping")
+            }
+            Section {
+                Stepper(value: $s.thumbnailCacheMB, in: 100...maxCacheMB, step: 100) {
+                    LabeledContent(
+                        String(localized: "settings.cache.memory.label", defaultValue: "Thumbnail Memory Cache")
+                    ) {
+                        Text(ByteCountFormatter.string(
+                            fromByteCount: Int64(settings.thumbnailCacheMB) * 1024 * 1024,
+                            countStyle: .memory
+                        ))
+                        .foregroundStyle(.secondary)
+                    }
+                }
+                Text(String(
+                    format: String(localized: "settings.cache.memory.description %lld",
+                                   defaultValue: "RAM used to hold decoded thumbnails. Max %lld MB (10%% of your RAM). Increase for smoother scrolling; reduce if other apps feel slow."),
+                    Int64(maxCacheMB)
+                ))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            } header: {
+                Text(String(localized: "settings.cache.memory.section", defaultValue: "Performance"))
             }
         }
         .formStyle(.grouped)
@@ -386,6 +423,16 @@ struct SettingsView: View {
         return Text(attr)
             .font(.caption2)
             .foregroundStyle(.secondary)
+    }
+
+    private func cacheTTLLabel(_ days: Int) -> String {
+        if days >= 365 {
+            return String(localized: "settings.cache.ttl.1year", defaultValue: "1 year")
+        }
+        return String(
+            format: String(localized: "settings.cache.ttl.days %lld", defaultValue: "%lld days"),
+            Int64(days)
+        )
     }
 
     private func refreshCacheSize() {

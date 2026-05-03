@@ -9,8 +9,13 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
     private let cache = NSCache<NSNumber, CGImage>()
 
     private init() {
-        // 200×200 RGBA ≈ 160 KB. 100 MB ≈ 625 images (covers ~2 full grid pages).
-        cache.totalCostLimit = 100 * 1024 * 1024
+        let stored = UserDefaults.standard.integer(forKey: "thumbnailCacheMB")
+        let mb = stored >= 100 ? stored : 300
+        cache.totalCostLimit = mb * 1024 * 1024
+    }
+
+    func updateLimit(mb: Int) {
+        cache.totalCostLimit = mb * 1024 * 1024
     }
 
     func decode(id: UInt64, blob: Data?) -> CGImage? {

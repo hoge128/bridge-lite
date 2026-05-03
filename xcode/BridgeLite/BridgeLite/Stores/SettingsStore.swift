@@ -320,6 +320,25 @@ final class SettingsStore {
     var autoRenderRawSidebar: Bool = bool("autoRenderRawSidebar", default: true) {
         didSet { UserDefaults.standard.set(autoRenderRawSidebar, forKey: "autoRenderRawSidebar") }
     }
+
+    // MARK: - キャッシュ
+    var thumbnailCacheMB: Int = {
+        let v = UserDefaults.standard.integer(forKey: "thumbnailCacheMB")
+        let maxMB = Int(ProcessInfo.processInfo.physicalMemory / 10 / (1024 * 1024))
+        return v >= 100 ? min(v, maxMB) : 300
+    }() {
+        didSet {
+            UserDefaults.standard.set(thumbnailCacheMB, forKey: "thumbnailCacheMB")
+            ThumbnailDecodeCache.shared.updateLimit(mb: thumbnailCacheMB)
+        }
+    }
+
+    var cacheTTLDays: Int = {
+        let v = UserDefaults.standard.integer(forKey: "cacheTTLDays")
+        return v > 0 ? v : 90
+    }() {
+        didSet { UserDefaults.standard.set(cacheTTLDays, forKey: "cacheTTLDays") }
+    }
 }
 
 // UserDefaults.object が nil のとき `default` を返す (Bool には bool(forKey:) が 0 扱いするため)。

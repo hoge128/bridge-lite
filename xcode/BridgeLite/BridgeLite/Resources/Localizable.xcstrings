@@ -3003,6 +3003,118 @@
         }
       }
     },
+    "settings.cache.memory.description %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "RAM used to hold decoded thumbnails. Max %lld MB (10%% of your RAM). Increase for smoother scrolling; reduce if other apps feel slow."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デコード済みサムネイルを保持する RAM 容量。上限 %lld MB（物理メモリの 10%%）。スクロールが重い場合は増やし、他アプリが遅く感じる場合は減らしてください。"
+          }
+        }
+      }
+    },
+    "settings.cache.memory.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thumbnail Memory Cache"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サムネイルメモリキャッシュ"
+          }
+        }
+      }
+    },
+    "settings.cache.memory.section" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Performance"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "パフォーマンス"
+          }
+        }
+      }
+    },
+    "settings.cache.ttl.1year" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 year"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1年"
+          }
+        }
+      }
+    },
+    "settings.cache.ttl.days %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld days"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld日"
+          }
+        }
+      }
+    },
+    "settings.cache.ttl.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thumbnails and perceptual hashes not refreshed within this period are removed at the next launch."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この期間内に更新されなかったサムネイルと知覚ハッシュは、次回起動時に削除されます。"
+          }
+        }
+      }
+    },
+    "settings.cache.ttl.label" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Cache Retention"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "キャッシュ保持期間"
+          }
+        }
+      }
+    },
     "settings.grouping.seconds %lld" : {
       "localizations" : {
         "en" : {

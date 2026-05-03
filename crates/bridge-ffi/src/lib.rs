@@ -339,6 +339,7 @@ mod ffi {
         fn bridge_fetch_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32) -> FfiOptionalBytes;
         fn bridge_store_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32, jpeg: &[u8]);
         fn bridge_clear_rendered_cache(db: &BridgeDatabase);
+        fn bridge_prune_cache(db: &BridgeDatabase, max_age_days: u32);
 
         // RAW embedded JPEG API (quality: 0=Thumbnail, 1=Preview, 2=Full)
         fn bridge_extract_raw_jpeg(path: &str, quality: u8) -> FfiOptionalBytes;
@@ -529,6 +530,10 @@ fn bridge_store_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, w
 
 fn bridge_clear_rendered_cache(db: &BridgeDatabase) {
     bridge_core::db::clear_rendered(&db.db_path);
+}
+
+fn bridge_prune_cache(db: &BridgeDatabase, max_age_days: u32) {
+    bridge_core::db::prune_cache(&db.db_path, max_age_days);
 }
 
 // ── RAW embedded JPEG API impl ─────────────────────────────────────────────

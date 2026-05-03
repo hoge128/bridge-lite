@@ -47,16 +47,20 @@ fn init_schema(conn: &Connection) -> Result<()> {
         CREATE INDEX IF NOT EXISTS idx_images_iso      ON images(iso);
 
         CREATE TABLE IF NOT EXISTS thumbnails (
-            path  TEXT PRIMARY KEY,
-            mtime INTEGER NOT NULL,
-            jpeg  BLOB NOT NULL
+            path      TEXT PRIMARY KEY,
+            mtime     INTEGER NOT NULL,
+            jpeg      BLOB NOT NULL,
+            cached_at INTEGER DEFAULT (strftime('%s', 'now'))
         );
+        CREATE INDEX IF NOT EXISTS idx_thumbnails_cached_at ON thumbnails(cached_at);
 
         CREATE TABLE IF NOT EXISTS phashes (
-            path  TEXT PRIMARY KEY,
-            mtime INTEGER NOT NULL,
-            phash INTEGER NOT NULL
+            path      TEXT PRIMARY KEY,
+            mtime     INTEGER NOT NULL,
+            phash     INTEGER NOT NULL,
+            cached_at INTEGER DEFAULT (strftime('%s', 'now'))
         );
+        CREATE INDEX IF NOT EXISTS idx_phashes_cached_at ON phashes(cached_at);
 
         CREATE TABLE IF NOT EXISTS meta (
             key   TEXT PRIMARY KEY,
@@ -125,6 +129,14 @@ fn migrate_image_columns(conn: &Connection) {
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN focal_len_35mm  INTEGER;");
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN lens_model      TEXT;");
     let _ = conn.execute_batch("ALTER TABLE images ADD COLUMN artist          TEXT;");
+    let _ = conn.execute_batch("ALTER TABLE thumbnails ADD COLUMN cached_at  INTEGER;");
+    let _ = conn.execute_batch("ALTER TABLE phashes    ADD COLUMN cached_at  INTEGER;");
+    let _ = conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_thumbnails_cached_at ON thumbnails(cached_at);"
+    );
+    let _ = conn.execute_batch(
+        "CREATE INDEX IF NOT EXISTS idx_phashes_cached_at ON phashes(cached_at);"
+    );
 }
 
 /// Check DB for cached EXIF. On miss (or mtime mismatch), read from file and cache.
@@ -283,7 +295,8 @@ pub fn store_thumb(path: &Path, db_path: &Path, jpeg: &[u8]) {
     let _ = conn.busy_timeout(std::time::Duration::from_secs(1));
     let mtime = file_mtime(path);
     let _ = conn.execute(
-        "INSERT OR REPLACE INTO thumbnails (path, mtime, jpeg) VALUES (?1, ?2, ?3)",
+        "INSERT OR REPLACE INTO thumbnails (path, mtime, jpeg, cached_at)
+         VALUES (?1, ?2, ?3, strftime('%s','now'))",
         params![path.to_string_lossy().as_ref(), mtime, jpeg],
     );
 }
@@ -393,7 +406,8 @@ pub fn store_phash(path: &Path, db_path: &Path, phash: u64) {
     let _ = conn.busy_timeout(std::time::Duration::from_secs(1));
     let mtime = file_mtime(path);
     let _ = conn.execute(
-        "INSERT OR REPLACE INTO phashes (path, mtime, phash) VALUES (?1, ?2, ?3)",
+        "INSERT OR REPLACE INTO phashes (path, mtime, phash, cached_at)
+         VALUES (?1, ?2, ?3, strftime('%s','now'))",
         params![path.to_string_lossy().as_ref(), mtime, phash as i64],
     );
 }
@@ -444,6 +458,28 @@ pub async fn fetch_phash_batch_async(
     tokio::task::spawn_blocking(move || fetch_phash_batch(&paths, &db_path))
         .await
         .unwrap_or_default()
+}
+
+/// Delete thumbnail and pHash cache entries older than `max_age_days` days,
+/// then VACUUM to reclaim disk space.
+///
+/// Rows that have never been cached via `store_thumb` / `store_phash` with the
+/// new schema (i.e. `cached_at IS NULL`) are treated as maximally old and also
+/// removed.  The `images` (EXIF) table is not pruned here because its rows are
+/// text-only and negligibly small.
+pub fn prune_cache(db_path: &Path, max_age_days: u32) {
+    let Ok(conn) = Connection::open(db_path) else { return };
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(5));
+    let cutoff = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .unwrap_or_default()
+        .as_secs() as i64
+        - (max_age_days as i64 * 86_400);
+    let _ = conn.execute_batch(&format!(
+        "DELETE FROM thumbnails WHERE COALESCE(cached_at, 0) < {cutoff};
+         DELETE FROM phashes    WHERE COALESCE(cached_at, 0) < {cutoff};
+         VACUUM;"
+    ));
 }
 
 fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result<()> {

@@ -13,6 +13,12 @@ struct ContentView: View {
             .environment(store)
             .focusedValue(\.libraryStore, store)
             .background(WindowAccessor(window: $nsWindow))
+            .task {
+                await BridgeCore.pruneCache(
+                    dbPath: LibraryStore.cacheDBURL(),
+                    maxAgeDays: store.settings.cacheTTLDays
+                )
+            }
             .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteOpenURL)) { notif in
                 guard let url = notif.object as? URL,
                       nsWindow?.isKeyWindow == true else { return }

@@ -179,6 +179,9 @@ public func bridge_store_cached_rendered<GenericToRustStr: ToRustStr>(_ db: Brid
 public func bridge_clear_rendered_cache(_ db: BridgeDatabaseRef) {
     __swift_bridge__$bridge_clear_rendered_cache(db.ptr)
 }
+public func bridge_prune_cache(_ db: BridgeDatabaseRef, _ max_age_days: UInt32) {
+    __swift_bridge__$bridge_prune_cache(db.ptr, max_age_days)
+}
 public func bridge_extract_raw_jpeg<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr, _ quality: UInt8) -> FfiOptionalBytes {
     return path.toRustStr({ pathAsRustStr in
         FfiOptionalBytes(ptr: __swift_bridge__$bridge_extract_raw_jpeg(pathAsRustStr, quality))
