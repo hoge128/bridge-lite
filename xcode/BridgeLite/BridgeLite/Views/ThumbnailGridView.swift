@@ -9,6 +9,7 @@ struct ThumbnailGridView: View {
     private var cellSize: CGFloat { store.settings.thumbnailSize }
 
     private func handleTap(id: UInt64) {
+        NSApp.keyWindow?.makeFirstResponder(nil)
         if let last = lastTap,
            last.id == id,
            Date().timeIntervalSince(last.time) < NSEvent.doubleClickInterval {
@@ -32,7 +33,10 @@ struct ThumbnailGridView: View {
 
     var body: some View {
         VStack(spacing: 0) {
-            if store.filter.flatten {
+            if !store.filter.nameSearch.isEmpty {
+                searchBanner
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            } else if store.filter.flatten {
                 flattenBanner
                     .transition(.move(edge: .top).combined(with: .opacity))
             }
@@ -43,6 +47,8 @@ struct ThumbnailGridView: View {
             ZStack {
                 if store.currentDirectoryURL == nil {
                     emptyStateContent
+                } else if !store.filter.nameSearch.isEmpty && store.visibleIDs.isEmpty {
+                    searchEmptyState
                 } else if store.settings.viewMode == .daily {
                     dailyGrid
                 } else {
@@ -66,7 +72,36 @@ struct ThumbnailGridView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: store.filter.flatten)
+        .animation(.easeInOut(duration: 0.2), value: store.filter.nameSearch.isEmpty)
         .animation(.easeInOut(duration: 0.2), value: store.depthExceeded)
+    }
+
+    private var searchBanner: some View {
+        HStack(spacing: 6) {
+            Image(systemName: "magnifyingglass")
+                .font(.caption2)
+                .foregroundStyle(.blue)
+            Text(String(localized: "Searching \"\(store.filter.nameSearch)\""))
+                .font(.caption2.bold())
+                .foregroundStyle(.blue)
+            Text("— \(store.visibleIDs.count) results")
+                .font(.caption2)
+                .foregroundStyle(.secondary)
+            Spacer()
+            Button {
+                store.setNameSearch("")
+            } label: {
+                Image(systemName: "xmark")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help(String(localized: "Clear search"))
+        }
+        .padding(.horizontal, 10)
+        .padding(.vertical, 5)
+        .background(Color.blue.opacity(0.08))
+        .overlay(alignment: .bottom) { Divider() }
     }
 
     private var flattenBanner: some View {
@@ -135,6 +170,22 @@ struct ThumbnailGridView: View {
             Text("Drop a folder to open")
                 .font(.title3)
                 .foregroundStyle(isDropTargeted ? Color.blue : Color.secondary)
+        }
+    }
+
+    private var searchEmptyState: some View {
+        VStack(spacing: 12) {
+            Image(systemName: "magnifyingglass")
+                .font(.system(size: 40, weight: .thin))
+                .foregroundStyle(Color.secondary)
+            Text(String(localized: "No files match \"\(store.filter.nameSearch)\""))
+                .font(.title3)
+                .foregroundStyle(Color.secondary)
+            Button(String(localized: "Clear search")) {
+                store.setNameSearch("")
+            }
+            .buttonStyle(.borderless)
+            .foregroundStyle(.blue)
         }
     }
 

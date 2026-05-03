@@ -62,6 +62,113 @@ private struct ViewModePicker: View {
     }
 }
 
+// MARK: - Native search field (NSSearchField wrapper)
+
+private struct NativeSearchField: NSViewRepresentable {
+    @Binding var text: String
+    var placeholder: String
+
+    func makeCoordinator() -> Coordinator { Coordinator(self) }
+
+    func makeNSView(context: Context) -> NSSearchField {
+        let field = NSSearchField()
+        field.placeholderString = placeholder
+        field.delegate = context.coordinator
+        field.sendsWholeSearchString = false
+        field.sendsSearchStringImmediately = true
+        field.setContentHuggingPriority(.defaultLow, for: .horizontal)
+        // 最近の検索履歴ドロップダウンを無効化（矢印アイコンが消える）
+        field.searchMenuTemplate = nil
+        field.maximumRecents = 0
+        NotificationCenter.default.addObserver(
+            context.coordinator,
+            selector: #selector(Coordinator.focusSearch),
+            name: .bridgeLiteFocusSearch,
+            object: nil
+        )
+        return field
+    }
+
+    func updateNSView(_ nsView: NSSearchField, context: Context) {
+        context.coordinator.parent = self
+        if nsView.stringValue != text {
+            nsView.stringValue = text
+        }
+        nsView.placeholderString = placeholder
+    }
+
+    final class Coordinator: NSObject, NSSearchFieldDelegate {
+        var parent: NativeSearchField
+
+        init(_ parent: NativeSearchField) {
+            self.parent = parent
+        }
+
+        deinit {
+            NotificationCenter.default.removeObserver(self)
+        }
+
+        func controlTextDidChange(_ obj: Notification) {
+            guard let field = obj.object as? NSSearchField else { return }
+            parent.text = field.stringValue
+        }
+
+        // cancelButton（✕）クリック時
+        func searchFieldDidEndSearching(_ sender: NSSearchField) {
+            parent.text = ""
+        }
+
+        @objc func focusSearch(_ notification: Notification) {
+            guard let window = NSApp.keyWindow else { return }
+            if let sf = window.contentView?.findFirstSearchField() {
+                window.makeFirstResponder(sf)
+            }
+        }
+
+        func control(_ control: NSControl, textView: NSTextView, doCommandBy selector: Selector) -> Bool {
+            if selector == #selector(NSResponder.cancelOperation(_:)) {
+                parent.text = ""
+                control.window?.makeFirstResponder(nil)
+                return true
+            }
+            if selector == #selector(NSResponder.insertNewline(_:)) {
+                return true
+            }
+            return false
+        }
+    }
+}
+
+// NSView ツリーから最初の NSSearchField を探すユーティリティ
+private extension NSView {
+    func findFirstSearchField() -> NSSearchField? {
+        if let sf = self as? NSSearchField { return sf }
+        for sub in subviews {
+            if let found = sub.findFirstSearchField() { return found }
+        }
+        return nil
+    }
+}
+
+// MARK: - Search field container
+
+private struct SearchFieldContainer: View {
+    @Environment(LibraryStore.self) private var store
+    @State private var localText: String = ""
+
+    var body: some View {
+        NativeSearchField(
+            text: $localText,
+            placeholder: String(localized: "Search by filename")
+        )
+        .frame(minWidth: 160, maxWidth: 260)
+        .onChange(of: localText) { _, new in store.setNameSearch(new) }
+        .onChange(of: store.filter.nameSearch) { _, new in
+            if new != localText { localText = new }
+        }
+    }
+}
+
 // MARK: -
 
 struct ToolbarView: ToolbarContent {
@@ -71,12 +178,17 @@ struct ToolbarView: ToolbarContent {
         @Bindable var store = store
         @Bindable var settings = store.settings
 
-        if !store.viewerMode && !store.compareMode {
-            ToolbarItemGroup(placement: .navigation) {
+        ToolbarItemGroup(placement: .navigation) {
+            if !store.viewerMode && !store.compareMode {
                 Button(action: { store.requestOpenFolder() }) {
                     Label("Open Folder", systemImage: "folder")
                 }
             }
+            Button(action: { store.performUndo() }) {
+                Label("Undo", systemImage: "arrow.uturn.backward")
+            }
+            .disabled(!store.canUndo)
+            .help(store.performUndoTitle ?? String(localized: "Undo (⌘Z)"))
         }
 
         ToolbarItemGroup(placement: .principal) {
@@ -89,11 +201,9 @@ struct ToolbarView: ToolbarContent {
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
-            Button(action: { store.performUndo() }) {
-                Label("Undo", systemImage: "arrow.uturn.backward")
+            if !store.viewerMode && !store.compareMode {
+                SearchFieldContainer()
             }
-            .disabled(!store.canUndo)
-            .help(store.performUndoTitle ?? String(localized: "Undo (⌘Z)"))
 
             if !store.viewerMode && !store.compareMode {
                 Menu {

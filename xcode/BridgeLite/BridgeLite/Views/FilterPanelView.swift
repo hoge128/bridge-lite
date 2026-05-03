@@ -39,9 +39,12 @@ struct FilterPanelView: View {
                         .toggleStyle(.switch)
                         .labelsHidden()
                         .controlSize(.small)
+                        .disabled(!store.filter.nameSearch.isEmpty)
                 }
                 .padding(.horizontal, 12)
-                .help("Show every file individually. Disables grouping and replaces the kind filter with an extension filter.")
+                .help(store.filter.nameSearch.isEmpty
+                      ? "Show every file individually. Disables grouping and replaces the kind filter with an extension filter."
+                      : String(localized: "Locked while searching"))
 
                 ForEach(store.settings.filterSectionOrder) { section in
                     filterSectionView(for: section, filter: $store.filter)
@@ -51,7 +54,7 @@ struct FilterPanelView: View {
                 Divider()
                     .padding(.horizontal, 8)
 
-                Button(action: { store.filter.reset() }) {
+                Button(action: { store.resetFilter() }) {
                     HStack(spacing: 4) {
                         Image(systemName: "arrow.counterclockwise")
                         Text("Reset Filters")

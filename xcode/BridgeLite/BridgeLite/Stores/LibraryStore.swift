@@ -44,6 +44,7 @@ final class LibraryStore {
     var filter: FilterCriteria = FilterCriteria() {
         didSet { recomputeVisible() }
     }
+    private var preSearchFlatten: Bool?
 
     private(set) var visibleIDs: [UInt64] = []
     var statusMessage: String = ""
@@ -93,6 +94,31 @@ final class LibraryStore {
     private var nextEntryID: UInt64 = 1
 
     // MARK: - 公開アクション
+
+    func setNameSearch(_ newValue: String) {
+        let wasEmpty = filter.nameSearch.isEmpty
+        let willBeEmpty = newValue.isEmpty
+        if wasEmpty && !willBeEmpty {
+            preSearchFlatten = filter.flatten
+            var f = filter
+            f.nameSearch = newValue
+            f.flatten = true
+            filter = f
+        } else if !wasEmpty && willBeEmpty {
+            var f = filter
+            f.nameSearch = ""
+            if let saved = preSearchFlatten { f.flatten = saved }
+            preSearchFlatten = nil
+            filter = f
+        } else {
+            filter.nameSearch = newValue
+        }
+    }
+
+    func resetFilter() {
+        preSearchFlatten = nil
+        filter.reset()
+    }
 
     func requestOpenFolder() {
         let panel = NSOpenPanel()
@@ -1451,6 +1477,8 @@ final class LibraryStore {
     }
 
     private func reset() {
+        filter.nameSearch = ""
+        preSearchFlatten = nil
         watcher?.stop()
         watcher = nil
         pausedWatcherEventId = nil

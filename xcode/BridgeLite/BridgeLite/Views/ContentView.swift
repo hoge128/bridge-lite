@@ -47,6 +47,11 @@ struct FolderView: View {
     @Environment(LibraryStore.self) private var store
     @State private var spaceKeyMonitor: Any?
 
+    private func isTextFieldActive() -> Bool {
+        let fr = NSApp.keyWindow?.firstResponder
+        return fr is NSTextView || fr is NSTextField
+    }
+
     var body: some View {
         @Bindable var store = store
 
@@ -72,25 +77,42 @@ struct FolderView: View {
                 }
                 .background {
                     Group {
-                        Button("") { store.selectAll() }
-                            .keyboardShortcut("a", modifiers: .command)
-                        Button("") { store.deselectAll() }
-                            .keyboardShortcut("a", modifiers: [.command, .option])
+                        Button("") {
+                            guard !isTextFieldActive() else { return }
+                            store.selectAll()
+                        }
+                        .keyboardShortcut("a", modifiers: .command)
+                        Button("") {
+                            guard !isTextFieldActive() else { return }
+                            store.deselectAll()
+                        }
+                        .keyboardShortcut("a", modifiers: [.command, .option])
                         Button("") { store.triggerCopy() }
                             .keyboardShortcut("c", modifiers: .command)
                         Button("") { store.performUndo() }
                             .keyboardShortcut("z", modifiers: .command)
-                        Button("") { if !store.viewerMode { store.triggerDelete() } }
-                            .keyboardShortcut(.delete, modifiers: [])
-                        Button("") { if !store.viewerMode { store.triggerDelete() } }
-                            .keyboardShortcut("d", modifiers: .control)
                         Button("") {
+                            guard !isTextFieldActive() else { return }
+                            if !store.viewerMode { store.triggerDelete() }
+                        }
+                        .keyboardShortcut(.delete, modifiers: [])
+                        Button("") {
+                            guard !isTextFieldActive() else { return }
+                            if !store.viewerMode { store.triggerDelete() }
+                        }
+                        .keyboardShortcut("d", modifiers: .control)
+                        Button("") {
+                            guard !isTextFieldActive() else { return }
                             if !store.viewerMode && !store.compareMode, let pid = store.primaryID {
                                 store.compareAnchorID = pid
                                 store.compareMode = true
                             }
                         }
                         .keyboardShortcut(.return, modifiers: [])
+                        Button("") {
+                            NotificationCenter.default.post(name: .bridgeLiteFocusSearch, object: nil)
+                        }
+                        .keyboardShortcut("f", modifiers: .command)
                     }
                     .opacity(0)
                     .allowsHitTesting(false)
@@ -132,7 +154,8 @@ struct FolderView: View {
                     return nil
                 }
                 // 0-9 rating / label keys (works in all modes: grid, viewer, compare)
-                if !(NSApp.keyWindow?.firstResponder is NSTextView),
+                let fr0 = NSApp.keyWindow?.firstResponder
+                if !(fr0 is NSTextView), !(fr0 is NSTextField),
                    let ch = event.charactersIgnoringModifiers?.first,
                    ch >= "0" && ch <= "9" {
                     let mods = event.modifierFlags.intersection([.shift, .command, .control, .option])
@@ -148,7 +171,8 @@ struct FolderView: View {
                     }
                 }
                 // Arrow keys — text view がフォーカスを持っている場合はスルー
-                guard !(NSApp.keyWindow?.firstResponder is NSTextView),
+                let fr1 = NSApp.keyWindow?.firstResponder
+                guard !(fr1 is NSTextView), !(fr1 is NSTextField),
                       !s.viewerMode, !s.compareMode else { return event }
                 // 矢印キーには .numericPad / .function が常に付く。関心のある modifier のみ抽出する
                 let mods = event.modifierFlags.intersection([.shift, .command, .control, .option])

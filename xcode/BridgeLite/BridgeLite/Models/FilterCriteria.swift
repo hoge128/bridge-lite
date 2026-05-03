@@ -56,6 +56,7 @@ struct FilterCriteria: Sendable, Equatable {
     var cameraOnly: Bool = false
     var flatten: Bool = false
     var excludedExtensions: Set<String> = []   // lowercase, e.g. "jpg", "arw"
+    var nameSearch: String = ""
 
     var isActive: Bool {
         !excludedCameras.isEmpty || !excludedLenses.isEmpty || !excludedArtists.isEmpty ||
@@ -66,10 +67,16 @@ struct FilterCriteria: Sendable, Equatable {
         !dateMin.isEmpty || !dateMax.isEmpty ||
         !luminanceMin.isEmpty || !luminanceMax.isEmpty ||
         !filterRatings.isEmpty || !filterLabels.isEmpty ||
-        !filterKinds.isEmpty || cameraOnly || flatten || !excludedExtensions.isEmpty
+        !filterKinds.isEmpty || cameraOnly || flatten || !excludedExtensions.isEmpty ||
+        !nameSearch.isEmpty
     }
 
     func matches(entry: PhotoEntry, exif: ExifData?, xmp: XmpData?, luminance: Int? = nil) -> Bool {
+        // Filename search filter
+        if !nameSearch.isEmpty,
+           !entry.filename.localizedCaseInsensitiveContains(nameSearch) {
+            return false
+        }
         // Extension filter (flatten mode only)
         if flatten, !excludedExtensions.isEmpty,
            excludedExtensions.contains(entry.url.pathExtension.lowercased()) {
