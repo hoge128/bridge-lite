@@ -41,17 +41,29 @@ struct GroupCompareView: View {
             VStack(spacing: 0) {
                 headerBar
 
-                HStack(alignment: .top, spacing: 8) {
-                    ForEach(groupMembers, id: \.self) { memberID in
-                        CompareMemberColumn(
-                            memberID: memberID,
-                            isFocused: store.primaryID == memberID
-                        )
-                        .onTapGesture { store.selectEntry(memberID) }
+                GeometryReader { geo in
+                    let n = groupMembers.count
+                    let (rows, cols) = optimalGrid(memberCount: n, viewportSize: geo.size)
+                    let spacing: CGFloat = 8
+                    let minCellHeight: CGFloat = 160
+                    let cellHeight = max(geo.size.height / CGFloat(rows) - spacing, minCellHeight)
+                    let gridColumns = Array(repeating: GridItem(.flexible(), spacing: spacing), count: cols)
+
+                    ScrollView(.vertical, showsIndicators: false) {
+                        LazyVGrid(columns: gridColumns, spacing: spacing) {
+                            ForEach(groupMembers, id: \.self) { memberID in
+                                CompareMemberColumn(
+                                    memberID: memberID,
+                                    isFocused: store.primaryID == memberID
+                                )
+                                .frame(height: cellHeight)
+                                .onTapGesture { store.selectEntry(memberID) }
+                            }
+                        }
+                        .padding(.horizontal, 12)
+                        .padding(.vertical, 8)
                     }
                 }
-                .padding(.horizontal, 12)
-                .padding(.vertical, 8)
                 .frame(maxHeight: .infinity)
             }
         }
@@ -223,6 +235,16 @@ struct GroupCompareView: View {
     private func closeCompare() {
         store.selectEntry(currentRepID)
         store.compareMode = false
+    }
+
+    private func optimalGrid(memberCount n: Int, viewportSize size: CGSize) -> (rows: Int, cols: Int) {
+        guard n > 0 else { return (1, 1) }
+        let viewportAspect = max(0.1, size.width / max(size.height, 1))
+        let imageAspect: CGFloat = 1.5
+        let rawCols = (Double(n) * Double(viewportAspect) / Double(imageAspect)).squareRoot()
+        let cols = min(max(Int(rawCols.rounded()), 1), n)
+        let rows = Int((Double(n) / Double(cols)).rounded(.up))
+        return (rows, cols)
     }
 }
 
