@@ -159,12 +159,11 @@ struct ViewerView: View {
 
     private func triggerRender(entry: PhotoEntry) {
         guard let db = store.cacheDatabase else { return }
-        let engine = RAWRenderEngine(rawValue: SettingsStore.shared.rawRenderEngine) ?? .apple
         Task {
             isRendering = true
             defer { isRendering = false }
             rawRendered = await RAWRenderPipeline.shared.render(
-                url: entry.url, engine: engine, target: .viewer, db: db
+                url: entry.url, target: .viewer, db: db
             )
             if rawRendered != nil { showRendered = true }
         }

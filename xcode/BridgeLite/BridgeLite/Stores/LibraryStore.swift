@@ -1330,10 +1330,9 @@ final class LibraryStore {
     /// `autoRenderRawThumbnails` が false の場合は何もしない。
     func autoRenderThumbnailIfNeeded(entry: PhotoEntry, db: BridgeCoreDatabase) {
         guard SettingsStore.shared.autoRenderRawThumbnails, entry.isRaw else { return }
-        let engine = RAWRenderEngine(rawValue: SettingsStore.shared.rawRenderEngine) ?? .apple
         Task { [weak self] in
             guard let (img, _) = await RAWRenderPipeline.shared.render(
-                url: entry.url, engine: engine, target: .sidebar, db: db
+                url: entry.url, target: .sidebar, db: db
             ) else { return }
             guard let scaled = img.scaledToFit(maxPixels: 200),
                   let thumbJpeg = scaled.jpegData(compressionQuality: 0.85) else { return }

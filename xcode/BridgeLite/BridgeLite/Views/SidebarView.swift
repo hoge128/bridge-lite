@@ -172,11 +172,10 @@ struct SidebarView: View {
                         // Auto-render: show embedded first, then replace with engine output
                         if SettingsStore.shared.autoRenderRawSidebar,
                            let db = store.cacheDatabase {
-                            let engine = RAWRenderEngine(rawValue: SettingsStore.shared.rawRenderEngine) ?? .apple
                             isRendering = true
                             defer { isRendering = false }
                             if let (img, _) = await RAWRenderPipeline.shared.render(
-                                url: url, engine: engine, target: .sidebar, db: db
+                                url: url, target: .sidebar, db: db
                             ) {
                                 rawRendered = img
                                 showRendered = true

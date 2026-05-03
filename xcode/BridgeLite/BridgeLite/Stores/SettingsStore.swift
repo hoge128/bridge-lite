@@ -311,9 +311,6 @@ final class SettingsStore {
     }
 
     // MARK: - RAW レンダリング
-    var rawRenderEngine: String = UserDefaults.standard.string(forKey: "rawRenderEngine") ?? "apple" {
-        didSet { UserDefaults.standard.set(rawRenderEngine, forKey: "rawRenderEngine") }
-    }
     var autoRenderRawThumbnails: Bool = bool("autoRenderRawThumbnails", default: false) {
         didSet { UserDefaults.standard.set(autoRenderRawThumbnails, forKey: "autoRenderRawThumbnails") }
     }

@@ -340,9 +340,6 @@ mod ffi {
         fn bridge_store_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32, jpeg: &[u8]);
         fn bridge_clear_rendered_cache(db: &BridgeDatabase);
 
-        // RAW render (Rust engine: rawloader + imagepipe)
-        fn bridge_render_raw_rust(path: &str, max_width: u32) -> FfiOptionalBytes;
-
         // RAW embedded JPEG API (quality: 0=Thumbnail, 1=Preview, 2=Full)
         fn bridge_extract_raw_jpeg(path: &str, quality: u8) -> FfiOptionalBytes;
 
@@ -532,15 +529,6 @@ fn bridge_store_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, w
 
 fn bridge_clear_rendered_cache(db: &BridgeDatabase) {
     bridge_core::db::clear_rendered(&db.db_path);
-}
-
-// ── RAW render (Rust engine) API impl ─────────────────────────────────────
-
-fn bridge_render_raw_rust(path: &str, max_width: u32) -> FfiOptionalBytes {
-    let p = Path::new(path);
-    bridge_core::render::render_raw_to_jpeg(p, max_width, 85)
-        .map(FfiOptionalBytes::some)
-        .unwrap_or_else(FfiOptionalBytes::none)
 }
 
 // ── RAW embedded JPEG API impl ─────────────────────────────────────────────

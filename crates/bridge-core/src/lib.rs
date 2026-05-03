@@ -1,7 +1,6 @@
 // bridge-core: core logic library (GUI-independent)
 
 pub mod btime;
-pub mod render;
 pub mod db;
 pub mod developed;
 pub mod error;

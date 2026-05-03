@@ -137,16 +137,6 @@ struct SettingsView: View {
                             defaultValue: "Folder Updates"))
             }
             Section(String(localized: "settings.render.section", defaultValue: "RAW Rendering")) {
-                Picker(String(localized: "settings.render.engine", defaultValue: "Rendering Engine"),
-                       selection: $settings.rawRenderEngine) {
-                    Text("Apple (CIRAWFilter)").tag("apple")
-                    Text("Rust (rawler)").tag("rust")
-                }
-                .pickerStyle(.radioGroup)
-                Text(String(localized: "settings.render.engine.help",
-                            defaultValue: "Apple uses CIRAWFilter (hardware-accelerated, equivalent to Photos.app). Rust uses rawler+imagepipe (deterministic, slower)."))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
                 Toggle(String(localized: "settings.render.auto_compare",
                               defaultValue: "Auto-render in Compare view"),
                        isOn: $settings.autoRenderRawCompare)

@@ -160,7 +160,6 @@ void __swift_bridge__$bridge_store_cached_thumbnail(void* db, struct RustStr pat
 void* __swift_bridge__$bridge_fetch_cached_rendered(void* db, struct RustStr path, struct RustStr engine, uint32_t width);
 void __swift_bridge__$bridge_store_cached_rendered(void* db, struct RustStr path, struct RustStr engine, uint32_t width, struct __private__FfiSlice jpeg);
 void __swift_bridge__$bridge_clear_rendered_cache(void* db);
-void* __swift_bridge__$bridge_render_raw_rust(struct RustStr path, uint32_t max_width);
 void* __swift_bridge__$bridge_extract_raw_jpeg(struct RustStr path, uint8_t quality);
 void* __swift_bridge__$bridge_reindex_shot_groups(void* db, void* entries, int64_t split_threshold_secs, uint32_t phash_hamming_threshold);
 uintptr_t __swift_bridge__$shot_groups_map_count(void* m);

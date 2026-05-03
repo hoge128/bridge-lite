@@ -217,16 +217,6 @@ enum BridgeCore {
         }.value
     }
 
-    // MARK: RAW render (Rust engine)
-
-    static func renderRawRust(url: URL, maxWidth: UInt32) async -> Data? {
-        return await Task.detached(priority: .userInitiated) {
-            let r = bridge_render_raw_rust(url.path, maxWidth)
-            guard ffi_optional_bytes_found(r) else { return nil }
-            return Data(rustVec: ffi_optional_bytes_data(r))
-        }.value
-    }
-
     // MARK: RAW embedded JPEG
 
     static func extractRawJpeg(url: URL, quality: RawJpegQuality) async -> Data? {

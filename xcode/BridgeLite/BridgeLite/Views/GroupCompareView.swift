@@ -289,11 +289,10 @@ private struct CompareMemberColumn: View {
             if entry.isRaw,
                SettingsStore.shared.autoRenderRawCompare,
                let db = store.cacheDatabase {
-                let engine = RAWRenderEngine(rawValue: SettingsStore.shared.rawRenderEngine) ?? .apple
                 isRendering = true
                 defer { isRendering = false }
                 rawRendered = await RAWRenderPipeline.shared.render(
-                    url: entry.url, engine: engine, target: .compare, db: db
+                    url: entry.url, target: .compare, db: db
                 )
                 if rawRendered != nil { showRendered = true }
             }
