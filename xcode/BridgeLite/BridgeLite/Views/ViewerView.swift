@@ -11,6 +11,8 @@ struct ViewerView: View {
     @State private var rawRendered: (CGImage, Image.Orientation)?
     @State private var isRendering = false
     @State private var showRendered = false
+    @State private var showInfoButton = false
+    @State private var infoHideTask: Task<Void, Never>?
 
     private var selectedEntry: PhotoEntry? {
         store.selectedID.flatMap { store.entries[$0] }
@@ -35,61 +37,70 @@ struct ViewerView: View {
 
     var body: some View {
         @Bindable var store = store
-        ZStack {
-            Color.black.ignoresSafeArea()
+        GeometryReader { geo in
+            ZStack {
+                Color.black.ignoresSafeArea()
 
-            if let (img, orient) = displayPair {
-                Image(decorative: img, scale: 1.0, orientation: orient)
-                    .resizable()
-                    .scaledToFit()
-            } else if let thumb = thumbnail {
-                // While loading: blurred + dimmed thumbnail as spatial placeholder.
-                // After failure (not loading): plain thumbnail as best-effort fallback.
-                Image(decorative: thumb, scale: 1.0)
-                    .resizable()
-                    .scaledToFit()
-                    .blur(radius: isLoadingFullRes ? 24 : 0)
-                    .opacity(isLoadingFullRes ? 0.35 : 1.0)
-            } else {
-                Image(systemName: "photo")
-                    .font(.system(size: 80))
-                    .foregroundStyle(.secondary)
-            }
+                if let (img, orient) = displayPair {
+                    Image(decorative: img, scale: 1.0, orientation: orient)
+                        .resizable()
+                        .scaledToFit()
+                } else if let thumb = thumbnail {
+                    // While loading: blurred + dimmed thumbnail as spatial placeholder.
+                    // After failure (not loading): plain thumbnail as best-effort fallback.
+                    Image(decorative: thumb, scale: 1.0)
+                        .resizable()
+                        .scaledToFit()
+                        .blur(radius: isLoadingFullRes ? 24 : 0)
+                        .opacity(isLoadingFullRes ? 0.35 : 1.0)
+                } else {
+                    Image(systemName: "photo")
+                        .font(.system(size: 80))
+                        .foregroundStyle(.secondary)
+                }
 
-            VStack {
-                HStack {
-                    Button("Close") { store.viewerMode = false }
+                VStack {
+                    HStack {
+                        Button("Close") { store.viewerMode = false }
+                            .padding()
+                        Spacer()
+                        HStack(spacing: 16) {
+                            Button {
+                                store.viewerShowsMeta.toggle()
+                            } label: {
+                                Image(systemName: store.viewerShowsMeta ? "info.circle.fill" : "info.circle")
+                            }
+                            .help(store.viewerShowsMeta
+                                  ? String(localized: "viewer.meta.hide", defaultValue: "Hide Info (M)")
+                                  : String(localized: "viewer.meta.show", defaultValue: "Show Info (M)"))
+                            .opacity(showInfoButton ? 1 : 0)
+                            .offset(x: showInfoButton ? 0 : 18)
+                            .allowsHitTesting(showInfoButton)
+                            .animation(.spring(response: 0.28, dampingFraction: 0.78), value: showInfoButton)
+                            renderButton
+                            Button("Prev") { store.navigatePrev() }
+                                .keyboardShortcut(.leftArrow, modifiers: [])
+                            Button("Next") { store.navigateNext() }
+                                .keyboardShortcut(.rightArrow, modifiers: [])
+                        }
                         .padding()
-                    Spacer()
-                    HStack(spacing: 16) {
-                        Button {
-                            store.viewerShowsMeta.toggle()
-                        } label: {
-                            Image(systemName: store.viewerShowsMeta ? "info.circle.fill" : "info.circle")
-                        }
-                        .help(store.viewerShowsMeta
-                              ? String(localized: "viewer.meta.hide", defaultValue: "Hide Info (M)")
-                              : String(localized: "viewer.meta.show", defaultValue: "Show Info (M)"))
-                        renderButton
-                        Button("Prev") { store.navigatePrev() }
-                            .keyboardShortcut(.leftArrow, modifiers: [])
-                        Button("Next") { store.navigateNext() }
-                            .keyboardShortcut(.rightArrow, modifiers: [])
                     }
-                    .padding()
-                }
-                Spacer()
+                    Spacer()
 
-                HStack(alignment: .bottom) {
-                    if shouldShowOverlay, let entry = selectedEntry {
-                        ViewerMetaOverlay(entry: entry, xmp: xmp) {
-                            store.viewerShowsMeta = false
+                    HStack(alignment: .bottom) {
+                        if shouldShowOverlay, let entry = selectedEntry {
+                            ViewerMetaOverlay(entry: entry, xmp: xmp) {
+                                store.viewerShowsMeta = false
+                            }
+                            .padding([.leading, .bottom], 16)
+                            .transition(.opacity)
                         }
-                        .padding([.leading, .bottom], 16)
-                        .transition(.opacity)
+                        Spacer()
                     }
-                    Spacer()
                 }
+            }
+            .onContinuousHover { phase in
+                handleInfoHover(phase: phase, size: geo.size)
             }
         }
         .animation(.easeInOut(duration: 0.15), value: store.viewerShowsMeta)
@@ -112,6 +123,7 @@ struct ViewerView: View {
         }
         .onDisappear {
             if let m = keyMonitor { NSEvent.removeMonitor(m); keyMonitor = nil }
+            infoHideTask?.cancel()
         }
         .onReceive(store.xmpDidUpdate) { id in
             guard id == store.selectedID else { return }
@@ -127,6 +139,29 @@ struct ViewerView: View {
             isLoadingFullRes = true
             defer { isLoadingFullRes = false }
             fullRes = await loadFullRes(entry: entry)
+        }
+    }
+
+    private func handleInfoHover(phase: HoverPhase, size: CGSize) {
+        switch phase {
+        case .active(let location):
+            if location.x > size.width / 2 && location.y < size.height / 2 {
+                infoHideTask?.cancel()
+                showInfoButton = true
+                infoHideTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 2_000_000_000)
+                    guard !Task.isCancelled else { return }
+                    showInfoButton = false
+                }
+            } else {
+                infoHideTask?.cancel()
+                infoHideTask = nil
+                showInfoButton = false
+            }
+        case .ended:
+            infoHideTask?.cancel()
+            infoHideTask = nil
+            showInfoButton = false
         }
     }
 
@@ -238,4 +273,3 @@ private struct ViewerMetaOverlay: View {
         )
     }
 }
-
