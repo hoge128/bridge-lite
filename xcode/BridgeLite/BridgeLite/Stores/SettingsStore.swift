@@ -333,7 +333,8 @@ final class SettingsStore {
     var thumbnailCacheMB: Int = {
         let v = UserDefaults.standard.integer(forKey: "thumbnailCacheMB")
         let maxMB = Int(ProcessInfo.processInfo.physicalMemory / 10 / (1024 * 1024))
-        return v >= 100 ? min(v, maxMB) : 300
+        // 150MB デフォルト。300MB だと IOSurface プールが逼迫する。
+        return v >= 100 ? min(v, maxMB) : 150
     }() {
         didSet {
             UserDefaults.standard.set(thumbnailCacheMB, forKey: "thumbnailCacheMB")

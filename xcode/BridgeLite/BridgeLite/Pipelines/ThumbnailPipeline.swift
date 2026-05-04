@@ -7,7 +7,9 @@ import SwiftUI
 /// Writes JPEG blobs to LibraryStore.thumbnailBlobs on the MainActor
 /// so the grid updates reactively as each thumbnail finishes.
 enum ThumbnailPipeline {
-    private static let limiter = ConcurrencyLimiter(maxConcurrent: 6)
+    // 4 並列。autoRenderThumbnailIfNeeded の RAW レンダーが並走するピーク時の
+    // IOSurface 同時確保を抑え、kIOReturnNoMemory を防ぐ。
+    private static let limiter = ConcurrencyLimiter(maxConcurrent: 4)
 
     /// Fire-and-forget: load all thumbnails, updating store as each one completes.
     /// Also enqueues pHash computation for newly generated thumbnails so that
@@ -146,7 +148,11 @@ extension Image.Orientation {
 extension CGImage {
     static func fromJPEGData(_ data: Data) -> CGImage? {
         guard let src = CGImageSourceCreateWithData(data as CFData, nil) else { return nil }
-        return CGImageSourceCreateImageAtIndex(src, 0, nil)
+        // shouldCache: false で CGImage が IOSurface バックのデコード済みピクセルを
+        // 抱え込まないようにする。SwiftUI Image は CALayer 側でテクスチャ化されるので
+        // 体感性能は変わらず、IOSurface プールの逼迫だけを抑えられる。
+        let opts: CFDictionary = [kCGImageSourceShouldCache: false] as CFDictionary
+        return CGImageSourceCreateImageAtIndex(src, 0, opts)
     }
 
     func jpegData(compressionQuality: Double) -> Data? {
