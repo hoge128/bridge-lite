@@ -14,6 +14,8 @@ struct ThumbnailCellView: View {
     @State private var thumbnailOrientation: Image.Orientation = .up
     @State private var xmp: XmpData? = nil
     @State private var exif: ExifData? = nil
+    @State private var duplicateCount: Int = 0
+    @State private var isRecommendedOriginal: Bool = false
 
     private var cellSize: CGFloat { store.settings.thumbnailSize }
     private var isSelected: Bool { store.selectedIDs.contains(entry.id) }
@@ -50,6 +52,20 @@ struct ThumbnailCellView: View {
                     .opacity(store.filter.flatten ? 0 : (photoKind == .sooc ? (isHovered ? 1 : 0) : 1))
                     .animation(.easeInOut(duration: 0.15), value: isHovered)
             }
+            .overlay(alignment: .bottomLeading) {
+                if duplicateCount > 1 {
+                    HStack(spacing: 2) {
+                        if isRecommendedOriginal {
+                            Image(systemName: "star.fill").font(.system(size: 9))
+                        }
+                        Text("×\(duplicateCount)").font(.system(size: 10, weight: .bold))
+                    }
+                    .padding(.horizontal, 4).padding(.vertical, 1)
+                    .background(RoundedRectangle(cornerRadius: 3).fill(Color.red.opacity(0.85)))
+                    .foregroundStyle(.white)
+                    .padding(4)
+                }
+            }
             .overlay { selectionStroke(cornerRadius: 6) }
 
             HStack(spacing: 3) {
@@ -71,6 +87,7 @@ struct ThumbnailCellView: View {
             thumbnailOrientation = entry.isRaw ? (store.thumbnailOrientations[entry.id] ?? .up) : .up
             xmp = store.xmpData[entry.id]
             exif = store.exifData[entry.id]
+            updateDuplicateBadge()
         }
         .onReceive(store.thumbnailDidUpdate.filter { $0 == self.entry.id }) { _ in
             thumbnail = ThumbnailDecodeCache.shared.decode(id: entry.id, blob: store.thumbnailBlobs[entry.id])
@@ -83,6 +100,9 @@ struct ThumbnailCellView: View {
         }
         .onReceive(store.xmpDidUpdate.filter { $0 == self.entry.id }) { _ in
             xmp = store.xmpData[entry.id]
+        }
+        .onReceive(store.duplicateDidUpdate.filter { $0 == self.entry.id }) { _ in
+            updateDuplicateBadge()
         }
         .onHover { isHovered = $0 }
         .contextMenu { cellContextMenu }
@@ -186,6 +206,19 @@ struct ThumbnailCellView: View {
             store.triggerDelete()
         } label: {
             Text("Move to Trash")
+        }
+    }
+
+    // MARK: - 重複バッジ更新
+
+    private func updateDuplicateBadge() {
+        if let key = store.duplicateKeyByID[entry.id],
+           let members = store.duplicateGroups[key], members.count > 1 {
+            duplicateCount = members.count
+            isRecommendedOriginal = (store.duplicateRecommendedID[key] == entry.id)
+        } else {
+            duplicateCount = 0
+            isRecommendedOriginal = false
         }
     }
 

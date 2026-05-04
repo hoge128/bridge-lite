@@ -251,6 +251,13 @@ pub struct ShotGroupsMap {
     pub groups: HashMap<u64, Vec<u64>>,
 }
 
+/// Duplicate groups map: sha256 index → [entry_id, ...]
+/// sha256 bytes are stored as Vec<u8> because swift-bridge cannot handle fixed-size arrays as HashMap keys.
+pub struct DuplicateGroupsMap {
+    pub sha_keys: Vec<Vec<u8>>,
+    pub groups: HashMap<Vec<u8>, Vec<u64>>,
+}
+
 // ── XMP write helper ───────────────────────────────────────────────────────
 
 fn label_from_u8(v: u8) -> Option<CoreLabel> {
@@ -289,6 +296,7 @@ mod ffi {
         type FfiXmpResult;
         type FfiOptionalBytes;
         type ShotGroupsMap;
+        type DuplicateGroupsMap;
 
         // Database API
         fn bridge_open_database(db_path: &str) -> Result<BridgeDatabase, BridgeFfiError>;
@@ -373,6 +381,12 @@ mod ffi {
         fn shot_groups_map_count(m: &ShotGroupsMap) -> usize;
         fn shot_groups_map_shot_id_at(m: &ShotGroupsMap, idx: usize) -> u64;
         fn shot_groups_map_members_for(m: &ShotGroupsMap, shot_id: u64) -> Vec<u64>;
+
+        // Duplicate detection API
+        fn bridge_compute_duplicate_groups(db: &BridgeDatabase, entries: &ImageEntryList) -> DuplicateGroupsMap;
+        fn duplicate_groups_map_count(m: &DuplicateGroupsMap) -> usize;
+        fn duplicate_groups_map_sha_at(m: &DuplicateGroupsMap, idx: usize) -> Vec<u8>;
+        fn duplicate_groups_map_members_for(m: &DuplicateGroupsMap, sha: &[u8]) -> Vec<u64>;
 
         // Constants / utilities
         fn bridge_is_raw(path: &str) -> bool;
@@ -652,6 +666,45 @@ fn shot_groups_map_shot_id_at(m: &ShotGroupsMap, idx: usize) -> u64 {
 
 fn shot_groups_map_members_for(m: &ShotGroupsMap, shot_id: u64) -> Vec<u64> {
     m.groups.get(&shot_id).cloned().unwrap_or_default()
+}
+
+// ── Duplicate detection API impl ──────────────────────────────────────────
+
+fn bridge_compute_duplicate_groups(db: &BridgeDatabase, entries: &ImageEntryList) -> DuplicateGroupsMap {
+    let shas = bridge_core::dedup::fetch_or_compute_sha_for_size_collisions(
+        &entries.entries,
+        &db.db_path,
+    );
+    let raw_groups = bridge_core::dedup::group_duplicates(&shas);
+
+    let mut sha_keys: Vec<Vec<u8>> = raw_groups
+        .keys()
+        .map(|k| k.to_vec())
+        .collect();
+    sha_keys.sort_unstable();
+
+    let groups: HashMap<Vec<u8>, Vec<u64>> = raw_groups
+        .into_iter()
+        .map(|(sha, ids)| {
+            let mut member_ids: Vec<u64> = ids.into_iter().map(|id| id as u64).collect();
+            member_ids.sort_unstable();
+            (sha.to_vec(), member_ids)
+        })
+        .collect();
+
+    DuplicateGroupsMap { sha_keys, groups }
+}
+
+fn duplicate_groups_map_count(m: &DuplicateGroupsMap) -> usize {
+    m.sha_keys.len()
+}
+
+fn duplicate_groups_map_sha_at(m: &DuplicateGroupsMap, idx: usize) -> Vec<u8> {
+    m.sha_keys[idx].clone()
+}
+
+fn duplicate_groups_map_members_for(m: &DuplicateGroupsMap, sha: &[u8]) -> Vec<u64> {
+    m.groups.get(sha).cloned().unwrap_or_default()
 }
 
 // ── Constants / utilities impl ─────────────────────────────────────────────

@@ -284,6 +284,32 @@ enum BridgeCore {
         }.value
     }
 
+    // MARK: Duplicate detection
+
+    /// Compute duplicate groups (file_size collision → SHA-256) for all entries.
+    /// Returns a map of sha256 Data → [entry_id]. Only groups with ≥2 members are included.
+    static func computeDuplicateGroups(list: BridgeCoreImageList, db: BridgeCoreDatabase) async -> [Data: [UInt64]] {
+        return await Task.detached(priority: .utility) {
+            let map = bridge_compute_duplicate_groups(db.inner, list.inner)
+            let count = duplicate_groups_map_count(map)
+            guard count > 0 else { return [:] }
+            var result: [Data: [UInt64]] = [:]
+            result.reserveCapacity(Int(count))
+            for i in 0..<count {
+                let shaVec = duplicate_groups_map_sha_at(map, i)
+                let shaData = Data(bytes: shaVec.as_ptr(), count: shaVec.len())
+                let membersVec = shaData.withUnsafeBytes { raw in
+                    duplicate_groups_map_members_for(map, raw.bindMemory(to: UInt8.self))
+                }
+                var ids: [UInt64] = []
+                ids.reserveCapacity(Int(membersVec.len()))
+                for j in 0..<membersVec.len() { ids.append(membersVec[j]) }
+                result[shaData] = ids
+            }
+            return result
+        }.value
+    }
+
     // MARK: Utilities
 
     static func isRaw(url: URL) -> Bool {

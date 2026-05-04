@@ -29,6 +29,7 @@
 		639D3ABDDEE404D4558F0932 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */; };
 		740B6E0B825A83C207B42109 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6259A93CEB1040679F6D1C26 /* ToolbarView.swift */; };
 		74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */; };
+		6197823A20AE45CCBE3F4899 /* DuplicatePipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = D695AE9E8CD9428AB30E3D6D /* DuplicatePipeline.swift */; };
 		757F65595D73658FC438F522 /* BridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */; };
 		75BBD1B5458C5D8D77610FB6 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F1394BA720F5BB1FAC74FB /* TabManager.swift */; };
 		89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
@@ -54,6 +55,7 @@
 /* Begin PBXFileReference section */
 		05F0D4EF54B7033D13443243 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PHashPipeline.swift; sourceTree = "<group>"; };
+		D695AE9E8CD9428AB30E3D6D /* DuplicatePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatePipeline.swift; sourceTree = "<group>"; };
 		09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterCriteria.swift; sourceTree = "<group>"; };
 		15664F7FA303F94AF6538F3E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		1C59E59994061A04481C6A6A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
@@ -117,6 +119,7 @@
 			isa = PBXGroup;
 			children = (
 				F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */,
+				D695AE9E8CD9428AB30E3D6D /* DuplicatePipeline.swift */,
 				3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */,
 				07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */,
 				829D014EC927B51D64289330 /* ScanPipeline.swift */,
@@ -334,6 +337,7 @@
 				2B41F6FBC7E044488751E828 /* FolderWatcher.swift in Sources */,
 				221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */,
 				74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */,
+				6197823A20AE45CCBE3F4899 /* DuplicatePipeline.swift in Sources */,
 				5B7AA16F9AB39446C7450658 /* PairingPipeline.swift in Sources */,
 				487E0F471C54D7589919532C /* PhotoEntry.swift in Sources */,
 				E8F5A37ADB423EFE6A24493D /* ScanPipeline.swift in Sources */,

@@ -174,7 +174,11 @@ pub fn write_metadata(image_path: &Path, data: &XmpData, jpg_use_sidecar: bool) 
 ///   for rating/label changes via the Camera Raw engine)
 fn detect_developed(meta: &XmpMeta) -> bool {
     if meta.property(NS_CRS, "RawFileName").is_some() { return true; }
-    if meta.property(NS_CRS, "HasSettings").is_some() { return true; }
+    // HasSettings="False" is written by Camera Raw/Lightroom for untouched files;
+    // only treat as developed when the value is explicitly "True".
+    if let Some(v) = meta.property(NS_CRS, "HasSettings") {
+        if v.value.eq_ignore_ascii_case("true") { return true; }
+    }
     if meta.property(NS_DXO, "WhiteLevel").is_some() { return true; }
     if meta.property(NS_DXO, "AdobeWhiteLevel").is_some() { return true; }
 
@@ -634,6 +638,26 @@ mod tests {
             .unwrap();
         let data = parse_xmp_data(&meta);
         assert!(data.developed, "crs:RawFileName should flag developed");
+    }
+
+    #[test]
+    fn crs_has_settings_true_flags_developed() {
+        let _ = XmpMeta::register_namespace(NS_CRS, "crs");
+        let mut meta = XmpMeta::new().unwrap();
+        meta.set_property(NS_CRS, "HasSettings", &XmpValue::new("True".to_string())).unwrap();
+        let data = parse_xmp_data(&meta);
+        assert!(data.developed, "crs:HasSettings=True must flag developed");
+    }
+
+    #[test]
+    fn crs_has_settings_false_does_not_flag_developed() {
+        let _ = XmpMeta::register_namespace(NS_CRS, "crs");
+        let mut meta = XmpMeta::new().unwrap();
+        // Lightroom writes HasSettings="False" in sidecars for untouched RAW files.
+        // A JPG that picks up the ARW sidecar must not be misclassified as developed.
+        meta.set_property(NS_CRS, "HasSettings", &XmpValue::new("False".to_string())).unwrap();
+        let data = parse_xmp_data(&meta);
+        assert!(!data.developed, "crs:HasSettings=False must not flag developed");
     }
 
     #[test]

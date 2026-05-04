@@ -24,6 +24,7 @@ final class LibraryStore {
     private let scanPipeline = ScanPipeline()
     private var pairingPipeline = PairingPipeline()
     private var phashPipeline = PHashPipeline()
+    private var duplicatePipeline = DuplicatePipeline()
 
     // UI 状態 — 選択
     private(set) var selectedIDs: Set<UInt64> = []
@@ -74,6 +75,12 @@ final class LibraryStore {
     let thumbnailDidUpdate = PassthroughSubject<UInt64, Never>()
     let exifDidUpdate = PassthroughSubject<UInt64, Never>()
     let xmpDidUpdate = PassthroughSubject<UInt64, Never>()
+    let duplicateDidUpdate = PassthroughSubject<UInt64, Never>()
+
+    // 重複検出（content-hash 軸、shot_id 軸とは独立）
+    private(set) var duplicateGroups: [Data: [UInt64]] = [:]
+    private(set) var duplicateKeyByID: [UInt64: Data] = [:]
+    private(set) var duplicateRecommendedID: [Data: UInt64] = [:]
 
     // フォルダ切替時にキャンセルする fire-and-forget タスク
     private var exifLoadTask: Task<Void, Never>?
@@ -288,6 +295,11 @@ final class LibraryStore {
             await capturedPairing.notePhashReady(list: capturedList, db: db, store: self, splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs), phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold))
             settings.appliedGroupingSplitThresholdSecs = settings.groupingSplitThresholdSecs
             settings.appliedGroupingPhashHammingThreshold = settings.groupingPhashHammingThreshold
+
+            if settings.detectDuplicates, let capturedList {
+                let capturedDup = duplicatePipeline
+                Task { await capturedDup.compute(list: capturedList, db: db, store: self) }
+            }
 
             statusMessage = String(
                 format: String(localized: "%d photos"),
@@ -714,6 +726,7 @@ final class LibraryStore {
             newGroups[e.shotId, default: []].append(id)
         }
         shotGroups = newGroups
+        cleanupDuplicateState(removedIDs: deletedIDs)
         recomputeVisible()
         deselectAll()
         showUndoMessage(String(localized: "Moved \(fileCount) file(s) to Trash (recoverable from Finder)"))
@@ -752,9 +765,194 @@ final class LibraryStore {
             newGroups[e.shotId, default: []].append(id)
         }
         shotGroups = newGroups
+        cleanupDuplicateState(removedIDs: deletedIDs)
         recomputeVisible()
         deselectAll()
         showUndoMessage(String(localized: "Moved \(fileCount) file(s) to Trash (recoverable from Finder)"))
+    }
+
+    // MARK: - 重複検出
+
+    func applyDuplicateGroups(_ groups: [Data: [UInt64]]) {
+        var keyByID: [UInt64: Data] = [:]
+        var recommendedByKey: [Data: UInt64] = [:]
+        var idsToNotify = Set<UInt64>()
+
+        for (sha, ids) in groups {
+            let recID = recommendedID(among: ids)
+            recommendedByKey[sha] = recID
+            for id in ids {
+                keyByID[id] = sha
+                idsToNotify.insert(id)
+                // Shot group members (including the visible representative) also get
+                // the badge so the user sees duplicates even when members are hidden.
+                if let entry = entries[id], let members = shotGroups[entry.shotId] {
+                    for memberId in members where keyByID[memberId] == nil {
+                        keyByID[memberId] = sha
+                        idsToNotify.insert(memberId)
+                    }
+                }
+            }
+        }
+
+        duplicateGroups = groups
+        duplicateKeyByID = keyByID
+        duplicateRecommendedID = recommendedByKey
+
+        for id in idsToNotify {
+            duplicateDidUpdate.send(id)
+        }
+    }
+
+    private func recommendedID(among ids: [UInt64]) -> UInt64 {
+        let candidates = ids.compactMap { entries[$0] }
+        return candidates.min(by: { a, b in
+            let depthA = a.url.pathComponents.count
+            let depthB = b.url.pathComponents.count
+            if depthA != depthB { return depthA < depthB }
+            let createdA = Int(a.createdDate?.timeIntervalSince1970 ?? 0)
+            let createdB = Int(b.createdDate?.timeIntervalSince1970 ?? 0)
+            if createdA != createdB { return createdA < createdB }
+            return a.url.path(percentEncoded: false) < b.url.path(percentEncoded: false)
+        })?.id ?? ids[0]
+    }
+
+    func trashDuplicate(id: UInt64) {
+        guard let entry = entries[id] else { return }
+        try? FileManager.default.trashItem(at: entry.url, resultingItemURL: nil)
+        let xmpURL = entry.url.deletingPathExtension().appendingPathExtension("xmp")
+        if FileManager.default.fileExists(atPath: xmpURL.path) {
+            try? FileManager.default.trashItem(at: xmpURL, resultingItemURL: nil)
+        }
+        removeSingleEntryFromStore(id)
+        removeDuplicateEntry(id)
+        showUndoMessage(String(localized: "duplicate.toast.trashed_one", defaultValue: "Moved 1 duplicate copy to Trash"))
+    }
+
+    func trashAllOtherDuplicates(of id: UInt64) {
+        guard let sha = duplicateKeyByID[id],
+              let members = duplicateGroups[sha] else { return }
+        let othersToTrash = members.filter { $0 != id }
+        guard !othersToTrash.isEmpty else { return }
+
+        if settings.confirmDuplicateBatchDelete {
+            let count = othersToTrash.count
+            let alert = NSAlert()
+            alert.messageText = String(
+                format: String(localized: "duplicate.alert.batch_trash.title", defaultValue: "Move %lld duplicate copies to Trash?"),
+                count
+            )
+            alert.informativeText = String(localized: "duplicate.alert.batch_trash.body", defaultValue: "The recommended copy will be kept. Files can be restored from the Finder Trash.")
+            alert.addButton(withTitle: String(localized: "duplicate.alert.batch_trash.confirm", defaultValue: "Move to Trash"))
+            alert.addButton(withTitle: String(localized: "duplicate.alert.batch_trash.cancel", defaultValue: "Cancel"))
+            alert.showsSuppressionButton = true
+            alert.suppressionButton?.title = String(localized: "duplicate.alert.batch_trash.suppress", defaultValue: "Don't ask again")
+            let resp = alert.runModal()
+            if alert.suppressionButton?.state == .on { settings.confirmDuplicateBatchDelete = false }
+            guard resp == .alertFirstButtonReturn else { return }
+        }
+
+        var fileCount = 0
+        for otherId in othersToTrash {
+            guard let other = entries[otherId] else { continue }
+            try? FileManager.default.trashItem(at: other.url, resultingItemURL: nil)
+            let xmpURL = other.url.deletingPathExtension().appendingPathExtension("xmp")
+            if FileManager.default.fileExists(atPath: xmpURL.path) {
+                try? FileManager.default.trashItem(at: xmpURL, resultingItemURL: nil)
+            }
+            removeSingleEntryFromStore(otherId)
+            fileCount += 1
+        }
+        // Remove entire duplicate group (only 1 member remains)
+        duplicateGroups.removeValue(forKey: sha)
+        duplicateRecommendedID.removeValue(forKey: sha)
+        // Clear all keyByID entries for this SHA (direct + shot-group reps)
+        let allWithSha = duplicateKeyByID.keys.filter { duplicateKeyByID[$0] == sha }
+        for rid in allWithSha {
+            duplicateKeyByID.removeValue(forKey: rid)
+            duplicateDidUpdate.send(rid)
+        }
+
+        showUndoMessage(String(
+            format: String(localized: "duplicate.toast.trashed_many", defaultValue: "Moved %lld duplicate copies to Trash"),
+            fileCount
+        ))
+    }
+
+    private func removeSingleEntryFromStore(_ id: UInt64) {
+        entries.removeValue(forKey: id)
+        thumbnailBlobs.removeValue(forKey: id)
+        luminanceScores.removeValue(forKey: id)
+        exifData.removeValue(forKey: id)
+        xmpData.removeValue(forKey: id)
+        thumbnailOrientations.removeValue(forKey: id)
+        orderedIDs.removeAll { $0 == id }
+        for key in shotGroups.keys {
+            shotGroups[key]?.removeAll { $0 == id }
+            if shotGroups[key]?.isEmpty == true { shotGroups.removeValue(forKey: key) }
+        }
+        selectedIDs.remove(id)
+        if primaryID == id { primaryID = selectedIDs.first }
+        recomputeVisible()
+    }
+
+    private func removeDuplicateEntry(_ id: UInt64) {
+        guard let sha = duplicateKeyByID[id] else { return }
+        duplicateKeyByID.removeValue(forKey: id)
+        duplicateGroups[sha]?.removeAll { $0 == id }
+        if let remaining = duplicateGroups[sha], remaining.count <= 1 {
+            duplicateGroups.removeValue(forKey: sha)
+            duplicateRecommendedID.removeValue(forKey: sha)
+            // Clear all keyByID entries for this SHA (direct duplicates + shot-group reps)
+            let orphaned = duplicateKeyByID.keys.filter { duplicateKeyByID[$0] == sha }
+            for rid in orphaned {
+                duplicateKeyByID.removeValue(forKey: rid)
+                duplicateDidUpdate.send(rid)
+            }
+            if let lastID = remaining.first {
+                duplicateKeyByID.removeValue(forKey: lastID)
+                duplicateDidUpdate.send(lastID)
+            }
+        } else if let newMembers = duplicateGroups[sha] {
+            duplicateRecommendedID[sha] = recommendedID(among: newMembers)
+            // Notify all keyByID entries (direct + reps) so badges refresh
+            for peerId in duplicateKeyByID.keys where duplicateKeyByID[peerId] == sha {
+                duplicateDidUpdate.send(peerId)
+            }
+            for peerId in newMembers { duplicateDidUpdate.send(peerId) }
+        }
+    }
+
+    private func cleanupDuplicateState(removedIDs: Set<UInt64>) {
+        guard !duplicateGroups.isEmpty else { return }
+        var affectedShas: Set<Data> = []
+        for id in removedIDs {
+            if let sha = duplicateKeyByID.removeValue(forKey: id) {
+                affectedShas.insert(sha)
+            }
+        }
+        for sha in affectedShas {
+            duplicateGroups[sha]?.removeAll { removedIDs.contains($0) }
+            if let remaining = duplicateGroups[sha], remaining.count <= 1 {
+                duplicateGroups.removeValue(forKey: sha)
+                duplicateRecommendedID.removeValue(forKey: sha)
+                let orphaned = duplicateKeyByID.keys.filter { duplicateKeyByID[$0] == sha }
+                for rid in orphaned {
+                    duplicateKeyByID.removeValue(forKey: rid)
+                    duplicateDidUpdate.send(rid)
+                }
+                if let lastID = remaining.first {
+                    duplicateKeyByID.removeValue(forKey: lastID)
+                    duplicateDidUpdate.send(lastID)
+                }
+            } else if let newMembers = duplicateGroups[sha] {
+                duplicateRecommendedID[sha] = recommendedID(among: newMembers)
+                for peerId in duplicateKeyByID.keys where duplicateKeyByID[peerId] == sha {
+                    duplicateDidUpdate.send(peerId)
+                }
+                for peerId in newMembers { duplicateDidUpdate.send(peerId) }
+            }
+        }
     }
 
     // MARK: - 一括評価トリガー
@@ -1564,8 +1762,12 @@ final class LibraryStore {
         compareAnchorID = nil
         viewerCompareGroupMembers = nil
         lastImageList = nil
+        duplicateGroups = [:]
+        duplicateKeyByID = [:]
+        duplicateRecommendedID = [:]
         pairingPipeline = PairingPipeline()
         phashPipeline = PHashPipeline()
+        duplicatePipeline = DuplicatePipeline()
     }
 
     private func ingest(_ scanned: [PhotoEntry]) {
@@ -1880,6 +2082,7 @@ final class LibraryStore {
         if let pid = primaryID, ids.contains(pid) {
             primaryID = selectedIDs.first
         }
+        cleanupDuplicateState(removedIDs: ids)
     }
 
     /// Converts reindexShotGroups output (Rust sequential IDs) to LibraryStore IDs (path-based lookup).
