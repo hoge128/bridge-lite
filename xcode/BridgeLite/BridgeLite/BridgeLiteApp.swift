@@ -69,6 +69,14 @@ struct BridgeLiteApp: App {
         if lang == "ja" || lang == "en" {
             UserDefaults.standard.set([lang], forKey: "AppleLanguages")
         }
+
+        let currentVersion = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
+        let lastVersion = UserDefaults.standard.string(forKey: "lastLaunchVersion") ?? ""
+        if lastVersion != currentVersion {
+            let dbURL = LibraryStore.cacheDBURL()
+            try? FileManager.default.removeItem(at: dbURL)
+            UserDefaults.standard.set(currentVersion, forKey: "lastLaunchVersion")
+        }
     }()
 
     init() { _ = Self._bootstrap }
