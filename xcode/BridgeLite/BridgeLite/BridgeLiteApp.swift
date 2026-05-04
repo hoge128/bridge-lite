@@ -4,6 +4,10 @@ import UniformTypeIdentifiers
 // MARK: - App Delegate (Dock icon drop / Finder open)
 
 class AppDelegate: NSObject, NSApplicationDelegate {
+    /// Finder / Dock-drop で渡された URL を一時保持する。
+    /// nsWindow が nil のうちに通知が届いた場合、onChange(of: nsWindow) で消費する。
+    var pendingOpenURL: URL?
+
     func applicationWillFinishLaunching(_ notification: Notification) {
         NSWindow.allowsAutomaticWindowTabbing = false
     }
@@ -19,7 +23,12 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else if let file = urls.first {
             target = file.deletingLastPathComponent()
         } else { return }
-        NotificationCenter.default.post(name: .bridgeLiteOpenURL, object: target)
+        pendingOpenURL = target
+        // 次の runloop サイクルで notification を発火させることで、
+        // SwiftUI が WindowAccessor 経由で nsWindow をセットし終えるのを待つ。
+        DispatchQueue.main.async {
+            NotificationCenter.default.post(name: .bridgeLiteOpenURL, object: target)
+        }
     }
 }
 

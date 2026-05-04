@@ -8,6 +8,20 @@ struct ContentView: View {
     @State private var store = LibraryStore()
     @State private var nsWindow: NSWindow?
 
+    private func consumePendingOpenURL() {
+        guard let win = nsWindow,
+              let pending = (NSApp.delegate as? AppDelegate)?.pendingOpenURL else { return }
+        let front = NSApp.orderedWindows.first { $0.isVisible && !($0 is NSPanel) }
+        guard win === front else { return }
+        (NSApp.delegate as? AppDelegate)?.pendingOpenURL = nil
+        store.loadFolder(pending)
+    }
+
+    private func applyWindowTitle(_ window: NSWindow?) {
+        guard let window else { return }
+        window.title = store.currentDirectoryURL?.lastPathComponent ?? "BridgeLite"
+    }
+
     var body: some View {
         FolderView()
             .environment(store)
@@ -19,10 +33,30 @@ struct ContentView: View {
                     maxAgeDays: store.settings.cacheTTLDays
                 )
             }
+            .onAppear {
+                // application(_:open:) が onAppear より先に走ったケースを拾う。
+                consumePendingOpenURL()
+            }
             .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteOpenURL)) { notif in
-                guard let url = notif.object as? URL,
-                      nsWindow?.isKeyWindow == true else { return }
+                guard let url = notif.object as? URL, let win = nsWindow else { return }
+                // 複数ウィンドウがある場合は最前面のみが処理する。
+                let front = NSApp.orderedWindows.first { $0.isVisible && !($0 is NSPanel) }
+                guard win === front else { return }
+                (NSApp.delegate as? AppDelegate)?.pendingOpenURL = nil
                 store.loadFolder(url)
+            }
+            .onChange(of: nsWindow) { _, newWindow in
+                // viewDidMoveToWindow 経由で nsWindow がセットされた直後に
+                // pendingOpenURL が残っていれば回収する（fresh launch の補完経路）。
+                consumePendingOpenURL()
+                // SwiftUI が外部 URL 起動時に作る新規ウィンドウは
+                // representedURL がデフォルトで効いて navigationTitle が上書きされる。
+                // representedURL を nil にしてタイトルバーがフォルダ名のみになるようにする。
+                newWindow?.representedURL = nil
+                applyWindowTitle(newWindow)
+            }
+            .onChange(of: store.currentDirectoryURL) { _, _ in
+                applyWindowTitle(nsWindow)
             }
             .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteRegroup)) { _ in
                 Task { await store.regroup() }
@@ -293,9 +327,44 @@ private struct StatusBarView: View {
 private struct WindowAccessor: NSViewRepresentable {
     @Binding var window: NSWindow?
 
-    func makeNSView(context: Context) -> NSView { NSView() }
+    func makeCoordinator() -> Coordinator { Coordinator(window: $window) }
 
-    func updateNSView(_ nsView: NSView, context: Context) {
-        window = nsView.window
+    func makeNSView(context: Context) -> WindowObserverView {
+        let view = WindowObserverView()
+        let coordinator = context.coordinator
+        view.onWindowChange = { [weak coordinator] newWindow in
+            coordinator?.windowChanged(newWindow)
+        }
+        return view
+    }
+
+    func updateNSView(_ view: WindowObserverView, context: Context) {}
+
+    // class にすることで weak 参照・retain cycle 回避が可能になる。
+    // updateNSView 内で binding を直接書き換えると SwiftUI の render cycle と
+    // 衝突して onChange(of:) が発火しない。viewDidMoveToWindow + DispatchQueue.main.async
+    // でレンダーパスの外から binding を更新することで確実に onChange を発火させる。
+    final class Coordinator {
+        var binding: Binding<NSWindow?>
+        init(window: Binding<NSWindow?>) { binding = window }
+
+        func windowChanged(_ newWindow: NSWindow?) {
+            guard let newWindow else { return }
+            // self をキャプチャせず value type の Binding を直接キャプチャすることで
+            // Swift 6 のデータレース警告を回避する。
+            let binding = self.binding
+            DispatchQueue.main.async {
+                binding.wrappedValue = newWindow
+            }
+        }
+    }
+}
+
+final class WindowObserverView: NSView {
+    var onWindowChange: ((NSWindow?) -> Void)?
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        onWindowChange?(window)
     }
 }
