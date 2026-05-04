@@ -17,6 +17,7 @@ struct ViewerView: View {
     @State private var scrollMonitor: Any?
     @State private var magnifyMonitor: Any?
     @State private var clickMonitor: Any?
+    @State private var windowRef = WindowRef()
 
     private var selectedEntry: PhotoEntry? {
         store.selectedID.flatMap { store.entries[$0] }
@@ -132,12 +133,18 @@ struct ViewerView: View {
             }
         }
         .animation(.easeInOut(duration: 0.15), value: store.viewerShowsMeta)
+        .background(WindowAccessor(window: Binding(
+            get: { windowRef.window },
+            set: { windowRef.window = $0 }
+        )))
         .onAppear {
             xmp = store.selectedID.flatMap { store.xmpData[$0] }
             store.viewerShowsMeta = hasRatingOrLabel
             let s = store
             let z = zoom
+            let ref = windowRef
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                guard event.window === ref.window else { return event }
                 if event.keyCode == 53 { // Escape
                     s.viewerMode = false
                     return nil
@@ -161,6 +168,7 @@ struct ViewerView: View {
                 return event
             }
             scrollMonitor = NSEvent.addLocalMonitorForEvents(matching: .scrollWheel) { event in
+                guard event.window === ref.window else { return event }
                 if event.hasPreciseScrollingDeltas {
                     // Trackpad two-finger scroll → pan (only when zoomed)
                     guard z.scale > 1.0 else { return event }
@@ -176,11 +184,13 @@ struct ViewerView: View {
                 return event
             }
             magnifyMonitor = NSEvent.addLocalMonitorForEvents(matching: .magnify) { event in
+                guard event.window === ref.window else { return event }
                 let cursor = viewerCursorFromCenter(event)
                 z.applyScaleDelta(CGFloat(event.magnification), around: cursor)
                 return event
             }
             clickMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseDown) { event in
+                guard event.window === ref.window else { return event }
                 guard event.clickCount == 2 else { return event }
                 let cursor = viewerCursorFromCenter(event)
                 z.toggleFitOrHundred(at: cursor)

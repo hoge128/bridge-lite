@@ -64,12 +64,13 @@ struct ContentView: View {
             .onChange(of: store.settings.folderWatchEnabled) { _, _ in
                 store.applyFolderWatchSetting()
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didBecomeKeyNotification)) { notif in
-                guard (notif.object as? NSWindow) === nsWindow else { return }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
+                // アプリ全体がアクティブになったときのみ resume。
+                // ウィンドウ間切替では発火させない（ThumbnailDecodeCache はシングルトンで
+                // 両ウィンドウの状態を巻き込んで wipe してしまうため）。
                 store.resume()
             }
-            .onReceive(NotificationCenter.default.publisher(for: NSWindow.didResignKeyNotification)) { notif in
-                guard (notif.object as? NSWindow) === nsWindow else { return }
+            .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
                 store.suspend()
             }
     }
@@ -80,6 +81,9 @@ struct ContentView: View {
 struct FolderView: View {
     @Environment(LibraryStore.self) private var store
     @State private var spaceKeyMonitor: Any?
+    // class ベースの可変参照。@State<NSWindow?> をクロージャでキャプチャすると
+    // 初期値 nil で固定されてしまうため、参照型のホルダー経由で動的に読む。
+    @State private var windowRef = WindowRef()
 
     private func isTextFieldActive() -> Bool {
         let fr = NSApp.keyWindow?.firstResponder
@@ -175,10 +179,18 @@ struct FolderView: View {
                     .environment(store)
             }
         }
+        .background(WindowAccessor(window: Binding(
+            get: { windowRef.window },
+            set: { windowRef.window = $0 }
+        )))
         .onAppear {
             guard spaceKeyMonitor == nil else { return }
             let s = store
+            let ref = windowRef
             spaceKeyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+                // 複数ウィンドウ環境で全モニタが同じイベントを受け取って二重発火するのを防ぐ。
+                // 自分のウィンドウ宛てでなければスルー。
+                guard event.window === ref.window else { return event }
                 // Space → viewer mode
                 if event.keyCode == 49,
                    event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
@@ -259,14 +271,15 @@ private struct StatusBarView: View {
                     .lineLimit(1)
                     .frame(width: 160, alignment: .leading)
 
-                if store.scanPhase == .loading && store.orderedIDs.count > 0 {
-                    ProgressView(
-                        value: Double(store.loadedThumbnailCount),
-                        total: Double(store.orderedIDs.count)
-                    )
-                    .progressViewStyle(.linear)
-                    .frame(width: 120)
-                    .controlSize(.mini)
+                if store.scanPhase == .loading && store.preScanImageFiles > 0 {
+                    // total は preScan で発見した全画像数。orderedIDs.count を使うと
+                    // フィルタ適用時に value > total になり ProgressView が警告を出す。
+                    let total = store.preScanImageFiles
+                    let value = min(store.loadedThumbnailCount, total)
+                    ProgressView(value: Double(value), total: Double(total))
+                        .progressViewStyle(.linear)
+                        .frame(width: 120)
+                        .controlSize(.mini)
                 } else {
                     ProgressView()
                         .progressViewStyle(.linear)
@@ -322,9 +335,17 @@ private struct StatusBarView: View {
 
 }
 
+// MARK: - WindowRef
+
+/// クロージャから NSWindow への動的参照を持つためのホルダー。
+/// `@State<NSWindow?>` をクロージャでキャプチャすると初期 nil が固定される問題の回避用。
+final class WindowRef {
+    weak var window: NSWindow?
+}
+
 // MARK: - WindowAccessor
 
-private struct WindowAccessor: NSViewRepresentable {
+struct WindowAccessor: NSViewRepresentable {
     @Binding var window: NSWindow?
 
     func makeCoordinator() -> Coordinator { Coordinator(window: $window) }
