@@ -21,62 +21,68 @@ struct FilterPanelView: View {
 
     var body: some View {
         @Bindable var store = store
-        ScrollView {
-            VStack(alignment: .leading, spacing: 12) {
+        VStack(spacing: 0) {
+            HStack {
                 Text("Filters")
                     .font(.caption2)
                     .kerning(1.5)
                     .foregroundStyle(.secondary)
                     .textCase(.uppercase)
-                    .padding(.horizontal)
-                    .padding(.top, 4)
-
-                HStack {
-                    Text("Flatten")
-                        .font(.caption)
-                    Spacer()
-                    Toggle("", isOn: $store.filter.flatten)
-                        .toggleStyle(.switch)
-                        .labelsHidden()
-                        .controlSize(.small)
-                        .disabled(!store.filter.nameSearch.isEmpty)
-                }
-                .padding(.horizontal, 12)
-                .help(store.filter.nameSearch.isEmpty
-                      ? "Show every file individually. Disables grouping and replaces the kind filter with an extension filter."
-                      : String(localized: "Locked while searching"))
-
-                ForEach(store.settings.filterSectionOrder) { section in
-                    filterSectionView(for: section, filter: $store.filter)
-                        .padding(.horizontal, 8)
-                }
-
-                Divider()
-                    .padding(.horizontal, 8)
-
+                Spacer()
                 Button(action: { store.resetFilter() }) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "arrow.counterclockwise")
-                        Text("Reset Filters")
+                    HStack(spacing: 3) {
+                        Image(systemName: "line.3.horizontal.decrease.circle.fill")
+                            .font(.caption2)
+                        Text("Reset")
+                            .font(.caption2)
+                            .fontWeight(.medium)
                     }
-                    .font(.caption)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 4)
+                    .foregroundStyle(isResetHovered ? .white : .accentColor)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
                     .background(
-                        isResetHovered && store.filter.isActive
-                            ? Color.secondary.opacity(0.12) : Color.clear,
-                        in: RoundedRectangle(cornerRadius: 4)
+                        isResetHovered
+                            ? Color.accentColor
+                            : Color.accentColor.opacity(0.15),
+                        in: Capsule()
                     )
                 }
                 .buttonStyle(.borderless)
                 .disabled(!store.filter.isActive)
-                .opacity(store.filter.isActive || isResetHovered ? 1.0 : 0.0)
+                .opacity(store.filter.isActive ? 1.0 : 0.0)
                 .animation(.easeInOut(duration: 0.15), value: store.filter.isActive)
-                .animation(.easeInOut(duration: 0.15), value: isResetHovered)
                 .onHover { isResetHovered = $0 }
-                .padding(.horizontal, 8)
+                .help("Reset Filters")
             }
-            .padding(.vertical)
+            .padding(.horizontal)
+            .padding(.vertical, 8)
+
+            Divider()
+
+            ScrollView {
+                VStack(alignment: .leading, spacing: 12) {
+                    HStack {
+                        Text("Flatten")
+                            .font(.caption)
+                        Spacer()
+                        Toggle("", isOn: $store.filter.flatten)
+                            .toggleStyle(.switch)
+                            .labelsHidden()
+                            .controlSize(.small)
+                            .disabled(!store.filter.nameSearch.isEmpty)
+                    }
+                    .padding(.horizontal, 12)
+                    .help(store.filter.nameSearch.isEmpty
+                          ? "Show every file individually. Disables grouping and replaces the kind filter with an extension filter."
+                          : String(localized: "Locked while searching"))
+
+                    ForEach(store.settings.filterSectionOrder) { section in
+                        filterSectionView(for: section, filter: $store.filter)
+                            .padding(.horizontal, 8)
+                    }
+                }
+                .padding(.vertical)
+            }
         }
         .frame(minWidth: 180)
         .background(.ultraThinMaterial)
