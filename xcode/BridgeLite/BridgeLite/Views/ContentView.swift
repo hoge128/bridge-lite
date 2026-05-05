@@ -14,6 +14,9 @@ struct ContentView: View {
         let front = NSApp.orderedWindows.first { $0.isVisible && !($0 is NSPanel) }
         guard win === front else { return }
         (NSApp.delegate as? AppDelegate)?.pendingOpenURL = nil
+        // onChange(of: nsWindow) が遅れて発火するため、ここで store.window を確実に設定。
+        // でないと OpenFolderRegistry への登録が漏れる。
+        store.window = win
         store.loadFolder(pending)
     }
 
@@ -39,13 +42,16 @@ struct ContentView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteOpenURL)) { notif in
                 guard let url = notif.object as? URL, let win = nsWindow else { return }
-                // 複数ウィンドウがある場合は最前面のみが処理する。
                 let front = NSApp.orderedWindows.first { $0.isVisible && !($0 is NSPanel) }
                 guard win === front else { return }
                 (NSApp.delegate as? AppDelegate)?.pendingOpenURL = nil
+                // onChange(of: nsWindow) が遅れて発火するため、ここで store.window を確実に設定。
+                store.window = win
                 store.loadFolder(url)
             }
             .onChange(of: nsWindow) { _, newWindow in
+                // OpenFolderRegistry の照合に使うため store にウィンドウ参照を持たせる。
+                store.window = newWindow
                 // viewDidMoveToWindow 経由で nsWindow がセットされた直後に
                 // pendingOpenURL が残っていれば回収する（fresh launch の補完経路）。
                 consumePendingOpenURL()
@@ -54,6 +60,12 @@ struct ContentView: View {
                 // representedURL を nil にしてタイトルバーがフォルダ名のみになるようにする。
                 newWindow?.representedURL = nil
                 applyWindowTitle(newWindow)
+            }
+            .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notif in
+                guard (notif.object as? NSWindow) === nsWindow else { return }
+                if let url = store.currentDirectoryURL {
+                    OpenFolderRegistry.shared.unregister(url: url)
+                }
             }
             .onChange(of: store.currentDirectoryURL) { _, _ in
                 applyWindowTitle(nsWindow)

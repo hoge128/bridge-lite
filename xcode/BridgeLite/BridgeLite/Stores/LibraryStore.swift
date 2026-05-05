@@ -91,6 +91,9 @@ final class LibraryStore {
     private var preScanTask: Task<(Int, Int), Error>?
 
     private(set) var currentDirectoryURL: URL?
+    /// このストアが属する NSWindow。ContentView から設定される。
+    /// 複数ウィンドウで同じフォルダを開かないようにする照合に使用。
+    @ObservationIgnored weak var window: NSWindow?
     private var database: BridgeCoreDatabase?
     var cacheDatabase: BridgeCoreDatabase? { database }
     private var lastImageList: BridgeCoreImageList?
@@ -147,8 +150,46 @@ final class LibraryStore {
     /// D&D・URL open・タブ切替など全エントリポイント共通のフォルダ開始メソッド。
     /// openDirTask を登録することで cancelLoading() が全ルートで効くようになる。
     func loadFolder(_ url: URL) {
+        // 別ウィンドウで既に同じフォルダを開いている場合はそちらを優先する。
+        if let existing = OpenFolderRegistry.shared.windowForFolder(url),
+           existing !== window {
+            showDuplicateOpenAlert(url: url, target: existing)
+            return
+        }
+        // 旧 URL を unregister してから新 URL を register する。
+        if let oldURL = currentDirectoryURL {
+            OpenFolderRegistry.shared.unregister(url: oldURL)
+        }
+        if let win = window {
+            OpenFolderRegistry.shared.register(url: url, window: win)
+        }
         cancelLoading()
         openDirTask = Task { await openDirectory(url) }
+    }
+
+    private func showDuplicateOpenAlert(url: URL, target: NSWindow) {
+        let alert = NSAlert()
+        alert.alertStyle = .warning
+        alert.messageText = String(localized: "alert.duplicate_open.title",
+                                   defaultValue: "Folder is already open")
+        alert.informativeText = String(
+            format: String(localized: "alert.duplicate_open.message",
+                           defaultValue: "\"%@\" is already open in another window."),
+            url.lastPathComponent
+        )
+        alert.addButton(withTitle: String(localized: "alert.duplicate_open.bring_to_front",
+                                          defaultValue: "Bring to Front"))
+        alert.addButton(withTitle: String(localized: "alert.duplicate_open.cancel",
+                                          defaultValue: "Cancel"))
+        let resp = alert.runModal()
+        if resp == .alertFirstButtonReturn {
+            target.makeKeyAndOrderFront(nil)
+        }
+        // Service Station 等で URL を開くために生成された空のままの新規ウィンドウなら、
+        // ユーザーの選択にかかわらず自動で閉じて UI を散らかさないようにする。
+        if currentDirectoryURL == nil {
+            window?.close()
+        }
     }
 
     private func confirmSlowStorage(kind: StorageKind) -> Bool {
