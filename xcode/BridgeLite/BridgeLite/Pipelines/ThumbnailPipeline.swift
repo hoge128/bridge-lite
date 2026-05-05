@@ -41,9 +41,18 @@ enum ThumbnailPipeline {
         try? await limiter.run {
             // 1. SQLite thumbnail cache — skip if too small for Retina (auto-migrate old 200px entries)
             if let jpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db) {
-                let isAdequate = CGImage.fromJPEGData(jpeg)
-                    .map { max($0.width, $0.height) >= minCachePixels } ?? false
-                if isAdequate {
+                let cached = CGImage.fromJPEGData(jpeg)
+                let isAdequate = cached.map { max($0.width, $0.height) >= minCachePixels } ?? false
+                // カメラ固有の黒帯入り EXIF サムネがキャッシュされている場合は再生成する
+                let hasBadAspect: Bool = {
+                    guard isAdequate,
+                          let img = cached,
+                          let src = CGImageSourceCreateWithURL(entry.url as CFURL, nil),
+                          let masterAspect = inspectMasterAspect(src), masterAspect > 0 else { return false }
+                    let cacheAspect = CGFloat(img.width) / CGFloat(img.height)
+                    return abs(cacheAspect - masterAspect) / masterAspect > 0.02
+                }()
+                if isAdequate && !hasBadAspect {
                     await store.setThumbnail(id: entry.id, jpeg: jpeg)
                     if entry.isRaw {
                         let url = entry.url
@@ -54,7 +63,7 @@ enum ThumbnailPipeline {
                     }
                     return
                 }
-                // Cached thumbnail too small — fall through to regenerate at Retina resolution
+                // Cached thumbnail too small or has letterboxed black bars — fall through to regenerate
             }
 
             // 2. ImageIO for non-RAW (JPEG/HEIF/DNG/TIFF)
@@ -104,8 +113,37 @@ enum ThumbnailPipeline {
                 kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceShouldCache: false,
             ]
-            return CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary)
+            guard var thumb = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary) else { return nil }
+            // 埋め込みサムネイルのアスペクト比がマスターと 2% 以上乖離している場合
+            // （カメラが 4:3 黒帯サムネイルを埋め込む SOOC JPG 等）、マスターから再生成する。
+            if let masterAspect = inspectMasterAspect(src), masterAspect > 0 {
+                let thumbAspect = CGFloat(thumb.width) / CGFloat(thumb.height)
+                if abs(thumbAspect - masterAspect) / masterAspect > 0.02 {
+                    let alwaysOptions: [CFString: Any] = [
+                        kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+                        kCGImageSourceCreateThumbnailFromImageAlways: true,
+                        kCGImageSourceCreateThumbnailWithTransform: true,
+                        kCGImageSourceShouldCache: false,
+                    ]
+                    if let fresh = CGImageSourceCreateThumbnailAtIndex(src, 0, alwaysOptions as CFDictionary) {
+                        thumb = fresh
+                    }
+                }
+            }
+            return thumb
         }.value
+    }
+
+    /// マスター画像の orientation 補正済みアスペクト比（W/H）を返す。decode は行わない。
+    private static func inspectMasterAspect(_ src: CGImageSource) -> CGFloat? {
+        guard let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any],
+              let pw = props[kCGImagePropertyPixelWidth] as? CGFloat,
+              let ph = props[kCGImagePropertyPixelHeight] as? CGFloat,
+              ph > 0 else { return nil }
+        let orient = readOrientation(src)
+        let isTransposed = orient == .left || orient == .leftMirrored
+                        || orient == .right || orient == .rightMirrored
+        return isTransposed ? ph / pw : pw / ph
     }
 }
 
