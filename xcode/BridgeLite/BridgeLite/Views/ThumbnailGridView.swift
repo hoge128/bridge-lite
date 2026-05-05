@@ -349,13 +349,20 @@ private struct FolderDropTargetView: NSViewRepresentable {
             return url.hasDirectoryPath ? url : url.deletingLastPathComponent()
         }
 
+        private func isSelfDrag(_ sender: NSDraggingInfo) -> Bool {
+            sender.draggingSource is CellDragSource
+        }
+
         override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+            if isSelfDrag(sender) { return [] }
             guard firstFolderURL(from: sender) != nil else { return [] }
             DispatchQueue.main.async { self.onTargetChanged?(true) }
             return .copy
         }
 
-        override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation { .copy }
+        override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+            isSelfDrag(sender) ? [] : .copy
+        }
 
         override func draggingExited(_ sender: NSDraggingInfo?) {
             DispatchQueue.main.async { self.onTargetChanged?(false) }
@@ -365,6 +372,7 @@ private struct FolderDropTargetView: NSViewRepresentable {
 
         override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
             DispatchQueue.main.async { self.onTargetChanged?(false) }
+            if isSelfDrag(sender) { return false }
             guard let url = firstFolderURL(from: sender) else { return false }
             DispatchQueue.main.async { self.onDropURL?(url) }
             return true

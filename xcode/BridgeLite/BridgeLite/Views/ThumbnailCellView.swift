@@ -115,7 +115,10 @@ struct ThumbnailCellView: View {
                     let ids = store.selectedIDs.contains(entry.id) ? store.selectedIDs : [entry.id]
                     let scope = resolveDndScope()
                     dragSource.urlsProvider = { self.store.urlsFor(ids: ids, scope: scope) }
-                    dragSource.begin(event: event, cellSize: cellSize)
+                    let preview = thumbnail.map {
+                        NSImage(cgImage: $0, size: NSSize(width: cellSize, height: cellSize))
+                    }
+                    dragSource.begin(event: event, cellSize: cellSize, preview: preview)
                 }
                 .onEnded { _ in dragInFlight = false }
         )
@@ -252,23 +255,39 @@ struct ThumbnailCellView: View {
 // MARK: - Drag source (AppKit layer)
 
 @MainActor
-private final class CellDragSource: NSObject, NSDraggingSource {
+final class CellDragSource: NSObject, NSDraggingSource {
     var urlsProvider: (() -> [URL])?
     weak var backingView: NSView?
 
     nonisolated func draggingSession(_ session: NSDraggingSession,
                                      sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
 
-    func begin(event: NSEvent, cellSize: CGFloat) {
+    func begin(event: NSEvent, cellSize: CGFloat, preview: NSImage? = nil) {
         guard let view = backingView,
               let urls = urlsProvider?(), !urls.isEmpty else { return }
-        let frame = NSRect(origin: .zero, size: CGSize(width: cellSize, height: cellSize))
+        let dragSize = cellSize * 0.4
+        let frame = NSRect(origin: .zero, size: CGSize(width: dragSize, height: dragSize))
+        let contents = preview.map { borderedPreview($0, size: dragSize) }
         let items = urls.map { url -> NSDraggingItem in
             let item = NSDraggingItem(pasteboardWriter: url as NSURL)
-            item.setDraggingFrame(frame, contents: nil)
+            item.setDraggingFrame(frame, contents: contents)
             return item
         }
         view.beginDraggingSession(with: items, event: event, source: self)
+    }
+
+    private func borderedPreview(_ image: NSImage, size: CGFloat) -> NSImage {
+        let result = NSImage(size: NSSize(width: size, height: size))
+        result.lockFocus()
+        image.draw(in: NSRect(origin: .zero, size: NSSize(width: size, height: size)),
+                   from: .zero, operation: .copy, fraction: 1.0)
+        let path = NSBezierPath(roundedRect: NSRect(x: 1, y: 1, width: size - 2, height: size - 2),
+                                xRadius: 6, yRadius: 6)
+        path.lineWidth = 2
+        NSColor.white.setStroke()
+        path.stroke()
+        result.unlockFocus()
+        return result
     }
 }
 
