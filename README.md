@@ -13,8 +13,8 @@ RAW+JPG 同時撮影向けの軽量画像セレクトビュワー。Rust コア�
 
 ## 動作要件
 
-- macOS 26 (Sequoia) 以降
-- Xcode 26 以降
+- macOS 14 (Sonoma) 以降
+- Xcode 16 以降
 - Rust toolchain (`rustup` 経由、`aarch64-apple-darwin` ターゲット)
 - [xcodegen](https://github.com/yonaskolb/XcodeGen) (`brew install xcodegen`)
 
