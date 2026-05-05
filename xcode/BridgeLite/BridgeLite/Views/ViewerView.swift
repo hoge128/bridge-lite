@@ -118,7 +118,7 @@ struct ViewerView: View {
 
                     HStack(alignment: .bottom) {
                         if shouldShowOverlay, let entry = selectedEntry {
-                            ViewerMetaOverlay(entry: entry, xmp: xmp) {
+                            ViewerMetaOverlay(entry: entry, exif: store.exifData[entry.id], xmp: xmp) {
                                 store.viewerShowsMeta = false
                             }
                             .padding([.leading, .bottom], 16)
@@ -323,37 +323,147 @@ private func viewerCursorFromCenter(_ event: NSEvent) -> CGPoint {
 
 private struct ViewerMetaOverlay: View {
     let entry: PhotoEntry
+    let exif: ExifData?
     let xmp: XmpData?
     let onHide: () -> Void
+
+    private static let mono: Font = .system(.caption2, design: .monospaced)
 
     private var bgColor: Color {
         xmp?.label?.color.opacity(0.45) ?? Color(white: 0.08, opacity: 0.72)
     }
 
+    // Tier 1 – Exposure
+    private var fText: String? { exif?.fnumber }
+    private var ssText: String? {
+        guard let s = exif?.exposureTime else { return nil }
+        return s.components(separatedBy: " ").first ?? s
+    }
+    private var isoText: String? { exif?.iso.map { "ISO \($0)" } }
+    private var hasTier1: Bool { fText != nil || ssText != nil || isoText != nil }
+
+    // Tier 2 – Focal length (35mm equiv preferred)
+    private var focalText: String? {
+        guard let mm = exif?.effectiveFocalMm else { return nil }
+        let v = mm == mm.rounded() ? "\(Int(mm))" : String(format: "%.1f", mm)
+        return "\(v) mm"
+    }
+
+    // Tier 3 – Camera / Lens
+    private var hasTier3: Bool { exif?.cameraName != nil || exif?.lensName != nil }
+
+    // Horizontal separator spanning full overlay width
+    private var hSep: some View {
+        Color.white.opacity(0.12)
+            .frame(height: 0.5)
+            .padding(.vertical, 4)
+    }
+
+    // Vertical separator between tier-1 cells (fixed height prevents HStack expansion)
+    private var vSep: some View {
+        Color.white.opacity(0.12)
+            .frame(width: 0.5, height: 14)
+    }
+
+    // Equal-width centered cell — Spacer sandwich avoids frame(maxWidth:.infinity) height expansion
+    private func exifCell(_ value: String?) -> some View {
+        HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            Text(value ?? "")
+                .font(Self.mono)
+                .foregroundStyle(.white.opacity(value != nil ? 0.9 : 0))
+            Spacer(minLength: 0)
+        }
+        .padding(.vertical, 2)
+    }
+
     var body: some View {
-        HStack(spacing: 7) {
-            Button(action: onHide) {
-                Image(systemName: "chevron.down")
-                    .font(.system(size: 9, weight: .semibold))
-                    .foregroundStyle(.white.opacity(0.65))
+        VStack(alignment: .leading, spacing: 0) {
+            // Header: close button left, filename + rating centered in remaining space
+            HStack(alignment: .top, spacing: 0) {
+                Button(action: onHide) {
+                    Image(systemName: "chevron.down")
+                        .font(.system(size: 9, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.65))
+                }
+                .buttonStyle(.plain)
+                .padding(.trailing, 4)
+
+                Spacer(minLength: 0)
+
+                VStack(alignment: .center, spacing: 2) {
+                    Text(entry.filename)
+                        .font(Self.mono)
+                        .foregroundStyle(.white.opacity(0.9))
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                    if let rating = xmp?.rating, rating > 0 {
+                        Text(String(repeating: "★", count: rating))
+                            .font(.system(size: 10, weight: .bold))
+                            .foregroundStyle(.yellow.opacity(0.95))
+                    }
+                }
+
+                Spacer(minLength: 0)
             }
-            .buttonStyle(.plain)
 
-            Text(entry.filename)
-                .font(.system(.caption2, design: .monospaced))
-                .foregroundStyle(.white.opacity(0.9))
-                .lineLimit(1)
-                .truncationMode(.middle)
-                .frame(maxWidth: 220)
+            // Tier 1: F値 · SS · ISO — 3 equal centered cells
+            if hasTier1 {
+                hSep
+                HStack(spacing: 0) {
+                    exifCell(fText)
+                    vSep
+                    exifCell(ssText)
+                    vSep
+                    exifCell(isoText)
+                }
+            }
 
-            if let rating = xmp?.rating, rating > 0 {
-                Text(String(repeating: "★", count: rating))
-                    .font(.system(size: 10, weight: .bold))
-                    .foregroundStyle(.yellow.opacity(0.95))
+            // Tier 2: Focal length centered
+            if let fl = focalText {
+                hSep
+                HStack(spacing: 0) {
+                    Spacer(minLength: 0)
+                    Text(fl)
+                        .font(Self.mono)
+                        .foregroundStyle(.white.opacity(0.9))
+                    Spacer(minLength: 0)
+                }
+                .padding(.vertical, 2)
+            }
+
+            // Tier 3: Camera + Lens centered
+            if hasTier3 {
+                hSep
+                VStack(spacing: 3) {
+                    if let cam = exif?.cameraName {
+                        HStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            Text(cam)
+                                .font(Self.mono)
+                                .foregroundStyle(.white.opacity(0.9))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                    if let lens = exif?.lensName {
+                        HStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            Text(lens)
+                                .font(Self.mono)
+                                .foregroundStyle(.white.opacity(0.9))
+                                .lineLimit(1)
+                                .truncationMode(.middle)
+                            Spacer(minLength: 0)
+                        }
+                    }
+                }
             }
         }
+        .frame(maxWidth: 250)
         .padding(.horizontal, 9)
-        .padding(.vertical, 5)
+        .padding(.vertical, 6)
         .background(bgColor, in: RoundedRectangle(cornerRadius: 7))
         .overlay(
             RoundedRectangle(cornerRadius: 7)
