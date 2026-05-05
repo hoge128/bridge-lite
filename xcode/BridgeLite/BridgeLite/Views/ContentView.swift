@@ -7,6 +7,7 @@ import UniformTypeIdentifiers
 struct ContentView: View {
     @State private var store = LibraryStore()
     @State private var nsWindow: NSWindow?
+    @State private var showingManageApplicationsSheet = false
 
     private func consumePendingOpenURL() {
         guard let win = nsWindow,
@@ -84,6 +85,14 @@ struct ContentView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
                 store.suspend()
+            }
+            .sheet(isPresented: $showingManageApplicationsSheet) {
+                ManageApplicationsSheet()
+                    .environment(SettingsStore.shared)
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: .bridgeLiteOpenManageApplications)) { _ in
+                showingManageApplicationsSheet = true
             }
     }
 }

@@ -348,6 +348,22 @@ final class SettingsStore {
     }() {
         didSet { UserDefaults.standard.set(cacheTTLDays, forKey: "cacheTTLDays") }
     }
+
+    // MARK: - お気に入りアプリ (Open With)
+
+    var favoriteApps: [URL] = {
+        guard let data = UserDefaults.standard.data(forKey: "favoriteApps"),
+              let paths = try? JSONDecoder().decode([String].self, from: data)
+        else { return [] }
+        return paths.map { URL(fileURLWithPath: $0) }
+    }() {
+        didSet {
+            let paths = favoriteApps.map(\.path)
+            if let data = try? JSONEncoder().encode(paths) {
+                UserDefaults.standard.set(data, forKey: "favoriteApps")
+            }
+        }
+    }
 }
 
 // UserDefaults.object が nil のとき `default` を返す (Bool には bool(forKey:) が 0 扱いするため)。

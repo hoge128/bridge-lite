@@ -171,6 +171,13 @@ struct ThumbnailCellView: View {
             NSWorkspace.shared.activateFileViewerSelecting([entry.url])
         }
 
+        let targetURLs: [URL] = {
+            if !store.selectedIDs.contains(entry.id) { return [entry.url] }
+            return store.selectedIDs.compactMap { store.entries[$0]?.url }
+        }()
+        let primaryURL = store.entries[store.primaryID ?? entry.id]?.url ?? entry.url
+        OpenWithMenu(targetURLs: targetURLs, primaryURL: primaryURL)
+
         Divider()
 
         Menu("Rating") {

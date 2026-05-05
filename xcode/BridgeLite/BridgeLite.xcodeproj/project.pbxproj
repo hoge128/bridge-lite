@@ -51,6 +51,9 @@
 		EB98541B8291C56BC7DAAE8C /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */; };
 		F049B58AD623462639BFDA52 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */; };
 		FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */; };
+		11146D352CD748EEBEA90661 /* OpenWithService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111F506F4421426DB539EBF5 /* OpenWithService.swift */; };
+		63A44B8C33AA4B22BBBA1D9B /* ManageApplicationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67A9921857634E37B5418C5F /* ManageApplicationsSheet.swift */; };
+		F83F92F53C234DEF96095BE0 /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E105335341974CACB0DCB1DB /* OpenWithMenu.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -105,6 +108,9 @@
 		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
 		F9F1394BA720F5BB1FAC74FB /* TabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabManager.swift; sourceTree = "<group>"; };
 		FEB29D70D3C5AFA843D165F7 /* StorageProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageProbe.swift; sourceTree = "<group>"; };
+		111F506F4421426DB539EBF5 /* OpenWithService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithService.swift; sourceTree = "<group>"; };
+		67A9921857634E37B5418C5F /* ManageApplicationsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManageApplicationsSheet.swift; sourceTree = "<group>"; };
+		E105335341974CACB0DCB1DB /* OpenWithMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithMenu.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXGroup section */
@@ -153,6 +159,7 @@
 				A5954B00B0C942104F38783B /* FolderWatcher.swift */,
 				562FFC709A5EF19C156C3F4B /* LibraryStore.swift */,
 				E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */,
+				111F506F4421426DB539EBF5 /* OpenWithService.swift */,
 				7B123E21AF2DA71784C11365 /* SettingsStore.swift */,
 				F9F1394BA720F5BB1FAC74FB /* TabManager.swift */,
 			);
@@ -232,6 +239,8 @@
 				449E124463D6E6D28958EBE9 /* FilterPanelView.swift */,
 				6719A1E8E79428CC067F6086 /* GroupCompareView.swift */,
 				E2E9544AD911B7B44DF245CA /* HelpView.swift */,
+				67A9921857634E37B5418C5F /* ManageApplicationsSheet.swift */,
+				E105335341974CACB0DCB1DB /* OpenWithMenu.swift */,
 				9A4260412EA9F57B97926BB9 /* SettingsView.swift */,
 				05F0D4EF54B7033D13443243 /* SidebarView.swift */,
 				4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */,
@@ -340,7 +349,10 @@
 				0BF5211BFCBCCD0800E28289 /* HelpView.swift in Sources */,
 				D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */,
 				221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */,
+				63A44B8C33AA4B22BBBA1D9B /* ManageApplicationsSheet.swift in Sources */,
 				A697498B8D3F1EC28704C642 /* OpenFolderRegistry.swift in Sources */,
+				F83F92F53C234DEF96095BE0 /* OpenWithMenu.swift in Sources */,
+				11146D352CD748EEBEA90661 /* OpenWithService.swift in Sources */,
 				74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */,
 				5B7AA16F9AB39446C7450658 /* PairingPipeline.swift in Sources */,
 				487E0F471C54D7589919532C /* PhotoEntry.swift in Sources */,

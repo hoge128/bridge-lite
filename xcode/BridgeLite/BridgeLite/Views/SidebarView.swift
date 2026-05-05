@@ -560,6 +560,8 @@ struct VariationThumbView: View {
             NSWorkspace.shared.activateFileViewerSelecting([entry.url])
         }
 
+        OpenWithMenu(targetURLs: [entry.url], primaryURL: entry.url)
+
         Divider()
 
         Menu("Rating") {
