@@ -52,6 +52,32 @@ if ! command -v create-dmg &>/dev/null; then
     exit 1
 fi
 
+# ─── インストール案内テキスト ────────────────────────────────
+TEMP_TXT=$(mktemp /tmp/BridgeLite_INSTALL_XXXXXX.txt)
+trap 'rm -f "$TEMP_TXT"' EXIT
+cat > "$TEMP_TXT" << 'EOF'
+First Launch — Gatekeeper Notice
+=================================
+Apple notarization is currently in progress.
+On first launch, Gatekeeper may show a warning.
+
+  Option 1: Right-click BridgeLite.app → "Open"
+  Option 2: Run in Terminal:
+
+    xattr -dr com.apple.quarantine ~/Applications/BridgeLite.app
+
+
+初回起動について
+================
+Apple による公証（Notarization）は現在取得中です。
+初回起動時に Gatekeeper の警告が表示される場合があります。
+
+  方法 1: BridgeLite.app を右クリック →「開く」
+  方法 2: ターミナルで実行:
+
+    xattr -dr com.apple.quarantine ~/Applications/BridgeLite.app
+EOF
+
 echo "→ DMG 作成中: $DMG_NAME"
 # --window-size は論理ピクセル。背景画像は Retina @2x 用に 1920x1080 で用意する
 # (論理サイズ 960x540 の 2倍 = 1920x1080)
@@ -63,6 +89,7 @@ if [[ -f "$BACKGROUND" ]]; then
         --icon-size 128 \
         --icon "BridgeLite.app" 240 270 \
         --app-drop-link 720 270 \
+        --add-file "INSTALL.txt" "$TEMP_TXT" 480 450 \
         "$DMG_PATH" \
         "$APP_PATH"
 else
@@ -73,6 +100,7 @@ else
         --icon-size 128 \
         --icon "BridgeLite.app" 240 270 \
         --app-drop-link 720 270 \
+        --add-file "INSTALL.txt" "$TEMP_TXT" 480 450 \
         "$DMG_PATH" \
         "$APP_PATH"
 fi
