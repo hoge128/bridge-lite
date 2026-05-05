@@ -35,6 +35,14 @@ targets:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite
-        CFBundleVersion: "2"
-        CFBundleShortVersionString: "0.1.1"
+        CFBundleVersion: "4"
+        CFBundleShortVersionString: "0.2.2"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"
+        # Finder の右クリック「このアプリケーションで開く」と Dock ドラッグで
+        # フォルダを開けるようにするための公開ドキュメントタイプ宣言。
+        # xcodegen が Info.plist を生成上書きするので、ここに含める必要がある。
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Folder
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.folder
