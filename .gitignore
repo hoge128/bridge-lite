@@ -28,3 +28,8 @@ test/
 # Build archives and release DMGs
 archive/
 dmgs/
+
+# VitePress (manual-src)
+manual-src/node_modules/
+manual-src/.vitepress/cache/
+manual-src/.vitepress/dist/
