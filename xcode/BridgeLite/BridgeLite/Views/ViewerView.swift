@@ -150,7 +150,7 @@ struct ViewerView: View {
                     return nil
                 }
                 let mods = event.modifierFlags.intersection([.command, .control, .option, .shift])
-                if event.keyCode == 46, mods.isEmpty { // m: toggle metadata overlay
+                if event.keyCode == 34, mods.isEmpty { // i: toggle metadata overlay
                     s.viewerShowsMeta.toggle()
                     return nil
                 }

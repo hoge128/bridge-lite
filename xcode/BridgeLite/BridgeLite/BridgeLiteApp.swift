@@ -158,7 +158,7 @@ struct BridgeLiteCommands: Commands {
                 get: { store?.showSidebar ?? false },
                 set: { store?.showSidebar = $0 }
             ))
-            .keyboardShortcut("m", modifiers: [.command, .option])
+            .keyboardShortcut("i", modifiers: [.command, .option])
             .disabled(store == nil)
             Divider()
             Button("Enter Fullscreen Viewer") {
