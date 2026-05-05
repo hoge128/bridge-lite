@@ -280,6 +280,9 @@ final class LibraryStore {
             }
             try Task.checkCancellation()
             ingest(scanned)
+            if primaryID == nil, let firstID = visibleIDs.first {
+                selectEntry(firstID)
+            }
 
             // 深さ超過チェック（スキャンをブロックしない）
             Task { [weak self] in
