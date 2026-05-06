@@ -7,8 +7,7 @@ import SwiftUI
 /// Writes JPEG blobs to LibraryStore.thumbnailBlobs on the MainActor
 /// so the grid updates reactively as each thumbnail finishes.
 enum ThumbnailPipeline {
-    // 4 並列。autoRenderThumbnailIfNeeded の RAW レンダーが並走するピーク時の
-    // IOSurface 同時確保を抑え、kIOReturnNoMemory を防ぐ。
+    // 4 並列。ImageIO の並列デコードによる IOSurface 枯渇（kIOReturnNoMemory）を防ぐ。
     private static let limiter = ConcurrencyLimiter(maxConcurrent: 4)
 
     /// Fire-and-forget: load all thumbnails, updating store as each one completes.
@@ -83,8 +82,6 @@ enum ThumbnailPipeline {
                 await phashPipeline.enqueue(entry: entry, source: scaled, db: db)
             }
         }
-        // Auto-render: fire-and-forget background replace for RAW thumbnails when enabled
-        await store.autoRenderThumbnailIfNeeded(entry: entry, db: db)
         // 成功・失敗・スキップに関わらず試行完了を通知（進捗バーが 99% 止まりになるのを防ぐ）
         await store.noteThumbnailAttemptFinished()
     }

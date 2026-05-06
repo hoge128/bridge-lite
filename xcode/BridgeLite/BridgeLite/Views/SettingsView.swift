@@ -154,8 +154,9 @@ struct SettingsView: View {
                 Toggle(String(localized: "settings.render.auto_thumbnails",
                               defaultValue: "Auto-render in Thumbnail grid"),
                        isOn: $settings.autoRenderRawThumbnails)
-                Text(String(localized: "settings.render.auto_thumbnails.description",
-                            defaultValue: "Replaces RAW thumbnails in the grid with engine-rendered results during scanning. Off by default due to increased scan load."))
+                    .disabled(true)
+                Text(String(localized: "settings.render.auto_thumbnails.disabled_reason",
+                            defaultValue: "Currently disabled — auto-rendering during scan caused failures on large folders (6,000+ images). Will be re-enabled once embedded thumbnail support is complete for all RAW formats."))
                     .font(.caption2)
                     .foregroundStyle(.secondary)
                 Button(String(localized: "settings.render.cache.clear", defaultValue: "Clear Render Cache"),
