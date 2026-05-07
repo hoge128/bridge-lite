@@ -299,7 +299,7 @@ final class LibraryStore {
                 if let imageList = capturedList {
                     let exifMap = await BridgeCore.fetchExifBatch(list: imageList, db: db)
                     guard gen == self.scanGeneration else { return }
-                    await self.mergeExifBatch(exifMap, generation: gen)
+                    self.mergeExifBatch(exifMap, generation: gen)
                 }
 
                 // XMP: 8 並列で読み込み（XMP batch は将来対応）

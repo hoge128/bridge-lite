@@ -145,7 +145,7 @@ struct ViewerView: View {
             let ref = windowRef
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 guard event.window === ref.window else { return event }
-                if event.keyCode == 53 { // Escape
+                if event.keyCode == 53 || event.keyCode == 49 { // Escape / Space
                     s.viewerMode = false
                     return nil
                 }
