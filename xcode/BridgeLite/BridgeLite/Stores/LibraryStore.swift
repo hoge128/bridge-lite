@@ -71,6 +71,10 @@ final class LibraryStore {
     private var pendingXmp: [UInt64: XmpData] = [:]
     private var metaFlushTask: Task<Void, Never>?
     private var pendingRecomputeTask: Task<Void, Never>?
+    private var duplicateTask: Task<Void, Never>?
+    // reset() のたびに +1。背景タスクが開始時に取得し、setter 呼び出し時に照合する。
+    // これにより旧スキャンの detached タスクが新スキャンの状態を汚すのを防ぐ。
+    private(set) var scanGeneration: Int = 0
 
     // Per-entry change subjects — セルが自分の id のみ購読することで dict 全体観測を回避する
     let thumbnailDidUpdate = PassthroughSubject<UInt64, Never>()
@@ -250,6 +254,7 @@ final class LibraryStore {
         statusMessage = String(localized: "Counting files…")
         reset()
         currentDirectoryURL = url
+        let gen = scanGeneration // reset() がバンプした世代を確定
 
         do {
             // Phase 1: プリスキャン（拡張子カウント）
@@ -300,7 +305,7 @@ final class LibraryStore {
                 // EXIF: 全件を 1 SQLite 接続で取得（fetch_exif_batch が 500 件チャンク IN 句を使用）
                 if let imageList = capturedList {
                     let exifMap = await BridgeCore.fetchExifBatch(list: imageList, db: db)
-                    await self.mergeExifBatch(exifMap)
+                    await self.mergeExifBatch(exifMap, generation: gen)
                 }
 
                 // XMP: 8 並列で読み込み（XMP batch は将来対応）
@@ -312,13 +317,13 @@ final class LibraryStore {
                             guard let self else { return }
                             try? await xmpLimiter.run {
                                 let xmp = await BridgeCore.readXmp(url: entry.url, jpgWriteMode: jpgWriteMode)
-                                await self.setXmp(id: entry.id, xmp: xmp)
+                                await self.setXmp(id: entry.id, xmp: xmp, generation: gen)
                             }
                         }
                     }
                 }
 
-                await pairingPipeline.noteExifReady(list: capturedList, db: db, store: self, splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs), phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold))
+                await pairingPipeline.noteExifReady(list: capturedList, db: db, store: self, splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs), phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold), generation: gen)
             }
 
             // Phase 3: サムネイル → pHash → shot-group reindex（直列チェーン）
@@ -335,15 +340,15 @@ final class LibraryStore {
                 + orderedIDs.filter { !visibleSet.contains($0) }.compactMap { entries[$0] }
             let capturedPhash = phashPipeline
             let capturedPairing = pairingPipeline
-            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash)
+            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash, generation: gen)
             await capturedPhash.waitForAllPending()
-            await capturedPairing.notePhashReady(list: capturedList, db: db, store: self, splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs), phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold))
+            await capturedPairing.notePhashReady(list: capturedList, db: db, store: self, splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs), phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold), generation: gen)
             settings.appliedGroupingSplitThresholdSecs = settings.groupingSplitThresholdSecs
             settings.appliedGroupingPhashHammingThreshold = settings.groupingPhashHammingThreshold
 
             if settings.detectDuplicates, let capturedList {
                 let capturedDup = duplicatePipeline
-                Task { await capturedDup.compute(list: capturedList, db: db, store: self) }
+                duplicateTask = Task { await capturedDup.compute(list: capturedList, db: db, store: self, generation: gen) }
             }
 
             statusMessage = String(
@@ -418,8 +423,8 @@ final class LibraryStore {
 
     /// サムネイル生成の試行完了を記録（成功・失敗問わず呼ぶこと）。
     /// scanPhase == .loading のときのみカウントし、resume() 時の二重カウントを防ぐ。
-    func noteThumbnailAttemptFinished() {
-        guard scanPhase == .loading else { return }
+    func noteThumbnailAttemptFinished(generation: Int) {
+        guard generation == scanGeneration, scanPhase == .loading else { return }
         loadedThumbnailCount += 1
         let total = orderedIDs.count
         // navigationTitle への負荷を抑えるため 50 件ごとまたは最終件で更新
@@ -822,7 +827,8 @@ final class LibraryStore {
 
     // MARK: - 重複検出
 
-    func applyDuplicateGroups(_ groups: [Data: [UInt64]]) {
+    func applyDuplicateGroups(_ groups: [Data: [UInt64]], generation: Int) {
+        guard generation == scanGeneration else { return }
         var keyByID: [UInt64: Data] = [:]
         var recommendedByKey: [Data: UInt64] = [:]
         var idsToNotify = Set<UInt64>()
@@ -1635,11 +1641,13 @@ final class LibraryStore {
 
     // MARK: - Private
 
-    func setThumbnailOrientation(id: UInt64, orientation: Image.Orientation) {
+    func setThumbnailOrientation(id: UInt64, orientation: Image.Orientation, generation: Int) {
+        guard generation == scanGeneration else { return }
         thumbnailOrientations[id] = orientation
     }
 
-    func setThumbnail(id: UInt64, jpeg: Data) {
+    func setThumbnail(id: UInt64, jpeg: Data, generation: Int) {
+        guard generation == scanGeneration else { return }
         pendingThumbnails[id] = jpeg
         guard thumbnailFlushTask == nil else { return }
         thumbnailFlushTask = Task { @MainActor [weak self] in
@@ -1654,6 +1662,7 @@ final class LibraryStore {
             // 輝度スコアをバックグラウンドで計算（未計算分のみ）
             let toCompute = flushed.filter { luminanceScores[$0.key] == nil }
             if !toCompute.isEmpty {
+                let lumGen = scanGeneration
                 Task.detached(priority: .utility) { [weak self] in
                     var computed: [UInt64: Int] = [:]
                     for (id, jpeg) in toCompute {
@@ -1663,7 +1672,7 @@ final class LibraryStore {
                     }
                     guard !computed.isEmpty else { return }
                     await MainActor.run { [weak self] in
-                        guard let self else { return }
+                        guard let self, lumGen == self.scanGeneration else { return }
                         luminanceScores.merge(computed) { _, new in new }
                         scheduleRecomputeVisible(coalesceMs: 600)
                     }
@@ -1680,6 +1689,7 @@ final class LibraryStore {
     /// `autoRenderRawThumbnails` が false の場合は何もしない。
     func autoRenderThumbnailIfNeeded(entry: PhotoEntry, db: BridgeCoreDatabase) {
         guard SettingsStore.shared.autoRenderRawThumbnails, entry.isRaw else { return }
+        let gen = scanGeneration
         Task { [weak self] in
             guard let (img, _) = await RAWRenderPipeline.shared.render(
                 url: entry.url, target: .sidebar, db: db
@@ -1688,21 +1698,24 @@ final class LibraryStore {
                   let thumbJpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
             guard let self else { return }
             ThumbnailDecodeCache.shared.evict(id: entry.id)
-            setThumbnail(id: entry.id, jpeg: thumbJpeg)
+            setThumbnail(id: entry.id, jpeg: thumbJpeg, generation: gen)
         }
     }
 
-    func setExif(id: UInt64, exif: ExifData?) {
+    func setExif(id: UInt64, exif: ExifData?, generation: Int) {
+        guard generation == scanGeneration else { return }
         pendingExif[id] = exif ?? ExifData()
         scheduleMetaFlush()
     }
 
-    func mergeExifBatch(_ batch: [UInt64: ExifData]) {
+    func mergeExifBatch(_ batch: [UInt64: ExifData], generation: Int) {
+        guard generation == scanGeneration else { return }
         pendingExif.merge(batch) { _, new in new }
         scheduleMetaFlush()
     }
 
-    func setXmp(id: UInt64, xmp: XmpData?) {
+    func setXmp(id: UInt64, xmp: XmpData?, generation: Int) {
+        guard generation == scanGeneration else { return }
         guard let xmp else { return }
         pendingXmp[id] = xmp
         scheduleMetaFlush()
@@ -1747,7 +1760,8 @@ final class LibraryStore {
         settings.appliedGroupingPhashHammingThreshold = phash
     }
 
-    func applyReindexedGroups(_ groups: [UInt64: [UInt64]]) {
+    func applyReindexedGroups(_ groups: [UInt64: [UInt64]], generation: Int) {
+        guard generation == scanGeneration else { return }
         // Update each entry's shotId to match its reindexed group key
         for (shotId, memberIds) in groups {
             for memberId in memberIds {
@@ -1774,12 +1788,14 @@ final class LibraryStore {
         guard let db = database, !orderedIDs.isEmpty else { return }
         let entriesToLoad = orderedIDs.compactMap { entries[$0] }
         let capturedPhash = phashPipeline
+        let gen = scanGeneration
         Task {
-            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash)
+            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash, generation: gen)
         }
     }
 
     private func reset() {
+        scanGeneration &+= 1
         filter.nameSearch = ""
         preSearchFlatten = nil
         watcher?.stop()
@@ -1809,6 +1825,8 @@ final class LibraryStore {
         metaFlushTask = nil
         pendingRecomputeTask?.cancel()
         pendingRecomputeTask = nil
+        duplicateTask?.cancel()
+        duplicateTask = nil
         exifLoadTask?.cancel()
         exifLoadTask = nil
         thumbnailLoadTask?.cancel()
@@ -2037,6 +2055,7 @@ final class LibraryStore {
     /// Uses `bridge_scan_directory` (full re-scan) to obtain correct shot_ids, then
     /// maps Rust sequential IDs back to LibraryStore's stable nextEntryID-based IDs.
     private func applyIncrementalChange() async {
+        let gen = scanGeneration
         guard let url = currentDirectoryURL, let db = database, !isLoading else { return }
 
         guard let (freshEntries, freshList) = try? await BridgeCore.scanDirectory(url: url, db: db) else { return }
@@ -2093,7 +2112,7 @@ final class LibraryStore {
             phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold)
         )
         let convertedGroups = convertGroupsToStoreIDs(rawGroups, freshList: freshList, pathToStoreID: pathToStoreID)
-        applyReindexedGroups(convertedGroups)
+        applyReindexedGroups(convertedGroups, generation: gen)
 
         // 4. Fire pipelines for newly added entries only
         if !newEntries.isEmpty {
@@ -2102,7 +2121,7 @@ final class LibraryStore {
             let jpgWriteMode  = settings.jpgWriteMode
             thumbnailLoadTask = Task { [weak self] in
                 guard let self else { return }
-                await ThumbnailPipeline.loadAll(entries: newEntries, store: self, db: capturedDB, phashPipeline: capturedPhash)
+                await ThumbnailPipeline.loadAll(entries: newEntries, store: self, db: capturedDB, phashPipeline: capturedPhash, generation: gen)
             }
             exifLoadTask = Task { [weak self] in
                 guard let self else { return }
@@ -2112,11 +2131,11 @@ final class LibraryStore {
                         group.addTask { [weak self] in
                             guard let self else { return }
                             if let exif = await BridgeCore.fetchExif(url: entry.url, db: capturedDB) {
-                                await self.setExif(id: entry.id, exif: exif)
+                                await self.setExif(id: entry.id, exif: exif, generation: gen)
                             }
                             try? await xmpLimiter.run {
                                 let xmp = await BridgeCore.readXmp(url: entry.url, jpgWriteMode: jpgWriteMode)
-                                await self.setXmp(id: entry.id, xmp: xmp)
+                                await self.setXmp(id: entry.id, xmp: xmp, generation: gen)
                             }
                         }
                     }

@@ -17,11 +17,12 @@ enum ThumbnailPipeline {
         entries: [PhotoEntry],
         store: LibraryStore,
         db: BridgeCoreDatabase,
-        phashPipeline: PHashPipeline
+        phashPipeline: PHashPipeline,
+        generation: Int
     ) async {
         await withTaskGroup(of: Void.self) { group in
             for entry in entries {
-                group.addTask { await loadOne(entry: entry, store: store, db: db, phashPipeline: phashPipeline) }
+                group.addTask { await loadOne(entry: entry, store: store, db: db, phashPipeline: phashPipeline, generation: generation) }
             }
         }
     }
@@ -42,7 +43,8 @@ enum ThumbnailPipeline {
         entry: PhotoEntry,
         store: LibraryStore,
         db: BridgeCoreDatabase,
-        phashPipeline: PHashPipeline
+        phashPipeline: PHashPipeline,
+        generation: Int
     ) async {
         try? await limiter.run {
             // 1. SQLite thumbnail cache — skip if too small for Retina (auto-migrate old 200px entries)
@@ -59,13 +61,13 @@ enum ThumbnailPipeline {
                     return abs(cacheAspect - masterAspect) / masterAspect > 0.02
                 }()
                 if isAdequate && !hasBadAspect {
-                    await store.setThumbnail(id: entry.id, jpeg: jpeg)
+                    await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
                     if entry.isRaw {
                         let url = entry.url
                         let orient = await Task.detached(priority: .utility) {
                             readRawOrientation(url)
                         }.value
-                        await store.setThumbnailOrientation(id: entry.id, orientation: orient)
+                        await store.setThumbnailOrientation(id: entry.id, orientation: orient, generation: generation)
                     }
                     return
                 }
@@ -75,7 +77,7 @@ enum ThumbnailPipeline {
             // 2. ImageIO for non-RAW (JPEG/HEIF/DNG/TIFF)
             if let img = await generateWithImageIO(url: entry.url, maxPixels: targetPixels),
                let jpeg = img.jpegData(compressionQuality: 0.85) {
-                await store.setThumbnail(id: entry.id, jpeg: jpeg)
+                await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
                 await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
                 await phashPipeline.enqueue(entry: entry, source: img, db: db)
                 return
@@ -92,14 +94,14 @@ enum ThumbnailPipeline {
                 }.value
                 let scaled = rawImg.scaledToFit(maxPixels: targetPixels) ?? rawImg
                 guard let jpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
-                await store.setThumbnail(id: entry.id, jpeg: jpeg)
-                await store.setThumbnailOrientation(id: entry.id, orientation: orient)
+                await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
+                await store.setThumbnailOrientation(id: entry.id, orientation: orient, generation: generation)
                 await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
                 await phashPipeline.enqueue(entry: entry, source: scaled, db: db)
             }
         }
         // 成功・失敗・スキップに関わらず試行完了を通知（進捗バーが 99% 止まりになるのを防ぐ）
-        await store.noteThumbnailAttemptFinished()
+        await store.noteThumbnailAttemptFinished(generation: generation)
     }
 
     static func generateWithImageIO(url: URL, maxPixels: Int) async -> CGImage? {
