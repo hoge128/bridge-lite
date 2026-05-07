@@ -70,6 +70,7 @@ final class LibraryStore {
     private var pendingExif: [UInt64: ExifData] = [:]
     private var pendingXmp: [UInt64: XmpData] = [:]
     private var metaFlushTask: Task<Void, Never>?
+    private var pendingRecomputeTask: Task<Void, Never>?
 
     // Per-entry change subjects — セルが自分の id のみ購読することで dict 全体観測を回避する
     let thumbnailDidUpdate = PassthroughSubject<UInt64, Never>()
@@ -359,6 +360,10 @@ final class LibraryStore {
         }
         isLoading = false
         scanPhase = .idle
+        // スキャン中にスキップしたヒストグラムバケットを確定させる
+        pendingRecomputeTask?.cancel()
+        pendingRecomputeTask = nil
+        recomputeVisible()
         startFolderWatchIfEnabled()
     }
 
@@ -1221,6 +1226,16 @@ final class LibraryStore {
 
     // MARK: - Computed
 
+    private func scheduleRecomputeVisible(coalesceMs: Int = 400) {
+        guard pendingRecomputeTask == nil else { return }
+        pendingRecomputeTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(coalesceMs))
+            guard let self else { return }
+            self.pendingRecomputeTask = nil
+            self.recomputeVisible()
+        }
+    }
+
     private func recomputeVisible() {
         let liveReps: Set<UInt64>
         if filter.flatten {
@@ -1240,11 +1255,12 @@ final class LibraryStore {
                 return filter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id], luminance: luminanceScores[id])
             }
         }
-        visibleIDs = sortedIDs(filtered)
+        let next = sortedIDs(filtered)
+        if next != visibleIDs { visibleIDs = next }
         if settings.viewMode == .daily {
             rebuildDailyGroups()
         }
-        recomputeAggregates(reps: reps)
+        recomputeAggregates(reps: reps, fast: scanPhase == .loading)
     }
 
     func applyOrder() { recomputeVisible() }
@@ -1397,11 +1413,13 @@ final class LibraryStore {
         }
     }
 
-    private func recomputeAggregates(reps: [UInt64]) {
+    private func recomputeAggregates(reps: [UInt64], fast: Bool = false) {
         availableExtensions = Array(Set(entries.values.map { $0.url.pathExtension.lowercased() }).filter { !$0.isEmpty }).sorted()
         availableCameras = Array(Set(exifData.values.compactMap { $0.cameraName })).sorted()
         availableLenses = Array(Set(exifData.values.compactMap { $0.lensName })).sorted()
         availableArtists = Array(Set(exifData.values.compactMap { $0.artist })).sorted()
+        // スキャン中はヒストグラムバケット計算をスキップ（スキャン完了後に 1 回フル計算する）
+        if fast { return }
         isoBuckets = buildISOBuckets(ids: filteredIDsExcluding(.iso, from: reps))
         focalBuckets = buildFocalBuckets(ids: filteredIDsExcluding(.focal, from: reps))
         shutterBuckets = buildShutterBuckets(ids: filteredIDsExcluding(.shutter, from: reps))
@@ -1647,7 +1665,7 @@ final class LibraryStore {
                     await MainActor.run { [weak self] in
                         guard let self else { return }
                         luminanceScores.merge(computed) { _, new in new }
-                        recomputeVisible()
+                        scheduleRecomputeVisible(coalesceMs: 600)
                     }
                 }
             }
@@ -1702,7 +1720,7 @@ final class LibraryStore {
             pendingExif = [:]
             pendingXmp = [:]
             metaFlushTask = nil
-            recomputeVisible()
+            scheduleRecomputeVisible(coalesceMs: 400)
             for id in flushedExif.keys { exifDidUpdate.send(id) }
             for id in flushedXmp.keys  { xmpDidUpdate.send(id) }
         }
@@ -1789,6 +1807,8 @@ final class LibraryStore {
         thumbnailFlushTask = nil
         metaFlushTask?.cancel()
         metaFlushTask = nil
+        pendingRecomputeTask?.cancel()
+        pendingRecomputeTask = nil
         exifLoadTask?.cancel()
         exifLoadTask = nil
         thumbnailLoadTask?.cancel()

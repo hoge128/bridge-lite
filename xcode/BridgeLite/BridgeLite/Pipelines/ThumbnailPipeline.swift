@@ -26,10 +26,17 @@ enum ThumbnailPipeline {
         }
     }
 
-    // Thumbnail target size: 360pt (slider max) × 2x Retina = 720px
-    private static let targetPixels = 720
-    // Cached thumbnails below this size are too small for Retina and get regenerated
-    private static let minCachePixels = 400
+    // Thumbnail target size: 480px。
+    // 既定スライダー位置 (~120pt) では Retina 2× = 240px で十分 sharp。
+    // スライダー max (360pt) では多少眠くなるが、NSCache (150MB) に
+    // 〜166 枚乗るためスクロールのキャッシュフィット率が 720px 比 2.2 倍になる。
+    // スキャン中の ImageIO デコード時間も短縮され、大規模フォルダで MainActor の
+    // 圧迫を抑える効果が大きい。720px に戻す場合はここを書き換えるだけでよい。
+    private static let targetPixels = 480
+    // Cached thumbnails below this size are too small and get regenerated.
+    // 480 ターゲットに合わせて 280 まで許容（既存 480/720 キャッシュは保持、
+    // 200/360 等の旧キャッシュは再生成）。
+    private static let minCachePixels = 280
 
     private static func loadOne(
         entry: PhotoEntry,
