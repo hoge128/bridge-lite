@@ -46,7 +46,13 @@ enum ThumbnailPipeline {
         phashPipeline: PHashPipeline,
         generation: Int
     ) async {
+        // stale 世代は limiter slot を奪わずに即 exit（新世代の loadAll を妨げない）
+        let isStale = await MainActor.run { store.scanGeneration != generation }
+        guard !isStale else { return }
         try? await limiter.run {
+            // slot 取得後にも再チェック（待機中に reset() が走ることがある）
+            let stale = await MainActor.run { store.scanGeneration != generation }
+            guard !stale else { return }
             // 1. SQLite thumbnail cache — skip if too small for Retina (auto-migrate old 200px entries)
             if let jpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db) {
                 let cached = CGImage.fromJPEGData(jpeg)

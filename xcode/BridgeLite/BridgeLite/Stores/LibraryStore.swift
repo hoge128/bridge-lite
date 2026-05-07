@@ -221,26 +221,16 @@ final class LibraryStore {
     }
 
     func cancelLoading() {
-        watcher?.stop()
-        preScanTask?.cancel()
-        preScanTask = nil
+        // openDirTask は reset() が触れないので先に止める
         openDirTask?.cancel()
         openDirTask = nil
-        exifLoadTask?.cancel()
-        exifLoadTask = nil
-        // thumbnailLoadTask は openDirectory 内で await しているため
-        // openDirTask.cancel() でキャンセルが伝播する。resume() 経由のみ別途キャンセル。
-        thumbnailLoadTask?.cancel()
-        thumbnailLoadTask = nil
+        // reset() に委譲: 全 UI 状態クリア + 全タスク cancel + scanGeneration バンプ
+        // SQLite キャッシュは触らない（ThumbnailDecodeCache はメモリ NSCache のみ）
+        reset()
         scanPhase = .idle
-        guard isLoading else { return }
         isLoading = false
-        if orderedIDs.isEmpty {
-            statusMessage = ""
-            currentDirectoryURL = nil
-        } else {
-            statusMessage = String(format: String(localized: "%d photos"), orderedIDs.count)
-        }
+        statusMessage = ""
+        currentDirectoryURL = nil
     }
 
     func openDirectory(_ url: URL) async {
@@ -259,6 +249,7 @@ final class LibraryStore {
         do {
             // Phase 1: プリスキャン（拡張子カウント）
             let (total, images) = try await runPreScan(url: url)
+            guard gen == scanGeneration else { return }
             try Task.checkCancellation()
             preScanTotalFiles = total
             preScanImageFiles = images
@@ -276,6 +267,7 @@ final class LibraryStore {
             let scanned: [PhotoEntry]
             do {
                 let (entries, list) = try await BridgeCore.scanDirectory(url: url, db: db)
+                guard gen == scanGeneration else { return }
                 scanned = entries
                 lastImageList = list
             } catch is CancellationError {
@@ -283,6 +275,7 @@ final class LibraryStore {
                 return
             } catch {
                 scanned = try await scanPipeline.scan(url: url)
+                guard gen == scanGeneration else { return }
             }
             try Task.checkCancellation()
             ingest(scanned)
@@ -300,17 +293,18 @@ final class LibraryStore {
             let allEntries = orderedIDs.compactMap { entries[$0] }
             let capturedList = lastImageList
             exifLoadTask = Task { [weak self] in
-                guard let self else { return }
+                guard let self, gen == self.scanGeneration else { return }
 
                 // EXIF: 全件を 1 SQLite 接続で取得（fetch_exif_batch が 500 件チャンク IN 句を使用）
                 if let imageList = capturedList {
                     let exifMap = await BridgeCore.fetchExifBatch(list: imageList, db: db)
+                    guard gen == self.scanGeneration else { return }
                     await self.mergeExifBatch(exifMap, generation: gen)
                 }
 
                 // XMP: 8 並列で読み込み（XMP batch は将来対応）
                 let xmpLimiter = ConcurrencyLimiter(maxConcurrent: 8)
-                let jpgWriteMode = settings.jpgWriteMode
+                let jpgWriteMode = self.settings.jpgWriteMode
                 await withTaskGroup(of: Void.self) { group in
                     for entry in allEntries {
                         group.addTask { [weak self] in
@@ -323,7 +317,8 @@ final class LibraryStore {
                     }
                 }
 
-                await pairingPipeline.noteExifReady(list: capturedList, db: db, store: self, splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs), phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold), generation: gen)
+                guard gen == self.scanGeneration else { return }
+                await self.pairingPipeline.noteExifReady(list: capturedList, db: db, store: self, splitThresholdSecs: Int64(self.settings.groupingSplitThresholdSecs), phashHammingThreshold: UInt32(self.settings.groupingPhashHammingThreshold), generation: gen)
             }
 
             // Phase 3: サムネイル → pHash → shot-group reindex（直列チェーン）
@@ -341,8 +336,11 @@ final class LibraryStore {
             let capturedPhash = phashPipeline
             let capturedPairing = pairingPipeline
             await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash, generation: gen)
+            guard gen == scanGeneration else { return }
             await capturedPhash.waitForAllPending()
+            guard gen == scanGeneration else { return }
             await capturedPairing.notePhashReady(list: capturedList, db: db, store: self, splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs), phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold), generation: gen)
+            guard gen == scanGeneration else { return }
             settings.appliedGroupingSplitThresholdSecs = settings.groupingSplitThresholdSecs
             settings.appliedGroupingPhashHammingThreshold = settings.groupingPhashHammingThreshold
 
@@ -363,6 +361,8 @@ final class LibraryStore {
             scanPhase = .idle
             statusMessage = error.localizedDescription
         }
+        // 旧世代タスクが末尾まで到達しても新世代の状態を上書きしない
+        guard gen == scanGeneration else { return }
         isLoading = false
         scanPhase = .idle
         // スキャン中にスキップしたヒストグラムバケットを確定させる
@@ -1755,7 +1755,7 @@ final class LibraryStore {
             splitThresholdSecs: Int64(split),
             phashHammingThreshold: UInt32(phash)
         )
-        applyReindexedGroups(groups)
+        applyReindexedGroups(groups, generation: scanGeneration)
         settings.appliedGroupingSplitThresholdSecs = split
         settings.appliedGroupingPhashHammingThreshold = phash
     }
