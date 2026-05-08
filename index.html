@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>bridge-lite — RAW セレクトビュワー for macOS</title>
+  <title>BridgeLite — RAW セレクトビュワー for macOS</title>
   <meta name="description" content="RAW+JPG 同時撮影向けの軽量画像セレクトビュワー。macOS 専用。無料。" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -140,7 +140,7 @@
     }
 
     .hero h1 {
-      font-size: clamp(48px, 7vw, 88px);
+      font-size: clamp(32px, 4vw, 52px);
       font-weight: 700;
       letter-spacing: -0.04em;
       line-height: 1.0;
@@ -255,7 +255,7 @@
     }
 
     .feature-text h2 {
-      font-size: clamp(26px, 3vw, 38px);
+      font-size: clamp(20px, 2vw, 26px);
       font-weight: 700;
       letter-spacing: -0.03em;
       line-height: 1.15;
@@ -291,6 +291,16 @@
     }
 
     /* ── Divider ── */
+    .features-heading {
+      max-width: 1100px;
+      margin: 0 auto 80px;
+      padding: 0 40px;
+      font-size: 28px;
+      font-weight: 700;
+      color: var(--ink);
+      text-align: center;
+    }
+
     .divider {
       max-width: 1100px;
       margin: 0 auto 140px;
@@ -373,62 +383,20 @@
 
     .download-cta { display: flex; gap: 16px; justify-content: center; flex-wrap: wrap; }
 
-    .gatekeeper-block {
-      margin: 40px auto 0;
-      max-width: 600px;
-      text-align: left;
-    }
-
-    .notarization-note {
-      border-left: 3px solid var(--accent);
-      padding: 12px 16px;
-      background: var(--accent-bg);
-      border-radius: 0 6px 6px 0;
-      font-size: 13px;
-      line-height: 1.65;
-      margin-bottom: 16px;
-      color: var(--ink);
-    }
-
-    .gatekeeper-desc {
-      font-size: 13px;
+    .manual-link {
+      margin-top: 24px;
+      font-size: 14px;
       color: var(--muted);
-      line-height: 1.7;
-      margin-bottom: 12px;
     }
 
-    .copy-block {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      background: rgba(0,0,0,0.04);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      padding: 14px 18px;
+    .manual-link a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
     }
 
-    .copy-block code {
-      font-family: "SF Mono", "Fira Code", monospace;
-      font-size: 12px;
-      flex: 1;
-      word-break: break-all;
-    }
+    .manual-link a:hover { opacity: 0.75; }
 
-    .copy-btn {
-      flex-shrink: 0;
-      background: var(--ink);
-      color: var(--bg);
-      border: none;
-      padding: 6px 14px;
-      border-radius: 4px;
-      font-size: 12px;
-      font-weight: 600;
-      cursor: pointer;
-      transition: opacity 0.15s;
-      white-space: nowrap;
-    }
-
-    .copy-btn:hover { opacity: 0.75; }
 
     /* ── Footer ── */
     footer {
@@ -444,6 +412,58 @@
     }
 
     footer a:hover { color: var(--white); }
+
+    /* ── Roadmap ── */
+    .roadmap-section {
+      max-width: 1100px;
+      margin: 0 auto;
+      padding: 0 40px 120px;
+    }
+
+    .roadmap-section h2 {
+      font-size: clamp(22px, 2.5vw, 30px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      margin-bottom: 32px;
+    }
+
+    .roadmap-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .roadmap-list li {
+      display: flex;
+      gap: 16px;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--ink);
+    }
+
+    .roadmap-list li::before {
+      content: '—';
+      color: var(--muted);
+      flex-shrink: 0;
+    }
+
+    .roadmap-list a {
+      color: var(--accent);
+      text-decoration: underline;
+      text-underline-offset: 2px;
+    }
+
+    .roadmap-list a:hover { opacity: 0.75; }
+
+    .roadmap-note {
+      margin-top: 36px;
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.7;
+      border-left: 3px solid var(--border);
+      padding-left: 16px;
+    }
 
     /* ── i18n ── */
     [data-lang] { display: none; }
@@ -473,7 +493,7 @@
 
 <!-- ── Nav ── -->
 <nav>
-  <span class="nav-logo">bridge-lite</span>
+  <span class="nav-logo">BridgeLite</span>
   <div class="nav-right">
     <a class="nav-manual" href="manual/ja/" data-lang="ja">マニュアル</a>
     <a class="nav-manual" href="manual/en/" data-lang="en">Manual</a>
@@ -488,13 +508,12 @@
 <section class="hero">
   <div class="hero-bg"></div>
   <div class="hero-content">
-    <p class="hero-eyebrow" data-lang="ja">macOS 専用 · 無料</p>
-    <p class="hero-eyebrow" data-lang="en">Free · macOS only</p>
+    <p class="hero-eyebrow">for macOS · Free</p>
 
-    <h1 data-lang="ja">いま、どこにいるか<br>を知るビュワー。</h1>
-    <h1 data-lang="en">A viewer that tells you<br>where you stand.</h1>
+    <h1 data-lang="ja">現像済み・撮って出し・RAW。<br>混在するフォルダを、ひと目で把握。</h1>
+    <h1 data-lang="en">Developed. Camera JPEG. RAW.<br>One folder, understood at a glance.</h1>
 
-    <p class="hero-sub" data-lang="ja">撮って出し・RAW・現像済みが入り混じるフォルダの中で、どのファイルを現像したか、どんな評価がついているかを把握する。bridge-lite はその「現在地の確認」を担う。</p>
+    <p class="hero-sub" data-lang="ja">撮影後のフォルダには、撮って出し・RAW・現像済みが混在する。どれが現像済みで、どれがまだか——気づけば把握できなくなっている。bridge-lite でフォルダを開けば、三種の状態と評価がひと目でわかる。</p>
     <p class="hero-sub" data-lang="en">In a folder of camera JPEGs, RAWs, and developed files, bridge-lite tracks which files have been developed and what ratings they carry — your current position in the workflow.</p>
 
     <div class="hero-cta">
@@ -520,15 +539,19 @@
   </div>
 </div>
 
+<!-- ── Features heading ── -->
+<p class="features-heading" data-lang="ja">bridge-lite の特徴</p>
+<p class="features-heading" data-lang="en">Features</p>
+
 <!-- ── Feature 1: Three types ── -->
 <div class="feature-section">
   <div class="feature-text">
-    <p class="feature-label" data-lang="ja">三種の比較</p>
-    <p class="feature-label" data-lang="en">Compare all three</p>
-    <h2 data-lang="ja">撮って出し・RAW・現像済み。<br>三つを並べる理由がある。</h2>
-    <h2 data-lang="en">Camera JPEG. RAW. Developed.<br>There's a reason to see all three.</h2>
-    <p data-lang="ja">現像によって思い通りの色が出せることもあれば、カメラ出力の方が素直に良い場合もある。また、現像を重ねるうちに元の色調を見失うこともある。Tab キーひとつで三つを行き来し、判断の根拠を確かめる。</p>
-    <p data-lang="en">Sometimes the camera's output is simply better. Sometimes heavy processing makes you lose track of the original. Tab through all three versions to get a clear ground truth before you decide.</p>
+    <p class="feature-label" data-lang="ja">グルーピング機能</p>
+    <p class="feature-label" data-lang="en">Grouping</p>
+    <h2 data-lang="ja">撮って出し・RAW・現像済み。<br>同じ写真を3つ、並べる。</h2>
+    <h2 data-lang="en">Camera JPEG. RAW. Developed.<br>The same photo, three ways.</h2>
+    <p data-lang="ja">現像した結果が、いつも正解とは限りません。カメラ出力の方が素直に良かったり、現像を重ねるうちに元の色調を見失ってしまうことも。これらの過程を、ひとつのグループとして扱うことができます。</p>
+    <p data-lang="en">Developed isn't always the right answer. Sometimes the camera JPEG is simply better, and sometimes repeated edits make you lose track of where you started. BridgeLite treats all three stages as one group.</p>
   </div>
   <div class="feature-img">
     <img src="src/GroupCompareView.png" alt="Three types comparison">
@@ -542,10 +565,10 @@
   <div class="feature-text">
     <p class="feature-label" data-lang="ja">閲覧・評価・比較</p>
     <p class="feature-label" data-lang="en">Browse. Evaluate. Compare.</p>
-    <h2 data-lang="ja">現像は、しない。<br>意図的に。</h2>
-    <h2 data-lang="en">We don't develop.<br>On purpose.</h2>
-    <p data-lang="ja">bridge-lite がやることは三つだけ——写真を見る、評価する、比べる。現像・レタッチ・書き出しは、すでにあなたが使っているツールに委ねる。評価は 0〜5 星で行い、XMP サイドカーに書き込まれるため Lightroom や Capture One にそのまま引き継ぐことができる。</p>
-    <p data-lang="en">bridge-lite does three things: browse, evaluate, compare. Developing, retouching, and exporting belong to the tools you already use. Ratings — 0–5 stars — are written to XMP sidecars and carry over to Lightroom or Capture One as-is.</p>
+    <h2 data-lang="ja">写真の整理に集中。</h2>
+    <h2 data-lang="en">Focus on organizing your photos.</h2>
+    <p data-lang="ja">BridgeLite がやることは——写真を見る、評価する、比べるの3つだけです。現像やレタッチなどは、いつも使っているツールをご活用ください。評価はキーボードショートカットで高速に行えるので、大量の写真でもサクサク進みます。0〜5 星の評価は XMP サイドカーに書き込まれるため、Lightroom や Capture One にそのまま引き継げます。</p>
+    <p data-lang="en">BridgeLite does just three things: browse, evaluate, and compare. For developing and retouching, keep using the tools you already know. Keyboard shortcuts let you rate photos quickly, so even large batches stay manageable. Ratings (0–5 stars) are written to XMP sidecars and carry over to Lightroom or Capture One as-is.</p>
   </div>
   <div class="feature-img">
     <img src="src/ThumbnailGridView.png" alt="Browse, evaluate and compare">
@@ -557,11 +580,12 @@
 <!-- ── Feature 3: Single Source of Truth ── -->
 <div class="feature-section">
   <div class="feature-text">
-    <p class="feature-label">Single Source of Truth</p>
-    <h2 data-lang="ja">正は、<br>ファイルシステムにある。</h2>
-    <h2 data-lang="en">The filesystem<br>is the source of truth.</h2>
-    <p data-lang="ja">カタログもデータベースも「正」ではない。写真と XMP サイドカーがすべてであり、どのソフトウェアからでも、どんな状況でも同じ情報が読める。bridge-lite がなくなっても、EXIF と XMP が読み書きできれば問題ない。</p>
-    <p data-lang="en">No catalog, no proprietary database. Your photos and their XMP sidecars are everything — readable by any software, in any situation. Even if bridge-lite ceased to exist tomorrow, your data would be fine.</p>
+    <p class="feature-label" data-lang="ja">可搬性のある設計</p>
+    <p class="feature-label" data-lang="en">Portable by design</p>
+    <h2 data-lang="ja">そこにあるファイルがすべて。</h2>
+    <h2 data-lang="en">The files are all that matter.</h2>
+    <p data-lang="ja">BridgeLite は独自のデータベースを持ちません。評価などの情報はすべて XMP サイドカーに書き込まれるため、Lightroom や Capture One など、どのソフトウェアからでも読み書きできます。BridgeLite を使わなくなっても、写真のデータはそのまま残ります。</p>
+    <p data-lang="en">bridge-lite has no proprietary database. All information — including ratings — is written to XMP sidecars, making it readable by any software, including Lightroom and Capture One. Even if you stop using bridge-lite, your photo data stays intact.</p>
   </div>
   <div class="feature-img">
     <img src="src/ViewerView.png" alt="Single Source of Truth">
@@ -618,31 +642,47 @@
       GitHub
     </a>
   </div>
-  <div class="gatekeeper-block" data-lang="en">
-    <p class="notarization-note">Apple notarization is currently in progress. Until then, Gatekeeper may show a warning on first launch.</p>
-    <p class="gatekeeper-desc">Right-click the app and choose <strong>"Open"</strong> to bypass the warning, or run the command below in Terminal:</p>
-    <div class="copy-block">
-      <code>xattr -dr com.apple.quarantine ~/Applications/BridgeLite.app</code>
-      <button class="copy-btn" onclick="copyXattr(this, 'Copied')">Copy</button>
-    </div>
+  <p class="manual-link" data-lang="ja">詳しい使い方は<a href="manual/ja/">マニュアル</a>をご覧ください。</p>
+  <p class="manual-link" data-lang="en">For detailed instructions, see the <a href="manual/en/">Manual</a>.</p>
+
+</div>
+
+<!-- ── Roadmap ── -->
+<div class="roadmap-section">
+  <div data-lang="ja">
+    <h2>今後の展望</h2>
+    <ul class="roadmap-list">
+      <li>機能追加を積極的に進めていく予定です。ぜひご要望をお聞かせください。</li>
+      <li>対応言語は現在、日本語・英語のみです。他言語への対応は今後検討します。</li>
+      <li>Windows 版については、要望が集まれば開発を検討します。</li>
+      <li>ソースコードの公開は現在検討中です。</li>
+      <li>機能追加のご要望・不具合の報告は、<a href="https://forms.gle/DMtmbtKrtfc7xMu96" target="_blank" rel="noopener">お問い合わせフォーム</a>よりお気軽にどうぞ。</li>
+    </ul>
+    <p class="roadmap-note">BridgeLite は開発者個人のプロジェクトです。開発者自身が Mac を日常的に使っているため、まず macOS 版からのリリースとなりました。最高のパフォーマンスを実現するためには、Mac では SwiftUI、Windows では WinUI 3 といったプラットフォーム固有の UI フレームワークが必要と考えています。一方、コア機能は Rust で開発しているため、UI より下の処理については将来的に共通化できる見込みです。</p>
   </div>
-  <div class="gatekeeper-block" data-lang="ja">
-    <p class="notarization-note">Apple による公証（Notarization）は現在取得中です。それまでの間、初回起動時に Gatekeeper の警告が表示される場合があります。</p>
-    <p class="gatekeeper-desc">アプリを右クリック →「<strong>開く</strong>」で警告を回避できます。またはターミナルで以下のコマンドを実行してください：</p>
-    <div class="copy-block">
-      <code>xattr -dr com.apple.quarantine ~/Applications/BridgeLite.app</code>
-      <button class="copy-btn" onclick="copyXattr(this, 'コピーしました')">コピー</button>
-    </div>
+  <div data-lang="en">
+    <h2>What's next</h2>
+    <ul class="roadmap-list">
+      <li>New features are actively planned. We'd love to hear what you need.</li>
+      <li>Currently available in Japanese and English only. Additional languages may be considered in the future.</li>
+      <li>A Windows version is under consideration if there is sufficient demand.</li>
+      <li>Open-sourcing the code is currently being considered.</li>
+      <li>Feature requests and bug reports are welcome via the <a href="https://forms.gle/DMtmbtKrtfc7xMu96" target="_blank" rel="noopener">contact form</a>.</li>
+    </ul>
+    <p class="roadmap-note">BridgeLite is a personal project. It launched on macOS first because the developer uses Mac day-to-day. Delivering the best experience requires platform-native UI frameworks — SwiftUI on Mac, WinUI 3 on Windows. That said, the core functionality is built in Rust, so the underlying logic could be shared across platforms in the future.</p>
   </div>
 </div>
 
 <!-- ── Footer ── -->
 <footer>
-  <span>bridge-lite</span>
+  <span>BridgeLite</span>
   <span>
     <a href="https://github.com/hoge128/bridge-lite">GitHub</a>
     &ensp;·&ensp;
     MIT License
+    &ensp;·&ensp;
+    <a href="https://forms.gle/DMtmbtKrtfc7xMu96" target="_blank" rel="noopener" data-lang="ja">お問い合わせ</a>
+    <a href="https://forms.gle/DMtmbtKrtfc7xMu96" target="_blank" rel="noopener" data-lang="en">Contact</a>
   </span>
 </footer>
 
@@ -654,14 +694,6 @@
       btn.classList.toggle('active', (lang === 'en') ? i === 0 : i === 1);
     });
     try { localStorage.setItem('bl-lang', lang); } catch(e) {}
-  }
-
-  function copyXattr(btn, doneText) {
-    navigator.clipboard.writeText('xattr -dr com.apple.quarantine ~/Applications/BridgeLite.app').then(() => {
-      const orig = btn.textContent;
-      btn.textContent = '✓ ' + doneText;
-      setTimeout(() => { btn.textContent = orig; }, 2000);
-    });
   }
 
   (function () {
