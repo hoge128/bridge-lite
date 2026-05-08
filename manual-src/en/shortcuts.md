@@ -12,6 +12,13 @@ bridge-lite is designed so that an entire culling session can be completed witho
 | `Space` | Open / close full-res viewer |
 | `Esc` | Close viewer |
 
+## Compare view navigation
+
+| Key | Default | After toggling [Group / Member] |
+|---|---|---|
+| `←` / `→` / `↑` / `↓` | Move between groups | Move between members |
+| `Ctrl + Tab` / `Ctrl + Shift + Tab` | Move between members | Move between groups |
+
 ## Rating
 
 | Key | Action |

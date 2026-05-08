@@ -83,16 +83,34 @@ struct ThumbnailCellView: View {
             .frame(width: cellSize)
         }
         .onAppear {
-            thumbnail = ThumbnailDecodeCache.shared.decode(id: entry.id, blob: store.thumbnailBlobs[entry.id])
-            thumbnailOrientation = entry.isRaw ? (store.thumbnailOrientations[entry.id] ?? .up) : .up
-            xmp = store.xmpData[entry.id]
-            exif = store.exifData[entry.id]
+            let id = entry.id
+            let orient: Image.Orientation = entry.isRaw ? (store.thumbnailOrientations[id] ?? .up) : .up
+            thumbnailOrientation = orient
+            if let cached = ThumbnailDecodeCache.shared.peek(id: id) {
+                thumbnail = cached
+            } else if let blob = store.thumbnailBlobs[id] {
+                Task { @MainActor in
+                    let decoded = await Task.detached(priority: .userInitiated) {
+                        ThumbnailDecodeCache.shared.decode(id: id, blob: blob)
+                    }.value
+                    withAnimation(.easeIn(duration: 0.12)) { thumbnail = decoded }
+                }
+            }
+            xmp = store.xmpData[id]
+            exif = store.exifData[id]
             updateDuplicateBadge()
         }
         .onReceive(store.thumbnailDidUpdate.filter { $0 == self.entry.id }) { _ in
-            thumbnail = ThumbnailDecodeCache.shared.decode(id: entry.id, blob: store.thumbnailBlobs[entry.id])
-            if entry.isRaw {
-                thumbnailOrientation = store.thumbnailOrientations[entry.id] ?? .up
+            let id = entry.id
+            let blob = store.thumbnailBlobs[id]
+            let isRaw = entry.isRaw
+            let orient: Image.Orientation = isRaw ? (store.thumbnailOrientations[id] ?? .up) : .up
+            Task { @MainActor in
+                let decoded = await Task.detached(priority: .userInitiated) {
+                    ThumbnailDecodeCache.shared.decode(id: id, blob: blob)
+                }.value
+                thumbnail = decoded
+                if isRaw { thumbnailOrientation = orient }
             }
         }
         .onReceive(store.exifDidUpdate.filter { $0 == self.entry.id }) { _ in
@@ -115,7 +133,10 @@ struct ThumbnailCellView: View {
                     let ids = store.selectedIDs.contains(entry.id) ? store.selectedIDs : [entry.id]
                     let scope = resolveDndScope()
                     dragSource.urlsProvider = { self.store.urlsFor(ids: ids, scope: scope) }
-                    let preview = thumbnail.map {
+                    let img = thumbnail ?? ThumbnailDecodeCache.shared.decode(
+                        id: entry.id, blob: store.thumbnailBlobs[entry.id]
+                    )
+                    let preview = img.map {
                         NSImage(cgImage: $0, size: NSSize(width: cellSize, height: cellSize))
                     }
                     dragSource.begin(event: event, cellSize: cellSize, preview: preview)
@@ -318,6 +339,7 @@ struct ThumbnailImageView: View {
             Image(decorative: img, scale: 1.0, orientation: orientation)
                 .resizable()
                 .scaledToFit() // Fill ではなく Fit: タイル内で写真を見切れさせない
+                .transition(.opacity)
         } else {
             Rectangle()
                 .fill(Color.secondary.opacity(0.15))

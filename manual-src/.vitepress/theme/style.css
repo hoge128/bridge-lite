@@ -1,0 +1,17 @@
+.vp-doc img {
+  max-width: 60%;
+  height: auto;
+  border-radius: 8px;
+  cursor: zoom-in;
+  display: block;
+  margin: 24px 0;
+}
+
+.medium-zoom-overlay {
+  z-index: 200;
+}
+
+.medium-zoom-image--opened {
+  z-index: 201;
+  border-radius: 4px;
+}

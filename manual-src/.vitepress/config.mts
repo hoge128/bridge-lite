@@ -1,20 +1,51 @@
-import { defineConfig } from 'vitepress'
+import { withMermaid } from 'vitepress-plugin-mermaid'
+import fs from 'fs'
+import path from 'path'
 
-export default defineConfig({
+const serveDocsRoot = {
+  name: 'serve-docs-root',
+  configureServer(server: any) {
+    const docsDir = path.resolve(__dirname, '../../docs')
+    server.middlewares.use((req: any, res: any, next: any) => {
+      const url: string = req.url ?? '/'
+      if (url === '/bridge-lite/' || url === '/bridge-lite') {
+        res.setHeader('Content-Type', 'text/html; charset=utf-8')
+        res.end(fs.readFileSync(path.join(docsDir, 'index.html'), 'utf-8'))
+        return
+      }
+      if (url.startsWith('/bridge-lite/src/')) {
+        const filePath = path.join(docsDir, url.slice('/bridge-lite/'.length))
+        if (fs.existsSync(filePath)) {
+          const mime: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml' }
+          res.setHeader('Content-Type', mime[path.extname(filePath)] ?? 'application/octet-stream')
+          res.end(fs.readFileSync(filePath))
+          return
+        }
+      }
+      next()
+    })
+  },
+}
+
+export default withMermaid({
   title: 'bridge-lite',
   outDir: '../docs/manual',
   base: '/bridge-lite/manual/',
+
+  vite: {
+    plugins: [serveDocsRoot],
+  },
 
   locales: {
     ja: {
       label: '日本語',
       lang: 'ja',
       link: '/ja/',
-      title: 'bridge-lite マニュアル',
+      title: 'bridge-lite ドキュメント',
       description: 'bridge-lite の使い方ガイド',
       themeConfig: {
         nav: [
-          { text: 'トップページ', link: '/bridge-lite/' },
+          { text: 'トップページ', link: '/bridge-lite/', target: '_self' },
         ],
         sidebar: [
           {
@@ -27,17 +58,27 @@ export default defineConfig({
           {
             text: '基本的な使い方',
             items: [
+              { text: 'UI 遷移', link: '/ja/ui-navigation' },
               { text: 'フォルダを開く', link: '/ja/open-folder' },
-              { text: 'サムネイルグリッド', link: '/ja/thumbnail-grid' },
-              { text: '写真を評価する', link: '/ja/rating' },
-              { text: '三種の比較', link: '/ja/compare' },
-              { text: 'フルレズビューア', link: '/ja/viewer' },
+              { text: '閲覧する', link: '/ja/thumbnail-grid' },
+              { text: '比較する', link: '/ja/compare' },
+              { text: '詳しく見る', link: '/ja/viewer' },
+              { text: '評価する', link: '/ja/rating' },
+            ],
+          },
+          {
+            text: '個別仕様',
+            items: [
+              { text: 'ラベリング', link: '/ja/labeling' },
+              { text: 'フィルター', link: '/ja/filter-spec' },
+              { text: 'フラット化', link: '/ja/flat' },
+              { text: '評価の伝搬', link: '/ja/rating-spec' },
+              { text: '写真のファイル操作', link: '/ja/file-operations' },
             ],
           },
           {
             text: '活用',
             items: [
-              { text: 'フィルタリング', link: '/ja/filter' },
               { text: 'キーボードショートカット', link: '/ja/shortcuts' },
             ],
           },
@@ -53,11 +94,11 @@ export default defineConfig({
       label: 'English',
       lang: 'en',
       link: '/en/',
-      title: 'bridge-lite Manual',
+      title: 'bridge-lite Docs',
       description: 'User guide for bridge-lite',
       themeConfig: {
         nav: [
-          { text: 'Top page', link: '/bridge-lite/' },
+          { text: 'Top page', link: '/bridge-lite/', target: '_self' },
         ],
         sidebar: [
           {
@@ -70,17 +111,27 @@ export default defineConfig({
           {
             text: 'Basic usage',
             items: [
+              { text: 'UI navigation', link: '/en/ui-navigation' },
               { text: 'Open a folder', link: '/en/open-folder' },
-              { text: 'Thumbnail grid', link: '/en/thumbnail-grid' },
-              { text: 'Rating photos', link: '/en/rating' },
-              { text: 'Compare three types', link: '/en/compare' },
-              { text: 'Full-res viewer', link: '/en/viewer' },
+              { text: 'Browse', link: '/en/thumbnail-grid' },
+              { text: 'Compare', link: '/en/compare' },
+              { text: 'Inspect', link: '/en/viewer' },
+              { text: 'Rate', link: '/en/rating' },
+            ],
+          },
+          {
+            text: 'Specifications',
+            items: [
+              { text: 'Labeling', link: '/en/labeling' },
+              { text: 'Filters', link: '/en/filter-spec' },
+              { text: 'Flat view', link: '/en/flat' },
+              { text: 'Rating propagation', link: '/en/rating-spec' },
+              { text: 'Photo file operations', link: '/en/file-operations' },
             ],
           },
           {
             text: 'Advanced',
             items: [
-              { text: 'Filtering', link: '/en/filter' },
               { text: 'Keyboard shortcuts', link: '/en/shortcuts' },
             ],
           },

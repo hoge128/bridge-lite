@@ -41,6 +41,10 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
         cache.totalCostLimit = mb * 1024 * 1024
     }
 
+    func peek(id: UInt64) -> CGImage? {
+        cache.object(forKey: NSNumber(value: id))
+    }
+
     func decode(id: UInt64, blob: Data?) -> CGImage? {
         guard let blob else { return nil }
         let key = NSNumber(value: id)

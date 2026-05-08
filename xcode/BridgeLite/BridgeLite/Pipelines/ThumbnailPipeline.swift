@@ -7,8 +7,7 @@ import SwiftUI
 /// Writes JPEG blobs to LibraryStore.thumbnailBlobs on the MainActor
 /// so the grid updates reactively as each thumbnail finishes.
 enum ThumbnailPipeline {
-    // 4 並列。autoRenderThumbnailIfNeeded の RAW レンダーが並走するピーク時の
-    // IOSurface 同時確保を抑え、kIOReturnNoMemory を防ぐ。
+    // 4 並列。ImageIO の並列デコードによる IOSurface 枯渇（kIOReturnNoMemory）を防ぐ。
     private static let limiter = ConcurrencyLimiter(maxConcurrent: 4)
 
     /// Fire-and-forget: load all thumbnails, updating store as each one completes.
@@ -18,27 +17,42 @@ enum ThumbnailPipeline {
         entries: [PhotoEntry],
         store: LibraryStore,
         db: BridgeCoreDatabase,
-        phashPipeline: PHashPipeline
+        phashPipeline: PHashPipeline,
+        generation: Int
     ) async {
         await withTaskGroup(of: Void.self) { group in
             for entry in entries {
-                group.addTask { await loadOne(entry: entry, store: store, db: db, phashPipeline: phashPipeline) }
+                group.addTask { await loadOne(entry: entry, store: store, db: db, phashPipeline: phashPipeline, generation: generation) }
             }
         }
     }
 
-    // Thumbnail target size: 360pt (slider max) × 2x Retina = 720px
-    private static let targetPixels = 720
-    // Cached thumbnails below this size are too small for Retina and get regenerated
-    private static let minCachePixels = 400
+    // Thumbnail target size: 480px。
+    // 既定スライダー位置 (~120pt) では Retina 2× = 240px で十分 sharp。
+    // スライダー max (360pt) では多少眠くなるが、NSCache (150MB) に
+    // 〜166 枚乗るためスクロールのキャッシュフィット率が 720px 比 2.2 倍になる。
+    // スキャン中の ImageIO デコード時間も短縮され、大規模フォルダで MainActor の
+    // 圧迫を抑える効果が大きい。720px に戻す場合はここを書き換えるだけでよい。
+    private static let targetPixels = 480
+    // Cached thumbnails below this size are too small and get regenerated.
+    // 480 ターゲットに合わせて 280 まで許容（既存 480/720 キャッシュは保持、
+    // 200/360 等の旧キャッシュは再生成）。
+    private static let minCachePixels = 280
 
     private static func loadOne(
         entry: PhotoEntry,
         store: LibraryStore,
         db: BridgeCoreDatabase,
-        phashPipeline: PHashPipeline
+        phashPipeline: PHashPipeline,
+        generation: Int
     ) async {
+        // stale 世代は limiter slot を奪わずに即 exit（新世代の loadAll を妨げない）
+        let isStale = await MainActor.run { store.scanGeneration != generation }
+        guard !isStale else { return }
         try? await limiter.run {
+            // slot 取得後にも再チェック（待機中に reset() が走ることがある）
+            let stale = await MainActor.run { store.scanGeneration != generation }
+            guard !stale else { return }
             // 1. SQLite thumbnail cache — skip if too small for Retina (auto-migrate old 200px entries)
             if let jpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db) {
                 let cached = CGImage.fromJPEGData(jpeg)
@@ -53,13 +67,13 @@ enum ThumbnailPipeline {
                     return abs(cacheAspect - masterAspect) / masterAspect > 0.02
                 }()
                 if isAdequate && !hasBadAspect {
-                    await store.setThumbnail(id: entry.id, jpeg: jpeg)
+                    await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
                     if entry.isRaw {
                         let url = entry.url
                         let orient = await Task.detached(priority: .utility) {
                             readRawOrientation(url)
                         }.value
-                        await store.setThumbnailOrientation(id: entry.id, orientation: orient)
+                        await store.setThumbnailOrientation(id: entry.id, orientation: orient, generation: generation)
                     }
                     return
                 }
@@ -69,7 +83,7 @@ enum ThumbnailPipeline {
             // 2. ImageIO for non-RAW (JPEG/HEIF/DNG/TIFF)
             if let img = await generateWithImageIO(url: entry.url, maxPixels: targetPixels),
                let jpeg = img.jpegData(compressionQuality: 0.85) {
-                await store.setThumbnail(id: entry.id, jpeg: jpeg)
+                await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
                 await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
                 await phashPipeline.enqueue(entry: entry, source: img, db: db)
                 return
@@ -86,16 +100,14 @@ enum ThumbnailPipeline {
                 }.value
                 let scaled = rawImg.scaledToFit(maxPixels: targetPixels) ?? rawImg
                 guard let jpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
-                await store.setThumbnail(id: entry.id, jpeg: jpeg)
-                await store.setThumbnailOrientation(id: entry.id, orientation: orient)
+                await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
+                await store.setThumbnailOrientation(id: entry.id, orientation: orient, generation: generation)
                 await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
                 await phashPipeline.enqueue(entry: entry, source: scaled, db: db)
             }
         }
-        // Auto-render: fire-and-forget background replace for RAW thumbnails when enabled
-        await store.autoRenderThumbnailIfNeeded(entry: entry, db: db)
         // 成功・失敗・スキップに関わらず試行完了を通知（進捗バーが 99% 止まりになるのを防ぐ）
-        await store.noteThumbnailAttemptFinished()
+        await store.noteThumbnailAttemptFinished(generation: generation)
     }
 
     static func generateWithImageIO(url: URL, maxPixels: Int) async -> CGImage? {

@@ -1,33 +1,41 @@
-# What is bridge-lite
+# What is BridgeLite
 
-bridge-lite is a **lightweight image viewer** for photographers who shoot RAW+JPG simultaneously.
+BridgeLite is a **lightweight image viewer** for photographers who shoot RAW+JPG simultaneously.
 
-In a folder of camera JPEGs, RAWs, and developed files, bridge-lite tracks which files have been developed and what ratings they carry — your current position in the workflow.
+After a shoot, your folder fills up with camera JPEGs, RAWs, and developed files all mixed together. It's easy to lose track of which ones have been developed and which haven't. Open the folder in BridgeLite and the status of all three types — along with your ratings — is clear at a glance.
 
 ## What it does
 
-bridge-lite does three things:
+BridgeLite does just three things:
 
 - **Browse** — Scroll through large sets of photos in the thumbnail grid
-- **Evaluate** — Assign 0–5 star XMP ratings from the keyboard
-- **Compare** — Switch between camera JPEG, RAW, and developed variants as one shot
+- **Evaluate** — Assign 0–5 star XMP ratings at speed using keyboard shortcuts
+- **Compare** — Move between camera JPEG, RAW, and developed variants as one group
 
-It does not develop, retouch, or export. Those belong to Lightroom, Capture One, or whatever tool you already use.
+For developing, retouching, and exporting, keep using the tools you already know. Ratings carry over to Lightroom and Capture One as-is.
+
+## Grouping feature
+
+Developed isn't always the right answer. Sometimes the camera JPEG is simply better, and sometimes repeated edits make you lose track of where you started. BridgeLite lets you treat all three stages as one group and move between them freely.
 
 ## What it does not do
 
-| Out of scope | Use instead |
-|---|---|
-| Developing / color grading | Lightroom / Capture One / Darkroom |
-| Export / resize | Your editing tool |
-| Catalog management | Your editing tool |
-| Cloud sharing | Out of scope |
+BridgeLite does not develop, color grade, export, or resize images. Those tasks belong to the tools you already use, such as Lightroom or Capture One.
 
-## Files are never modified
+**Portable by design** — BridgeLite has no proprietary catalog or database. All rating and label data is written in XMP format, making it readable by any software including Lightroom and Capture One. Your data stays intact even if you stop using BridgeLite. An internal SQLite cache is used for fast thumbnail display and filter performance, but it can be deleted at any time without affecting your photos or rating data.
 
-Browsing, scrolling, and filtering never touch your originals — not a single byte, timestamp, or permission bit. Safe to use directly from a memory card or network drive.
+## How XMP is written
 
-Rating data is written to XMP sidecar files only. RAW files are never modified.
+Browsing, scrolling, and filtering never touch your image pixels or EXIF data. Safe to use directly from a memory card or network drive.
+
+XMP data such as ratings is written differently depending on file type:
+
+| File type | Default | Option |
+|---|---|---|
+| JPG | Embedded in the file's XMP area | Sidecar (`.xmp`) |
+| RAW | Sidecar (`.xmp`) | — |
+
+RAW files cannot have XMP written directly by design, so the sidecar method is always used. For JPGs, XMP is embedded by default, but you can switch to sidecar mode in the settings.
 
 ## Requirements
 

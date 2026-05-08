@@ -7,21 +7,21 @@ actor PairingPipeline {
     private var splitThresholdSecs: Int64 = 2
     private var phashHammingThreshold: UInt32 = 15
 
-    func noteExifReady(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: LibraryStore, splitThresholdSecs: Int64, phashHammingThreshold: UInt32) async {
+    func noteExifReady(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: LibraryStore, splitThresholdSecs: Int64, phashHammingThreshold: UInt32, generation: Int) async {
         self.splitThresholdSecs = splitThresholdSecs
         self.phashHammingThreshold = phashHammingThreshold
         exifReady = true
-        await maybeReindex(list: list, db: db, store: store)
+        await maybeReindex(list: list, db: db, store: store, generation: generation)
     }
 
-    func notePhashReady(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: LibraryStore, splitThresholdSecs: Int64, phashHammingThreshold: UInt32) async {
+    func notePhashReady(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: LibraryStore, splitThresholdSecs: Int64, phashHammingThreshold: UInt32, generation: Int) async {
         self.splitThresholdSecs = splitThresholdSecs
         self.phashHammingThreshold = phashHammingThreshold
         phashReady = true
-        await maybeReindex(list: list, db: db, store: store)
+        await maybeReindex(list: list, db: db, store: store, generation: generation)
     }
 
-    private func maybeReindex(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: LibraryStore) async {
+    private func maybeReindex(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: LibraryStore, generation: Int) async {
         // Reindex once both EXIF and pHash batches are complete.
         guard exifReady && phashReady else { return }
         guard !reindexed else { return }
@@ -29,6 +29,6 @@ actor PairingPipeline {
 
         guard let list else { return }
         let groups = await BridgeCore.reindexShotGroups(list: list, db: db, splitThresholdSecs: splitThresholdSecs, phashHammingThreshold: phashHammingThreshold)
-        await store.applyReindexedGroups(groups)
+        await store.applyReindexedGroups(groups, generation: generation)
     }
 }

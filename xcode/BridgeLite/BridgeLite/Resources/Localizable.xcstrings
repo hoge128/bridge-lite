@@ -4011,6 +4011,7 @@
       }
     },
     "settings.render.auto_thumbnails.description" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -4022,6 +4023,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "スキャン中にグリッドの RAW サムネイルをエンジンでレンダリングした結果に差し替えます。スキャン負荷が増加するためデフォルトは OFF です。"
+          }
+        }
+      }
+    },
+    "settings.render.auto_thumbnails.disabled_reason" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Currently disabled — auto-rendering during scan caused failures on large folders (6,000+ images). Will be re-enabled once embedded thumbnail support is complete for all RAW formats."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "現在無効 — スキャン中の自動レンダリングは大規模フォルダ（6,000 枚以上）でスキャン停止を引き起こすため無効化しています。全 RAW フォーマットの埋め込みサムネイル対応が完了した際に再有効化予定。"
           }
         }
       }
