@@ -1,14 +1,10 @@
 ---
-layout: home
-hero:
-  name: bridge-lite
-  text: マニュアル
-  tagline: RAW+JPG 同時撮影向けの軽量画像セレクトビュワー
-  actions:
-    - theme: brand
-      text: はじめる
-      link: /ja/introduction
-    - theme: alt
-      text: キーボードショートカット
-      link: /ja/shortcuts
+layout: page
 ---
+
+<script setup>
+import { onMounted } from 'vue'
+import { useRouter } from 'vitepress'
+const { go } = useRouter()
+onMounted(() => go('/bridge-lite/manual/ja/introduction'))
+</script>

@@ -4,6 +4,18 @@ All ratings are written to **XMP sidecar files**. RAW files are never modified. 
 
 ## Star ratings
 
+Star ratings can be applied via **keyboard shortcut** or **right-click menu**. Ratings are stored in the `xmp:Rating` field of the XMP metadata — a standard field supported by Lightroom, Capture One, Adobe Bridge, FastRawViewer, and most other photo software.
+
+### Keyboard shortcuts
+
+The shortcut can be changed under **Rating / Label Key** in Settings:
+
+| Option | Shortcut |
+|---|---|
+| Number key | `0`–`9` |
+| ⌘ + number | `⌘0`–`⌘9` |
+| ^ + number | `^0`–`^9` |
+
 | Key | Rating |
 |---|---|
 | `0` | No rating |
@@ -13,15 +25,20 @@ All ratings are written to **XMP sidecar files**. RAW files are never modified. 
 | `4` | ★★★★☆ |
 | `5` | ★★★★★ |
 
-## Pick / Reject flags
+### Right-click menu
 
-| Key | Action |
-|---|---|
-| `P` | Set Pick flag |
-| `X` | Set Reject flag |
-| `U` | Clear flag |
+Right-click a thumbnail → **Rating** to apply the same ratings without leaving the mouse. Useful when working keyboard-free.
+
+## Rating grouped photos
+
+When you rate a grouped photo (e.g. a burst sequence), the rating **propagates to every shot in the group** by default. To adjust the rating for individual shots, use the metadata bar.
+
+See [Rating propagation](./rating-spec) for full details on how this works and how to adjust individual shots.
+
 
 ## Color labels
+
+Label data is written to `xmp:Label` and `photoshop:LabelColor` (Adobe Bridge compatible). Color labels can also be set via **keyboard shortcut** or **right-click menu**.
 
 | Key | Label |
 |---|---|
