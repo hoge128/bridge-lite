@@ -45,7 +45,7 @@ export default withMermaid({
       description: 'bridge-lite の使い方ガイド',
       themeConfig: {
         nav: [
-          { text: 'トップページ', link: '/bridge-lite/', target: '_self' },
+          { text: 'トップページ', link: 'https://hoge128.github.io/bridge-lite/', target: '_self' },
         ],
         sidebar: [
           {
@@ -98,7 +98,7 @@ export default withMermaid({
       description: 'User guide for bridge-lite',
       themeConfig: {
         nav: [
-          { text: 'Top page', link: '/bridge-lite/', target: '_self' },
+          { text: 'Top page', link: 'https://hoge128.github.io/bridge-lite/', target: '_self' },
         ],
         sidebar: [
           {
