@@ -8,7 +8,7 @@ The main working view. All photos in the folder are displayed as a scrollable gr
 
 - **Left sidebar** — [Filters](./filter-spec) (file type, camera, ISO, focal length, date, rating, label, flag)
 - **Center grid** — Thumbnail view
-- **Metadata bar** — EXIF, histogram, and rating for the selected photo
+- **Metadata bar** — Preview, histogram, group members, and metadata (EXIF / XMP) for the selected photo
 
 ## Controls
 

@@ -18,15 +18,11 @@ For developing, retouching, and exporting, keep using the tools you already know
 
 Developed isn't always the right answer. Sometimes the camera JPEG is simply better, and sometimes repeated edits make you lose track of where you started. BridgeLite lets you treat all three stages as one group and move between them freely.
 
-## Portable by design
-
-BridgeLite has no proprietary database. All information — including ratings — is written to XMP sidecars, making it readable by any software, including Lightroom and Capture One. Even if you stop using BridgeLite, your photo data stays intact.
-
 ## What it does not do
 
 BridgeLite does not develop, color grade, export, or resize images. Those tasks belong to the tools you already use, such as Lightroom or Capture One.
 
-BridgeLite has no proprietary catalog or database. Your photos are managed by the filesystem, and your data remains intact even if you stop using BridgeLite. That said, it does use an internal SQLite cache to keep thumbnail display and rating-based filtering fast. This cache can be deleted at any time without affecting your photos or rating data.
+**Portable by design** — BridgeLite has no proprietary catalog or database. All rating and label data is written in XMP format, making it readable by any software including Lightroom and Capture One. Your data stays intact even if you stop using BridgeLite. An internal SQLite cache is used for fast thumbnail display and filter performance, but it can be deleted at any time without affecting your photos or rating data.
 
 ## How XMP is written
 

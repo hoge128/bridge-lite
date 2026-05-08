@@ -2,7 +2,7 @@
 
 ![Compare view](./images/comp.png)
 
-bridge-lite treats the camera JPEG, RAW, and developed file from the same shutter press as **one group**.
+bridge-lite treats the camera JPEG, RAW, and developed file from the same shutter press as **one group**. Each individual file within a group — the camera JPEG, the RAW, and the developed variant — is called a **member**.
 
 ## Why compare all three
 
@@ -10,7 +10,7 @@ Sometimes the camera's output is simply better. Sometimes heavy processing makes
 
 ## Switching Photos
 
-Files from the same shutter press are grouped together and called **members**.
+Arrow keys and `Ctrl + Tab` can be toggled between group-level and member-level navigation.
 
 | Key | Default | After toggling [Group / Member] |
 |-----|---------|-------------------------------|

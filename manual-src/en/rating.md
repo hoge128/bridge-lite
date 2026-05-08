@@ -1,6 +1,6 @@
 # Rating photos
 
-All ratings are written to **XMP sidecar files**. RAW files are never modified. Ratings are fully compatible with Lightroom, Capture One, and Adobe Bridge.
+Rating and label data is written in **XMP format**. For JPEG files, XMP is embedded directly in the file by default. For RAW files, a sidecar file (`.xmp`) is always used. JPEG files can be switched to sidecar mode in Settings. Ratings are fully compatible with Lightroom, Capture One, and Adobe Bridge.
 
 ## Star ratings
 
@@ -38,7 +38,7 @@ See [Rating propagation](./rating-spec) for full details on how this works and h
 
 ## Color labels
 
-Label data is written to `xmp:Label` and `photoshop:LabelColor` (Adobe Bridge compatible). Color labels can also be set via **keyboard shortcut** or **right-click menu**.
+Label data is written to `xmp:Label` and `photoshop:LabelColor` (Adobe Bridge compatible). Color labels can be set via **keyboard shortcut** or **right-click menu**.
 
 | Key | Label |
 |---|---|
@@ -46,13 +46,16 @@ Label data is written to `xmp:Label` and `photoshop:LabelColor` (Adobe Bridge co
 | `7` | Yellow |
 | `8` | Green |
 | `9` | Blue |
+| —  | Purple (no shortcut assigned) |
+
+Purple can be applied from the right-click menu or the metadata bar.
 
 ## Where XMP is saved
 
-| File type | Saved to |
-|---|---|
-| RAW (`.arw`, `.cr3`, etc.) | Sidecar `.xmp` file with the same stem name |
-| JPEG | Embedded directly in the file |
+| File type | Default | Option |
+|---|---|---|
+| JPEG | Embedded directly in the file | Sidecar (`.xmp`) — changeable in Settings |
+| RAW (`.arw`, `.cr3`, etc.) | Sidecar `.xmp` file with the same stem name | — |
 
 ## Carrying ratings into Lightroom
 

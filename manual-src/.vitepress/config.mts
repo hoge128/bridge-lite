@@ -41,7 +41,7 @@ export default withMermaid({
       label: '日本語',
       lang: 'ja',
       link: '/ja/',
-      title: 'bridge-lite マニュアル',
+      title: 'bridge-lite ドキュメント',
       description: 'bridge-lite の使い方ガイド',
       themeConfig: {
         nav: [
@@ -71,13 +71,14 @@ export default withMermaid({
             items: [
               { text: 'ラベリング', link: '/ja/labeling' },
               { text: 'フィルター', link: '/ja/filter-spec' },
+              { text: 'フラット化', link: '/ja/flat' },
               { text: '評価の伝搬', link: '/ja/rating-spec' },
+              { text: '写真のファイル操作', link: '/ja/file-operations' },
             ],
           },
           {
             text: '活用',
             items: [
-              { text: 'フィルタリング', link: '/ja/filter' },
               { text: 'キーボードショートカット', link: '/ja/shortcuts' },
             ],
           },
@@ -93,7 +94,7 @@ export default withMermaid({
       label: 'English',
       lang: 'en',
       link: '/en/',
-      title: 'bridge-lite Manual',
+      title: 'bridge-lite Docs',
       description: 'User guide for bridge-lite',
       themeConfig: {
         nav: [
@@ -123,13 +124,14 @@ export default withMermaid({
             items: [
               { text: 'Labeling', link: '/en/labeling' },
               { text: 'Filters', link: '/en/filter-spec' },
+              { text: 'Flat view', link: '/en/flat' },
               { text: 'Rating propagation', link: '/en/rating-spec' },
+              { text: 'Photo file operations', link: '/en/file-operations' },
             ],
           },
           {
             text: 'Advanced',
             items: [
-              { text: 'Filtering', link: '/en/filter' },
               { text: 'Keyboard shortcuts', link: '/en/shortcuts' },
             ],
           },

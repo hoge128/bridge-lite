@@ -16,8 +16,10 @@ A filter panel for narrowing down the photos shown. Supports filtering by file t
 
 A panel showing information about the selected photo.
 
-- **Group** — When the selected photo belongs to a group (e.g. a burst sequence), shows all shots in that group. Individual shots can be selected and rated from here
-- **Metadata** — Shows capture information for the selected photo (camera, lens, ISO, shutter speed, aperture, etc.)
+- **Preview** — An enlarged preview of the selected photo
+- **Histogram** — Luminosity and color distribution
+- **Group** — When the selected photo belongs to a group, shows all members (camera JPEG, RAW, developed, etc.). Individual members can be selected and rated from here
+- **Metadata** — Capture information (camera, lens, ISO, shutter speed, aperture) and XMP data for the selected photo
 
 ## How views connect
 

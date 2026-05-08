@@ -16,6 +16,14 @@ After a group-wide rating, you can override the rating for individual shots from
 
 Ratings applied from the metadata bar are written only to the selected shot and do not affect other shots in the group.
 
+## Customizing propagation
+
+You can change cross-type propagation behavior in the **Rating Propagation** section of Settings.
+
+![Settings - Rating Propagation](./images/setting.png)
+
+Each **row** is the source type you rated; each **column** is a type that receives the same rating. Checkmarks are fixed (a type always writes to itself); toggles let you enable or disable propagation between different types.
+
 ## When propagation happens
 
 Propagation is written immediately when you apply the rating. To undo, press `⌘Z`.
