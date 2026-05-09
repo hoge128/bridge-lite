@@ -13,9 +13,9 @@ const serveDocsRoot = {
         res.end(fs.readFileSync(path.join(docsDir, 'index.html'), 'utf-8'))
         return
       }
-      if (url.startsWith('/bridge-lite/src/')) {
+      if (url.startsWith('/bridge-lite/') && !url.startsWith('/bridge-lite/manual/')) {
         const filePath = path.join(docsDir, url.slice('/bridge-lite/'.length))
-        if (fs.existsSync(filePath)) {
+        if (fs.existsSync(filePath) && fs.statSync(filePath).isFile()) {
           const mime: Record<string, string> = { '.png': 'image/png', '.jpg': 'image/jpeg', '.webp': 'image/webp', '.svg': 'image/svg+xml' }
           res.setHeader('Content-Type', mime[path.extname(filePath)] ?? 'application/octet-stream')
           res.end(fs.readFileSync(filePath))
@@ -31,6 +31,10 @@ export default withMermaid({
   title: 'bridge-lite',
   outDir: '../docs/manual',
   base: '/bridge-lite/manual/',
+
+  head: [
+    ['link', { rel: 'icon', type: 'image/png', href: '/bridge-lite/manual/favicon.png' }],
+  ],
 
   vite: {
     plugins: [serveDocsRoot],
