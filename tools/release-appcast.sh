@@ -82,7 +82,7 @@ echo "→ appcast.xml を生成中..."
     --full-release-notes-url "https://hoge128.github.io/bridge-lite/releases/${VERSION}.html" \
     "$RELEASES_DIR"
 
-# appcast.xml を docs/ 直下に移動
+# appcast.xml を docs/ 直下に移動（master ブランチの記録用）
 mv "$RELEASES_DIR/appcast.xml" "$REPO_ROOT/docs/appcast.xml"
 echo "→ docs/appcast.xml を更新しました"
 
@@ -90,14 +90,36 @@ echo "→ docs/appcast.xml を更新しました"
 rm "$TEMP_DMG"
 echo "→ 一時 DMG を削除しました"
 
+# ─── gh-pages ブランチに appcast.xml を反映 ───────────────────
+# GitHub Pages は gh-pages ブランチ root から配信されているため
+echo "→ gh-pages ブランチに appcast.xml を反映中..."
+GH_PAGES_WORKTREE="/tmp/bridge-lite-gh-pages-$$"
+git -C "$REPO_ROOT" fetch public gh-pages
+git -C "$REPO_ROOT" worktree add "$GH_PAGES_WORKTREE" public/gh-pages
+
+cp "$REPO_ROOT/docs/appcast.xml" "$GH_PAGES_WORKTREE/appcast.xml"
+
+# releases/ フォルダも同期
+if [[ -d "$REPO_ROOT/docs/releases" ]]; then
+    mkdir -p "$GH_PAGES_WORKTREE/releases"
+    rsync -a --exclude="*.dmg" "$REPO_ROOT/docs/releases/" "$GH_PAGES_WORKTREE/releases/"
+fi
+
+git -C "$GH_PAGES_WORKTREE" add appcast.xml releases/ 2>/dev/null || true
+git -C "$GH_PAGES_WORKTREE" commit -m "release: appcast for v${VERSION}"
+git -C "$GH_PAGES_WORKTREE" push public HEAD:gh-pages
+git -C "$REPO_ROOT" worktree remove "$GH_PAGES_WORKTREE"
+echo "→ gh-pages に push しました（GitHub Pages が数分で更新されます）"
+
 echo ""
 echo "=== 完了 ==="
 echo "次のステップ:"
 echo "  1. docs/releases/${VERSION}.html のリリースノートを確認・編集"
-echo "  2. git add docs/appcast.xml docs/releases/${VERSION}.html"
-echo "  3. git commit -m 'release: appcast for v${VERSION}'"
-echo "  4. git push"
-echo "  5. GitHub Releases に DMG をアップロード:"
+echo "  2. master ブランチに commit & push:"
+echo "     git add docs/appcast.xml docs/releases/${VERSION}.html"
+echo "     git commit -m 'release: appcast for v${VERSION}'"
+echo "     git push origin master && git push public master"
+echo "  3. GitHub Releases に DMG をアップロード:"
 echo "     gh release create v${VERSION} \\"
 echo "       ./dmgs/BridgeLite-${VERSION}.dmg \\"
 echo "       ./dmgs/BridgeLite-${VERSION}.dmg.sha256"
