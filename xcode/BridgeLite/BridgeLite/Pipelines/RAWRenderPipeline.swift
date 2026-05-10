@@ -21,6 +21,7 @@ enum RAWRenderTarget {
 /// opens skip rendering entirely.
 actor RAWRenderPipeline {
     static let shared = RAWRenderPipeline()
+    private let limiter = ConcurrencyLimiter(maxConcurrent: 1)
 
     func render(
         url: URL,
@@ -43,22 +44,30 @@ actor RAWRenderPipeline {
     }
 
     private func renderWithCIRAWFilter(url: URL, maxWidth: Int) async -> Data? {
-        await Task.detached(priority: .userInitiated) { () -> Data? in
-            let ctx = CIContext(options: [.useSoftwareRenderer: false])
-            // CIRAWFilter returns nil for formats not supported by the OS RAW pipeline.
-            // Canon CR2 is not supported on macOS 26; CIRAWFilter silently returns nil.
-            guard let filter = CIRAWFilter(imageURL: url) else { return nil }
-            // Scale based on longer side to handle portrait and landscape equally
-            let nativeSize = filter.nativeSize
-            let longerSide = max(nativeSize.width, nativeSize.height)
-            if longerSide > CGFloat(maxWidth) {
-                filter.scaleFactor = Float(CGFloat(maxWidth) / longerSide)
+        // ConcurrencyLimiter(maxConcurrent: 1) で CIRAWFilter の同時実行を 1 件に制限する。
+        // Task.detached は actor 外で並列実行されるため limiter なしでは IOSurface を枯渇させる。
+        do {
+            return try await limiter.run { [url, maxWidth] in
+                await Task.detached(priority: .userInitiated) { () -> Data? in
+                    let ctx = CIContext(options: [.useSoftwareRenderer: false])
+                    // CIRAWFilter returns nil for formats not supported by the OS RAW pipeline.
+                    // Canon CR2 is not supported on macOS 26; CIRAWFilter silently returns nil.
+                    guard let filter = CIRAWFilter(imageURL: url) else { return nil }
+                    // Scale based on longer side to handle portrait and landscape equally
+                    let nativeSize = filter.nativeSize
+                    let longerSide = max(nativeSize.width, nativeSize.height)
+                    if longerSide > CGFloat(maxWidth) {
+                        filter.scaleFactor = Float(CGFloat(maxWidth) / longerSide)
+                    }
+                    filter.isGamutMappingEnabled = true
+                    guard let output = filter.outputImage,
+                          let cg = ctx.createCGImage(output, from: output.extent) else { return nil }
+                    return cg.jpegData(compressionQuality: 0.85)
+                }.value
             }
-            filter.isGamutMappingEnabled = true
-            guard let output = filter.outputImage,
-                  let cg = ctx.createCGImage(output, from: output.extent) else { return nil }
-            return cg.jpegData(compressionQuality: 0.85)
-        }.value
+        } catch {
+            return nil
+        }
     }
 
     private func decode(jpeg: Data) -> (CGImage, Image.Orientation)? {

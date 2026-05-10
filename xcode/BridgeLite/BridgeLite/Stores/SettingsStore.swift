@@ -171,6 +171,14 @@ final class SettingsStore {
         // 旧 confirmCopy / confirmDelete キーを削除（プロパティ初期化時に移行済み）
         UserDefaults.standard.removeObject(forKey: "confirmCopy")
         UserDefaults.standard.removeObject(forKey: "confirmDelete")
+        // autoRenderRawThumbnails は根本解決まで毎起動で強制 OFF（UI 上も disabled）
+        UserDefaults.standard.set(false, forKey: "autoRenderRawThumbnails")
+        // autoRenderRawSidebar / Compare を一度だけ強制 OFF（IOSurface 枯渇対策）
+        if !UserDefaults.standard.bool(forKey: "autoRenderRawSidebarMigrated_v1") {
+            UserDefaults.standard.set(false, forKey: "autoRenderRawSidebar")
+            UserDefaults.standard.set(false, forKey: "autoRenderRawCompare")
+            UserDefaults.standard.set(true, forKey: "autoRenderRawSidebarMigrated_v1")
+        }
     }
 
     var language: String = UserDefaults.standard.string(forKey: "language") ?? "en" {
@@ -340,10 +348,10 @@ final class SettingsStore {
     var autoRenderRawThumbnails: Bool = bool("autoRenderRawThumbnails", default: false) {
         didSet { UserDefaults.standard.set(autoRenderRawThumbnails, forKey: "autoRenderRawThumbnails") }
     }
-    var autoRenderRawCompare: Bool = bool("autoRenderRawCompare", default: true) {
+    var autoRenderRawCompare: Bool = bool("autoRenderRawCompare", default: false) {
         didSet { UserDefaults.standard.set(autoRenderRawCompare, forKey: "autoRenderRawCompare") }
     }
-    var autoRenderRawSidebar: Bool = bool("autoRenderRawSidebar", default: true) {
+    var autoRenderRawSidebar: Bool = bool("autoRenderRawSidebar", default: false) {
         didSet { UserDefaults.standard.set(autoRenderRawSidebar, forKey: "autoRenderRawSidebar") }
     }
 
