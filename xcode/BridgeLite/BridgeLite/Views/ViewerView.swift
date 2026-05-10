@@ -207,7 +207,11 @@ struct ViewerView: View {
         }
         .onReceive(store.xmpDidUpdate) { id in
             guard id == store.selectedID else { return }
-            xmp = store.xmpData[id]
+            let newXmp = store.xmpData[id]
+            xmp = newXmp
+            if (newXmp?.rating ?? 0) > 0 || newXmp?.label != nil {
+                store.viewerShowsMeta = true
+            }
         }
         .task(id: store.selectedID) {
             xmp = store.selectedID.flatMap { store.xmpData[$0] }
