@@ -84,14 +84,15 @@ struct ThumbnailCellView: View {
         }
         .onAppear {
             let id = entry.id
+            let url = entry.url
             let orient: Image.Orientation = entry.isRaw ? (store.thumbnailOrientations[id] ?? .up) : .up
             thumbnailOrientation = orient
-            if let cached = ThumbnailDecodeCache.shared.peek(id: id) {
+            if let cached = ThumbnailDecodeCache.shared.peek(url: url) {
                 thumbnail = cached
             } else if let blob = store.thumbnailBlobs[id] {
                 Task { @MainActor in
                     let decoded = await Task.detached(priority: .userInitiated) {
-                        ThumbnailDecodeCache.shared.decode(id: id, blob: blob)
+                        ThumbnailDecodeCache.shared.decode(url: url, blob: blob)
                     }.value
                     withAnimation(.easeIn(duration: 0.12)) { thumbnail = decoded }
                 }
@@ -102,12 +103,13 @@ struct ThumbnailCellView: View {
         }
         .onReceive(store.thumbnailDidUpdate.filter { $0 == self.entry.id }) { _ in
             let id = entry.id
+            let url = entry.url
             let blob = store.thumbnailBlobs[id]
             let isRaw = entry.isRaw
             let orient: Image.Orientation = isRaw ? (store.thumbnailOrientations[id] ?? .up) : .up
             Task { @MainActor in
                 let decoded = await Task.detached(priority: .userInitiated) {
-                    ThumbnailDecodeCache.shared.decode(id: id, blob: blob)
+                    ThumbnailDecodeCache.shared.decode(url: url, blob: blob)
                 }.value
                 thumbnail = decoded
                 if isRaw { thumbnailOrientation = orient }
@@ -134,7 +136,7 @@ struct ThumbnailCellView: View {
                     let scope = resolveDndScope()
                     dragSource.urlsProvider = { self.store.urlsFor(ids: ids, scope: scope) }
                     let img = thumbnail ?? ThumbnailDecodeCache.shared.decode(
-                        id: entry.id, blob: store.thumbnailBlobs[entry.id]
+                        url: entry.url, blob: store.thumbnailBlobs[entry.id]
                     )
                     let preview = img.map {
                         NSImage(cgImage: $0, size: NSSize(width: cellSize, height: cellSize))

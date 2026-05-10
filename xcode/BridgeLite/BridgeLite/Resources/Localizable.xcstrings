@@ -2817,6 +2817,22 @@
         }
       }
     },
+    "Rescan" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rescan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再スキャン"
+          }
+        }
+      }
+    },
     "Open Folder…" : {
       "localizations" : {
         "en" : {

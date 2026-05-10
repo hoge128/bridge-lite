@@ -152,6 +152,12 @@ final class LibraryStore {
         }
     }
 
+    /// 現在開いているフォルダを最初から再スキャンする。サムネイルも含めて全状態をリセットする。
+    func triggerRescan() {
+        guard let url = currentDirectoryURL else { return }
+        loadFolder(url)
+    }
+
     /// D&D・URL open・タブ切替など全エントリポイント共通のフォルダ開始メソッド。
     /// openDirTask を登録することで cancelLoading() が全ルートで効くようになる。
     func loadFolder(_ url: URL) {
@@ -225,7 +231,7 @@ final class LibraryStore {
         openDirTask?.cancel()
         openDirTask = nil
         // reset() に委譲: 全 UI 状態クリア + 全タスク cancel + scanGeneration バンプ
-        // SQLite キャッシュは触らない（ThumbnailDecodeCache はメモリ NSCache のみ）
+        // SQLite キャッシュは触らない。ThumbnailDecodeCache は自 store の URL 分だけ evict（他ウィンドウへの波及なし）。
         reset()
         scanPhase = .idle
         isLoading = false
@@ -1682,7 +1688,8 @@ final class LibraryStore {
     }
 
     func thumbnailImage(for id: UInt64) -> CGImage? {
-        ThumbnailDecodeCache.shared.decode(id: id, blob: thumbnailBlobs[id])
+        guard let url = entries[id]?.url else { return nil }
+        return ThumbnailDecodeCache.shared.decode(url: url, blob: thumbnailBlobs[id])
     }
 
     /// RAW サムネイルを選択エンジンでバックグラウンドレンダリングし、完了後に差し替える。
@@ -1697,7 +1704,7 @@ final class LibraryStore {
             guard let scaled = img.scaledToFit(maxPixels: 200),
                   let thumbJpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
             guard let self else { return }
-            ThumbnailDecodeCache.shared.evict(id: entry.id)
+            ThumbnailDecodeCache.shared.evict(url: entry.url)
             setThumbnail(id: entry.id, jpeg: thumbJpeg, generation: gen)
         }
     }
@@ -1776,10 +1783,11 @@ final class LibraryStore {
 
     func suspend() {
         stopFolderWatch()
+        let urlsToEvict = orderedIDs.compactMap { entries[$0]?.url }
         thumbnailBlobs = [:]
         thumbnailOrientations = [:]
         luminanceScores = [:]
-        ThumbnailDecodeCache.shared.evictAll()
+        ThumbnailDecodeCache.shared.evict(urls: urlsToEvict)
     }
 
     func resume() {
@@ -1802,13 +1810,14 @@ final class LibraryStore {
         watcher = nil
         pausedWatcherEventId = nil
         nextEntryID = 1
+        let urlsToEvict = orderedIDs.compactMap { entries[$0]?.url }
         entries = [:]
         orderedIDs = []
         shotGroups = [:]
         thumbnailBlobs = [:]
         thumbnailOrientations = [:]
         luminanceScores = [:]
-        ThumbnailDecodeCache.shared.evictAll()
+        ThumbnailDecodeCache.shared.evict(urls: urlsToEvict)
         exifData = [:]
         xmpData = [:]
         visibleIDs = []

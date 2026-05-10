@@ -79,8 +79,8 @@ struct ContentView: View {
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didBecomeActiveNotification)) { _ in
                 // アプリ全体がアクティブになったときのみ resume。
-                // ウィンドウ間切替では発火させない（ThumbnailDecodeCache はシングルトンで
-                // 両ウィンドウの状態を巻き込んで wipe してしまうため）。
+                // ウィンドウ間切替では発火させない（不要な thumbnailBlob 再ロードを避けるため）。
+                // ThumbnailDecodeCache は URL キーで各ウィンドウが独立しているため wipe の波及は無い。
                 store.resume()
             }
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in

@@ -146,6 +146,12 @@ struct BridgeLiteCommands: Commands {
             }
             .keyboardShortcut("o", modifiers: .command)
             .disabled(store == nil)
+
+            Button("Rescan") {
+                store?.triggerRescan()
+            }
+            .keyboardShortcut("r", modifiers: .command)
+            .disabled(store?.currentDirectoryURL == nil)
         }
         CommandGroup(replacing: .appTermination) {
             Button("Quit BridgeLite") {
