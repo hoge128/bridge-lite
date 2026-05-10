@@ -1275,7 +1275,15 @@ final class LibraryStore {
         recomputeAggregates(reps: reps, fast: scanPhase == .loading)
     }
 
-    func applyOrder() { recomputeVisible() }
+    func applyOrder() {
+        // ソートでは集合は変わらず順序だけ変わる。
+        // aggregates / buckets の再構築は不要。
+        let next = sortedIDs(visibleIDs)
+        if next != visibleIDs { visibleIDs = next }
+        if settings.viewMode == .daily {
+            rebuildDailyGroups()
+        }
+    }
 
     private func filteredIDs(using customFilter: FilterCriteria) -> [UInt64] {
         let liveReps: Set<UInt64>

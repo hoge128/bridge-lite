@@ -94,7 +94,7 @@ struct ThumbnailCellView: View {
                     let decoded = await Task.detached(priority: .userInitiated) {
                         ThumbnailDecodeCache.shared.decode(url: url, blob: blob)
                     }.value
-                    withAnimation(.easeIn(duration: 0.12)) { thumbnail = decoded }
+                    thumbnail = decoded
                 }
             }
             xmp = store.xmpData[id]
