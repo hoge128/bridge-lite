@@ -2620,6 +2620,22 @@
         }
       }
     },
+    "menu.check_for_updates" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Check for Updates…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "アップデートを確認…"
+          }
+        }
+      }
+    },
     "Metadata" : {
       "localizations" : {
         "en" : {
@@ -2713,22 +2729,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "複数の値"
-          }
-        }
-      }
-    },
-    "menu.check_for_updates" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Check for Updates…"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "アップデートを確認…"
           }
         }
       }
@@ -2829,22 +2829,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "フォルダを開く"
-          }
-        }
-      }
-    },
-    "Rescan" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Rescan"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "再スキャン"
           }
         }
       }
@@ -3121,6 +3105,38 @@
         }
       }
     },
+    "Redo" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redo"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "やり直し"
+          }
+        }
+      }
+    },
+    "Redo (⇧⌘Z)" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redo (⇧⌘Z)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "やり直し (⇧⌘Z)"
+          }
+        }
+      }
+    },
     "render.badge.embedded" : {
       "localizations" : {
         "en" : {
@@ -3245,6 +3261,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "代表ファイルのみ"
+          }
+        }
+      }
+    },
+    "Rescan" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rescan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "再スキャン"
           }
         }
       }
@@ -4141,6 +4173,22 @@
         }
       }
     },
+    "settings.shortcut.delete_key" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Key"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除キー"
+          }
+        }
+      }
+    },
     "settings.shortcut.rating_keys" : {
       "localizations" : {
         "en" : {
@@ -4285,6 +4333,38 @@
         }
       }
     },
+    "shortcut.delete.command" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌘⌫ Command+Delete"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌘⌫ Command+Delete"
+          }
+        }
+      }
+    },
+    "shortcut.delete.plain" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌫ Delete"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌫ Delete"
+          }
+        }
+      }
+    },
     "shortcut.modifier.command" : {
       "localizations" : {
         "en" : {
@@ -4329,54 +4409,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "数字キー（0〜9）"
-          }
-        }
-      }
-    },
-    "shortcut.delete.plain" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "⌫ Delete"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "⌫ Delete"
-          }
-        }
-      }
-    },
-    "shortcut.delete.command" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "⌘⌫ Command+Delete"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "⌘⌫ Command+Delete"
-          }
-        }
-      }
-    },
-    "settings.shortcut.delete_key" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Delete Key"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "削除キー"
           }
         }
       }
@@ -4753,6 +4785,151 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "取り消し (⌘Z)"
+          }
+        }
+      }
+    },
+    "undo.action.delete_duplicate" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Duplicate"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "重複ファイル削除"
+          }
+        }
+      }
+    },
+    "undo.action.delete_files" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete %lld File(s)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件のファイル削除"
+          }
+        }
+      }
+    },
+    "undo.action.delete_groups" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete %lld Group(s)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld グループ削除"
+          }
+        }
+      }
+    },
+    "undo.action.delete_other_duplicates" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete %lld Other Duplicate(s)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "他 %lld 件の重複削除"
+          }
+        }
+      }
+    },
+    "undo.toast.delete_failed" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Failed to move files to Trash"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ファイルをゴミ箱に移動できませんでした"
+          }
+        }
+      }
+    },
+    "undo.toast.partial_restore" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored %1$lld of %2$lld file(s)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%2$lld 件中 %1$lld 件のみ復元しました"
+          }
+        }
+      }
+    },
+    "undo.toast.redid" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Redid: %@"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "やり直し: %@"
+          }
+        }
+      }
+    },
+    "undo.toast.restore_failed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Some files could not be restored from Trash"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "一部のファイルをゴミ箱から復元できませんでした"
+          }
+        }
+      }
+    },
+    "undo.toast.restored" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Restored %lld file(s)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件のファイルを復元しました"
           }
         }
       }

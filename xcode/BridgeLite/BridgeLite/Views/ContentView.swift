@@ -148,8 +148,6 @@ struct FolderView: View {
                         .keyboardShortcut("a", modifiers: [.command, .option])
                         Button("") { store.triggerCopy() }
                             .keyboardShortcut("c", modifiers: .command)
-                        Button("") { store.performUndo() }
-                            .keyboardShortcut("z", modifiers: .command)
                         if store.settings.deleteShortcutKey == .delete {
                             Button("") {
                                 guard !isTextFieldActive() else { return }

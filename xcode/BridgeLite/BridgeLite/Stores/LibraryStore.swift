@@ -57,12 +57,24 @@ final class LibraryStore {
     private(set) var preScanTotalFiles: Int = 0
     private(set) var preScanImageFiles: Int = 0
     private(set) var loadedThumbnailCount: Int = 0
+    @ObservationIgnored private var pendingLoadedCount: Int = 0
+    @ObservationIgnored private var loadedCountFlushTask: Task<Void, Never>?
 
     // Undo
-    private var undoStack: [(description: String, perform: () -> Void)] = []
+    @ObservationIgnored let undoManager: UndoManager = {
+        let m = UndoManager()
+        m.levelsOfUndo = 100
+        m.groupsByEvent = false
+        return m
+    }()
+    @ObservationIgnored nonisolated(unsafe) private var undoObservers: [NSObjectProtocol] = []
+    private(set) var undoVersion: Int = 0
     private(set) var undoMessage: String?
     private var undoMessageTask: Task<Void, Never>?
-    var canUndo: Bool { !undoStack.isEmpty }
+    var canUndo: Bool { _ = undoVersion; return undoManager.canUndo }
+    var canRedo: Bool { _ = undoVersion; return undoManager.canRedo }
+    var undoActionTitle: String? { _ = undoVersion; return undoManager.canUndo ? undoManager.undoMenuItemTitle : nil }
+    var redoActionTitle: String? { _ = undoVersion; return undoManager.canRedo ? undoManager.redoMenuItemTitle : nil }
 
     // Batch flush — coalesces rapid dict mutations to reduce @Observable invalidation frequency
     private var pendingThumbnails: [UInt64: Data] = [:]
@@ -107,6 +119,42 @@ final class LibraryStore {
     private var watcher: FolderWatcher?
     private var pausedWatcherEventId: FSEventStreamEventId?
     private var nextEntryID: UInt64 = 1
+
+    // MARK: - Initialization
+
+    init() {
+        setupUndoNotifications()
+    }
+
+    deinit {
+        for obs in undoObservers { NotificationCenter.default.removeObserver(obs) }
+    }
+
+    private func setupUndoNotifications() {
+        func subscribe(_ name: NSNotification.Name, handler: @escaping (Notification) -> Void) -> NSObjectProtocol {
+            NotificationCenter.default.addObserver(forName: name, object: undoManager, queue: .main, using: handler)
+        }
+        undoObservers = [
+            subscribe(.NSUndoManagerDidUndoChange) { [weak self] _ in
+                guard let self else { return }
+                self.undoVersion &+= 1
+                let name = self.undoManager.redoActionName
+                if !name.isEmpty { self.showUndoMessage(String(localized: "Undid: \(name)")) }
+            },
+            subscribe(.NSUndoManagerDidRedoChange) { [weak self] _ in
+                guard let self else { return }
+                self.undoVersion &+= 1
+                let name = self.undoManager.undoActionName
+                if !name.isEmpty {
+                    self.showUndoMessage(String(
+                        format: String(localized: "undo.toast.redid", defaultValue: "Redid: %@"),
+                        name
+                    ))
+                }
+            },
+            subscribe(.NSUndoManagerDidCloseUndoGroup) { [weak self] _ in self?.undoVersion &+= 1 }
+        ]
+    }
 
     // MARK: - 公開アクション
 
@@ -603,18 +651,6 @@ final class LibraryStore {
 
     // MARK: - Undo
 
-    var performUndoTitle: String? { undoStack.last.map { "Undo \($0.description)" } }
-
-    func performUndo() {
-        guard let record = undoStack.popLast() else { return }
-        record.perform()
-        showUndoMessage(String(localized: "Undid: \(record.description)"))
-    }
-
-    private func registerUndo(description: String, perform: @escaping () -> Void) {
-        undoStack.append((description: description, perform: perform))
-    }
-
     private func showUndoMessage(_ msg: String) {
         undoMessage = msg
         undoMessageTask?.cancel()
@@ -622,6 +658,168 @@ final class LibraryStore {
             try? await Task.sleep(for: .seconds(4))
             guard !Task.isCancelled else { return }
             self?.undoMessage = nil
+        }
+    }
+
+    // MARK: - 削除 Undo ヘルパー
+
+    private struct DeletedItemSnapshot: Sendable {
+        let entry: PhotoEntry
+        let originalURL: URL
+        let trashedURL: URL?
+        let xmpOriginalURL: URL?
+        let xmpTrashedURL: URL?
+        let thumbnailBlob: Data?
+        let luminanceScore: Int?
+        let exif: ExifData?
+        let xmp: XmpData?
+        let thumbnailOrientation: Image.Orientation?
+        let orderedIndex: Int
+        let shotId: UInt64
+        let duplicateSha: Data?
+    }
+
+    private func trashCapturing(_ url: URL) -> URL? {
+        var dest: NSURL?
+        do {
+            try FileManager.default.trashItem(at: url, resultingItemURL: &dest)
+            return dest as URL?
+        } catch {
+            return nil
+        }
+    }
+
+    private func applyRemovalToStore(_ ids: Set<UInt64>) {
+        for id in ids {
+            entries.removeValue(forKey: id)
+            thumbnailBlobs.removeValue(forKey: id)
+            luminanceScores.removeValue(forKey: id)
+            exifData.removeValue(forKey: id)
+            xmpData.removeValue(forKey: id)
+            thumbnailOrientations.removeValue(forKey: id)
+        }
+        orderedIDs.removeAll { ids.contains($0) }
+        var newGroups: [UInt64: [UInt64]] = [:]
+        for id in orderedIDs {
+            guard let e = entries[id] else { continue }
+            newGroups[e.shotId, default: []].append(id)
+        }
+        shotGroups = newGroups
+        cleanupDuplicateState(removedIDs: ids)
+        recomputeVisible()
+        deselectAll()
+    }
+
+    @discardableResult
+    private func performDeleteWithUndo(ids: [UInt64], actionName: String) -> Int {
+        var snapshots: [DeletedItemSnapshot] = []
+        snapshots.reserveCapacity(ids.count)
+
+        for id in ids {
+            guard let entry = entries[id] else { continue }
+            let xmpURL = entry.url.deletingPathExtension().appendingPathExtension("xmp")
+            let xmpExisted = FileManager.default.fileExists(atPath: xmpURL.path)
+
+            guard let trashedMain = trashCapturing(entry.url) else { continue }
+            let trashedXmp = xmpExisted ? trashCapturing(xmpURL) : nil
+
+            let idx = orderedIDs.firstIndex(of: id) ?? orderedIDs.count
+            snapshots.append(DeletedItemSnapshot(
+                entry: entry,
+                originalURL: entry.url,
+                trashedURL: trashedMain,
+                xmpOriginalURL: xmpExisted ? xmpURL : nil,
+                xmpTrashedURL: trashedXmp,
+                thumbnailBlob: thumbnailBlobs[id],
+                luminanceScore: luminanceScores[id],
+                exif: exifData[id],
+                xmp: xmpData[id],
+                thumbnailOrientation: thumbnailOrientations[id],
+                orderedIndex: idx,
+                shotId: entry.shotId,
+                duplicateSha: duplicateKeyByID[id]
+            ))
+        }
+
+        let removedIDs = Set(snapshots.map { $0.entry.id })
+        applyRemovalToStore(removedIDs)
+
+        if !snapshots.isEmpty {
+            registerDeleteUndo(snapshots: snapshots, actionName: actionName)
+        }
+        return snapshots.count
+    }
+
+    private func registerDeleteUndo(snapshots: [DeletedItemSnapshot], actionName: String) {
+        undoManager.beginUndoGrouping()
+        undoManager.setActionName(actionName)
+        undoManager.registerUndo(withTarget: self) { [snapshots] target in
+            target.restoreDeleted(snapshots: snapshots, actionName: actionName)
+        }
+        undoManager.endUndoGrouping()
+    }
+
+    private func restoreDeleted(snapshots: [DeletedItemSnapshot], actionName: String) {
+        var restoredSnapshots: [DeletedItemSnapshot] = []
+        var failCount = 0
+        for snap in snapshots {
+            guard let trashed = snap.trashedURL else { failCount += 1; continue }
+            do {
+                try FileManager.default.moveItem(at: trashed, to: snap.originalURL)
+            } catch {
+                failCount += 1; continue
+            }
+            if let xmpTrashed = snap.xmpTrashedURL, let xmpOrig = snap.xmpOriginalURL {
+                try? FileManager.default.moveItem(at: xmpTrashed, to: xmpOrig)
+            }
+            // Restore in-memory state
+            let id = snap.entry.id
+            entries[id] = snap.entry
+            thumbnailBlobs[id] = snap.thumbnailBlob
+            luminanceScores[id] = snap.luminanceScore
+            exifData[id] = snap.exif
+            xmpData[id] = snap.xmp
+            thumbnailOrientations[id] = snap.thumbnailOrientation
+            let insertAt = min(snap.orderedIndex, orderedIDs.count)
+            orderedIDs.insert(id, at: insertAt)
+            if let sha = snap.duplicateSha {
+                duplicateKeyByID[id] = sha
+                duplicateGroups[sha, default: []].append(id)
+                duplicateDidUpdate.send(id)
+            }
+            restoredSnapshots.append(snap)
+        }
+
+        // Rebuild group structures
+        var newGroups: [UInt64: [UInt64]] = [:]
+        for id in orderedIDs {
+            guard let e = entries[id] else { continue }
+            newGroups[e.shotId, default: []].append(id)
+        }
+        shotGroups = newGroups
+        recomputeVisible()
+
+        // Register Redo (re-delete)
+        if !restoredSnapshots.isEmpty {
+            registerDeleteUndo(snapshots: restoredSnapshots, actionName: actionName)
+        }
+
+        let restored = restoredSnapshots.count
+        let total = snapshots.count
+        if failCount == 0 {
+            showUndoMessage(String(
+                format: String(localized: "undo.toast.restored", defaultValue: "Restored %lld file(s)"),
+                Int64(restored)
+            ))
+        } else if restored > 0 {
+            showUndoMessage(String(
+                format: String(localized: "undo.toast.partial_restore",
+                               defaultValue: "Restored %1$lld of %2$lld file(s)"),
+                Int64(restored), Int64(total)
+            ))
+        } else {
+            showUndoMessage(String(localized: "undo.toast.restore_failed",
+                                   defaultValue: "Some files could not be restored from Trash"))
         }
     }
 
@@ -760,75 +958,46 @@ final class LibraryStore {
     }
 
     private func deleteSelectedRepresentatives() {
-        var deletedIDs: Set<UInt64> = []
-        var fileCount = 0
-        for repId in selectedIDs {
-            guard let entry = entries[repId] else { continue }
-            try? FileManager.default.trashItem(at: entry.url, resultingItemURL: nil)
-            let xmpURL = entry.url.deletingPathExtension().appendingPathExtension("xmp")
-            if FileManager.default.fileExists(atPath: xmpURL.path) {
-                try? FileManager.default.trashItem(at: xmpURL, resultingItemURL: nil)
-            }
-            deletedIDs.insert(repId)
-            fileCount += 1
+        let ids = Array(selectedIDs)
+        let count = performDeleteWithUndo(
+            ids: ids,
+            actionName: String(
+                format: String(localized: "undo.action.delete_files",
+                               defaultValue: "Delete %lld File(s)"),
+                Int64(ids.count)
+            )
+        )
+        if count > 0 {
+            showUndoMessage(String(
+                format: String(localized: "Moved %lld file(s) to Trash (recoverable from Finder)"),
+                Int64(count)
+            ))
         }
-        for id in deletedIDs {
-            entries.removeValue(forKey: id)
-            thumbnailBlobs.removeValue(forKey: id)
-            luminanceScores.removeValue(forKey: id)
-            exifData.removeValue(forKey: id)
-            xmpData.removeValue(forKey: id)
-        }
-        orderedIDs = orderedIDs.filter { !deletedIDs.contains($0) }
-        var newGroups: [UInt64: [UInt64]] = [:]
-        for id in orderedIDs {
-            guard let e = entries[id] else { continue }
-            newGroups[e.shotId, default: []].append(id)
-        }
-        shotGroups = newGroups
-        cleanupDuplicateState(removedIDs: deletedIDs)
-        recomputeVisible()
-        deselectAll()
-        showUndoMessage(String(localized: "Moved \(fileCount) file(s) to Trash (recoverable from Finder)"))
     }
 
     private func deleteSelectedGroups() {
-        var deletedIDs: Set<UInt64> = []
-        var fileCount = 0
-
+        var allIDs: [UInt64] = []
         for repId in selectedIDs {
             guard let entry = entries[repId] else { continue }
             let members = shotGroups[entry.shotId] ?? [repId]
-            for mid in members {
-                guard let mentry = entries[mid] else { continue }
-                try? FileManager.default.trashItem(at: mentry.url, resultingItemURL: nil)
-                let xmpURL = mentry.url.deletingPathExtension().appendingPathExtension("xmp")
-                if FileManager.default.fileExists(atPath: xmpURL.path) {
-                    try? FileManager.default.trashItem(at: xmpURL, resultingItemURL: nil)
-                }
-                deletedIDs.insert(mid)
-                fileCount += 1
-            }
+            allIDs.append(contentsOf: members)
         }
-
-        for id in deletedIDs {
-            entries.removeValue(forKey: id)
-            thumbnailBlobs.removeValue(forKey: id)
-            luminanceScores.removeValue(forKey: id)
-            exifData.removeValue(forKey: id)
-            xmpData.removeValue(forKey: id)
+        let uniqueIDs = Array(Set(allIDs))
+        let groupCount = selectedIDs.count
+        let count = performDeleteWithUndo(
+            ids: uniqueIDs,
+            actionName: String(
+                format: String(localized: "undo.action.delete_groups",
+                               defaultValue: "Delete %lld Group(s)"),
+                Int64(groupCount)
+            )
+        )
+        if count > 0 {
+            showUndoMessage(String(
+                format: String(localized: "Moved %lld file(s) to Trash (recoverable from Finder)"),
+                Int64(count)
+            ))
         }
-        orderedIDs = orderedIDs.filter { !deletedIDs.contains($0) }
-        var newGroups: [UInt64: [UInt64]] = [:]
-        for id in orderedIDs {
-            guard let e = entries[id] else { continue }
-            newGroups[e.shotId, default: []].append(id)
-        }
-        shotGroups = newGroups
-        cleanupDuplicateState(removedIDs: deletedIDs)
-        recomputeVisible()
-        deselectAll()
-        showUndoMessage(String(localized: "Moved \(fileCount) file(s) to Trash (recoverable from Finder)"))
     }
 
     // MARK: - 重複検出
@@ -879,15 +1048,15 @@ final class LibraryStore {
     }
 
     func trashDuplicate(id: UInt64) {
-        guard let entry = entries[id] else { return }
-        try? FileManager.default.trashItem(at: entry.url, resultingItemURL: nil)
-        let xmpURL = entry.url.deletingPathExtension().appendingPathExtension("xmp")
-        if FileManager.default.fileExists(atPath: xmpURL.path) {
-            try? FileManager.default.trashItem(at: xmpURL, resultingItemURL: nil)
+        let count = performDeleteWithUndo(
+            ids: [id],
+            actionName: String(localized: "undo.action.delete_duplicate",
+                               defaultValue: "Delete Duplicate")
+        )
+        if count > 0 {
+            showUndoMessage(String(localized: "duplicate.toast.trashed_one",
+                                   defaultValue: "Moved 1 duplicate copy to Trash"))
         }
-        removeSingleEntryFromStore(id)
-        removeDuplicateEntry(id)
-        showUndoMessage(String(localized: "duplicate.toast.trashed_one", defaultValue: "Moved 1 duplicate copy to Trash"))
     }
 
     func trashAllOtherDuplicates(of id: UInt64) {
@@ -913,74 +1082,20 @@ final class LibraryStore {
             guard resp == .alertFirstButtonReturn else { return }
         }
 
-        var fileCount = 0
-        for otherId in othersToTrash {
-            guard let other = entries[otherId] else { continue }
-            try? FileManager.default.trashItem(at: other.url, resultingItemURL: nil)
-            let xmpURL = other.url.deletingPathExtension().appendingPathExtension("xmp")
-            if FileManager.default.fileExists(atPath: xmpURL.path) {
-                try? FileManager.default.trashItem(at: xmpURL, resultingItemURL: nil)
-            }
-            removeSingleEntryFromStore(otherId)
-            fileCount += 1
-        }
-        // Remove entire duplicate group (only 1 member remains)
-        duplicateGroups.removeValue(forKey: sha)
-        duplicateRecommendedID.removeValue(forKey: sha)
-        // Clear all keyByID entries for this SHA (direct + shot-group reps)
-        let allWithSha = duplicateKeyByID.keys.filter { duplicateKeyByID[$0] == sha }
-        for rid in allWithSha {
-            duplicateKeyByID.removeValue(forKey: rid)
-            duplicateDidUpdate.send(rid)
-        }
-
-        showUndoMessage(String(
-            format: String(localized: "duplicate.toast.trashed_many", defaultValue: "Moved %lld duplicate copies to Trash"),
-            fileCount
-        ))
-    }
-
-    private func removeSingleEntryFromStore(_ id: UInt64) {
-        entries.removeValue(forKey: id)
-        thumbnailBlobs.removeValue(forKey: id)
-        luminanceScores.removeValue(forKey: id)
-        exifData.removeValue(forKey: id)
-        xmpData.removeValue(forKey: id)
-        thumbnailOrientations.removeValue(forKey: id)
-        orderedIDs.removeAll { $0 == id }
-        for key in shotGroups.keys {
-            shotGroups[key]?.removeAll { $0 == id }
-            if shotGroups[key]?.isEmpty == true { shotGroups.removeValue(forKey: key) }
-        }
-        selectedIDs.remove(id)
-        if primaryID == id { primaryID = selectedIDs.first }
-        recomputeVisible()
-    }
-
-    private func removeDuplicateEntry(_ id: UInt64) {
-        guard let sha = duplicateKeyByID[id] else { return }
-        duplicateKeyByID.removeValue(forKey: id)
-        duplicateGroups[sha]?.removeAll { $0 == id }
-        if let remaining = duplicateGroups[sha], remaining.count <= 1 {
-            duplicateGroups.removeValue(forKey: sha)
-            duplicateRecommendedID.removeValue(forKey: sha)
-            // Clear all keyByID entries for this SHA (direct duplicates + shot-group reps)
-            let orphaned = duplicateKeyByID.keys.filter { duplicateKeyByID[$0] == sha }
-            for rid in orphaned {
-                duplicateKeyByID.removeValue(forKey: rid)
-                duplicateDidUpdate.send(rid)
-            }
-            if let lastID = remaining.first {
-                duplicateKeyByID.removeValue(forKey: lastID)
-                duplicateDidUpdate.send(lastID)
-            }
-        } else if let newMembers = duplicateGroups[sha] {
-            duplicateRecommendedID[sha] = recommendedID(among: newMembers)
-            // Notify all keyByID entries (direct + reps) so badges refresh
-            for peerId in duplicateKeyByID.keys where duplicateKeyByID[peerId] == sha {
-                duplicateDidUpdate.send(peerId)
-            }
-            for peerId in newMembers { duplicateDidUpdate.send(peerId) }
+        let count = performDeleteWithUndo(
+            ids: othersToTrash,
+            actionName: String(
+                format: String(localized: "undo.action.delete_other_duplicates",
+                               defaultValue: "Delete %lld Other Duplicate(s)"),
+                Int64(othersToTrash.count)
+            )
+        )
+        if count > 0 {
+            showUndoMessage(String(
+                format: String(localized: "duplicate.toast.trashed_many",
+                               defaultValue: "Moved %lld duplicate copies to Trash"),
+                count
+            ))
         }
     }
 
@@ -1061,18 +1176,20 @@ final class LibraryStore {
         let desc = stars == 0
             ? String(localized: "Clear Rating")
             : String(localized: "Rating \(stars) Star(s)")
-        registerUndo(description: desc) { [weak self] in
-            guard let self, let db = self.database else { return }
+        undoManager.beginUndoGrouping()
+        undoManager.setActionName(desc)
+        undoManager.registerUndo(withTarget: self) { [allTargets] target in
+            guard let db = target.database else { return }
             for (te, old) in allTargets {
-                guard self.entries[te.id] != nil else { continue }
-                var current = self.xmpData[te.id] ?? XmpData()
+                guard target.entries[te.id] != nil else { continue }
+                var current = target.xmpData[te.id] ?? XmpData()
                 current.rating = old
-                self.xmpData[te.id] = current
-                self.xmpDidUpdate.send(te.id)
+                target.xmpData[te.id] = current
+                target.xmpDidUpdate.send(te.id)
                 let x = current; let url = te.url
-                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: self.settings.jpgWriteMode) }
+                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: target.settings.jpgWriteMode) }
             }
-            self.recomputeVisible()
+            target.recomputeVisible()
         }
         let mode = settings.jpgWriteMode
         let policy = settings.jpgSidecarConflictPolicy
@@ -1083,6 +1200,7 @@ final class LibraryStore {
             if mode == .sidecar {
                 await self.checkAndHandleEmbedConflict(writeList: writeList, db: db, policy: policy)
             }
+            self.undoManager.endUndoGrouping()
         }
     }
 
@@ -1107,18 +1225,20 @@ final class LibraryStore {
             }
         }
         recomputeVisible()
-        registerUndo(description: String(localized: "Label Change")) { [weak self] in
-            guard let self, let db = self.database else { return }
+        undoManager.beginUndoGrouping()
+        undoManager.setActionName(String(localized: "Label Change"))
+        undoManager.registerUndo(withTarget: self) { [allTargets] target in
+            guard let db = target.database else { return }
             for (te, old) in allTargets {
-                guard self.entries[te.id] != nil else { continue }
-                var current = self.xmpData[te.id] ?? XmpData()
+                guard target.entries[te.id] != nil else { continue }
+                var current = target.xmpData[te.id] ?? XmpData()
                 current.label = old
-                self.xmpData[te.id] = current
-                self.xmpDidUpdate.send(te.id)
+                target.xmpData[te.id] = current
+                target.xmpDidUpdate.send(te.id)
                 let x = current; let url = te.url
-                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: self.settings.jpgWriteMode) }
+                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: target.settings.jpgWriteMode) }
             }
-            self.recomputeVisible()
+            target.recomputeVisible()
         }
         let mode = settings.jpgWriteMode
         let policy = settings.jpgSidecarConflictPolicy
@@ -1129,6 +1249,7 @@ final class LibraryStore {
             if mode == .sidecar {
                 await self.checkAndHandleEmbedConflict(writeList: writeList, db: db, policy: policy)
             }
+            self.undoManager.endUndoGrouping()
         }
     }
 
@@ -1150,18 +1271,20 @@ final class LibraryStore {
         let desc = newCaption == nil
             ? String(localized: "Clear Caption")
             : String(localized: "Set Caption")
-        registerUndo(description: desc) { [weak self] in
-            guard let self, let db = self.database else { return }
+        undoManager.beginUndoGrouping()
+        undoManager.setActionName(desc)
+        undoManager.registerUndo(withTarget: self) { [allTargets] target in
+            guard let db = target.database else { return }
             for (te, old) in allTargets {
-                guard self.entries[te.id] != nil else { continue }
-                var current = self.xmpData[te.id] ?? XmpData()
+                guard target.entries[te.id] != nil else { continue }
+                var current = target.xmpData[te.id] ?? XmpData()
                 current.caption = old
-                self.xmpData[te.id] = current
-                self.xmpDidUpdate.send(te.id)
+                target.xmpData[te.id] = current
+                target.xmpDidUpdate.send(te.id)
                 let x = current; let url = te.url
-                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: self.settings.jpgWriteMode, captionPresent: true) }
+                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: target.settings.jpgWriteMode, captionPresent: true) }
             }
-            self.recomputeVisible()
+            target.recomputeVisible()
         }
         let mode = settings.jpgWriteMode
         let policy = settings.jpgSidecarConflictPolicy
@@ -1172,6 +1295,7 @@ final class LibraryStore {
             if mode == .sidecar {
                 await self.checkAndHandleEmbedConflict(writeList: writeList, db: db, policy: policy)
             }
+            self.undoManager.endUndoGrouping()
         }
     }
 
@@ -1200,8 +1324,36 @@ final class LibraryStore {
         }
 
         if shouldPropagate {
+            // Capture old embedded XMP values before overwriting, for Undo.
+            var oldEmbeds: [(entry: PhotoEntry, xmp: XmpData)] = []
+            for (entry, _) in conflicting {
+                let old = await BridgeCore.readXmp(url: entry.url, jpgWriteMode: .embed) ?? XmpData()
+                oldEmbeds.append((entry: entry, xmp: old))
+            }
+
             for (entry, xmp) in conflicting {
                 _ = await BridgeCore.writeXmp(url: entry.url, xmp: xmp, db: db, jpgWriteMode: .embed)
+            }
+
+            // Register undo for embed propagation in the same open undo group.
+            let newEmbeds = conflicting
+            undoManager.registerUndo(withTarget: self) { [oldEmbeds, newEmbeds] target in
+                guard let db = target.database else { return }
+                // Registering redo (re-propagate) here; NSUndoManager adds it to redo stack
+                // because this closure executes during undo().
+                target.undoManager.registerUndo(withTarget: target) { [newEmbeds] t2 in
+                    guard let db = t2.database else { return }
+                    Task {
+                        for (entry, newXmp) in newEmbeds {
+                            _ = await BridgeCore.writeXmp(url: entry.url, xmp: newXmp, db: db, jpgWriteMode: .embed)
+                        }
+                    }
+                }
+                Task {
+                    for (entry, oldXmp) in oldEmbeds {
+                        _ = await BridgeCore.writeXmp(url: entry.url, xmp: oldXmp, db: db, jpgWriteMode: .embed)
+                    }
+                }
             }
         }
     }
@@ -1832,7 +1984,7 @@ final class LibraryStore {
         selectedIDs = []
         primaryID = nil
         anchorID = nil
-        undoStack = []
+        undoManager.removeAllActions()
         undoMessage = nil
         undoMessageTask?.cancel()
         undoMessageTask = nil

@@ -184,11 +184,16 @@ struct ToolbarView: ToolbarContent {
                     Label("Open Folder", systemImage: "folder")
                 }
             }
-            Button(action: { store.performUndo() }) {
+            Button(action: { store.undoManager.undo() }) {
                 Label("Undo", systemImage: "arrow.uturn.backward")
             }
             .disabled(!store.canUndo)
-            .help(store.performUndoTitle ?? String(localized: "Undo (⌘Z)"))
+            .help(store.undoActionTitle ?? String(localized: "Undo (⌘Z)"))
+            Button(action: { store.undoManager.redo() }) {
+                Label("Redo", systemImage: "arrow.uturn.forward")
+            }
+            .disabled(!store.canRedo)
+            .help(store.redoActionTitle ?? String(localized: "Redo (⇧⌘Z)"))
         }
 
         ToolbarItemGroup(placement: .principal) {
