@@ -22,7 +22,7 @@
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
-	<string>io.github.hoge128.bridge-lite</string>
+	<string>io.github.bridge-lite</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -30,10 +30,22 @@
 	<key>CFBundlePackageType</key>
 	<string>APPL</string>
 	<key>CFBundleShortVersionString</key>
-	<string>0.3.0</string>
+	<string>0.2.2</string>
 	<key>CFBundleVersion</key>
-	<string>5</string>
+	<string>4</string>
 	<key>NSHumanReadableDescription</key>
 	<string>Lightweight RAW+JPG image viewer</string>
+	<key>SUAllowsAutomaticUpdates</key>
+	<true/>
+	<key>SUEnableAutomaticChecks</key>
+	<true/>
+	<key>SUEnableInstallerLauncherService</key>
+	<true/>
+	<key>SUFeedURL</key>
+	<string>https://hoge128.github.io/bridge-lite/appcast.xml</string>
+	<key>SUPublicEDKey</key>
+	<string>aVwGOcsYTnZ/rchyd9K+ZRhph0Xy+oOtU4oa9S0ZwhI=</string>
+	<key>SUScheduledCheckInterval</key>
+	<integer>86400</integer>
 </dict>
 </plist>

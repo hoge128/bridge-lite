@@ -29,6 +29,10 @@ test/
 archive/
 dmgs/
 
+# Sparkle EdDSA 秘密鍵（絶対にコミットしない）
+privkey.txt
+**/privkey.txt
+
 # VitePress (manual-src)
 manual-src/node_modules/
 manual-src/.vitepress/cache/

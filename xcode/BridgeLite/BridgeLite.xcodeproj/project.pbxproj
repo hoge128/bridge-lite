@@ -10,7 +10,7 @@
 		080BCFEFED5119F429F6EF37 /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
 		0B0BC12A398E84A26C01BBBC /* TabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */; };
 		0BF5211BFCBCCD0800E28289 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E9544AD911B7B44DF245CA /* HelpView.swift */; };
-		11146D352CD748EEBEA90661 /* OpenWithService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 111F506F4421426DB539EBF5 /* OpenWithService.swift */; };
+		1E5E68B25E2EC686594106E6 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D049A57268958B6678D2C20 /* UpdaterController.swift */; };
 		2017A2227FC3FB4B6E5DEDEB /* CoreError+LocalizedError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */; };
 		20FA827723A350BA5FA21B62 /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
 		221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 562FFC709A5EF19C156C3F4B /* LibraryStore.swift */; };
@@ -27,13 +27,15 @@
 		54F4CBE0C0AF7B59DE4D27DF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49A54E1E164617C20BDC0BE8 /* Assets.xcassets */; };
 		5B7AA16F9AB39446C7450658 /* PairingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */; };
 		639D3ABDDEE404D4558F0932 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */; };
-		63A44B8C33AA4B22BBBA1D9B /* ManageApplicationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 67A9921857634E37B5418C5F /* ManageApplicationsSheet.swift */; };
+		68AFA52E99B3C8444EBAA652 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 36DF9C66D41809477B26A054 /* Sparkle */; };
 		740B6E0B825A83C207B42109 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6259A93CEB1040679F6D1C26 /* ToolbarView.swift */; };
 		74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */; };
 		757F65595D73658FC438F522 /* BridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */; };
 		75BBD1B5458C5D8D77610FB6 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F1394BA720F5BB1FAC74FB /* TabManager.swift */; };
+		867E4D731D55D911BE92FCDA /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */; };
 		89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		8F544229F248278F9D38D074 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
+		9BF8C6AB43E6FF9A22E6B3F1 /* ManageApplicationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08267E9BB3F4272FE0BBD6B3 /* ManageApplicationsSheet.swift */; };
 		9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8959834812C243F4AB214555 /* ViewerView.swift */; };
 		9FE9F88FC4671DAF54FB52A3 /* ThumbnailDecodeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A25B9314CAA8624F7FEAE8 /* ThumbnailDecodeCache.swift */; };
 		A017CA3928F5411EB8A668A1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B123E21AF2DA71784C11365 /* SettingsStore.swift */; };
@@ -52,15 +54,15 @@
 		E8F5A37ADB423EFE6A24493D /* ScanPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829D014EC927B51D64289330 /* ScanPipeline.swift */; };
 		EB98541B8291C56BC7DAAE8C /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */; };
 		F049B58AD623462639BFDA52 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */; };
-		F83F92F53C234DEF96095BE0 /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = E105335341974CACB0DCB1DB /* OpenWithMenu.swift */; };
+		F992512EC9A4A82A8EC53439 /* OpenWithService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */; };
 		FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
 		05F0D4EF54B7033D13443243 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PHashPipeline.swift; sourceTree = "<group>"; };
+		08267E9BB3F4272FE0BBD6B3 /* ManageApplicationsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManageApplicationsSheet.swift; sourceTree = "<group>"; };
 		09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterCriteria.swift; sourceTree = "<group>"; };
-		111F506F4421426DB539EBF5 /* OpenWithService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithService.swift; sourceTree = "<group>"; };
 		15664F7FA303F94AF6538F3E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		1C59E59994061A04481C6A6A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridView.swift; sourceTree = "<group>"; };
@@ -75,13 +77,13 @@
 		449E124463D6E6D28958EBE9 /* FilterPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterPanelView.swift; sourceTree = "<group>"; };
 		49A54E1E164617C20BDC0BE8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarView.swift; sourceTree = "<group>"; };
+		4D049A57268958B6678D2C20 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 		562FFC709A5EF19C156C3F4B /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
 		5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailPipeline.swift; sourceTree = "<group>"; };
 		5F6AB0BABA5195DAD2785DD6 /* en */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = en; path = en.lproj/Help.md; sourceTree = "<group>"; };
 		6259A93CEB1040679F6D1C26 /* ToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarView.swift; sourceTree = "<group>"; };
 		66FAC10D47AADEDC3B802F22 /* RAWRenderPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RAWRenderPipeline.swift; sourceTree = "<group>"; };
 		6719A1E8E79428CC067F6086 /* GroupCompareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupCompareView.swift; sourceTree = "<group>"; };
-		67A9921857634E37B5418C5F /* ManageApplicationsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManageApplicationsSheet.swift; sourceTree = "<group>"; };
 		6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CoreError+LocalizedError.swift"; sourceTree = "<group>"; };
 		70EF463FF8F23594579AF67A /* SwiftBridgeCore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SwiftBridgeCore.h; sourceTree = "<group>"; };
 		714F9A31CDC9997907F915DF /* DuplicatePipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DuplicatePipeline.swift; sourceTree = "<group>"; };
@@ -99,19 +101,32 @@
 		A8476046BC02C30936274119 /* bridge-ffi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bridge-ffi.h"; sourceTree = "<group>"; };
 		A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeLiteApp.swift; sourceTree = "<group>"; };
 		B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeCore.swift; sourceTree = "<group>"; };
+		CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithMenu.swift; sourceTree = "<group>"; };
 		D190D06914E2B2F68880DE4D /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libbridge_ffi.a; sourceTree = "<group>"; };
-		E105335341974CACB0DCB1DB /* OpenWithMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithMenu.swift; sourceTree = "<group>"; };
+		E18D649E31736AC707A51F47 /* BridgeLite.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BridgeLite.entitlements; sourceTree = "<group>"; };
 		E2E9544AD911B7B44DF245CA /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFolderRegistry.swift; sourceTree = "<group>"; };
 		E5E4D2077F4EF0B418BE9762 /* BridgeLite-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "BridgeLite-Bridging-Header.h"; sourceTree = "<group>"; };
 		E644DA2225FFA58312896A06 /* ShotGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotGroup.swift; sourceTree = "<group>"; };
 		E8B64F29E109361726718A3C /* PhotoEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEntry.swift; sourceTree = "<group>"; };
+		F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithService.swift; sourceTree = "<group>"; };
 		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
 		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
 		F9F1394BA720F5BB1FAC74FB /* TabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabManager.swift; sourceTree = "<group>"; };
 		FEB29D70D3C5AFA843D165F7 /* StorageProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageProbe.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		B5CF0706EFB40B2953B661C0 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				68AFA52E99B3C8444EBAA652 /* Sparkle in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
 
 /* Begin PBXGroup section */
 		0B59DB47FE521E3FDA281611 = {
@@ -138,16 +153,26 @@
 			path = Pipelines;
 			sourceTree = "<group>";
 		};
+		1EC51E6800ADFECCF9452E0B /* Updater */ = {
+			isa = PBXGroup;
+			children = (
+				4D049A57268958B6678D2C20 /* UpdaterController.swift */,
+			);
+			path = Updater;
+			sourceTree = "<group>";
+		};
 		2B20FE4B7F2B9B7F415EEBAA /* BridgeLite */ = {
 			isa = PBXGroup;
 			children = (
 				E5E4D2077F4EF0B418BE9762 /* BridgeLite-Bridging-Header.h */,
+				E18D649E31736AC707A51F47 /* BridgeLite.entitlements */,
 				A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */,
 				DCEED3D7ADB9AF247F944868 /* Bridging */,
 				98857F4203ACB3D6FC91D1DB /* Models */,
 				1DAB6EBEE8F42EC30B8457BD /* Pipelines */,
 				B124AFCD9F68FF2A7830AC45 /* Resources */,
 				5C7EFF5C58CDF69D785187E9 /* Stores */,
+				1EC51E6800ADFECCF9452E0B /* Updater */,
 				E3BE2DA0E4DBBF187AA46217 /* Views */,
 			);
 			path = BridgeLite;
@@ -159,7 +184,7 @@
 				A5954B00B0C942104F38783B /* FolderWatcher.swift */,
 				562FFC709A5EF19C156C3F4B /* LibraryStore.swift */,
 				E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */,
-				111F506F4421426DB539EBF5 /* OpenWithService.swift */,
+				F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */,
 				7B123E21AF2DA71784C11365 /* SettingsStore.swift */,
 				F9F1394BA720F5BB1FAC74FB /* TabManager.swift */,
 			);
@@ -239,8 +264,8 @@
 				449E124463D6E6D28958EBE9 /* FilterPanelView.swift */,
 				6719A1E8E79428CC067F6086 /* GroupCompareView.swift */,
 				E2E9544AD911B7B44DF245CA /* HelpView.swift */,
-				67A9921857634E37B5418C5F /* ManageApplicationsSheet.swift */,
-				E105335341974CACB0DCB1DB /* OpenWithMenu.swift */,
+				08267E9BB3F4272FE0BBD6B3 /* ManageApplicationsSheet.swift */,
+				CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */,
 				9A4260412EA9F57B97926BB9 /* SettingsView.swift */,
 				05F0D4EF54B7033D13443243 /* SidebarView.swift */,
 				4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */,
@@ -270,6 +295,7 @@
 			buildPhases = (
 				8373F6BAA1DBB3371EDD364F /* Sources */,
 				E153B379A04838498FD7F9F5 /* Resources */,
+				B5CF0706EFB40B2953B661C0 /* Frameworks */,
 			);
 			buildRules = (
 			);
@@ -277,6 +303,7 @@
 			);
 			name = BridgeLite;
 			packageProductDependencies = (
+				36DF9C66D41809477B26A054 /* Sparkle */,
 			);
 			productName = BridgeLite;
 			productReference = 9CE46BEBEEE9B02A6F31B9F8 /* BridgeLite.app */;
@@ -290,6 +317,8 @@
 			attributes = {
 				BuildIndependentTargetsInParallel = YES;
 				LastUpgradeCheck = 1630;
+				TargetAttributes = {
+				};
 			};
 			buildConfigurationList = F982BE9F4DA4F3B9FE8E9A0C /* Build configuration list for PBXProject "BridgeLite" */;
 			developmentRegion = en;
@@ -301,6 +330,9 @@
 			);
 			mainGroup = 0B59DB47FE521E3FDA281611;
 			minimizedProjectReferenceProxies = 1;
+			packageReferences = (
+				59473DA0B68D929C36B4A52D /* XCRemoteSwiftPackageReference "Sparkle" */,
+			);
 			preferredProjectObjectVersion = 77;
 			productRefGroup = 609B502AC7819BA56CD266E8 /* Products */;
 			projectDirPath = "";
@@ -347,10 +379,10 @@
 				0BF5211BFCBCCD0800E28289 /* HelpView.swift in Sources */,
 				D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */,
 				221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */,
-				63A44B8C33AA4B22BBBA1D9B /* ManageApplicationsSheet.swift in Sources */,
+				9BF8C6AB43E6FF9A22E6B3F1 /* ManageApplicationsSheet.swift in Sources */,
 				A697498B8D3F1EC28704C642 /* OpenFolderRegistry.swift in Sources */,
-				F83F92F53C234DEF96095BE0 /* OpenWithMenu.swift in Sources */,
-				11146D352CD748EEBEA90661 /* OpenWithService.swift in Sources */,
+				867E4D731D55D911BE92FCDA /* OpenWithMenu.swift in Sources */,
+				F992512EC9A4A82A8EC53439 /* OpenWithService.swift in Sources */,
 				74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */,
 				5B7AA16F9AB39446C7450658 /* PairingPipeline.swift in Sources */,
 				487E0F471C54D7589919532C /* PhotoEntry.swift in Sources */,
@@ -369,6 +401,7 @@
 				FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */,
 				5478CCDC6D2D1C6C2FEEBEFF /* ThumbnailPipeline.swift in Sources */,
 				740B6E0B825A83C207B42109 /* ToolbarView.swift in Sources */,
+				1E5E68B25E2EC686594106E6 /* UpdaterController.swift in Sources */,
 				9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */,
 				BD135BC5DA5312F04B946CC4 /* XmpData.swift in Sources */,
 				35EC070FBDA487AA56355519 /* ZoomableImage.swift in Sources */,
@@ -514,48 +547,19 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				AUTOMATION_APPLE_EVENTS = NO;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = KTQ8JQW28L;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
-				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
-				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
-				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
-				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				EXCLUDED_ARCHS = x86_64;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/lib",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "io.github.hoge128.bridge-lite";
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
+				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite";
 				PRODUCT_NAME = BridgeLite;
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
-				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
-				RUNTIME_EXCEPTION_ALLOW_UNSIGNED_EXECUTABLE_MEMORY = NO;
-				RUNTIME_EXCEPTION_DEBUGGING_TOOL = NO;
-				RUNTIME_EXCEPTION_DISABLE_EXECUTABLE_PAGE_PROTECTION = NO;
-				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = NO;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "BridgeLite/BridgeLite-Bridging-Header.h";
@@ -567,48 +571,19 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				AUTOMATION_APPLE_EVENTS = NO;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Developer ID Application";
-				CODE_SIGN_STYLE = Manual;
 				COMBINE_HIDPI_IMAGES = YES;
-				DEVELOPMENT_TEAM = "";
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = KTQ8JQW28L;
-				ENABLE_HARDENED_RUNTIME = YES;
-				ENABLE_RESOURCE_ACCESS_AUDIO_INPUT = NO;
-				ENABLE_RESOURCE_ACCESS_CALENDARS = NO;
-				ENABLE_RESOURCE_ACCESS_CAMERA = NO;
-				ENABLE_RESOURCE_ACCESS_CONTACTS = NO;
-				ENABLE_RESOURCE_ACCESS_LOCATION = NO;
-				ENABLE_RESOURCE_ACCESS_PHOTO_LIBRARY = NO;
 				EXCLUDED_ARCHS = x86_64;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/lib",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
-				PRODUCT_BUNDLE_IDENTIFIER = "io.github.hoge128.bridge-lite";
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
+				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite";
 				PRODUCT_NAME = BridgeLite;
-				PROVISIONING_PROFILE_SPECIFIER = "";
-				RUNTIME_EXCEPTION_ALLOW_DYLD_ENVIRONMENT_VARIABLES = NO;
-				RUNTIME_EXCEPTION_ALLOW_JIT = NO;
-				RUNTIME_EXCEPTION_ALLOW_UNSIGNED_EXECUTABLE_MEMORY = NO;
-				RUNTIME_EXCEPTION_DEBUGGING_TOOL = NO;
-				RUNTIME_EXCEPTION_DISABLE_EXECUTABLE_PAGE_PROTECTION = NO;
-				RUNTIME_EXCEPTION_DISABLE_LIBRARY_VALIDATION = NO;
 				SDKROOT = macosx;
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "BridgeLite/BridgeLite-Bridging-Header.h";
@@ -638,6 +613,25 @@
 			defaultConfigurationName = Debug;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		59473DA0B68D929C36B4A52D /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.8.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		36DF9C66D41809477B26A054 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = 59473DA0B68D929C36B4A52D /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = 1C21470588454ACD00E942A8 /* Project object */;
 }
