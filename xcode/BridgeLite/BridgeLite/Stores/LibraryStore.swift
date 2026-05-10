@@ -479,15 +479,28 @@ final class LibraryStore {
     /// scanPhase == .loading のときのみカウントし、resume() 時の二重カウントを防ぐ。
     func noteThumbnailAttemptFinished(generation: Int) {
         guard generation == scanGeneration, scanPhase == .loading else { return }
-        loadedThumbnailCount += 1
+        pendingLoadedCount += 1
         let total = orderedIDs.count
-        // navigationTitle への負荷を抑えるため 50 件ごとまたは最終件で更新
-        let isLast = loadedThumbnailCount >= total
-        if isLast || loadedThumbnailCount % 50 == 0 {
-            statusMessage = String(
-                format: String(localized: "Loading %d / %d"),
-                loadedThumbnailCount, total
-            )
+        let isLast = pendingLoadedCount >= total
+        if isLast {
+            // 最終件は即時 flush してカウンタを確定させる
+            loadedThumbnailCount = pendingLoadedCount
+            statusMessage = String(format: String(localized: "Loading %d / %d"),
+                                   loadedThumbnailCount, total)
+            return
+        }
+        // 100ms coalesce: per-thumbnail での @Observable invalidation を 10 Hz に抑える
+        guard loadedCountFlushTask == nil else { return }
+        loadedCountFlushTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(100))
+            guard let self else { return }
+            loadedThumbnailCount = pendingLoadedCount
+            let n = loadedThumbnailCount
+            let t = orderedIDs.count
+            if n % 50 == 0 || n >= t {
+                statusMessage = String(format: String(localized: "Loading %d / %d"), n, t)
+            }
+            loadedCountFlushTask = nil
         }
     }
 
@@ -1586,10 +1599,15 @@ final class LibraryStore {
     }
 
     private func recomputeAggregates(reps: [UInt64], fast: Bool = false) {
-        availableExtensions = Array(Set(entries.values.map { $0.url.pathExtension.lowercased() }).filter { !$0.isEmpty }).sorted()
-        availableCameras = Array(Set(exifData.values.compactMap { $0.cameraName })).sorted()
-        availableLenses = Array(Set(exifData.values.compactMap { $0.lensName })).sorted()
-        availableArtists = Array(Set(exifData.values.compactMap { $0.artist })).sorted()
+        // 値が変わっていない場合は代入をスキップして @Observable invalidation を防ぐ
+        let newExt = Array(Set(entries.values.map { $0.url.pathExtension.lowercased() }).filter { !$0.isEmpty }).sorted()
+        if newExt != availableExtensions { availableExtensions = newExt }
+        let newCam = Array(Set(exifData.values.compactMap { $0.cameraName })).sorted()
+        if newCam != availableCameras { availableCameras = newCam }
+        let newLens = Array(Set(exifData.values.compactMap { $0.lensName })).sorted()
+        if newLens != availableLenses { availableLenses = newLens }
+        let newArt = Array(Set(exifData.values.compactMap { $0.artist })).sorted()
+        if newArt != availableArtists { availableArtists = newArt }
         // スキャン中はヒストグラムバケット計算をスキップ（スキャン完了後に 1 回フル計算する）
         if fast { return }
         isoBuckets = buildISOBuckets(ids: filteredIDsExcluding(.iso, from: reps))
@@ -1840,7 +1858,10 @@ final class LibraryStore {
                     await MainActor.run { [weak self] in
                         guard let self, lumGen == self.scanGeneration else { return }
                         luminanceScores.merge(computed) { _, new in new }
-                        scheduleRecomputeVisible(coalesceMs: 600)
+                        // luminance フィルターが有効なときのみ再計算（無効ならスキャン完了後に一括計算される）
+                        if filter.luminanceMin != "" || filter.luminanceMax != "" {
+                            scheduleRecomputeVisible(coalesceMs: 600)
+                        }
                     }
                 }
             }
@@ -2005,6 +2026,9 @@ final class LibraryStore {
         preScanTask?.cancel()
         preScanTask = nil
         loadedThumbnailCount = 0
+        pendingLoadedCount = 0
+        loadedCountFlushTask?.cancel()
+        loadedCountFlushTask = nil
         pendingThumbnails = [:]
         pendingExif = [:]
         pendingXmp = [:]
