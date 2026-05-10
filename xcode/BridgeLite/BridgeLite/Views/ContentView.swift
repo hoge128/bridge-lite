@@ -150,11 +150,19 @@ struct FolderView: View {
                             .keyboardShortcut("c", modifiers: .command)
                         Button("") { store.performUndo() }
                             .keyboardShortcut("z", modifiers: .command)
-                        Button("") {
-                            guard !isTextFieldActive() else { return }
-                            if !store.viewerMode { store.triggerDelete() }
+                        if store.settings.deleteShortcutKey == .delete {
+                            Button("") {
+                                guard !isTextFieldActive() else { return }
+                                if !store.viewerMode { store.triggerDelete() }
+                            }
+                            .keyboardShortcut(.delete, modifiers: [])
+                        } else {
+                            Button("") {
+                                guard !isTextFieldActive() else { return }
+                                if !store.viewerMode { store.triggerDelete() }
+                            }
+                            .keyboardShortcut(.delete, modifiers: .command)
                         }
-                        .keyboardShortcut(.delete, modifiers: [])
                         Button("") {
                             guard !isTextFieldActive() else { return }
                             if !store.viewerMode { store.triggerDelete() }

@@ -76,6 +76,13 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.radioGroup)
+                Picker(String(localized: "settings.shortcut.delete_key", defaultValue: "Delete Key"),
+                       selection: $settings.deleteShortcutKey) {
+                    ForEach(DeleteShortcutKey.allCases) { key in
+                        Text(key.localizedName).tag(key)
+                    }
+                }
+                .pickerStyle(.radioGroup)
             } header: {
                 Text(String(localized: "settings.shortcut.section", defaultValue: "Keyboard Shortcuts"))
             }

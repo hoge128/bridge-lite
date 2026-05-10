@@ -74,6 +74,20 @@ enum RatingShortcutModifier: String, CaseIterable, Identifiable {
     }
 }
 
+enum DeleteShortcutKey: String, CaseIterable, Identifiable {
+    case delete
+    case commandDelete
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .delete:        return String(localized: "shortcut.delete.plain",   defaultValue: "⌫ Delete")
+        case .commandDelete: return String(localized: "shortcut.delete.command", defaultValue: "⌘⌫ Command+Delete")
+        }
+    }
+}
+
 enum JpgWriteMode: String, CaseIterable, Identifiable {
     case embed, sidecar
 
@@ -186,6 +200,10 @@ final class SettingsStore {
     var ratingShortcutModifier: RatingShortcutModifier = (UserDefaults.standard.string(forKey: "ratingShortcutModifier")
                                                           .flatMap(RatingShortcutModifier.init(rawValue:))) ?? .none {
         didSet { UserDefaults.standard.set(ratingShortcutModifier.rawValue, forKey: "ratingShortcutModifier") }
+    }
+    var deleteShortcutKey: DeleteShortcutKey = (UserDefaults.standard.string(forKey: "deleteShortcutKey")
+                                                .flatMap(DeleteShortcutKey.init(rawValue:))) ?? .delete {
+        didSet { UserDefaults.standard.set(deleteShortcutKey.rawValue, forKey: "deleteShortcutKey") }
     }
     var filterSectionOrder: [FilterSection] = {
         guard let data = UserDefaults.standard.data(forKey: "filterSectionOrder"),

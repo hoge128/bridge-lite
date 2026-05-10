@@ -4333,6 +4333,54 @@
         }
       }
     },
+    "shortcut.delete.plain" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌫ Delete"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌫ Delete"
+          }
+        }
+      }
+    },
+    "shortcut.delete.command" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌘⌫ Command+Delete"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "⌘⌫ Command+Delete"
+          }
+        }
+      }
+    },
+    "settings.shortcut.delete_key" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Key"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "削除キー"
+          }
+        }
+      }
+    },
     "Show every file individually. Disables grouping and replaces the kind filter with an extension filter." : {
       "extractionState" : "stale",
       "localizations" : {
