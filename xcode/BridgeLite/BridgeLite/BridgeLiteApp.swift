@@ -88,7 +88,10 @@ struct BridgeLiteApp: App {
         }
     }()
 
-    init() { _ = Self._bootstrap }
+    init() {
+        _ = Self._bootstrap
+        _ = UpdaterController.shared
+    }
 
     var body: some Scene {
         WindowGroup(id: "main") {
@@ -138,6 +141,12 @@ struct BridgeLiteCommands: Commands {
         CommandGroup(replacing: .appInfo) {
             Button("About BridgeLite") {
                 openWindow(id: "about")
+            }
+        }
+        CommandGroup(after: .appInfo) {
+            Button(String(localized: "menu.check_for_updates",
+                          defaultValue: "Check for Updates…")) {
+                UpdaterController.shared.checkForUpdates()
             }
         }
         CommandGroup(replacing: .newItem) {

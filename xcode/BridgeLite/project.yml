@@ -1,4 +1,10 @@
 name: BridgeLite
+
+packages:
+  Sparkle:
+    url: https://github.com/sparkle-project/Sparkle
+    from: "2.8.0"
+
 options:
   bundleIdPrefix: io.github.bridge-lite
   deploymentTarget:
@@ -29,6 +35,9 @@ targets:
         HEADER_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/include
         SWIFT_OBJC_BRIDGING_HEADER: BridgeLite/BridgeLite-Bridging-Header.h
         EXCLUDED_ARCHS: x86_64
+    dependencies:
+      - package: Sparkle
+        product: Sparkle
     info:
       path: BridgeLite/Resources/Info.plist
       properties:
@@ -41,6 +50,12 @@ targets:
         # Finder の右クリック「このアプリケーションで開く」と Dock ドラッグで
         # フォルダを開けるようにするための公開ドキュメントタイプ宣言。
         # xcodegen が Info.plist を生成上書きするので、ここに含める必要がある。
+        SUFeedURL: "https://hoge128.github.io/bridge-lite/appcast.xml"
+        SUPublicEDKey: "aVwGOcsYTnZ/rchyd9K+ZRhph0Xy+oOtU4oa9S0ZwhI="
+        SUEnableInstallerLauncherService: true
+        SUEnableAutomaticChecks: true
+        SUScheduledCheckInterval: 86400
+        SUAllowsAutomaticUpdates: true
         CFBundleDocumentTypes:
           - CFBundleTypeName: Folder
             LSHandlerRank: Alternate

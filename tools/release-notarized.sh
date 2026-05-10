@@ -53,6 +53,32 @@ if ! echo "$ACTUAL_IDENTITY" | grep -q "Developer ID Application"; then
 fi
 echo "→ 署名 OK"
 
+# ─── Sparkle XPC ヘルパー署名確認 ────────────────────────────
+echo "→ Sparkle XPC ヘルパー署名を確認中..."
+SPARKLE_HELPERS=(
+    "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Downloader.xpc"
+    "Contents/Frameworks/Sparkle.framework/Versions/B/XPCServices/Installer.xpc"
+    "Contents/Frameworks/Sparkle.framework/Versions/B/Updater.app"
+    "Contents/Frameworks/Sparkle.framework/Versions/B/Autoupdate"
+)
+SPARKLE_FOUND=false
+for helper in "${SPARKLE_HELPERS[@]}"; do
+    target="$APP_PATH/$helper"
+    if [[ -e "$target" ]]; then
+        SPARKLE_FOUND=true
+        if ! codesign --verify --verbose=2 "$target" 2>&1 | grep -qE "valid on disk|satisfies"; then
+            echo "ERROR: $helper の署名が無効です。"
+            echo "Xcode の Distribute App → Developer ID → Export から取得した .app を使用してください。"
+            exit 1
+        fi
+    fi
+done
+if [[ "$SPARKLE_FOUND" == "true" ]]; then
+    echo "→ Sparkle ヘルパー署名 OK"
+else
+    echo "  (Sparkle.framework が見つかりません。Sparkle 未統合版のリリースです)"
+fi
+
 # ─── DMG 作成 ─────────────────────────────────────────────────
 DMG_NAME="BridgeLite-${VERSION}.dmg"
 DMG_DIR="$REPO_ROOT/dmgs"
