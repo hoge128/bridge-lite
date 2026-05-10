@@ -13,8 +13,14 @@ actor ConcurrencyLimiter {
 
     func run<T: Sendable>(_ work: @Sendable () async throws -> T) async throws -> T {
         try await acquire()
-        defer { Task { release() } }
-        return try await work()
+        do {
+            let result = try await work()
+            release()
+            return result
+        } catch {
+            release()
+            throw error
+        }
     }
 
     private func acquire() async throws {
