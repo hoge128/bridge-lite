@@ -21,6 +21,15 @@ UI 接点:
 - `BridgeLite` メニュー → `Check for Updates…` → `UpdaterController.shared.checkForUpdates()`
 - Settings → General → Updates セクション（トグル・Check Now・最終確認日時）
 
+## GitHub Pages の構成（重要）
+
+`hoge128/bridge-lite` の GitHub Pages は **`gh-pages` ブランチの root** から配信されている。
+`master` ブランチの `/docs` フォルダではない点に注意。
+
+- `appcast.xml` の公開 URL: `https://hoge128.github.io/bridge-lite/appcast.xml`
+- `appcast.xml` の管理: `docs/appcast.xml`（master ブランチ、記録用）と `gh-pages` root（本番配信）の 2 か所
+- `tools/release-appcast.sh` が `docs/appcast.xml` 生成後に自動で `gh-pages` へも push する
+
 ## ファイル構成（追加・変更分）
 
 ```
