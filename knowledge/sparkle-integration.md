@@ -121,40 +121,38 @@ chmod +x tools/sparkle/generate_appcast tools/sparkle/sign_update
 
 ## リリース運用フロー（毎リリース）
 
+**基本はマスタースクリプト一発で完結する:**
+
 ```bash
-# 1. バージョン更新
-# xcode/BridgeLite/project.yml の CFBundleShortVersionString / CFBundleVersion を更新
-# cd xcode/BridgeLite && xcodegen generate
-
-# 2. Xcode で Archive → Distribute App → Developer ID → Export
-#    → archive/<日時>/BridgeLite.app に出力される
-
-# 3. DMG ビルド + Notarize + Staple
-./tools/release-notarized.sh 0.4.0
-# → dmgs/BridgeLite-0.4.0.dmg が生成される
-
-# 4. リリースノートを用意
-mkdir -p docs/releases
-# docs/releases/0.4.0.html を作成（HTML 形式）
-
-# 5. appcast.xml を生成
-./tools/release-appcast.sh 0.4.0
-# → docs/appcast.xml が更新される
-
-# 6. GitHub Pages に push
-git add docs/appcast.xml docs/releases/0.4.0.html
-git commit -m "release: appcast for v0.4.0"
-git push
-
-# 7. GitHub Releases に DMG をアップロード
-gh release create v0.4.0 \
-  ./dmgs/BridgeLite-0.4.0.dmg \
-  ./dmgs/BridgeLite-0.4.0.dmg.sha256 \
-  --notes "$(cat docs/releases/0.4.0.html)"
+./tools/do-release.sh 0.4.0
 ```
 
-**順序が重要**: GitHub Releases への DMG アップロード（step 7）より前に GitHub Pages の appcast.xml を push（step 6）すること。  
-Sparkle が appcast を取得したとき、enclosure URL の DMG が 404 だと「アップデートを見つけたがダウンロードできない」状態になる。
+スクリプトは以下を自動化し、Xcode 操作が必要な箇所だけ一時停止して案内する:
+
+| ステップ | 操作 | 自動/手動 |
+|---|---|---|
+| 1 | バージョン更新 + xcodegen (`bump-version.sh`) | 自動 |
+| 2 | Xcode で ⌘B（ビルド確認） | **手動** |
+| 3 | Xcode で Archive → Developer ID → Export | **手動** |
+| 4 | DMG 作成・Notarization・Staple (`release-notarized.sh`) | 自動（数分） |
+| 5 | appcast.xml 生成・gh-pages push (`release-appcast.sh`) | 自動 |
+| 6 | GitHub Releases に DMG アップロード | 自動 |
+| 7 | master ブランチに commit & push | 自動 |
+
+**リリースノートを事前に用意する場合:**
+
+```bash
+mkdir -p docs/releases
+# docs/releases/0.4.0.html を作成してから do-release.sh を実行
+# → 未作成の場合はスクリプトが空テンプレートを生成する
+```
+
+**バージョン管理の唯一の真実: `xcode/BridgeLite/project.yml`**
+
+- `CFBundleShortVersionString` = ユーザーに見えるバージョン
+- `CFBundleVersion` = Sparkle が更新判定に使うビルド番号（単調増加）
+- `Info.plist` は xcodegen の生成物なので直接触らない
+- `bump-version.sh` が `project.yml` 更新 + `xcodegen generate` を一括実行
 
 ## テスト手順
 
