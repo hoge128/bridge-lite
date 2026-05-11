@@ -201,9 +201,9 @@ struct CalendarPickerView: View {
                     f.dateMax = isoDay
                     rangeAnchor = nil
                 } else {
-                    f.dateMax = isoFmt.string(from: anchor)
-                    f.dateMin = isoDay
-                    rangeAnchor = nil
+                    // anchor より前の日付は新しい開始日として設定し直す
+                    f.dateMin = isoDay; f.dateMax = ""
+                    rangeAnchor = dayDate
                 }
             } else {
                 f.dateMin = isoDay; f.dateMax = ""
@@ -533,14 +533,16 @@ private struct RangeDropZone: View {
         var f = filter
         if slot == .from {
             f.dateMin = str
-            if !f.dateMax.isEmpty, let max = isoFmt.date(from: f.dateMax), date > max {
-                swap(&f.dateMin, &f.dateMax)
+            // 新しい開始日が終了日以降なら終了日をクリア
+            if let max = isoFmt.date(from: f.dateMax), date >= max {
+                f.dateMax = ""
             }
         } else {
-            f.dateMax = str
-            if !f.dateMin.isEmpty, let min = isoFmt.date(from: f.dateMin), date < min {
-                swap(&f.dateMin, &f.dateMax)
+            // 終了日は開始日より後の日付のみ受け付ける
+            if !f.dateMin.isEmpty, let min = isoFmt.date(from: f.dateMin), date <= min {
+                return
             }
+            f.dateMax = str
         }
         filter = f
     }
@@ -594,8 +596,20 @@ private struct DropSlot: View {
             : String(localized: "range.drop.to",   defaultValue: "To")
     }
 
+    private var displayText: String {
+        guard let value else { return placeholder }
+        if slot == .from {
+            let parts = value.split(separator: "-")
+            if parts.count == 3 {
+                return "\(parts[0])\n\(parts[1])-\(parts[2])"
+            }
+        }
+        return value
+    }
+
     var body: some View {
-        Text(value ?? placeholder)
+        Text(displayText)
+            .multilineTextAlignment(.center)
             .font(.system(size: compact ? 9 : 11, weight: value != nil ? .medium : .regular))
             .foregroundStyle(value != nil ? Color.primary : Color.secondary)
             .padding(.horizontal, compact ? 6 : 8)
@@ -638,3 +652,4 @@ private struct DayInteractionModifier: ViewModifier {
         }
     }
 }
+
