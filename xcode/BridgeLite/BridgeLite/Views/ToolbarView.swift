@@ -234,10 +234,32 @@ struct ToolbarView: ToolbarContent {
                       : String(localized: "Descending"))
                 .onChange(of: settings.sortAscending) { store.applyOrder() }
 
+                CalendarToolbarButton()
+
                 Toggle(isOn: $store.showSidebar) {
                     Label("Metadata", systemImage: "sidebar.right")
                 }
             }
+        }
+    }
+}
+
+// MARK: -
+
+private struct CalendarToolbarButton: View {
+    @State private var showingPopover = false
+
+    var body: some View {
+        Button {
+            showingPopover.toggle()
+        } label: {
+            Image(systemName: "calendar")
+        }
+        .help(String(localized: "Expand calendar"))
+        .popover(isPresented: $showingPopover, arrowEdge: .bottom) {
+            CalendarPickerView(scale: .expanded)
+                .padding(12)
+                .frame(width: 300)
         }
     }
 }

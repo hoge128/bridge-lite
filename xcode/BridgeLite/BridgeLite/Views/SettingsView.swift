@@ -104,6 +104,15 @@ struct SettingsView: View {
                 Text("Drag rows to reorder filter sections in the sidebar.")
                     .font(.caption2)
                     .foregroundStyle(.secondary)
+                Stepper(value: $settings.calendarMaxMonths, in: 1...24, step: 1) {
+                    LabeledContent(
+                        String(localized: "settings.calendar.max_months",
+                               defaultValue: "Calendar Month Limit")
+                    ) {
+                        Text("\(settings.calendarMaxMonths)")
+                            .foregroundStyle(.secondary)
+                    }
+                }
             } header: {
                 Text("Filter Panel")
             }

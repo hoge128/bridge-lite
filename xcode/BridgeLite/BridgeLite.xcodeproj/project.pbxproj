@@ -19,6 +19,10 @@
 		35EC070FBDA487AA56355519 /* ZoomableImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 967747AA45B0717E1ABB3BC8 /* ZoomableImage.swift */; };
 		39AE66ED4011C68812AED891 /* Help.md in Resources */ = {isa = PBXBuildFile; fileRef = 378A4578CCFA7628D5DBDC95 /* Help.md */; };
 		3C455A207919FF49AB0272DE /* GroupCompareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6719A1E8E79428CC067F6086 /* GroupCompareView.swift */; };
+		ABFA42DB83664A928958F995 /* CalendarPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408767782CEC40C5AB818F9D /* CalendarPickerView.swift */; };
+		89BEC3960ED843B9A9D15208 /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4F3FD06CE945189A9D6EF3 /* CalendarDayCell.swift */; };
+		E9340B00DE5947FA94DEAC59 /* DatePresetChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794281FB02CE4FA78C4B9197 /* DatePresetChips.swift */; };
+		B9D35B777C38430D85128945 /* DateModeToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE726B2189A44DED83FE6701 /* DateModeToggle.swift */; };
 		3D9618AA9A9F30F68301F355 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1C59E59994061A04481C6A6A /* Localizable.xcstrings */; };
 		3ECF458059E0E92F6318ABA0 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F0D4EF54B7033D13443243 /* SidebarView.swift */; };
 		46298ED8412E1E06AADF32B2 /* FilterCriteria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */; };
@@ -66,6 +70,10 @@
 		15664F7FA303F94AF6538F3E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		1C59E59994061A04481C6A6A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridView.swift; sourceTree = "<group>"; };
+		408767782CEC40C5AB818F9D /* CalendarPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPickerView.swift; sourceTree = "<group>"; };
+		CC4F3FD06CE945189A9D6EF3 /* CalendarDayCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDayCell.swift; sourceTree = "<group>"; };
+		794281FB02CE4FA78C4B9197 /* DatePresetChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatePresetChips.swift; sourceTree = "<group>"; };
+		DE726B2189A44DED83FE6701 /* DateModeToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateModeToggle.swift; sourceTree = "<group>"; };
 		2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "bridge-ffi.swift"; sourceTree = "<group>"; };
 		30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftBridgeCore.swift; sourceTree = "<group>"; };
@@ -259,7 +267,11 @@
 			isa = PBXGroup;
 			children = (
 				A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */,
+				408767782CEC40C5AB818F9D /* CalendarPickerView.swift */,
+				CC4F3FD06CE945189A9D6EF3 /* CalendarDayCell.swift */,
 				2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */,
+				DE726B2189A44DED83FE6701 /* DateModeToggle.swift */,
+				794281FB02CE4FA78C4B9197 /* DatePresetChips.swift */,
 				8897A02D7131985030D5B46D /* ExifHistogramView.swift */,
 				449E124463D6E6D28958EBE9 /* FilterPanelView.swift */,
 				6719A1E8E79428CC067F6086 /* GroupCompareView.swift */,
@@ -364,6 +376,10 @@
 			buildActionMask = 2147483647;
 			files = (
 				F049B58AD623462639BFDA52 /* AboutView.swift in Sources */,
+				ABFA42DB83664A928958F995 /* CalendarPickerView.swift in Sources */,
+				89BEC3960ED843B9A9D15208 /* CalendarDayCell.swift in Sources */,
+				B9D35B777C38430D85128945 /* DateModeToggle.swift in Sources */,
+				E9340B00DE5947FA94DEAC59 /* DatePresetChips.swift in Sources */,
 				757F65595D73658FC438F522 /* BridgeCore.swift in Sources */,
 				C5E75A4F20CD758BDD8C2EFC /* BridgeLiteApp.swift in Sources */,
 				20FA827723A350BA5FA21B62 /* ConcurrencyLimiter.swift in Sources */,

@@ -213,6 +213,12 @@ final class SettingsStore {
                                                 .flatMap(DeleteShortcutKey.init(rawValue:))) ?? .delete {
         didSet { UserDefaults.standard.set(deleteShortcutKey.rawValue, forKey: "deleteShortcutKey") }
     }
+    var calendarMaxMonths: Int = {
+        let v = UserDefaults.standard.integer(forKey: "calendarMaxMonths")
+        return v > 0 ? v : 5
+    }() {
+        didSet { UserDefaults.standard.set(calendarMaxMonths, forKey: "calendarMaxMonths") }
+    }
     var filterSectionOrder: [FilterSection] = {
         guard let data = UserDefaults.standard.data(forKey: "filterSectionOrder"),
               let saved = try? JSONDecoder().decode([FilterSection].self, from: data),

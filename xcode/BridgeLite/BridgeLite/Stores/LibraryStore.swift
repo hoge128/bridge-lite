@@ -1517,6 +1517,8 @@ final class LibraryStore {
     private(set) var apertureBuckets: [ExifBucket] = []
     private(set) var dateBuckets: [ExifBucket] = []
     private(set) var luminanceBuckets: [ExifBucket] = []
+    private(set) var photosPerDay: [Date: Int] = [:]      // startOfDay → count (カレンダー表示用)
+    private(set) var datasetInterval: DateInterval?       // 全エントリの最古〜最新撮影日
 
     // 輝度スコア（0–255）— サムネイル到着後にバックグラウンド計算
     private(set) var luminanceScores: [UInt64: Int] = [:]
@@ -1588,7 +1590,7 @@ final class LibraryStore {
         case .focal:     f.focalMin = "";     f.focalMax = ""
         case .shutter:   f.shutterMin = "";   f.shutterMax = ""
         case .aperture:  f.apertureMin = "";  f.apertureMax = ""
-        case .date:      f.dateMin = "";      f.dateMax = ""
+        case .date:      f.dateMin = "";      f.dateMax = "";    f.dateAllowList = []
         case .luminance: f.luminanceMin = ""; f.luminanceMax = ""
         }
         guard f.isActive else { return reps }
@@ -1616,6 +1618,34 @@ final class LibraryStore {
         apertureBuckets = buildApertureBuckets(ids: filteredIDsExcluding(.aperture, from: reps))
         dateBuckets = buildDateBuckets(ids: filteredIDsExcluding(.date, from: reps))
         luminanceBuckets = buildLuminanceBuckets(ids: filteredIDsExcluding(.luminance, from: reps))
+        let (newPhotosPerDay, newDatasetInterval) = buildCalendarData(
+            filteredIDs: filteredIDsExcluding(.date, from: reps),
+            allIDs: orderedIDs
+        )
+        if newPhotosPerDay != photosPerDay { photosPerDay = newPhotosPerDay }
+        if newDatasetInterval != datasetInterval { datasetInterval = newDatasetInterval }
+    }
+
+    private func buildCalendarData(filteredIDs: [UInt64], allIDs: [UInt64]) -> ([Date: Int], DateInterval?) {
+        let cal = Calendar.current
+        var perDay: [Date: Int] = [:]
+        for id in filteredIDs {
+            let d = photoDate(for: id)
+            guard d != .distantPast else { continue }
+            perDay[cal.startOfDay(for: d), default: 0] += 1
+        }
+        var minDate: Date? = nil
+        var maxDate: Date? = nil
+        for id in allIDs {
+            let d = photoDate(for: id)
+            guard d != .distantPast else { continue }
+            if minDate == nil || d < minDate! { minDate = d }
+            if maxDate == nil || d > maxDate! { maxDate = d }
+        }
+        let interval: DateInterval? = if let lo = minDate, let hi = maxDate {
+            DateInterval(start: lo, end: hi)
+        } else { nil }
+        return (perDay, interval)
     }
 
     private func buildISOBuckets(ids: [UInt64]) -> [ExifBucket] {

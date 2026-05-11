@@ -1,5 +1,9 @@
 import Foundation
 
+enum DateMode: String, Codable, Equatable, Sendable {
+    case range, multi
+}
+
 enum PhotoKind: Sendable, Hashable, CaseIterable {
     case raw, sooc, developed, indeterminate
 }
@@ -48,6 +52,8 @@ struct FilterCriteria: Sendable, Equatable {
     var apertureMax: String = ""
     var dateMin: String = ""
     var dateMax: String = ""
+    var dateMode: DateMode = .range
+    var dateAllowList: Set<String> = []   // ISO yyyy-MM-dd (Multi モード時のみ)
     var luminanceMin: String = ""
     var luminanceMax: String = ""
     var filterRatings: Set<Int> = []
@@ -64,7 +70,7 @@ struct FilterCriteria: Sendable, Equatable {
         !focalMin.isEmpty || !focalMax.isEmpty ||
         !shutterMin.isEmpty || !shutterMax.isEmpty ||
         !apertureMin.isEmpty || !apertureMax.isEmpty ||
-        !dateMin.isEmpty || !dateMax.isEmpty ||
+        !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty ||
         !luminanceMin.isEmpty || !luminanceMax.isEmpty ||
         !filterRatings.isEmpty || !filterLabels.isEmpty ||
         !filterKinds.isEmpty || cameraOnly || flatten || !excludedExtensions.isEmpty ||
@@ -121,14 +127,23 @@ struct FilterCriteria: Sendable, Equatable {
             if let max = Double(apertureMax), aperture > max { return false }
         }
         // Date filter — EXIF datetime preferred, fallback to file creation date
-        if !dateMin.isEmpty || !dateMax.isEmpty {
-            let photoDate: Date? = exif?.datetime.flatMap(parseExifDate) ?? entry.createdDate
-            if let date = photoDate {
-                if let from = parseISODate(dateMin), date < from { return false }
-                if let to = parseISODate(dateMax) {
-                    let endOfDay = Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: to) ?? to
-                    if date > endOfDay { return false }
+        switch dateMode {
+        case .range:
+            if !dateMin.isEmpty || !dateMax.isEmpty {
+                let photoDate: Date? = exif?.datetime.flatMap(parseExifDate) ?? entry.createdDate
+                if let date = photoDate {
+                    if let from = parseISODate(dateMin), date < from { return false }
+                    if let to = parseISODate(dateMax) {
+                        let endOfDay = Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: to) ?? to
+                        if date > endOfDay { return false }
+                    }
                 }
+            }
+        case .multi:
+            if !dateAllowList.isEmpty {
+                let photoDate: Date? = exif?.datetime.flatMap(parseExifDate) ?? entry.createdDate
+                guard let date = photoDate else { return false }
+                if !dateAllowList.contains(Self.isoDateFormatter.string(from: date)) { return false }
             }
         }
         // Rating filter
@@ -168,18 +183,26 @@ struct FilterCriteria: Sendable, Equatable {
 
     // EXIF datetime: "2024:01:15 10:30:00"
     private func parseExifDate(_ s: String) -> Date? {
-        let f = DateFormatter()
-        f.locale = Locale(identifier: "en_US_POSIX")
-        f.dateFormat = "yyyy:MM:dd HH:mm:ss"
-        return f.date(from: s)
+        Self.exifDateFormatter.date(from: s)
     }
 
     // ISO date: "2024-01-15"
     private func parseISODate(_ s: String) -> Date? {
         guard !s.isEmpty else { return nil }
+        return Self.isoDateFormatter.date(from: s)
+    }
+
+    private static let exifDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        return f
+    }()
+
+    static let isoDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
-        return f.date(from: s)
-    }
+        return f
+    }()
 }

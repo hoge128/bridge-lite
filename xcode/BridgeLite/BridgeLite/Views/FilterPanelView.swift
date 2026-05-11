@@ -406,7 +406,8 @@ struct FilterPanelView: View {
         case .date:
             GroupBox {
                 DisclosureGroup(isExpanded: $dateExpanded) {
-                    ExifHistogramView(bars: store.dateBuckets, minText: filter.dateMin, maxText: filter.dateMax)
+                    CalendarPickerView(scale: .compact)
+                        .padding(.top, 4)
                 } label: {
                     Button { dateExpanded.toggle() } label: {
                         Text("Date")
@@ -414,7 +415,7 @@ struct FilterPanelView: View {
                             .foregroundStyle(.secondary).textCase(.uppercase)
                     }
                     .buttonStyle(.plain)
-                    .help("Filter by shooting date. Within 14 days = daily buckets, otherwise monthly")
+                    .help("Filter by shooting date. Click presets or tap calendar days to select a range or individual dates.")
                 }
             }
 
