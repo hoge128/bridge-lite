@@ -641,6 +641,10 @@ final class LibraryStore {
     }
 
     private func applyRemovalToStore(_ ids: Set<UInt64>) {
+        // 削除前にソート順を保存（直前の生存者を探すために使う）
+        let oldVisible = visibleIDs
+        let minDeletedIdx = oldVisible.firstIndex(where: { ids.contains($0) })
+
         for id in ids {
             entries.removeValue(forKey: id)
             thumbnailBlobs.removeValue(forKey: id)
@@ -658,7 +662,27 @@ final class LibraryStore {
         }
         shotGroups = newGroups
         recomputeVisible()
-        deselectAll()
+
+        if let minIdx = minDeletedIdx,
+           let target = focusTargetAfterDeletion(oldVisible: oldVisible, minDeletedIdx: minIdx) {
+            selectEntry(target)
+        } else {
+            deselectAll()
+        }
+    }
+
+    // 削除後に移るべきフォーカス先: 削除塊の直前から後方に遡り、なければ直後に進む
+    private func focusTargetAfterDeletion(oldVisible: [UInt64], minDeletedIdx: Int) -> UInt64? {
+        let surviving = Set(visibleIDs)
+        if minDeletedIdx > 0 {
+            for i in stride(from: minDeletedIdx - 1, through: 0, by: -1) {
+                if surviving.contains(oldVisible[i]) { return oldVisible[i] }
+            }
+        }
+        for i in minDeletedIdx..<oldVisible.count {
+            if surviving.contains(oldVisible[i]) { return oldVisible[i] }
+        }
+        return nil
     }
 
     @discardableResult
