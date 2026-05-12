@@ -131,6 +131,7 @@ struct ViewerView: View {
             .onContinuousHover { phase in
                 handleInfoHover(phase: phase, size: geo.size)
             }
+            .contextMenu { viewerContextMenu }
         }
         .animation(.easeInOut(duration: 0.15), value: store.viewerShowsMeta)
         .background(WindowAccessor(window: Binding(
@@ -247,6 +248,62 @@ struct ViewerView: View {
             infoHideTask?.cancel()
             infoHideTask = nil
             showInfoButton = false
+        }
+    }
+
+    @ViewBuilder
+    private var viewerContextMenu: some View {
+        if let entry = selectedEntry {
+            Button(String(localized: "Copy")) {
+                store.triggerCopy()
+            }
+            Button(String(localized: "Show in Finder")) {
+                NSWorkspace.shared.activateFileViewerSelecting([entry.url])
+            }
+            OpenWithMenu(targetURLs: [entry.url], primaryURL: entry.url)
+
+            Divider()
+
+            Button(store.viewerShowsMeta
+                   ? String(localized: "viewer.context.hide_details", defaultValue: "Hide Details")
+                   : String(localized: "viewer.context.show_details", defaultValue: "Show Details")) {
+                store.viewerShowsMeta.toggle()
+            }
+
+            Divider()
+
+            Menu(String(localized: "Rating")) {
+                Button(String(localized: "No Rating")) { store.triggerRating(0) }
+                ForEach(1...5, id: \.self) { n in
+                    Button(String(repeating: "★", count: n)) { store.triggerRating(n) }
+                }
+            }
+            Menu(String(localized: "Label")) {
+                ForEach(XmpLabel.allCases, id: \.rawValue) { label in
+                    Button(label.name) { store.applyLabel(label.rawValue) }
+                }
+                Divider()
+                Button(String(localized: "Clear Label")) {
+                    if let current = xmp?.label { store.applyLabel(current.rawValue) }
+                }
+            }
+
+            Divider()
+
+            Button(String(localized: "viewer.context.move_to_compare",
+                          defaultValue: "Move to Compare")) {
+                store.compareAnchorID = entry.id
+                store.viewerMode = false
+                store.compareMode = true
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                store.triggerDelete()
+            } label: {
+                Text(String(localized: "Move to Trash"))
+            }
         }
     }
 
