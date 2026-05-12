@@ -468,6 +468,23 @@ private struct CompareMemberColumn: View {
                         .help(showRendered
                               ? String(localized: "render.toggle.embedded", defaultValue: "Show embedded preview")
                               : String(localized: "render.toggle.rendered", defaultValue: "Show rendered preview"))
+                    } else if !isLimitedRawPreview {
+                        Button {
+                            triggerRender()
+                        } label: {
+                            HStack(spacing: 4) {
+                                Image(systemName: "wand.and.stars")
+                                    .font(.system(size: 9, weight: .semibold))
+                                Text(String(localized: "render.badge.embedded", defaultValue: "Embedded"))
+                                    .font(.system(size: 10, weight: .semibold))
+                            }
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
+                        }
+                        .buttonStyle(.plain)
+                        .help(String(localized: "render.button", defaultValue: "Render with engine"))
                     }
                 }
                 .padding(8)
@@ -502,6 +519,18 @@ private struct CompareMemberColumn: View {
     private func applyRating(_ n: Int) {
         store.selectEntry(memberID)
         store.applyRating(n)
+    }
+
+    private func triggerRender() {
+        guard let entry, let db = store.cacheDatabase, !isLimitedRawPreview else { return }
+        Task {
+            isRendering = true
+            defer { isRendering = false }
+            rawRendered = await RAWRenderPipeline.shared.render(
+                url: entry.url, target: .compare, db: db
+            )
+            if rawRendered != nil { showRendered = true }
+        }
     }
 }
 

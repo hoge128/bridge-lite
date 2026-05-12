@@ -179,6 +179,11 @@ final class SettingsStore {
             UserDefaults.standard.set(false, forKey: "autoRenderRawCompare")
             UserDefaults.standard.set(true, forKey: "autoRenderRawSidebarMigrated_v1")
         }
+        // e8e6e6f の緩和修正後、Compare のみ再度デフォルト ON に戻す（Sidebar は引き続き手動）
+        if !UserDefaults.standard.bool(forKey: "autoRenderRawCompareMigrated_v2") {
+            UserDefaults.standard.set(true, forKey: "autoRenderRawCompare")
+            UserDefaults.standard.set(true, forKey: "autoRenderRawCompareMigrated_v2")
+        }
     }
 
     var language: String = UserDefaults.standard.string(forKey: "language") ?? "en" {
@@ -354,7 +359,7 @@ final class SettingsStore {
     var autoRenderRawThumbnails: Bool = bool("autoRenderRawThumbnails", default: false) {
         didSet { UserDefaults.standard.set(autoRenderRawThumbnails, forKey: "autoRenderRawThumbnails") }
     }
-    var autoRenderRawCompare: Bool = bool("autoRenderRawCompare", default: false) {
+    var autoRenderRawCompare: Bool = bool("autoRenderRawCompare", default: true) {
         didSet { UserDefaults.standard.set(autoRenderRawCompare, forKey: "autoRenderRawCompare") }
     }
     var autoRenderRawSidebar: Bool = bool("autoRenderRawSidebar", default: false) {

@@ -97,6 +97,10 @@ struct SidebarView: View {
         store.selectedID.flatMap { store.entries[$0] }
     }
 
+    private var isLimitedRawPreview: Bool {
+        selectedEntry?.url.pathExtension.lowercased() == "cr2"
+    }
+
     var body: some View {
         Group {
             if let entry = selectedEntry {
@@ -239,11 +243,37 @@ struct SidebarView: View {
                 }
                 .buttonStyle(.borderless)
                 .foregroundStyle(.secondary)
+            } else if !isLimitedRawPreview {
+                Button {
+                    triggerRender(entry: entry)
+                } label: {
+                    Image(systemName: "wand.and.stars")
+                        .font(.caption)
+                    Text(String(localized: "render.badge.embedded", defaultValue: "Embedded"))
+                        .font(.caption2)
+                }
+                .buttonStyle(.borderless)
+                .foregroundStyle(.secondary)
+                .help(String(localized: "render.button", defaultValue: "Render with engine"))
             }
             Spacer()
         }
         .padding(.horizontal, 8)
         .padding(.vertical, 4)
+    }
+
+    private func triggerRender(entry: PhotoEntry) {
+        guard let db = store.cacheDatabase else { return }
+        Task {
+            isRendering = true
+            defer { isRendering = false }
+            if let (img, _) = await RAWRenderPipeline.shared.render(
+                url: entry.url, target: .sidebar, db: db
+            ) {
+                rawRendered = img
+                showRendered = true
+            }
+        }
     }
 
     private static func extractGPS(url: URL) async -> (lat: Double, lon: Double, alt: Double?)? {
