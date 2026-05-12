@@ -5083,6 +5083,22 @@
         }
       }
     },
+    "thumbnail.context.move_to_viewer" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Move to Viewer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "単体ビューに移動"
+          }
+        }
+      }
+    },
     "viewer.context.hide_details" : {
       "localizations" : {
         "en" : {

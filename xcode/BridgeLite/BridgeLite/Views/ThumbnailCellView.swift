@@ -221,6 +221,21 @@ struct ThumbnailCellView: View {
 
         Divider()
 
+        Button(String(localized: "viewer.context.move_to_compare",
+                      defaultValue: "Move to Compare")) {
+            store.selectEntry(entry.id)
+            store.compareAnchorID = entry.id
+            store.compareMode = true
+        }
+
+        Button(String(localized: "thumbnail.context.move_to_viewer",
+                      defaultValue: "Move to Viewer")) {
+            store.selectEntry(entry.id)
+            store.viewerMode = true
+        }
+
+        Divider()
+
         Button(role: .destructive) {
             if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
             store.triggerDelete()
