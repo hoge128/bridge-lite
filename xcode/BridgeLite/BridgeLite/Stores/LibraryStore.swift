@@ -47,6 +47,7 @@ final class LibraryStore {
     private var preSearchFlatten: Bool?
 
     private(set) var visibleIDs: [UInt64] = []
+    private(set) var ratingCounts: [Int: Int] = [0:0, 1:0, 2:0, 3:0, 4:0, 5:0]
     var statusMessage: String = ""
     var isLoading: Bool = false
     var depthExceeded: Bool = false
@@ -1214,12 +1215,13 @@ final class LibraryStore {
         var sorted: Bool = true
         var daily: Bool = true
         var aggregates: Bool = true
+        var ratingCounts: Bool = true
     }
 
     // 指定したフラグと、その下流フラグをすべて立てる。
     private func mark(reps: Bool = false, filtered: Bool = false, sorted: Bool = false, daily: Bool = false, aggregates: Bool = false) {
         if reps      { dirty.reps      = true }
-        if reps || filtered            { dirty.filtered   = true; dirty.aggregates = true }
+        if reps || filtered            { dirty.filtered   = true; dirty.aggregates = true; dirty.ratingCounts = true }
         if reps || filtered || sorted  { dirty.sorted     = true; dirty.daily      = true }
         if daily     { dirty.daily      = true }
         if aggregates { dirty.aggregates = true }
@@ -1230,6 +1232,7 @@ final class LibraryStore {
     private func runDirtyStages() {
         runStageReps()
         runStageFiltered()
+        runStageRatingCounts()
         runStageSorted()
         runStageDaily()
         runStageAggregates()
@@ -1263,6 +1266,30 @@ final class LibraryStore {
             }
         }
         dirty.filtered = false
+    }
+
+    // S2.5: 星フィルタ以外の条件で絞った母集団から星ごとの件数を集計する（ファセットカウント）。
+    // filterRatings だけを無視するため、星フィルタの ON/OFF に関わらず件数は不変。
+    private func runStageRatingCounts() {
+        guard dirty.ratingCounts else { return }
+        var f = filter
+        f.filterRatings = []
+        let pool: [UInt64]
+        if !f.isActive {
+            pool = cachedRepsOrdered
+        } else {
+            pool = cachedRepsOrdered.filter { id in
+                guard let entry = entries[id] else { return false }
+                return f.matches(entry: entry, exif: exifData[id], xmp: xmpData[id], luminance: luminanceScores[id])
+            }
+        }
+        var counts: [Int: Int] = [0:0, 1:0, 2:0, 3:0, 4:0, 5:0]
+        for id in pool {
+            let r = max(0, min(5, xmpData[id]?.rating ?? 0))
+            counts[r, default: 0] += 1
+        }
+        if counts != ratingCounts { ratingCounts = counts }
+        dirty.ratingCounts = false
     }
 
     // S3: フィルタ済みエントリをソートして visibleIDs に反映する。

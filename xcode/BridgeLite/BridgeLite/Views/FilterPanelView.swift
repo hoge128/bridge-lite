@@ -277,7 +277,15 @@ struct FilterPanelView: View {
                                 if on { f.filterRatings.insert(0) } else { f.filterRatings.remove(0) }
                                 filter.wrappedValue = f
                             }
-                        )) { Text("No Rating").font(.caption) }
+                        )) {
+                            HStack(spacing: 4) {
+                                Text("No Rating").font(.caption)
+                                Text("(\(store.ratingCounts[0] ?? 0))")
+                                    .font(.caption)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
+                        }
                         .toggleStyle(.checkbox)
 
                         ForEach(1...5, id: \.self) { n in
@@ -289,7 +297,13 @@ struct FilterPanelView: View {
                                     filter.wrappedValue = f
                                 }
                             )) {
-                                Text(String(repeating: "★", count: n)).font(.caption)
+                                HStack(spacing: 4) {
+                                    Text(String(repeating: "★", count: n)).font(.caption)
+                                    Text("(\(store.ratingCounts[n] ?? 0))")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                        .monospacedDigit()
+                                }
                             }
                             .toggleStyle(.checkbox)
                         }
