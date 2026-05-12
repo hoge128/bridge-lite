@@ -335,6 +335,7 @@ private struct CompareMemberColumn: View {
 
             ratingRow
         }
+        .contextMenu { compareContextMenu }
         .task(id: memberID) {
             previewImage = nil
             rawRendered = nil
@@ -355,6 +356,73 @@ private struct CompareMemberColumn: View {
                     url: entry.url, target: .compare, db: db
                 )
                 if rawRendered != nil { showRendered = true }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var compareContextMenu: some View {
+        if let entry {
+            Button(String(localized: "Copy")) {
+                store.selectEntry(memberID)
+                store.triggerCopy()
+            }
+            Button(String(localized: "Show in Finder")) {
+                NSWorkspace.shared.activateFileViewerSelecting([entry.url])
+            }
+            OpenWithMenu(targetURLs: [entry.url], primaryURL: entry.url)
+
+            Divider()
+
+            Menu(String(localized: "Rating")) {
+                Button(String(localized: "No Rating")) {
+                    store.selectEntry(memberID)
+                    store.triggerRating(0)
+                }
+                ForEach(1...5, id: \.self) { n in
+                    Button(String(repeating: "★", count: n)) {
+                        store.selectEntry(memberID)
+                        store.triggerRating(n)
+                    }
+                }
+            }
+            Menu(String(localized: "Label")) {
+                ForEach(XmpLabel.allCases, id: \.rawValue) { label in
+                    Button(label.name) {
+                        store.selectEntry(memberID)
+                        store.applyLabel(label.rawValue)
+                    }
+                }
+                Divider()
+                Button(String(localized: "Clear Label")) {
+                    store.selectEntry(memberID)
+                    if let current = xmp?.label { store.applyLabel(current.rawValue) }
+                }
+            }
+
+            Divider()
+
+            Button(String(localized: "thumbnail.context.move_to_viewer",
+                          defaultValue: "Move to Viewer")) {
+                store.selectEntry(memberID)
+                store.viewerMode = true
+            }
+
+            Divider()
+
+            Button(String(localized: "compare.context.back_to_grid",
+                          defaultValue: "Back to Grid")) {
+                store.selectEntry(memberID)
+                store.compareMode = false
+            }
+
+            Divider()
+
+            Button(role: .destructive) {
+                store.selectEntry(memberID)
+                store.triggerDelete()
+            } label: {
+                Text(String(localized: "Move to Trash"))
             }
         }
     }
