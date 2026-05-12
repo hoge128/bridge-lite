@@ -209,6 +209,7 @@ struct ThumbnailGridView: View {
             .onAppear { store.gridColumnCount = cols }
             .onChange(of: cols) { _, newCols in store.gridColumnCount = newCols }
         }
+        .id(store.scanGeneration)
     }
 
     // MARK: - Daily grid (grouped by shooting date)
@@ -250,6 +251,7 @@ struct ThumbnailGridView: View {
             }
             .onChange(of: cols) { _, c in store.gridColumnCount = c }
         }
+        .id(store.scanGeneration)
     }
 
 }
@@ -379,4 +381,3 @@ private struct FolderDropTargetView: NSViewRepresentable {
         }
     }
 }
-

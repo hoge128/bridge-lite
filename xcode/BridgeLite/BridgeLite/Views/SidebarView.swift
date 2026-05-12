@@ -219,6 +219,15 @@ struct SidebarView: View {
             }
         }
         .frame(minWidth: 260)
+        .onChange(of: store.currentDirectoryURL) { _, _ in
+            highResPreview = nil
+            rgbHistogram = .empty
+            gpsCoordinate = nil
+            rawRendered = nil
+            showRendered = false
+            isRendering = false
+            lastPreviewTap = nil
+        }
     }
 
     @ViewBuilder

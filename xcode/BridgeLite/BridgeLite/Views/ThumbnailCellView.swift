@@ -66,24 +66,7 @@ struct ThumbnailCellView: View {
             }
             .frame(width: cellSize)
         }
-        .onAppear {
-            let id = entry.id
-            let url = entry.url
-            let orient: Image.Orientation = entry.isRaw ? (store.thumbnailOrientations[id] ?? .up) : .up
-            thumbnailOrientation = orient
-            if let cached = ThumbnailDecodeCache.shared.peek(url: url) {
-                thumbnail = cached
-            } else if let blob = store.thumbnailBlobs[id] {
-                Task { @MainActor in
-                    let decoded = await Task.detached(priority: .userInitiated) {
-                        ThumbnailDecodeCache.shared.decode(url: url, blob: blob)
-                    }.value
-                    thumbnail = decoded
-                }
-            }
-            xmp = store.xmpData[id]
-            exif = store.exifData[id]
-        }
+        .onAppear { loadCell() }
         .onReceive(store.thumbnailDidUpdate.filter { $0 == self.entry.id }) { _ in
             let id = entry.id
             let url = entry.url
@@ -125,6 +108,30 @@ struct ThumbnailCellView: View {
                 }
                 .onEnded { _ in dragInFlight = false }
         )
+    }
+
+    // MARK: - Cell state loader
+
+    private func loadCell() {
+        thumbnail = nil
+        thumbnailOrientation = .up
+        xmp = nil
+        exif = nil
+        let id = entry.id
+        let url = entry.url
+        thumbnailOrientation = entry.isRaw ? (store.thumbnailOrientations[id] ?? .up) : .up
+        if let cached = ThumbnailDecodeCache.shared.peek(url: url) {
+            thumbnail = cached
+        } else if let blob = store.thumbnailBlobs[id] {
+            Task { @MainActor in
+                let decoded = await Task.detached(priority: .userInitiated) {
+                    ThumbnailDecodeCache.shared.decode(url: url, blob: blob)
+                }.value
+                thumbnail = decoded
+            }
+        }
+        xmp = store.xmpData[id]
+        exif = store.exifData[id]
     }
 
     // MARK: - Shared sub-views
