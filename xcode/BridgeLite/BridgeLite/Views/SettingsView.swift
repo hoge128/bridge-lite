@@ -83,6 +83,10 @@ struct SettingsView: View {
                     }
                 }
                 .pickerStyle(.radioGroup)
+                Toggle(isOn: $settings.preventViewerDelete) {
+                    Text(String(localized: "settings.prevent_viewer_delete",
+                                defaultValue: "Prevent deletion in viewer"))
+                }
             } header: {
                 Text(String(localized: "settings.shortcut.section", defaultValue: "Keyboard Shortcuts"))
             }

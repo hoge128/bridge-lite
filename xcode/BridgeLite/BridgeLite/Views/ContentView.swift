@@ -151,19 +151,19 @@ struct FolderView: View {
                         if store.settings.deleteShortcutKey == .delete {
                             Button("") {
                                 guard !isTextFieldActive() else { return }
-                                if !store.viewerMode { store.triggerDelete() }
+                                if !store.viewerMode || !store.settings.preventViewerDelete { store.triggerDelete() }
                             }
                             .keyboardShortcut(.delete, modifiers: [])
                         } else {
                             Button("") {
                                 guard !isTextFieldActive() else { return }
-                                if !store.viewerMode { store.triggerDelete() }
+                                if !store.viewerMode || !store.settings.preventViewerDelete { store.triggerDelete() }
                             }
                             .keyboardShortcut(.delete, modifiers: .command)
                         }
                         Button("") {
                             guard !isTextFieldActive() else { return }
-                            if !store.viewerMode { store.triggerDelete() }
+                            if !store.viewerMode || !store.settings.preventViewerDelete { store.triggerDelete() }
                         }
                         .keyboardShortcut("d", modifiers: .control)
                         Button("") {

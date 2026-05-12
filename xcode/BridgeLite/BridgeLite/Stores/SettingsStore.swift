@@ -218,6 +218,9 @@ final class SettingsStore {
                                                 .flatMap(DeleteShortcutKey.init(rawValue:))) ?? .delete {
         didSet { UserDefaults.standard.set(deleteShortcutKey.rawValue, forKey: "deleteShortcutKey") }
     }
+    var preventViewerDelete: Bool = (UserDefaults.standard.object(forKey: "preventViewerDelete") as? Bool) ?? false {
+        didSet { UserDefaults.standard.set(preventViewerDelete, forKey: "preventViewerDelete") }
+    }
     var calendarMaxMonths: Int = {
         let v = UserDefaults.standard.integer(forKey: "calendarMaxMonths")
         return v > 0 ? v : 5

@@ -4237,6 +4237,22 @@
         }
       }
     },
+    "settings.prevent_viewer_delete" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Prevent deletion in viewer"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "単体ビューでの削除を防止"
+          }
+        }
+      }
+    },
     "settings.shortcut.delete_key" : {
       "localizations" : {
         "en" : {
