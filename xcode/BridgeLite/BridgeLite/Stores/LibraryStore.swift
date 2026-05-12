@@ -2349,7 +2349,7 @@ final class LibraryStore {
         let gen = scanGeneration
         guard let url = currentDirectoryURL, let db = database, !isLoading else { return }
 
-        guard let (freshEntries, freshList) = try? await BridgeCore.scanDirectory(url: url, db: db) else { return }
+        guard let (freshEntries, freshList, _, _) = try? await BridgeCore.scanDirectory(url: url, db: db) else { return }
 
         let existingPaths = Set(entries.values.map { $0.url.path })
         let freshPathSet  = Set(freshEntries.map { $0.url.path })

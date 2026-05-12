@@ -69,8 +69,14 @@ enum ThumbnailPipeline {
             // slot 取得後にも再チェック（待機中に reset() が走ることがある）
             let stale = await MainActor.run { store.scanGeneration != generation }
             guard !stale else { return }
-            // 1. SQLite thumbnail cache — pre-fetched by loadAll, fall back to individual fetch
-            let cachedJpeg = prefetchedJpeg ?? (await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db))
+            // 1. SQLite thumbnail cache — use pre-fetched data or fall back to individual fetch
+            // Note: ?? cannot be used with await (autoclosure limitation), so use explicit if-else.
+            let cachedJpeg: Data?
+            if let pre = prefetchedJpeg {
+                cachedJpeg = pre
+            } else {
+                cachedJpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db)
+            }
             if let jpeg = cachedJpeg {
                 let cached = CGImage.fromJPEGData(jpeg)
                 let isAdequate = cached.map { max($0.width, $0.height) >= minCachePixels } ?? false

@@ -1156,6 +1156,7 @@
       }
     },
     "Counting files…" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -1172,6 +1173,7 @@
       }
     },
     "Counting… %d images" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -3591,7 +3593,6 @@
       }
     },
     "Scanning…" : {
-      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
