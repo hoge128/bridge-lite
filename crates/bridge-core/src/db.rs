@@ -15,7 +15,7 @@ use crate::xmp::XmpData;
 /// v3: subsec column added (SubSecTimeOriginal for timestamp grouping).
 /// v4: artist column added (EXIF Artist tag).
 /// v5: exposure_bias, flash, white_balance added; forced re-index to populate new fields.
-pub const EXIF_SCHEMA_VERSION: i32 = 5;
+pub const EXIF_SCHEMA_VERSION: i32 = 6;
 
 fn init_schema(conn: &Connection) -> Result<()> {
     conn.execute_batch(

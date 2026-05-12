@@ -105,6 +105,16 @@ pub fn read_exif_sync(path: &std::path::Path) -> Option<ExifData> {
 
     let width = pixel_dim(&exif, Tag::PixelXDimension);
     let height = pixel_dim(&exif, Tag::PixelYDimension);
+    // Fall back to JPEG SOF header when EXIF PixelXDimension/PixelYDimension are absent.
+    // Some post-processing tools (e.g. imanage) omit these EXIF IFD tags.
+    let (width, height) = match (width, height) {
+        (None, None) if matches!(ext.as_deref(), Some("jpg" | "jpeg" | "jfif")) => {
+            jpeg_sof_dimensions(path)
+                .map(|(w, h)| (Some(w), Some(h)))
+                .unwrap_or((None, None))
+        }
+        pair => pair,
+    };
 
     let exposure_bias = exif
         .get_field(Tag::ExposureBiasValue, In::PRIMARY)
@@ -392,6 +402,40 @@ fn read_exif_from_orf(path: &std::path::Path) -> Option<exif::Exif> {
     data[3] = 0x00;
     let mut cursor = std::io::Cursor::new(data);
     exif::Reader::new().read_from_container(&mut cursor).ok()
+}
+
+/// Read pixel dimensions from a JPEG SOF (Start of Frame) marker.
+/// Scans for SOF0/SOF1/SOF2 and returns (width, height).
+fn jpeg_sof_dimensions(path: &std::path::Path) -> Option<(u32, u32)> {
+    let data = std::fs::read(path).ok()?;
+    if data.len() < 4 || data[0] != 0xFF || data[1] != 0xD8 {
+        return None;
+    }
+    let mut i = 2usize;
+    while i + 4 <= data.len() {
+        if data[i] != 0xFF {
+            return None;
+        }
+        let marker = data[i + 1];
+        if marker == 0xD9 { return None; } // EOI
+        // Markers without a length field (standalone)
+        if matches!(marker, 0xD0..=0xD8) { i += 2; continue; }
+        let seg_len = u16::from_be_bytes([data[i + 2], data[i + 3]]) as usize;
+        if seg_len < 2 || i + 2 + seg_len > data.len() {
+            return None;
+        }
+        // SOF0=0xC0, SOF1=0xC1, SOF2=0xC2 (baseline / extended / progressive DCT)
+        if matches!(marker, 0xC0 | 0xC1 | 0xC2) && seg_len >= 7 {
+            // SOF payload: precision(1) + height(2) + width(2) + components(1) + ...
+            let h = u16::from_be_bytes([data[i + 5], data[i + 6]]) as u32;
+            let w = u16::from_be_bytes([data[i + 7], data[i + 8]]) as u32;
+            if w > 0 && h > 0 {
+                return Some((w, h));
+            }
+        }
+        i += 2 + seg_len;
+    }
+    None
 }
 
 fn pixel_dim(exif: &exif::Exif, tag: exif::Tag) -> Option<u32> {
