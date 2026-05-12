@@ -2,14 +2,16 @@ import CoreGraphics
 import Foundation
 
 actor PHashPipeline {
-    private let limiter = ConcurrencyLimiter(maxConcurrent: 4)
+    // static: マルチタブ時にウィンドウ数分の並列度が合算されないようアプリ全体で共有。
+    // 通常: 2 並列。Burst Mode UI 実装後は BridgeQoS.phashConcurrency を参照。
+    private static let limiter = ConcurrencyLimiter(maxConcurrent: 2)
     private var pending: Int = 0
     private var doneWaiters: [CheckedContinuation<Void, Never>] = []
 
     func enqueue(entry: PhotoEntry, source: CGImage, db: BridgeCoreDatabase) {
         pending += 1
         Task {
-            try? await limiter.run {
+            try? await PHashPipeline.limiter.run {
                 guard let luma = source.toLuma32x32() else { return }
                 let hash = await BridgeCore.computePHash(luma: luma)
                 await BridgeCore.storeCachedPhash(url: entry.url, phash: hash, db: db)

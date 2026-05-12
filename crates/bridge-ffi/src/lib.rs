@@ -27,7 +27,13 @@ static TOKIO_RUNTIME: OnceLock<tokio::runtime::Runtime> = OnceLock::new();
 #[allow(dead_code)]
 fn runtime() -> &'static tokio::runtime::Runtime {
     TOKIO_RUNTIME.get_or_init(|| {
+        // 通常モード: 論理コア数の 1/2 に制限して他アプリへの影響を抑える。
+        // Burst Mode 対応時は bridge_set_burst_mode() 経由で切替可能にする（要再起動）。
+        let workers = std::thread::available_parallelism()
+            .map(|n| (n.get() / 2).max(2))
+            .unwrap_or(2);
         tokio::runtime::Builder::new_multi_thread()
+            .worker_threads(workers)
             .enable_all()
             .build()
             .expect("Failed to build Tokio runtime")

@@ -366,8 +366,8 @@ final class LibraryStore {
                     self.mergeExifBatch(exifMap, generation: gen)
                 }
 
-                // XMP: 8 並列で読み込み（XMP batch は将来対応）
-                let xmpLimiter = ConcurrencyLimiter(maxConcurrent: 8)
+                // XMP: 並列度は BridgeQoS.xmpConcurrency で制御（通常 3、Burst Mode 時 8）
+                let xmpLimiter = ConcurrencyLimiter(maxConcurrent: BridgeQoS.xmpConcurrency)
                 let jpgWriteMode = self.settings.jpgWriteMode
                 await withTaskGroup(of: Void.self) { group in
                     for entry in allEntries {
@@ -446,7 +446,7 @@ final class LibraryStore {
         // [weak self] で MainActor に hop するため await を使う。
         // Task.detached 内の await self?.updatePreScanCounts(...) が
         // 100 件ごとに MainActor へ制御を渡し、UI を確実に更新する。
-        let task = Task.detached(priority: .userInitiated) { [weak self] () -> (Int, Int) in
+        let task = Task.detached(priority: BridgeQoS.scan) { [weak self] () -> (Int, Int) in
             let supported = ScanPipeline.supportedExtensionsSet
             let fm = FileManager.default
             guard let enumerator = fm.enumerator(
@@ -2478,7 +2478,7 @@ final class LibraryStore {
             }
             exifLoadTask = Task { [weak self] in
                 guard let self else { return }
-                let xmpLimiter = ConcurrencyLimiter(maxConcurrent: 8)
+                let xmpLimiter = ConcurrencyLimiter(maxConcurrent: BridgeQoS.xmpConcurrency)
                 await withTaskGroup(of: Void.self) { group in
                     for entry in newEntries {
                         group.addTask { [weak self] in

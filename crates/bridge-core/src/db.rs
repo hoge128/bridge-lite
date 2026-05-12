@@ -275,14 +275,16 @@ pub fn index_new_entries(paths: &[PathBuf], db_path: &Path) {
     if misses.is_empty() {
         return;
     }
-    let new_data: Vec<(PathBuf, i64, ExifData)> = misses
-        .par_iter()
-        .filter_map(|path| {
-            let mtime = file_mtime(path);
-            let exif = crate::metadata::read_exif_sync(path)?;
-            Some(((*path).clone(), mtime, exif))
-        })
-        .collect();
+    let new_data: Vec<(PathBuf, i64, ExifData)> = crate::runtime::background_pool().install(|| {
+        misses
+            .par_iter()
+            .filter_map(|path| {
+                let mtime = file_mtime(path);
+                let exif = crate::metadata::read_exif_sync(path)?;
+                Some(((*path).clone(), mtime, exif))
+            })
+            .collect()
+    });
     let Ok(conn) = Connection::open(db_path) else { return };
     let _ = conn.execute_batch("BEGIN");
     for (path, mtime, exif) in &new_data {

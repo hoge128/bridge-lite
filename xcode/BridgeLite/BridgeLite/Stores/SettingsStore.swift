@@ -355,6 +355,11 @@ final class SettingsStore {
         didSet { UserDefaults.standard.set(jpgSidecarConflictPolicy.rawValue, forKey: "jpgSidecarConflictPolicy") }
     }
 
+    // MARK: - パフォーマンス
+    var burstMode: Bool = bool("burstMode", default: false) {
+        didSet { UserDefaults.standard.set(burstMode, forKey: "burstMode") }
+    }
+
     // MARK: - RAW レンダリング
     var autoRenderRawThumbnails: Bool = bool("autoRenderRawThumbnails", default: false) {
         didSet { UserDefaults.standard.set(autoRenderRawThumbnails, forKey: "autoRenderRawThumbnails") }

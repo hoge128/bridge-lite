@@ -60,11 +60,13 @@ pub fn fetch_or_compute_sha_for_size_collisions(
         .filter(|e| !cached.contains_key(&e.path))
         .collect();
 
-    // Parallel computation.
-    let computed: Vec<(&ImageEntry, [u8; 32])> = to_compute
-        .par_iter()
-        .filter_map(|e| compute_sha256(&e.path).map(|sha| (*e, sha)))
-        .collect();
+    // Parallel computation (background pool: 論理コア数/2 に制限し他アプリへの影響を抑える)。
+    let computed: Vec<(&ImageEntry, [u8; 32])> = crate::runtime::background_pool().install(|| {
+        to_compute
+            .par_iter()
+            .filter_map(|e| compute_sha256(&e.path).map(|sha| (*e, sha)))
+            .collect()
+    });
 
     // Persist newly computed SHAs.
     if !computed.is_empty() {

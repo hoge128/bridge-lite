@@ -53,7 +53,7 @@ actor RAWRenderPipeline {
         let ctx = self.ctx
         do {
             return try await limiter.run { [url, maxWidth] in
-                let result = await Task.detached(priority: .userInitiated) { () -> Data? in
+                let result = await Task.detached(priority: BridgeQoS.rawRender) { () -> Data? in
                     // CIRAWFilter returns nil for formats not supported by the OS RAW pipeline.
                     // Canon CR2 is not supported on macOS 26; CIRAWFilter silently returns nil.
                     guard let filter = CIRAWFilter(imageURL: url) else { return nil }

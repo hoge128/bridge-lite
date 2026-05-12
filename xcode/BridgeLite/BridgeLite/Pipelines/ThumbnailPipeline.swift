@@ -7,8 +7,9 @@ import SwiftUI
 /// Writes JPEG blobs to LibraryStore.thumbnailBlobs on the MainActor
 /// so the grid updates reactively as each thumbnail finishes.
 enum ThumbnailPipeline {
-    // 4 並列。ImageIO の並列デコードによる IOSurface 枯渇（kIOReturnNoMemory）を防ぐ。
-    private static let limiter = ConcurrencyLimiter(maxConcurrent: 4)
+    // 通常: 2 並列（他アプリへの影響を抑える）。Burst Mode UI 実装後は BridgeQoS.thumbnailConcurrency を参照。
+    // IOSurface 枯渇（kIOReturnNoMemory）対策として上限を設ける点は変わらない。
+    private static let limiter = ConcurrencyLimiter(maxConcurrent: 2)
 
     /// Fire-and-forget: load all thumbnails, updating store as each one completes.
     /// Also enqueues pHash computation for newly generated thumbnails so that
@@ -111,7 +112,7 @@ enum ThumbnailPipeline {
     }
 
     static func generateWithImageIO(url: URL, maxPixels: Int) async -> CGImage? {
-        return await Task.detached(priority: .userInitiated) {
+        return await Task.detached(priority: BridgeQoS.thumbnail) {
             let ext = url.pathExtension.lowercased()
             // Skip proprietary RAW — ImageIO's RawCamera handler causes macOS 26 crashes.
             // DNG is TIFF-based and uses a separate stable handler, so it is kept enabled.

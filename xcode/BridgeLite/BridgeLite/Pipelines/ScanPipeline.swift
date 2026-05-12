@@ -15,7 +15,7 @@ actor ScanPipeline {
 
     /// FileManager ベースのフォールバックスキャン (Phase C.6 で BridgeCore に委譲)
     func scan(url: URL) async throws -> [PhotoEntry] {
-        return try await Task.detached(priority: .userInitiated) {
+        return try await Task.detached(priority: BridgeQoS.scan) {
             var results: [PhotoEntry] = []
             let fm = FileManager.default
             guard let enumerator = fm.enumerator(
