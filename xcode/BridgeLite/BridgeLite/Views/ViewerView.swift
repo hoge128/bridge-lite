@@ -11,8 +11,6 @@ struct ViewerView: View {
     @State private var rawRendered: (CGImage, Image.Orientation)?
     @State private var isRendering = false
     @State private var showRendered = false
-    @State private var showInfoButton = false
-    @State private var infoHideTask: Task<Void, Never>?
     @State private var zoom = ZoomState()
     @State private var scrollMonitor: Any?
     @State private var magnifyMonitor: Any?
@@ -47,92 +45,75 @@ struct ViewerView: View {
 
     var body: some View {
         @Bindable var store = store
-        GeometryReader { geo in
-            ZStack {
-                Color.black.ignoresSafeArea()
+        ZStack {
+            Color.black.ignoresSafeArea()
 
-                if let (img, orient) = displayPair {
-                    ZoomableImage(image: img, orientation: orient, zoom: zoom)
-                } else if let thumb = thumbnail {
-                    // While loading: blurred + dimmed thumbnail as spatial placeholder.
-                    // After failure (not loading): plain thumbnail as best-effort fallback.
-                    Image(decorative: thumb, scale: 1.0)
-                        .resizable()
-                        .scaledToFit()
-                        .blur(radius: isLoadingFullRes ? 24 : 0)
-                        .opacity(isLoadingFullRes ? 0.35 : 1.0)
-                } else {
-                    Image(systemName: "photo")
-                        .font(.system(size: 80))
-                        .foregroundStyle(.secondary)
-                }
+            if let (img, orient) = displayPair {
+                ZoomableImage(image: img, orientation: orient, zoom: zoom)
+            } else if let thumb = thumbnail {
+                // While loading: blurred + dimmed thumbnail as spatial placeholder.
+                // After failure (not loading): plain thumbnail as best-effort fallback.
+                Image(decorative: thumb, scale: 1.0)
+                    .resizable()
+                    .scaledToFit()
+                    .blur(radius: isLoadingFullRes ? 24 : 0)
+                    .opacity(isLoadingFullRes ? 0.35 : 1.0)
+            } else {
+                Image(systemName: "photo")
+                    .font(.system(size: 80))
+                    .foregroundStyle(.secondary)
+            }
 
-                if isLimitedRawPreview {
-                    VStack {
-                        Spacer()
-                        HStack(spacing: 5) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                                .font(.system(size: 10, weight: .semibold))
-                                .foregroundStyle(.yellow.opacity(0.85))
-                            Text(String(localized: "raw.limited.preview.notice",
-                                        defaultValue: "Embedded thumbnail only — CR2 RAW rendering is not available on macOS 26"))
-                                .font(.system(size: 11))
-                                .foregroundStyle(.white.opacity(0.75))
-                        }
-                        .padding(.horizontal, 10)
-                        .padding(.vertical, 5)
-                        .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
-                        .help(String(localized: "raw.limited.preview.tooltip",
-                                     defaultValue: "This CR2 file only contains an 18 KB embedded thumbnail. Full-resolution RAW rendering is not supported on macOS 26."))
-                        .padding(.bottom, 14)
-                    }
-                }
-
+            if isLimitedRawPreview {
                 VStack {
-                    HStack {
-                        Button("Close") { store.viewerMode = false }
-                            .padding()
-                        Spacer()
-                        HStack(spacing: 16) {
-                            Button {
-                                store.viewerShowsMeta.toggle()
-                            } label: {
-                                Image(systemName: store.viewerShowsMeta ? "info.circle.fill" : "info.circle")
-                            }
-                            .help(store.viewerShowsMeta
-                                  ? String(localized: "viewer.meta.hide", defaultValue: "Hide Info (M)")
-                                  : String(localized: "viewer.meta.show", defaultValue: "Show Info (M)"))
-                            .opacity(showInfoButton ? 1 : 0)
-                            .offset(x: showInfoButton ? 0 : 18)
-                            .allowsHitTesting(showInfoButton)
-                            .animation(.spring(response: 0.28, dampingFraction: 0.78), value: showInfoButton)
-                            renderButton
-                            Button("Prev") { store.navigateViewerPrev() }
-                                .keyboardShortcut(.leftArrow, modifiers: [])
-                            Button("Next") { store.navigateViewerNext() }
-                                .keyboardShortcut(.rightArrow, modifiers: [])
-                        }
+                    Spacer()
+                    HStack(spacing: 5) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundStyle(.yellow.opacity(0.85))
+                        Text(String(localized: "raw.limited.preview.notice",
+                                    defaultValue: "Embedded thumbnail only — CR2 RAW rendering is not available on macOS 26"))
+                            .font(.system(size: 11))
+                            .foregroundStyle(.white.opacity(0.75))
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+                    .help(String(localized: "raw.limited.preview.tooltip",
+                                 defaultValue: "This CR2 file only contains an 18 KB embedded thumbnail. Full-resolution RAW rendering is not supported on macOS 26."))
+                    .padding(.bottom, 14)
+                }
+            }
+
+            VStack {
+                HStack {
+                    Button("Close") { store.viewerMode = false }
                         .padding()
+                    Spacer()
+                    HStack(spacing: 16) {
+                        renderButton
+                        Button("Prev") { store.navigateViewerPrev() }
+                            .keyboardShortcut(.leftArrow, modifiers: [])
+                        Button("Next") { store.navigateViewerNext() }
+                            .keyboardShortcut(.rightArrow, modifiers: [])
+                    }
+                    .padding()
+                }
+                Spacer()
+
+                HStack(alignment: .bottom) {
+                    if shouldShowOverlay, let entry = selectedEntry {
+                        ViewerMetaOverlay(entry: entry, exif: store.exifData[entry.id], xmp: xmp) {
+                            store.viewerShowsMeta = false
+                        }
+                        .padding([.leading, .bottom], 16)
+                        .transition(.opacity)
                     }
                     Spacer()
-
-                    HStack(alignment: .bottom) {
-                        if shouldShowOverlay, let entry = selectedEntry {
-                            ViewerMetaOverlay(entry: entry, exif: store.exifData[entry.id], xmp: xmp) {
-                                store.viewerShowsMeta = false
-                            }
-                            .padding([.leading, .bottom], 16)
-                            .transition(.opacity)
-                        }
-                        Spacer()
-                    }
                 }
             }
-            .onContinuousHover { phase in
-                handleInfoHover(phase: phase, size: geo.size)
-            }
-            .contextMenu { viewerContextMenu }
         }
+        .contextMenu { viewerContextMenu }
         .animation(.easeInOut(duration: 0.15), value: store.viewerShowsMeta)
         .background(WindowAccessor(window: Binding(
             get: { windowRef.window },
@@ -203,7 +184,6 @@ struct ViewerView: View {
             if let m = scrollMonitor  { NSEvent.removeMonitor(m); scrollMonitor  = nil }
             if let m = magnifyMonitor { NSEvent.removeMonitor(m); magnifyMonitor = nil }
             if let m = clickMonitor   { NSEvent.removeMonitor(m); clickMonitor   = nil }
-            infoHideTask?.cancel()
             store.viewerCompareGroupMembers = nil
         }
         .onReceive(store.xmpDidUpdate) { id in
@@ -225,29 +205,6 @@ struct ViewerView: View {
             isLoadingFullRes = true
             defer { isLoadingFullRes = false }
             fullRes = await loadFullRes(entry: entry)
-        }
-    }
-
-    private func handleInfoHover(phase: HoverPhase, size: CGSize) {
-        switch phase {
-        case .active(let location):
-            if location.x > size.width / 2 && location.y < size.height / 2 {
-                infoHideTask?.cancel()
-                showInfoButton = true
-                infoHideTask = Task { @MainActor in
-                    try? await Task.sleep(nanoseconds: 2_000_000_000)
-                    guard !Task.isCancelled else { return }
-                    showInfoButton = false
-                }
-            } else {
-                infoHideTask?.cancel()
-                infoHideTask = nil
-                showInfoButton = false
-            }
-        case .ended:
-            infoHideTask?.cancel()
-            infoHideTask = nil
-            showInfoButton = false
         }
     }
 
