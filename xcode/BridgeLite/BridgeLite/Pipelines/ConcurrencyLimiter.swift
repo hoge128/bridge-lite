@@ -6,19 +6,25 @@ import Foundation
 ///
 /// 通常モード: .utility — 他アプリへの影響を最小化（macOS がバックグラウンド処理として扱う）
 /// Burst Mode: .userInitiated — 最大スループット優先（スキャン速度を重視するとき）
+///
+/// - Note: SettingsStore.shared は @MainActor 分離のため nonisolated なここからは参照不可。
+///   burstMode は UserDefaults に書き込まれているので直接読む（UserDefaults はスレッドセーフ）。
 enum BridgeQoS {
+    private static var isBurstMode: Bool {
+        UserDefaults.standard.bool(forKey: "burstMode")
+    }
     static var scan: TaskPriority {
-        SettingsStore.shared.burstMode ? .userInitiated : .utility
+        isBurstMode ? .userInitiated : .utility
     }
     static var thumbnail: TaskPriority {
-        SettingsStore.shared.burstMode ? .userInitiated : .utility
+        isBurstMode ? .userInitiated : .utility
     }
     static var rawRender: TaskPriority {
-        SettingsStore.shared.burstMode ? .userInitiated : .utility
+        isBurstMode ? .userInitiated : .utility
     }
     // 通常: 3、Burst: 8（xmpLimiter は毎スキャン時に参照するため動的に効く）
     static var xmpConcurrency: Int {
-        SettingsStore.shared.burstMode ? 8 : 3
+        isBurstMode ? 8 : 3
     }
 }
 
