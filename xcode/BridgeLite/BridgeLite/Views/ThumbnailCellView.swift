@@ -89,6 +89,11 @@ struct ThumbnailCellView: View {
         }
         .onHover { isHovered = $0 }
         .contextMenu { cellContextMenu }
+        .overlay {
+            RightClickOverlay {
+                if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
+            }
+        }
         .background { CellDragBackingView(source: dragSource) }
         .gesture(
             DragGesture(minimumDistance: 4)
@@ -173,7 +178,6 @@ struct ThumbnailCellView: View {
     @ViewBuilder
     private var cellContextMenu: some View {
         Button("Copy") {
-            if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
             store.triggerCopy()
         }
 
@@ -181,38 +185,25 @@ struct ThumbnailCellView: View {
             NSWorkspace.shared.activateFileViewerSelecting([entry.url])
         }
 
-        let targetURLs: [URL] = {
-            if !store.selectedIDs.contains(entry.id) { return [entry.url] }
-            return store.selectedIDs.compactMap { store.entries[$0]?.url }
-        }()
+        let targetURLs = store.selectedIDs.compactMap { store.entries[$0]?.url }
         let primaryURL = store.entries[store.primaryID ?? entry.id]?.url ?? entry.url
         OpenWithMenu(targetURLs: targetURLs, primaryURL: primaryURL)
 
         Divider()
 
         Menu("Rating") {
-            Button("No Rating") {
-                if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
-                store.triggerRating(0)
-            }
+            Button("No Rating") { store.triggerRating(0) }
             ForEach(1...5, id: \.self) { n in
-                Button(String(repeating: "★", count: n)) {
-                    if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
-                    store.triggerRating(n)
-                }
+                Button(String(repeating: "★", count: n)) { store.triggerRating(n) }
             }
         }
 
         Menu("Label") {
             ForEach(XmpLabel.allCases, id: \.rawValue) { label in
-                Button(label.name) {
-                    if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
-                    store.applyLabel(label.rawValue)
-                }
+                Button(label.name) { store.applyLabel(label.rawValue) }
             }
             Divider()
             Button("Clear Label") {
-                if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
                 if let current = store.xmpData[store.primaryID ?? entry.id]?.label {
                     store.applyLabel(current.rawValue)
                 }
@@ -237,7 +228,6 @@ struct ThumbnailCellView: View {
         Divider()
 
         Button(role: .destructive) {
-            if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
             store.triggerDelete()
         } label: {
             Text("Move to Trash")
@@ -307,6 +297,41 @@ final class CellDragSource: NSObject, NSDraggingSource {
         path.stroke()
         result.unlockFocus()
         return result
+    }
+}
+
+@MainActor
+private final class RightClickOverlayNSView: NSView {
+    var onRightMouseDown: (() -> Void)?
+    private var isForwarding = false
+
+    // Intercept hit testing only for right-click events; pass through everything else.
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        guard !isForwarding,
+              NSApp.currentEvent?.type == .rightMouseDown else { return nil }
+        return frame.contains(point) ? self : nil
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        onRightMouseDown?()
+        // Re-dispatch via the normal AppKit pipeline so SwiftUI's contextMenu fires.
+        // isForwarding prevents us from intercepting our own re-dispatch.
+        isForwarding = true
+        defer { isForwarding = false }
+        window?.sendEvent(event)
+    }
+}
+
+private struct RightClickOverlay: NSViewRepresentable {
+    var onRightMouseDown: () -> Void
+
+    func makeNSView(context: Context) -> RightClickOverlayNSView {
+        let v = RightClickOverlayNSView()
+        v.onRightMouseDown = onRightMouseDown
+        return v
+    }
+    func updateNSView(_ v: RightClickOverlayNSView, context: Context) {
+        v.onRightMouseDown = onRightMouseDown
     }
 }
 
