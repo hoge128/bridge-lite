@@ -1,0 +1,496 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>フィルタパイプライン再設計 — bridge-lite</title>
+  <style>
+    :root {
+      --bg: #1a1a1e;
+      --surface: #26262c;
+      --surface2: #2e2e36;
+      --border: #3a3a44;
+      --text: #e0e0ea;
+      --text-muted: #8888aa;
+      --accent: #7c9eff;
+      --green: #4caf80;
+      --yellow: #f0c060;
+      --red: #e06060;
+      --orange: #e09040;
+      --code-bg: #1e1e28;
+    }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      line-height: 1.65;
+      padding: 2rem 1rem;
+    }
+    .page { max-width: 960px; margin: 0 auto; }
+
+    h1 { font-size: 1.9rem; font-weight: 700; margin-bottom: .3rem; color: var(--accent); }
+    .meta { color: var(--text-muted); font-size: .85rem; margin-bottom: 2.5rem; }
+
+    h2 {
+      font-size: 1.25rem; font-weight: 600;
+      margin: 2.5rem 0 .8rem;
+      padding-bottom: .35rem;
+      border-bottom: 1px solid var(--border);
+      color: var(--accent);
+    }
+    h3 { font-size: 1rem; font-weight: 600; margin: 1.6rem 0 .5rem; color: var(--yellow); }
+    h4 { font-size: .9rem; font-weight: 600; margin: 1.2rem 0 .4rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: .05em; }
+
+    p { margin: .6rem 0; }
+
+    /* Tables */
+    .table-wrap { overflow-x: auto; margin: 1rem 0; }
+    table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+    th {
+      background: var(--surface2);
+      color: var(--text-muted);
+      font-weight: 600;
+      text-align: left;
+      padding: .5rem .75rem;
+      border-bottom: 1px solid var(--border);
+    }
+    td {
+      padding: .45rem .75rem;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+    }
+    tr:hover td { background: var(--surface); }
+
+    /* Code */
+    pre {
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 1rem 1.2rem;
+      overflow-x: auto;
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: .82rem;
+      line-height: 1.6;
+      margin: .8rem 0;
+      color: #c9d1d9;
+    }
+    code {
+      font-family: "SF Mono", "Fira Code", monospace;
+      font-size: .85em;
+      background: var(--code-bg);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: .1em .35em;
+    }
+
+    /* Status badges */
+    .badge {
+      display: inline-block;
+      font-size: .72rem;
+      font-weight: 700;
+      padding: .15em .55em;
+      border-radius: 4px;
+      letter-spacing: .04em;
+      vertical-align: middle;
+      margin-left: .4rem;
+    }
+    .badge-done  { background: #1a3d2a; color: var(--green); border: 1px solid #2a6040; }
+    .badge-todo  { background: #2a2a1a; color: var(--yellow); border: 1px solid #504010; }
+    .badge-later { background: #1e1e1e; color: var(--text-muted); border: 1px solid var(--border); }
+
+    /* PR cards */
+    .pr-card {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 1rem 1.25rem;
+      margin: 1rem 0;
+      background: var(--surface);
+    }
+    .pr-card.done  { border-left: 3px solid var(--green); }
+    .pr-card.todo  { border-left: 3px solid var(--yellow); }
+    .pr-card.later { border-left: 3px solid var(--text-muted); }
+    .pr-title { font-weight: 700; font-size: 1rem; margin-bottom: .5rem; }
+
+    /* Pipeline diagram */
+    .pipeline {
+      display: flex;
+      flex-direction: column;
+      gap: .5rem;
+      margin: 1rem 0;
+    }
+    .stage {
+      display: flex;
+      align-items: flex-start;
+      gap: .75rem;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .65rem 1rem;
+    }
+    .stage-num {
+      min-width: 2rem;
+      height: 2rem;
+      background: var(--accent);
+      color: #000;
+      font-weight: 700;
+      font-size: .8rem;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .stage-body { flex: 1; }
+    .stage-title { font-weight: 600; margin-bottom: .2rem; }
+    .stage-detail { font-size: .83rem; color: var(--text-muted); }
+
+    /* Tier boxes */
+    .tier-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(210px, 1fr));
+      gap: .75rem;
+      margin: .8rem 0;
+    }
+    .tier-box {
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: .7rem .9rem;
+    }
+    .tier-label {
+      font-size: .72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: .06em;
+      color: var(--text-muted);
+      margin-bottom: .4rem;
+    }
+    .tier-item { font-size: .84rem; margin: .15rem 0; }
+    .tier-cost { font-size: .75rem; color: var(--text-muted); }
+
+    /* Discussion items */
+    .discuss-item {
+      border-left: 3px solid var(--accent);
+      padding-left: .85rem;
+      margin: .8rem 0;
+    }
+
+    ul { padding-left: 1.4rem; }
+    li { margin: .25rem 0; font-size: .9rem; }
+
+    .cost-heavy { color: var(--red); }
+    .cost-med   { color: var(--orange); }
+    .cost-light { color: var(--green); }
+
+    .alert {
+      background: #2a1a1a;
+      border: 1px solid #6a2020;
+      border-radius: 8px;
+      padding: .75rem 1rem;
+      margin: 1rem 0;
+      font-size: .88rem;
+    }
+  </style>
+</head>
+<body>
+<div class="page">
+
+  <h1>フィルタパイプライン再設計</h1>
+  <p class="meta">bridge-lite &nbsp;·&nbsp; 最終更新: 2026-05-11 &nbsp;·&nbsp; LibraryStore.swift 主要変更ファイル</p>
+
+  <!-- ===== 背景 ===== -->
+  <h2>背景・動機</h2>
+  <p>
+    bridge-lite には多数のフィルタが実装されている。現状は動作しているが、
+    <strong>「フィルタを 1 つ変えるだけで全パイプラインが同期で走り直す」</strong>構造のため、
+    将来エントリ数が数万〜10 万件規模になったときに主スレッドが詰まる懸念がある。
+    体感上は現状困っていないが、将来の備えとして設計を整理する。
+  </p>
+  <div class="alert">
+    <strong>key insight</strong>: <code>filter.matches()</code> は
+    visibleIDs 用に 1 回 + aggregates 6 軸分に 6 回 = 計 <strong>7 回フルスキャン</strong>されている。
+    aggregates の coalesce だけで主スレッド占有を大幅に削減できる。
+  </div>
+
+  <!-- ===== フィルタ一覧 ===== -->
+  <h2>フィルタ一覧</h2>
+  <h3>ユーザー可視フィルタ（FilterCriteria.swift:41-208）</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>フィルタ</th><th>フィールド</th><th>判定コスト</th><th>依存メタ</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>ファイル名/キャプション</td><td><code>nameSearch</code></td><td><span class="cost-heavy">contains×2（重）</span></td><td>filename + xmp.caption</td></tr>
+        <tr><td>拡張子除外</td><td><code>excludedExtensions</code></td><td><span class="cost-light">Set O(1)（flatten 時）</span></td><td>URL のみ</td></tr>
+        <tr><td>カメラ必須</td><td><code>cameraOnly</code></td><td><span class="cost-light">isEmpty × 2</span></td><td>EXIF make/model</td></tr>
+        <tr><td>カメラ/レンズ/アーティスト除外</td><td><code>excluded*</code></td><td><span class="cost-light">Set O(1)</span></td><td>EXIF</td></tr>
+        <tr><td>ISO 範囲</td><td><code>isoMin/Max</code></td><td><span class="cost-light">Int パース</span></td><td>EXIF iso</td></tr>
+        <tr><td>焦点距離範囲</td><td><code>focalMin/Max</code></td><td><span class="cost-light">Double パース</span></td><td>EXIF focalLength35mm</td></tr>
+        <tr><td>シャッター速度範囲</td><td><code>shutterMin/Max</code></td><td><span class="cost-med">parseSeconds（split+Double）</span></td><td>EXIF exposureTime</td></tr>
+        <tr><td>絞り範囲</td><td><code>apertureMin/Max</code></td><td><span class="cost-light">Double パース</span></td><td>EXIF fnumber</td></tr>
+        <tr><td>日付範囲/複数選択</td><td><code>dateMin/Max, dateAllowList</code></td><td><span class="cost-heavy">DateFormatter + Calendar（重）</span></td><td>EXIF datetime</td></tr>
+        <tr><td>輝度範囲</td><td><code>luminanceMin/Max</code></td><td><span class="cost-light">Int 比較</span></td><td>サムネイル後計算</td></tr>
+        <tr><td>レーティング</td><td><code>filterRatings</code></td><td><span class="cost-light">Set O(1)</span></td><td>XMP rating</td></tr>
+        <tr><td>ラベル</td><td><code>filterLabels</code></td><td><span class="cost-light">Set O(1)</span></td><td>XMP label</td></tr>
+        <tr><td>Photo Kind</td><td><code>filterKinds</code></td><td><span class="cost-heavy">グループ毎走査（重）</span></td><td>EXIF/XMP/filename</td></tr>
+        <tr><td>Flatten</td><td><code>flatten</code></td><td><span class="cost-light">O(1)</span></td><td>なし</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <!-- ===== 現状パイプライン ===== -->
+  <h2>現状のパイプライン構造</h2>
+  <p>中心関数: <code>LibraryStore.recomputeVisible()</code> — すべてのステージを 1 関数で直列実行。</p>
+  <div class="pipeline">
+    <div class="stage">
+      <div class="stage-num">S1</div>
+      <div class="stage-body">
+        <div class="stage-title">Representative 選定</div>
+        <div class="stage-detail">全 shotGroups を走査して代表エントリを決定。メモ化なし。filterKinds が変わっても変わっていなくても毎回全走査。</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">S2</div>
+      <div class="stage-body">
+        <div class="stage-title">述語フィルタ（matches() 直列評価）</div>
+        <div class="stage-detail">現在の評価順: nameSearch → excludedExtensions → cameraOnly → excluded* → iso/focal/shutter/aperture → <strong>date（重）</strong> → ratings/labels → luminance</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">S3</div>
+      <div class="stage-body">
+        <div class="stage-title">Sort → visibleIDs</div>
+        <div class="stage-detail">exifDate キーは DateFormatter parse が N log N 回（旧: キャッシュなし）。PR4 でキャッシュ化済み。</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">S4</div>
+      <div class="stage-body">
+        <div class="stage-title">Daily grouping（viewMode == .daily のみ）</div>
+        <div class="stage-detail">rebuildDailyGroups() — visibleIDs 全件で photoDate() を呼ぶ。PR4 のキャッシュが効く。</div>
+      </div>
+    </div>
+    <div class="stage">
+      <div class="stage-num">S5</div>
+      <div class="stage-body">
+        <div class="stage-title">Aggregates（6 軸ヒストグラム + availables）</div>
+        <div class="stage-detail"><code>filteredIDsExcluding</code> を 6 回呼び、matches が合計 7 回フルスキャンされる。最大のボトルネック。</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="alert" style="border-color:#504010; background:#1e1a08;">
+    <strong>トリガー問題</strong>: <code>filter.didSet { recomputeVisible() }</code> — coalesce なし。
+    ISO スライダーをドラッグするたびにフル 5 ステージが同期実行される。
+  </div>
+
+  <!-- ===== 再設計 ===== -->
+  <h2>再設計の骨子</h2>
+
+  <h3>5 ステージ + dirty フラグ</h3>
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr><th>ステージ</th><th>メソッド</th><th>出力キャッシュ</th><th>invalidate キー</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>S1</td><td><code>runStageReps()</code></td><td><code>cachedRepresentatives, cachedRepsOrdered</code></td><td>shotGroups, filterKinds, flatten</td></tr>
+        <tr><td>S2</td><td><code>runStageFiltered()</code></td><td><code>cachedFiltered</code></td><td>S1 出力 + filter 述語系</td></tr>
+        <tr><td>S3</td><td><code>runStageSorted()</code></td><td><code>visibleIDs</code></td><td>S2 出力 + sortKey/Ascending</td></tr>
+        <tr><td>S4</td><td><code>runStageDaily()</code></td><td><code>dailyGroups</code></td><td>S3 出力 + viewMode</td></tr>
+        <tr><td>S5</td><td><code>runStageAggregates()</code></td><td>6 buckets, photosPerDay, availables</td><td>S1 出力 + filter 全体</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h3>dirty フラグの伝搬</h3>
+  <pre>
+依存関係:
+  reps → filtered → sorted → daily
+                    filtered → aggregates
+
+mark(reps: true)       → reps + filtered + sorted + daily + aggregates
+mark(filtered: true)   → filtered + sorted + daily + aggregates
+mark(sorted: true)     → sorted + daily のみ
+mark(daily: true)      → daily のみ
+mark(aggregates: true) → aggregates のみ</pre>
+
+  <h3>述語の Tier 構造（CompiledFilter 設計用）</h3>
+  <div class="tier-grid">
+    <div class="tier-box">
+      <div class="tier-label">Tier 1 — URL のみ</div>
+      <div class="tier-item">excludedExtensions <span class="tier-cost">Set O(1)</span></div>
+      <div class="tier-item">nameSearch（filename 部）</div>
+    </div>
+    <div class="tier-box">
+      <div class="tier-label">Tier 3 — EXIF 必要</div>
+      <div class="tier-item">cameraOnly / excluded*</div>
+      <div class="tier-item">iso / aperture / focal</div>
+      <div class="tier-item">shutter / date</div>
+    </div>
+    <div class="tier-box">
+      <div class="tier-label">Tier 4 — XMP 必要</div>
+      <div class="tier-item">filterRatings <span class="tier-cost">Set O(1)</span></div>
+      <div class="tier-item">filterLabels <span class="tier-cost">Set O(1)</span></div>
+      <div class="tier-item">nameSearch（caption 部）</div>
+    </div>
+    <div class="tier-box">
+      <div class="tier-label">Tier 5 — 派生スコア</div>
+      <div class="tier-item">luminance min/max</div>
+    </div>
+  </div>
+  <p style="font-size:.85rem; color:var(--text-muted);">
+    現状の問題: nameSearch（重）が先頭、rating/label（軽）が後ろ。コスト昇順に並び替えると early return 効率が上がる。
+  </p>
+
+  <!-- ===== 実装状況 ===== -->
+  <h2>実装状況（2026-05-11 時点）</h2>
+
+  <div class="pr-card done">
+    <div class="pr-title">PR1 <span class="badge badge-done">完了</span> — filter.didSet 差分ディスパッチ</div>
+    <p>追加: <code>FilterChangeShape</code> / <code>classifyFilterChange(from:to:)</code> / <code>onFilterChanged(from:)</code></p>
+    <ul>
+      <li><code>repsAffected</code>: flatten / filterKinds が変化 → S1 から再計算必要</li>
+      <li><code>isTextInput</code>: テキスト/スライダー系 → coalesce 候補（13 フィールド）</li>
+    </ul>
+    <p style="color:var(--text-muted); font-size:.85rem;">現状: shape は計算済みだが coalesce は未使用。後続 PR でテキスト入力を 150〜200ms 間引く。</p>
+  </div>
+
+  <div class="pr-card done">
+    <div class="pr-title">PR2 <span class="badge badge-done">完了</span> — パイプラインのステージ分解</div>
+    <p>追加した主要要素:</p>
+    <ul>
+      <li><code>PipelineDirty</code> 構造体（5 フラグ）+ <code>private var dirty</code></li>
+      <li>中間キャッシュ 3 つ: <code>cachedRepresentatives / cachedRepsOrdered / cachedFiltered</code></li>
+      <li><code>mark(...)</code> — 下流フラグを自動伝搬</li>
+      <li><code>runDirtyStages()</code> — 5 ステージを順番に実行</li>
+      <li>5 ステージメソッド: <code>runStageReps/Filtered/Sorted/Daily/Aggregates()</code></li>
+    </ul>
+    <p><code>recomputeVisible()</code> は全 dirty 立て + <code>runDirtyStages()</code> の薄いラッパに変更。21 か所の呼び出し元はそのまま。</p>
+    <p><strong>最初の実効最適化</strong>: <code>applyOrder()</code> が <code>mark(sorted: true)</code> + <code>runDirtyStages()</code> になり、sort キー変更時に S1/S2/S5 をスキップ。</p>
+  </div>
+
+  <div class="pr-card done">
+    <div class="pr-title">PR4 <span class="badge badge-done">完了</span> — exifDateCache による日付パースのキャッシュ化</div>
+    <pre>
+@ObservationIgnored private var exifDateCache: [UInt64: Date?] = [:]
+// キー不在   = 未計算
+// 値 nil    = datetime 未設定 or パース失敗確定
+// 値 non-nil = パース済み日付</pre>
+    <ul>
+      <li><code>scheduleMetaFlush</code> の flush 後に <code>flushedExif</code> を eager キャッシュ書き込み</li>
+      <li><code>photoDate(for:)</code> をキャッシュ優先実装に置換（lazy fallback あり）</li>
+      <li><code>applyRemovalToStore</code> / <code>reset()</code> でクリア追加</li>
+    </ul>
+    <p><strong>効果</strong>: exifDate ソートが N log N 回の DateFormatter parse → ほぼ全件 O(1) lookup。daily / date filter / aggregates も同様。</p>
+  </div>
+
+  <div class="pr-card todo">
+    <div class="pr-title">PR3 <span class="badge badge-todo">未実施</span> — Representative メモ化</div>
+    <p>
+      <code>computeRepresentatives</code> が毎フィルタ変更で全グループ再走査。
+      <code>RepsCacheKey(flatten, kinds, shotGroupsVersion, entryKindVersion)</code> でメモ化し、
+      <code>entryKindCache: [UInt64: PhotoKind]</code> で <code>isDevelopedMember</code> の 4 段判定を O(1) に。
+    </p>
+    <p style="color:var(--text-muted); font-size:.85rem;">懸念: invalidate 漏れで古い representative が残る可能性。DEBUG アサーションで旧パスと比較後に切替。</p>
+  </div>
+
+  <div class="pr-card todo">
+    <div class="pr-title">PR5 <span class="badge badge-todo">未実施</span> — CompiledFilter（述語並び替え + パース済み値保持）</div>
+    <p>
+      <code>matches()</code> を呼ぶたびに各フィールドをパースしている。
+      <code>struct CompiledFilter: Sendable</code> でパース済み値を保持し、
+      <code>filter.didSet</code> 時に 1 度だけ <code>compiled()</code> を呼んでメモ化。
+      4 Tier 述語メソッドに分割し、コスト昇順に並び替え。
+    </p>
+  </div>
+
+  <div class="pr-card todo">
+    <div class="pr-title">PR6 <span class="badge badge-todo">未実施</span> — Aggregates の coalesce + Task.detached 化</div>
+    <p>
+      aggregates（S5）を 200ms coalesce + <code>Task.detached</code> で非同期化。
+      <code>AggregateInputs</code> を <code>Sendable</code> な値型 snapshot として渡し、
+      結果反映時に <code>scanGeneration</code> 照合。
+    </p>
+    <p style="color:var(--green); font-size:.85rem;">ユーザー許容: 200〜400ms の遅延は OK（確認済み）。最大の主スレッド占有削減効果。</p>
+  </div>
+
+  <div class="pr-card later">
+    <div class="pr-title">PR7 <span class="badge badge-later">任意</span> — Aggregates 1-pass 化</div>
+    <p>
+      現在 <code>filteredIDsExcluding</code> を 6 回呼んでいる（= matches を 6 回フルスキャン）。
+      axis-aware predicate で 1 ループに統合。PR6 の後で性能計測して効果が見えてから判断。
+    </p>
+  </div>
+
+  <!-- ===== 将来の議論ポイント ===== -->
+  <h2>将来の議論ポイント</h2>
+
+  <div class="discuss-item">
+    <h3>1. filter.isTextInput の coalesce 有効化</h3>
+    <p>
+      <code>onFilterChanged(from:)</code> で <code>isTextInput == true</code> のとき
+      <code>scheduleRecomputeVisible(coalesceMs: 150)</code> を使う。
+      スライダー/テキスト入力の連続発火を間引く。
+      toggle 系（rating/label/cameraOnly/excluded*/kinds/flatten）は即時のまま。
+    </p>
+  </div>
+
+  <div class="discuss-item">
+    <h3>2. 述語の適用順序の最適化</h3>
+    <p>
+      <code>matches()</code> の評価順を「コスト昇順 + 選択率高い順」に並び替え。
+      rating / label は Set O(1) で軽く、かつユーザー的に選択率が高い（絞り込み量が多い）。
+      date / shutter / nameSearch(caption) は後ろに。
+    </p>
+  </div>
+
+  <div class="discuss-item">
+    <h3>3. filterKinds 変更のみ S1 再計算</h3>
+    <p>
+      <code>onFilterChanged</code> で <code>repsAffected == true</code> のとき <code>mark(reps: true)</code>、
+      それ以外は <code>mark(filtered: true)</code> にする。
+      flatten / filterKinds 変更以外で S1（全グループ走査）をスキップできる。
+      PR3 のメモ化と組み合わせると S1 コストがほぼゼロになる。
+    </p>
+  </div>
+
+  <div class="discuss-item">
+    <h3>4. available* と buckets の分離</h3>
+    <p>
+      <code>availableExtensions/Cameras/Lenses/Artists</code> はメタデータ到着時に更新すれば十分
+      （フィルタ変更で変わらない）。<code>buckets</code>（ヒストグラム）はフィルタ変更後に coalesce で更新。
+      2 つの dirty キーに分けると不要な計算をさらに削減できる。
+    </p>
+  </div>
+
+  <!-- ===== 変更ファイル参照 ===== -->
+  <h2>コード参照</h2>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>関数/構造体</th><th>ファイル</th><th>行番号（目安）</th></tr></thead>
+      <tbody>
+        <tr><td><code>PipelineDirty</code></td><td>LibraryStore.swift</td><td>~1417</td></tr>
+        <tr><td><code>mark(...)</code></td><td>LibraryStore.swift</td><td>~1426</td></tr>
+        <tr><td><code>runDirtyStages()</code></td><td>LibraryStore.swift</td><td>~1436</td></tr>
+        <tr><td><code>runStageReps/Filtered/Sorted/Daily/Aggregates()</code></td><td>LibraryStore.swift</td><td>~1445-1494</td></tr>
+        <tr><td><code>classifyFilterChange(...)</code></td><td>LibraryStore.swift</td><td>~1504</td></tr>
+        <tr><td><code>onFilterChanged(from:)</code></td><td>LibraryStore.swift</td><td>~1525</td></tr>
+        <tr><td><code>recomputeVisible()</code> ラッパ</td><td>LibraryStore.swift</td><td>~1543</td></tr>
+        <tr><td><code>applyOrder()</code></td><td>LibraryStore.swift</td><td>~1548</td></tr>
+        <tr><td><code>photoDate(for:)</code></td><td>LibraryStore.swift</td><td>~1663</td></tr>
+        <tr><td><code>exifDateCache</code></td><td>LibraryStore.swift</td><td>~95</td></tr>
+        <tr><td><code>scheduleMetaFlush()</code></td><td>LibraryStore.swift</td><td>~2044</td></tr>
+        <tr><td><code>computeRepresentatives()</code></td><td>LibraryStore.swift</td><td>~2163</td></tr>
+        <tr><td><code>computeRepresentativesForKinds()</code></td><td>LibraryStore.swift</td><td>~2112</td></tr>
+        <tr><td><code>recomputeAggregates()</code></td><td>LibraryStore.swift</td><td>~1637</td></tr>
+        <tr><td><code>filteredIDsExcluding()</code></td><td>LibraryStore.swift</td><td>~1699</td></tr>
+        <tr><td><code>FilterCriteria.matches()</code></td><td>FilterCriteria.swift</td><td>:80-164</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+</body>
+</html>

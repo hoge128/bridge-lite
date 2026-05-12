@@ -43,7 +43,7 @@ final class LibraryStore {
     var showFilters: Bool = true
     var showSidebar: Bool = true
     var filter: FilterCriteria = FilterCriteria() {
-        didSet { recomputeVisible() }
+        didSet { onFilterChanged(from: oldValue) }
     }
     private var preSearchFlatten: Bool?
 
@@ -84,6 +84,16 @@ final class LibraryStore {
     private var metaFlushTask: Task<Void, Never>?
     private var pendingRecomputeTask: Task<Void, Never>?
     private var duplicateTask: Task<Void, Never>?
+
+    // Pipeline stage cache — @ObservationIgnored で UI 観測を回避
+    @ObservationIgnored private var dirty = PipelineDirty()
+    @ObservationIgnored private var cachedRepresentatives: Set<UInt64> = []
+    @ObservationIgnored private var cachedRepsOrdered: [UInt64] = []
+    @ObservationIgnored private var cachedFiltered: [UInt64] = []
+    // EXIF 日付キャッシュ — scheduleMetaFlush の flush 後に eagerly 埋め、
+    // sort/dailyGroups/filter/aggregates の date 経路で DateFormatter parse を回避する。
+    // 値型: Date? (nil = datetime 未設定 or パース失敗確定), キー不在 = まだ未計算
+    @ObservationIgnored private var exifDateCache: [UInt64: Date?] = [:]
     // reset() のたびに +1。背景タスクが開始時に取得し、setter 呼び出し時に照合する。
     // これにより旧スキャンの detached タスクが新スキャンの状態を汚すのを防ぐ。
     private(set) var scanGeneration: Int = 0
@@ -710,6 +720,7 @@ final class LibraryStore {
             exifData.removeValue(forKey: id)
             xmpData.removeValue(forKey: id)
             thumbnailOrientations.removeValue(forKey: id)
+            exifDateCache.removeValue(forKey: id)
         }
         orderedIDs.removeAll { ids.contains($0) }
         var newGroups: [UInt64: [UInt64]] = [:]
@@ -1403,6 +1414,124 @@ final class LibraryStore {
 
     // MARK: - Computed
 
+    // MARK: Pipeline stages
+
+    // 各ステージの dirty フラグ。下位を立てると上位も自動伝搬（mark() 参照）。
+    // 依存関係: reps → filtered → sorted → daily
+    //                            filtered → aggregates
+    private struct PipelineDirty {
+        var reps: Bool = true
+        var filtered: Bool = true
+        var sorted: Bool = true
+        var daily: Bool = true
+        var aggregates: Bool = true
+    }
+
+    // 指定したフラグと、その下流フラグをすべて立てる。
+    private func mark(reps: Bool = false, filtered: Bool = false, sorted: Bool = false, daily: Bool = false, aggregates: Bool = false) {
+        if reps      { dirty.reps      = true }
+        if reps || filtered            { dirty.filtered   = true; dirty.aggregates = true }
+        if reps || filtered || sorted  { dirty.sorted     = true; dirty.daily      = true }
+        if daily     { dirty.daily      = true }
+        if aggregates { dirty.aggregates = true }
+    }
+
+    // dirty なステージだけを順に実行する中央ディスパッチャ。
+    // 現時点では同期実行。後続 PR で aggregates を非同期化する。
+    private func runDirtyStages() {
+        runStageReps()
+        runStageFiltered()
+        runStageSorted()
+        runStageDaily()
+        runStageAggregates()
+    }
+
+    // S1: Shot group の代表エントリを決定する。
+    private func runStageReps() {
+        guard dirty.reps else { return }
+        let liveReps: Set<UInt64>
+        if filter.flatten {
+            liveReps = Set(orderedIDs)
+        } else if !filter.filterKinds.isEmpty {
+            liveReps = computeRepresentativesForKinds(filter.filterKinds, groups: shotGroups, entries: entries)
+        } else {
+            liveReps = computeRepresentatives(groups: shotGroups, entries: entries)
+        }
+        cachedRepresentatives = liveReps
+        cachedRepsOrdered = orderedIDs.filter { liveReps.contains($0) }
+        dirty.reps = false
+    }
+
+    // S2: 代表エントリに述語フィルタを適用する。
+    private func runStageFiltered() {
+        guard dirty.filtered else { return }
+        if !filter.isActive {
+            cachedFiltered = cachedRepsOrdered
+        } else {
+            cachedFiltered = cachedRepsOrdered.filter { id in
+                guard let entry = entries[id] else { return false }
+                return filter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id], luminance: luminanceScores[id])
+            }
+        }
+        dirty.filtered = false
+    }
+
+    // S3: フィルタ済みエントリをソートして visibleIDs に反映する。
+    private func runStageSorted() {
+        guard dirty.sorted else { return }
+        let next = sortedIDs(cachedFiltered)
+        if next != visibleIDs { visibleIDs = next }
+        dirty.sorted = false
+    }
+
+    // S4: デイリービューのグルーピングを更新する。
+    private func runStageDaily() {
+        guard dirty.daily else { return }
+        if settings.viewMode == .daily { rebuildDailyGroups() }
+        dirty.daily = false
+    }
+
+    // S5: ヒストグラムバケットと集計値を更新する。
+    private func runStageAggregates() {
+        guard dirty.aggregates else { return }
+        recomputeAggregates(reps: cachedRepsOrdered, fast: scanPhase == .loading)
+        dirty.aggregates = false
+    }
+
+    // フィルタ変更の種別。将来の PR でステージスキップや coalesce に利用する。
+    private struct FilterChangeShape {
+        // flatten / filterKinds が変化した → representative 選定（S1）から再計算が必要
+        let repsAffected: Bool
+        // テキスト入力やスライダー操作 → キーストローク毎の発火を coalesce する候補
+        let isTextInput: Bool
+    }
+
+    private func classifyFilterChange(from old: FilterCriteria, to new: FilterCriteria) -> FilterChangeShape {
+        let repsAffected = old.flatten != new.flatten || old.filterKinds != new.filterKinds
+        let isTextInput =
+            old.nameSearch   != new.nameSearch   ||
+            old.isoMin       != new.isoMin       ||
+            old.isoMax       != new.isoMax       ||
+            old.focalMin     != new.focalMin     ||
+            old.focalMax     != new.focalMax     ||
+            old.shutterMin   != new.shutterMin   ||
+            old.shutterMax   != new.shutterMax   ||
+            old.apertureMin  != new.apertureMin  ||
+            old.apertureMax  != new.apertureMax  ||
+            old.dateMin      != new.dateMin      ||
+            old.dateMax      != new.dateMax      ||
+            old.luminanceMin != new.luminanceMin ||
+            old.luminanceMax != new.luminanceMax
+        return FilterChangeShape(repsAffected: repsAffected, isTextInput: isTextInput)
+    }
+
+    // filter.didSet から呼ばれる。PR1 では shape を計算するのみで挙動は従来と同一。
+    // 後続 PR で shape / isTextInput を利用して dirty フラグや coalesce を制御する。
+    private func onFilterChanged(from old: FilterCriteria) {
+        _ = classifyFilterChange(from: old, to: filter)
+        recomputeVisible()
+    }
+
     private func scheduleRecomputeVisible(coalesceMs: Int = 400) {
         guard pendingRecomputeTask == nil else { return }
         pendingRecomputeTask = Task { @MainActor [weak self] in
@@ -1413,41 +1542,19 @@ final class LibraryStore {
         }
     }
 
+    // 後方互換ラッパ。全ステージを dirty にして runDirtyStages を実行する。
+    // 呼び出し元 21 か所は当面このまま。後続 PR で各呼び出し元を
+    // 適切な mark(...) + runDirtyStages() に最適化していく。
     private func recomputeVisible() {
-        let liveReps: Set<UInt64>
-        if filter.flatten {
-            liveReps = Set(orderedIDs)
-        } else if !filter.filterKinds.isEmpty {
-            liveReps = computeRepresentativesForKinds(filter.filterKinds, groups: shotGroups, entries: entries)
-        } else {
-            liveReps = computeRepresentatives(groups: shotGroups, entries: entries)
-        }
-        let reps = orderedIDs.filter { liveReps.contains($0) }
-        let filtered: [UInt64]
-        if !filter.isActive {
-            filtered = reps
-        } else {
-            filtered = reps.filter { id in
-                guard let entry = entries[id] else { return false }
-                return filter.matches(entry: entry, exif: exifData[id], xmp: xmpData[id], luminance: luminanceScores[id])
-            }
-        }
-        let next = sortedIDs(filtered)
-        if next != visibleIDs { visibleIDs = next }
-        if settings.viewMode == .daily {
-            rebuildDailyGroups()
-        }
-        recomputeAggregates(reps: reps, fast: scanPhase == .loading)
+        dirty = PipelineDirty()
+        runDirtyStages()
     }
 
     func applyOrder() {
-        // ソートでは集合は変わらず順序だけ変わる。
-        // aggregates / buckets の再構築は不要。
-        let next = sortedIDs(visibleIDs)
-        if next != visibleIDs { visibleIDs = next }
-        if settings.viewMode == .daily {
-            rebuildDailyGroups()
-        }
+        // ソートでは集合は変わらず順序と daily グループだけ変わる。
+        // reps / filtered / aggregates の再計算は不要。
+        mark(sorted: true)
+        runDirtyStages()
     }
 
     private func filteredIDs(using customFilter: FilterCriteria) -> [UInt64] {
@@ -1554,8 +1661,14 @@ final class LibraryStore {
     }
 
     func photoDate(for id: UInt64) -> Date {
-        if let dt = exifData[id]?.datetime, let d = Self.exifDateParser.date(from: dt) { return d }
-        return entries[id]?.createdDate ?? .distantPast
+        // exifDateCache[id] は Date?? — キー不在は未計算、値 nil はパース失敗確定
+        if let cachedEntry = exifDateCache[id] {
+            return cachedEntry ?? (entries[id]?.createdDate ?? .distantPast)
+        }
+        // キャッシュなし → 計算して lazy 書き込み
+        let d = exifData[id]?.datetime.flatMap { Self.exifDateParser.date(from: $0) }
+        exifDateCache[id] = d
+        return d ?? (entries[id]?.createdDate ?? .distantPast)
     }
 
     private static let exifDateParser: DateFormatter = {
@@ -1948,6 +2061,10 @@ final class LibraryStore {
             let flushedXmp  = pendingXmp
             exifData.merge(flushedExif) { _, new in new }
             xmpData.merge(flushedXmp)  { _, new in new }
+            // exifDateCache を eager 更新 — sort/daily/filter の date 経路で parse を回避
+            for (id, exif) in flushedExif {
+                exifDateCache[id] = Self.exifDateParser.date(from: exif.datetime ?? "")
+            }
             pendingExif = [:]
             pendingXmp = [:]
             metaFlushTask = nil
@@ -2073,6 +2190,11 @@ final class LibraryStore {
         pairingPipeline = PairingPipeline()
         phashPipeline = PHashPipeline()
         duplicatePipeline = DuplicatePipeline()
+        cachedRepresentatives = []
+        cachedRepsOrdered = []
+        cachedFiltered = []
+        exifDateCache = [:]
+        dirty = PipelineDirty()
     }
 
     private func ingest(_ scanned: [PhotoEntry]) {
