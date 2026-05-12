@@ -3,8 +3,12 @@ import Foundation
 
 actor PHashPipeline {
     // static: マルチタブ時にウィンドウ数分の並列度が合算されないようアプリ全体で共有。
-    // 通常: 2 並列。Burst Mode UI 実装後は BridgeQoS.phashConcurrency を参照。
+    // 通常: 2 並列 / Burst Mode: 4 並列。ThumbnailPipeline.loadAll の先頭で applyBurstMode() が呼ばれる。
     private static let limiter = ConcurrencyLimiter(maxConcurrent: 2)
+
+    static func applyBurstMode() async {
+        await limiter.updateMax(BridgeQoS.phashConcurrency)
+    }
     private var pending: Int = 0
     private var doneWaiters: [CheckedContinuation<Void, Never>] = []
 

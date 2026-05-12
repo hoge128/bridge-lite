@@ -206,6 +206,13 @@ struct ToolbarView: ToolbarContent {
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
+            Toggle(isOn: $settings.burstMode) {
+                Label("Boost Mode", systemImage: "bolt.fill")
+            }
+            .toggleStyle(.button)
+            .tint(.orange)
+            .help(String(localized: "Boost Mode"))
+
             if !store.viewerMode && !store.compareMode {
                 SearchFieldContainer()
             }

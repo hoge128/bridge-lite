@@ -128,6 +128,12 @@ struct FolderView: View {
                     ToolbarView()
                 }
                 .toolbar(store.viewerMode || store.compareMode ? .hidden : .visible, for: .windowToolbar)
+                .toolbarBackground(
+                    store.settings.burstMode
+                        ? AnyShapeStyle(Color.orange.opacity(0.22))
+                        : AnyShapeStyle(.bar),
+                    for: .windowToolbar
+                )
                 .navigationTitle(store.currentDirectoryURL?.lastPathComponent ?? "BridgeLite")
                 .onKeyPress(keys: [.tab], phases: .down) { press in
                     if store.viewerMode || store.compareMode { return .ignored }

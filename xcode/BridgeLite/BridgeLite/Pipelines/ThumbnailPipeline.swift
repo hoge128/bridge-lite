@@ -7,8 +7,8 @@ import SwiftUI
 /// Writes JPEG blobs to LibraryStore.thumbnailBlobs on the MainActor
 /// so the grid updates reactively as each thumbnail finishes.
 enum ThumbnailPipeline {
-    // 通常: 2 並列（他アプリへの影響を抑える）。Burst Mode UI 実装後は BridgeQoS.thumbnailConcurrency を参照。
-    // IOSurface 枯渇（kIOReturnNoMemory）対策として上限を設ける点は変わらない。
+    // IOSurface 枯渇（kIOReturnNoMemory）対策として上限を設ける。
+    // 通常: 2 並列 / Burst Mode: 4 並列。loadAll 開始時に BridgeQoS.thumbnailConcurrency で更新される。
     private static let limiter = ConcurrencyLimiter(maxConcurrent: 2)
 
     /// Fire-and-forget: load all thumbnails, updating store as each one completes.
@@ -22,6 +22,10 @@ enum ThumbnailPipeline {
         generation: Int,
         imageList: BridgeCoreImageList? = nil
     ) async {
+        // Burst Mode の並列数をスキャン開始時に反映する。
+        await limiter.updateMax(BridgeQoS.thumbnailConcurrency)
+        await PHashPipeline.applyBurstMode()
+
         // Pre-fetch all thumbnails in one SQLite connection to avoid per-entry connection overhead.
         let prefetched: [URL: Data]
         if let list = imageList {

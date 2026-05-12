@@ -746,6 +746,22 @@
         }
       }
     },
+    "Boost Mode" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Boost Mode"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブーストモード"
+          }
+        }
+      }
+    },
     "Ascending" : {
       "localizations" : {
         "en" : {

@@ -22,10 +22,11 @@ enum BridgeQoS {
     static var rawRender: TaskPriority {
         isBurstMode ? .userInitiated : .utility
     }
+    // 通常: 2、Burst: 4
+    static var thumbnailConcurrency: Int { isBurstMode ? 4 : 2 }
+    static var phashConcurrency: Int    { isBurstMode ? 4 : 2 }
     // 通常: 3、Burst: 8（xmpLimiter は毎スキャン時に参照するため動的に効く）
-    static var xmpConcurrency: Int {
-        isBurstMode ? 8 : 3
-    }
+    static var xmpConcurrency: Int      { isBurstMode ? 8 : 3 }
 }
 
 // MARK: - Concurrency Limiter
@@ -33,12 +34,22 @@ enum BridgeQoS {
 /// actor-based セマフォで最大並列数を制御。
 /// キャンセルに対応しており、待機中のタスクがキャンセルされるとキューから除去される。
 actor ConcurrencyLimiter {
-    private let maxConcurrent: Int
+    private var maxConcurrent: Int
     private var running: Int = 0
     private var waiters: [(id: UUID, continuation: CheckedContinuation<Void, Error>)] = []
 
     init(maxConcurrent: Int) {
         self.maxConcurrent = maxConcurrent
+    }
+
+    func updateMax(_ n: Int) {
+        maxConcurrent = n
+        // 空きが増えた場合は待機中のタスクを即時解放する
+        while running < maxConcurrent, let waiter = waiters.first {
+            waiters.removeFirst()
+            waiter.continuation.resume()
+            running += 1
+        }
     }
 
     func run<T: Sendable>(_ work: @Sendable () async throws -> T) async throws -> T {
