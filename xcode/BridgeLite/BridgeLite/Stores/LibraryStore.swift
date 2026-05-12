@@ -893,6 +893,12 @@ final class LibraryStore {
 
     func triggerDelete() {
         guard !selectedIDs.isEmpty else { return }
+        // flatten mode: no group concept, always delete selected items only
+        // (future: may add group-aware delete even in flatten mode)
+        if filter.flatten {
+            deleteSelectedRepresentatives()
+            return
+        }
         switch settings.deleteScopeMode {
         case .representative: deleteSelectedRepresentatives()
         case .allInGroup:     deleteSelectedGroups()
