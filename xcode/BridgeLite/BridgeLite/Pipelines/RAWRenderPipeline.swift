@@ -22,6 +22,9 @@ enum RAWRenderTarget {
 actor RAWRenderPipeline {
     static let shared = RAWRenderPipeline()
     private let limiter = ConcurrencyLimiter(maxConcurrent: 1)
+    // Shared across renders: CIContext creation is expensive and holds GPU state.
+    // cacheIntermediates: false prevents filter-chain IOSurfaces from accumulating.
+    private let ctx = CIContext(options: [.useSoftwareRenderer: false, .cacheIntermediates: false])
 
     func render(
         url: URL,
@@ -46,10 +49,11 @@ actor RAWRenderPipeline {
     private func renderWithCIRAWFilter(url: URL, maxWidth: Int) async -> Data? {
         // ConcurrencyLimiter(maxConcurrent: 1) で CIRAWFilter の同時実行を 1 件に制限する。
         // Task.detached は actor 外で並列実行されるため limiter なしでは IOSurface を枯渇させる。
+        // ctx は actor-isolated コンテキストで取り出し、detached クロージャへキャプチャする。
+        let ctx = self.ctx
         do {
             return try await limiter.run { [url, maxWidth] in
-                await Task.detached(priority: .userInitiated) { () -> Data? in
-                    let ctx = CIContext(options: [.useSoftwareRenderer: false])
+                let result = await Task.detached(priority: .userInitiated) { () -> Data? in
                     // CIRAWFilter returns nil for formats not supported by the OS RAW pipeline.
                     // Canon CR2 is not supported on macOS 26; CIRAWFilter silently returns nil.
                     guard let filter = CIRAWFilter(imageURL: url) else { return nil }
@@ -64,6 +68,9 @@ actor RAWRenderPipeline {
                           let cg = ctx.createCGImage(output, from: output.extent) else { return nil }
                     return cg.jpegData(compressionQuality: 0.85)
                 }.value
+                // Release filter-chain IOSurfaces from the shared CIContext cache after each render.
+                ctx.clearCaches()
+                return result
             }
         } catch {
             return nil
@@ -71,8 +78,9 @@ actor RAWRenderPipeline {
     }
 
     private func decode(jpeg: Data) -> (CGImage, Image.Orientation)? {
-        guard let src = CGImageSourceCreateWithData(jpeg as CFData, nil),
-              let img = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }
+        let opts = [kCGImageSourceShouldCache: false] as CFDictionary
+        guard let src = CGImageSourceCreateWithData(jpeg as CFData, opts),
+              let img = CGImageSourceCreateImageAtIndex(src, 0, opts) else { return nil }
         // CIRAWFilter bakes rotation into pixel data; no post-rotation needed.
         return (img, .up)
     }

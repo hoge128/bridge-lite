@@ -292,27 +292,12 @@ struct ViewerView: View {
     private func loadFullRes(entry: PhotoEntry) async -> (CGImage, Image.Orientation)? {
         if entry.isRaw,
            let data = await BridgeCore.extractRawJpeg(url: entry.url, quality: .full) {
-            let url = entry.url
-            return await Task.detached(priority: .userInitiated) {
-                // The embedded JPEG typically lacks an orientation tag; read it from the RAW source.
-                // We only call CopyProperties (no pixel decode) so the macOS 26 RawCamera crash does not apply.
-                let orient: CGImagePropertyOrientation
-                if let rawSrc = CGImageSourceCreateWithURL(url as CFURL, nil) {
-                    orient = readOrientation(rawSrc)
-                } else {
-                    orient = .up
-                }
-                guard let jpegSrc = CGImageSourceCreateWithData(data as CFData, nil),
-                      let img = CGImageSourceCreateImageAtIndex(jpegSrc, 0, nil) else { return nil }
-                return (img, Image.Orientation(orient))
-            }.value
+            // Use cached orientation to avoid re-opening the RAW file (which allocates extra IOSurfaces).
+            let orient = store.thumbnailOrientations[entry.id] ?? .up
+            return await LargeImageDecoder.decodeFromData(data, orientation: orient)
         }
         // Non-RAW path, or RAW fallback when IFD2 JPEG is absent (e.g. DxO PureRAW DNG)
-        return await Task.detached(priority: .userInitiated) {
-            guard let src = CGImageSourceCreateWithURL(entry.url as CFURL, nil),
-                  let img = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }
-            return (img, Image.Orientation(readOrientation(src)))
-        }.value
+        return await LargeImageDecoder.decodeFromURL(entry.url)
     }
 }
 
