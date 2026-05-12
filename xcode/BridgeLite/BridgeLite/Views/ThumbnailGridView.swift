@@ -195,19 +195,24 @@ struct ThumbnailGridView: View {
         GeometryReader { geo in
             let cols = max(2, Int(geo.size.width / (cellSize + 8)))
             let columns = Array(repeating: GridItem(.fixed(cellSize), spacing: 8), count: cols)
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: 8) {
-                    ForEach(store.visibleIDs, id: \.self) { id in
-                        if let entry = store.entries[id] {
-                            ThumbnailCellView(entry: entry)
-                                .onTapGesture { handleTap(id: id) }
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: 8) {
+                        ForEach(store.visibleIDs, id: \.self) { id in
+                            if let entry = store.entries[id] {
+                                ThumbnailCellView(entry: entry)
+                                    .onTapGesture { handleTap(id: id) }
+                                    .id(id)
+                            }
                         }
                     }
+                    .padding(8)
                 }
-                .padding(8)
+                .onAppear { store.gridColumnCount = cols }
+                .onChange(of: cols) { _, newCols in store.gridColumnCount = newCols }
+                .onChange(of: store.viewerMode)  { _, isOn in if !isOn { scrollToPrimary(proxy) } }
+                .onChange(of: store.compareMode) { _, isOn in if !isOn { scrollToPrimary(proxy) } }
             }
-            .onAppear { store.gridColumnCount = cols }
-            .onChange(of: cols) { _, newCols in store.gridColumnCount = newCols }
         }
         .id(store.scanGeneration)
     }
@@ -221,37 +226,51 @@ struct ThumbnailGridView: View {
             let cols = max(2, Int((geo.size.width - 16) / (cellSize + 8)))
             let gridColumns = Array(repeating: GridItem(.fixed(cellSize), spacing: 8), count: cols)
 
-            ScrollView {
-                // LazyVStack でセクション単位の遅延描画、内側の LazyVGrid で写真単位の遅延描画
-                LazyVStack(alignment: .leading, spacing: 0) {
-                    ForEach(store.dailyGroups) { group in
-                        DailyGroupHeaderView(date: group.date, ids: group.ids)
-                            .padding(.horizontal, 8)
-                            .padding(.top, 20)
-                            .padding(.bottom, 8)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    // LazyVStack でセクション単位の遅延描画、内側の LazyVGrid で写真単位の遅延描画
+                    LazyVStack(alignment: .leading, spacing: 0) {
+                        ForEach(store.dailyGroups) { group in
+                            DailyGroupHeaderView(date: group.date, ids: group.ids)
+                                .padding(.horizontal, 8)
+                                .padding(.top, 20)
+                                .padding(.bottom, 8)
 
-                        LazyVGrid(columns: gridColumns, spacing: 8) {
-                            ForEach(group.ids, id: \.self) { id in
-                                if let entry = store.entries[id] {
-                                    ThumbnailCellView(entry: entry)
-                                        .onTapGesture { handleTap(id: id) }
+                            LazyVGrid(columns: gridColumns, spacing: 8) {
+                                ForEach(group.ids, id: \.self) { id in
+                                    if let entry = store.entries[id] {
+                                        ThumbnailCellView(entry: entry)
+                                            .onTapGesture { handleTap(id: id) }
+                                            .id(id)
+                                    }
                                 }
                             }
+                            .padding(.horizontal, 8)
+                            .padding(.bottom, 16)
                         }
-                        .padding(.horizontal, 8)
-                        .padding(.bottom, 16)
                     }
+                    .padding(.bottom, 8)
                 }
-                .padding(.bottom, 8)
+                .onAppear {
+                    store.gridColumnCount = cols
+                    // モード切替直後やアプリ起動時にキャッシュが空の場合を補う
+                    store.refreshDailyGroupsIfNeeded()
+                }
+                .onChange(of: cols) { _, c in store.gridColumnCount = c }
+                .onChange(of: store.viewerMode)  { _, isOn in if !isOn { scrollToPrimary(proxy) } }
+                .onChange(of: store.compareMode) { _, isOn in if !isOn { scrollToPrimary(proxy) } }
             }
-            .onAppear {
-                store.gridColumnCount = cols
-                // モード切替直後やアプリ起動時にキャッシュが空の場合を補う
-                store.refreshDailyGroupsIfNeeded()
-            }
-            .onChange(of: cols) { _, c in store.gridColumnCount = c }
         }
         .id(store.scanGeneration)
+    }
+
+    private func scrollToPrimary(_ proxy: ScrollViewProxy) {
+        guard let id = store.primaryID else { return }
+        DispatchQueue.main.async {
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { proxy.scrollTo(id, anchor: .center) }
+        }
     }
 
 }
