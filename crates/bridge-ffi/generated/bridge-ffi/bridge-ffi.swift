@@ -234,18 +234,6 @@ public func shot_groups_map_shot_id_at(_ m: ShotGroupsMapRef, _ idx: UInt) -> UI
 public func shot_groups_map_members_for(_ m: ShotGroupsMapRef, _ shot_id: UInt64) -> RustVec<UInt64> {
     RustVec(ptr: __swift_bridge__$shot_groups_map_members_for(m.ptr, shot_id))
 }
-public func bridge_compute_duplicate_groups(_ db: BridgeDatabaseRef, _ entries: ImageEntryListRef) -> DuplicateGroupsMap {
-    DuplicateGroupsMap(ptr: __swift_bridge__$bridge_compute_duplicate_groups(db.ptr, entries.ptr))
-}
-public func duplicate_groups_map_count(_ m: DuplicateGroupsMapRef) -> UInt {
-    __swift_bridge__$duplicate_groups_map_count(m.ptr)
-}
-public func duplicate_groups_map_sha_at(_ m: DuplicateGroupsMapRef, _ idx: UInt) -> RustVec<UInt8> {
-    RustVec(ptr: __swift_bridge__$duplicate_groups_map_sha_at(m.ptr, idx))
-}
-public func duplicate_groups_map_members_for(_ m: DuplicateGroupsMapRef, _ sha: UnsafeBufferPointer<UInt8>) -> RustVec<UInt64> {
-    RustVec(ptr: __swift_bridge__$duplicate_groups_map_members_for(m.ptr, sha.toFfiSlice()))
-}
 public func bridge_is_raw<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr) -> Bool {
     return path.toRustStr({ pathAsRustStr in
         __swift_bridge__$bridge_is_raw(pathAsRustStr)
@@ -259,81 +247,6 @@ public func bridge_has_images_beyond_scan_depth<GenericToRustStr: ToRustStr>(_ p
         __swift_bridge__$bridge_has_images_beyond_scan_depth(pathAsRustStr)
     })
 }
-
-public class DuplicateGroupsMap: DuplicateGroupsMapRefMut {
-    var isOwned: Bool = true
-
-    public override init(ptr: UnsafeMutableRawPointer) {
-        super.init(ptr: ptr)
-    }
-
-    deinit {
-        if isOwned {
-            __swift_bridge__$DuplicateGroupsMap$_free(ptr)
-        }
-    }
-}
-public class DuplicateGroupsMapRefMut: DuplicateGroupsMapRef {
-    public override init(ptr: UnsafeMutableRawPointer) {
-        super.init(ptr: ptr)
-    }
-}
-public class DuplicateGroupsMapRef {
-    var ptr: UnsafeMutableRawPointer
-
-    public init(ptr: UnsafeMutableRawPointer) {
-        self.ptr = ptr
-    }
-}
-extension DuplicateGroupsMap: Vectorizable {
-    public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
-        __swift_bridge__$Vec_DuplicateGroupsMap$new()
-    }
-
-    public static func vecOfSelfFree(vecPtr: UnsafeMutableRawPointer) {
-        __swift_bridge__$Vec_DuplicateGroupsMap$drop(vecPtr)
-    }
-
-    public static func vecOfSelfPush(vecPtr: UnsafeMutableRawPointer, value: DuplicateGroupsMap) {
-        __swift_bridge__$Vec_DuplicateGroupsMap$push(vecPtr, {value.isOwned = false; return value.ptr;}())
-    }
-
-    public static func vecOfSelfPop(vecPtr: UnsafeMutableRawPointer) -> Optional<Self> {
-        let pointer = __swift_bridge__$Vec_DuplicateGroupsMap$pop(vecPtr)
-        if pointer == nil {
-            return nil
-        } else {
-            return (DuplicateGroupsMap(ptr: pointer!) as! Self)
-        }
-    }
-
-    public static func vecOfSelfGet(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<DuplicateGroupsMapRef> {
-        let pointer = __swift_bridge__$Vec_DuplicateGroupsMap$get(vecPtr, index)
-        if pointer == nil {
-            return nil
-        } else {
-            return DuplicateGroupsMapRef(ptr: pointer!)
-        }
-    }
-
-    public static func vecOfSelfGetMut(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<DuplicateGroupsMapRefMut> {
-        let pointer = __swift_bridge__$Vec_DuplicateGroupsMap$get_mut(vecPtr, index)
-        if pointer == nil {
-            return nil
-        } else {
-            return DuplicateGroupsMapRefMut(ptr: pointer!)
-        }
-    }
-
-    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<DuplicateGroupsMapRef> {
-        UnsafePointer<DuplicateGroupsMapRef>(OpaquePointer(__swift_bridge__$Vec_DuplicateGroupsMap$as_ptr(vecPtr)))
-    }
-
-    public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
-        __swift_bridge__$Vec_DuplicateGroupsMap$len(vecPtr)
-    }
-}
-
 
 public class ShotGroupsMap: ShotGroupsMapRefMut {
     var isOwned: Bool = true

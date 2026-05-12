@@ -333,14 +333,6 @@ final class SettingsStore {
     var warnSlowStorage: Bool = bool("warnSlowStorage", default: true) {
         didSet { UserDefaults.standard.set(warnSlowStorage, forKey: "warnSlowStorage") }
     }
-    var confirmDuplicateBatchDelete: Bool = bool("confirmDuplicateBatchDelete", default: true) {
-        didSet { UserDefaults.standard.set(confirmDuplicateBatchDelete, forKey: "confirmDuplicateBatchDelete") }
-    }
-
-    // MARK: - 重複検出
-    var detectDuplicates: Bool = bool("detectDuplicates", default: true) {
-        didSet { UserDefaults.standard.set(detectDuplicates, forKey: "detectDuplicates") }
-    }
     var folderWatchEnabled: Bool = bool("folderWatchEnabled", default: true) {
         didSet { UserDefaults.standard.set(folderWatchEnabled, forKey: "folderWatchEnabled") }
     }

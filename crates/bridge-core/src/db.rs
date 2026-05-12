@@ -80,14 +80,6 @@ fn init_schema(conn: &Connection) -> Result<()> {
             PRIMARY KEY (path, engine, width)
         );
 
-        CREATE TABLE IF NOT EXISTS file_hashes (
-            path      TEXT PRIMARY KEY,
-            mtime     INTEGER NOT NULL,
-            sha256    BLOB NOT NULL,
-            cached_at INTEGER DEFAULT (strftime('%s', 'now'))
-        );
-        CREATE INDEX IF NOT EXISTS idx_file_hashes_sha       ON file_hashes(sha256);
-        CREATE INDEX IF NOT EXISTS idx_file_hashes_cached_at ON file_hashes(cached_at);
         ",
     )
 }
@@ -571,65 +563,6 @@ pub fn prune_cache(db_path: &Path, max_age_days: u32) {
          DELETE FROM phashes      WHERE cached_at IS NOT NULL AND cached_at < {cutoff};
          DELETE FROM file_hashes  WHERE cached_at IS NOT NULL AND cached_at < {cutoff};"
     ));
-}
-
-// ── SHA-256 cache ─────────────────────────────────────────────────────────
-
-/// Fetch all cached SHA-256 hashes for the given paths.
-/// Only entries whose mtime still matches the current file mtime are returned.
-pub fn fetch_sha_batch(
-    paths: &[PathBuf],
-    db_path: &Path,
-) -> std::collections::HashMap<PathBuf, [u8; 32]> {
-    let mut out = std::collections::HashMap::new();
-    let Ok(conn) = Connection::open(db_path) else { return out };
-    for chunk in paths.chunks(500) {
-        let placeholders = std::iter::repeat("?")
-            .take(chunk.len())
-            .collect::<Vec<_>>()
-            .join(",");
-        let sql = format!(
-            "SELECT path, mtime, sha256 FROM file_hashes WHERE path IN ({placeholders})"
-        );
-        let Ok(mut stmt) = conn.prepare(&sql) else { continue };
-        let params_iter = rusqlite::params_from_iter(
-            chunk.iter().map(|p| p.to_string_lossy().into_owned()),
-        );
-        let Ok(rows) = stmt.query_map(params_iter, |row| {
-            let path_str: String = row.get(0)?;
-            let stored_mtime: i64 = row.get(1)?;
-            let sha_blob: Vec<u8> = row.get(2)?;
-            Ok((PathBuf::from(path_str), stored_mtime, sha_blob))
-        }) else {
-            continue;
-        };
-        for row in rows.flatten() {
-            let (path, stored_mtime, sha_blob) = row;
-            if file_mtime(&path) == stored_mtime {
-                if sha_blob.len() == 32 {
-                    let mut arr = [0u8; 32];
-                    arr.copy_from_slice(&sha_blob);
-                    out.insert(path, arr);
-                }
-            }
-        }
-    }
-    out
-}
-
-/// Persist SHA-256 hashes in a single transaction.
-pub fn store_sha_batch(items: &[(PathBuf, i64, [u8; 32])], db_path: &Path) {
-    let Ok(conn) = Connection::open(db_path) else { return };
-    let _ = conn.busy_timeout(std::time::Duration::from_secs(5));
-    let Ok(tx) = conn.unchecked_transaction() else { return };
-    for (path, mtime, sha) in items {
-        let _ = tx.execute(
-            "INSERT OR REPLACE INTO file_hashes (path, mtime, sha256, cached_at)
-             VALUES (?1, ?2, ?3, strftime('%s','now'))",
-            rusqlite::params![path.to_string_lossy().as_ref(), mtime, sha.as_ref()],
-        );
-    }
-    let _ = tx.commit();
 }
 
 fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result<()> {
