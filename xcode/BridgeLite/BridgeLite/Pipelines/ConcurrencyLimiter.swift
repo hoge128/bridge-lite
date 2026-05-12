@@ -1,5 +1,29 @@
 import Foundation
 
+// MARK: - QoS ポリシー
+
+/// バックグラウンドスキャン・レンダリング処理の QoS ポリシー一元管理。
+///
+/// 通常モード: .utility — 他アプリへの影響を最小化（macOS がバックグラウンド処理として扱う）
+/// Burst Mode: .userInitiated — 最大スループット優先（スキャン速度を重視するとき）
+enum BridgeQoS {
+    static var scan: TaskPriority {
+        SettingsStore.shared.burstMode ? .userInitiated : .utility
+    }
+    static var thumbnail: TaskPriority {
+        SettingsStore.shared.burstMode ? .userInitiated : .utility
+    }
+    static var rawRender: TaskPriority {
+        SettingsStore.shared.burstMode ? .userInitiated : .utility
+    }
+    // 通常: 3、Burst: 8（xmpLimiter は毎スキャン時に参照するため動的に効く）
+    static var xmpConcurrency: Int {
+        SettingsStore.shared.burstMode ? 8 : 3
+    }
+}
+
+// MARK: - Concurrency Limiter
+
 /// actor-based セマフォで最大並列数を制御。
 /// キャンセルに対応しており、待機中のタスクがキャンセルされるとキューから除去される。
 actor ConcurrencyLimiter {
