@@ -85,6 +85,7 @@ struct ThumbnailCellView: View {
         .onAppear {
             let id = entry.id
             let url = entry.url
+
             let orient: Image.Orientation = entry.isRaw ? (store.thumbnailOrientations[id] ?? .up) : .up
             thumbnailOrientation = orient
             if let cached = ThumbnailDecodeCache.shared.peek(url: url) {

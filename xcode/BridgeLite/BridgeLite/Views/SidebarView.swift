@@ -501,6 +501,7 @@ struct VariationThumbView: View {
 
     private var thumbnail: CGImage? { store.thumbnailImage(for: entry.id) }
     private var isDev: Bool {
+        entry.hasDevelopedSuffix ||
         (store.xmpData[entry.id]?.developed == true) ||
         (store.exifData[entry.id]?.isDeveloped == true)
     }

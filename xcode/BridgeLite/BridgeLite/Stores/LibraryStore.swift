@@ -2220,6 +2220,11 @@ final class LibraryStore {
         if entry.hasDevelopedSuffix { return true }
         if xmpData[id]?.developed == true { return true }
         if exifData[id]?.isDeveloped == true { return true }
+        // 60s lag heuristic: only for IND files with no camera make/model.
+        // Files with make/model intact are identifiable camera originals; applying
+        // tsHit to them causes false positives when RAW and JPG are imported in
+        // separate sessions (resulting in birthtime gaps > 60s despite both being SOOC).
+        guard let exif = exifData[id], (exif.make ?? "").isEmpty else { return false }
         if let created = entry.createdDate, let minDate = groupMinDate,
            created.timeIntervalSince(minDate) > 60 { return true }
         return false
@@ -2307,6 +2312,9 @@ final class LibraryStore {
                     return BridgeCoreConstants.developedKeywords.contains { lower.contains($0) }
                 } ?? false
                 let tsHit: Bool = {
+                    guard !suffixHit && !xmpHit && !exifHit else { return false }
+                    // Only for IND files: skip if EXIF identifies the file as a camera original.
+                    if let exif = exifData[id], !(exif.make ?? "").isEmpty { return false }
                     guard let created = entry.createdDate, let minDate = groupMinDate else { return false }
                     return created.timeIntervalSince(minDate) > 60
                 }()
