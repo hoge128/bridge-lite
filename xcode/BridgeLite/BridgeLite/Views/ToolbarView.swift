@@ -197,7 +197,16 @@ struct ToolbarView: ToolbarContent {
         }
 
         ToolbarItemGroup(placement: .principal) {
-            if let msg = store.undoMessage {
+            if settings.boostNoticeVisible {
+                HStack(spacing: 5) {
+                    Image(systemName: "bolt.fill")
+                        .foregroundStyle(.orange)
+                    Text("Boost Mode active")
+                        .font(.caption2)
+                        .foregroundStyle(.orange)
+                }
+                .transition(.opacity)
+            } else if let msg = store.undoMessage {
                 Text(msg)
                     .font(.caption)
                     .foregroundStyle(.orange)
@@ -206,11 +215,17 @@ struct ToolbarView: ToolbarContent {
         }
 
         ToolbarItemGroup(placement: .primaryAction) {
-            Toggle(isOn: $settings.burstMode) {
-                Label("Boost Mode", systemImage: "bolt.fill")
+            Button(action: {
+                settings.burstMode.toggle()
+                if settings.burstMode {
+                    settings.showBoostNotice()
+                } else {
+                    settings.hideBoostNotice()
+                }
+            }) {
+                Image(systemName: settings.burstMode ? "bolt.fill" : "bolt")
+                    .foregroundStyle(settings.burstMode ? Color.orange : Color.primary)
             }
-            .toggleStyle(.button)
-            .tint(.orange)
             .help(String(localized: "Boost Mode"))
 
             if !store.viewerMode && !store.compareMode {

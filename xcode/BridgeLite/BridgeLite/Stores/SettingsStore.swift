@@ -360,6 +360,24 @@ final class SettingsStore {
         didSet { UserDefaults.standard.set(burstMode, forKey: "burstMode") }
     }
 
+    // Boost Mode 通知バナー: ON 切替時に true になり、数秒後に自動クリアされる。
+    var boostNoticeVisible: Bool = false
+    private var boostNoticeTask: Task<Void, Never>?
+
+    func showBoostNotice() {
+        boostNoticeTask?.cancel()
+        boostNoticeVisible = true
+        boostNoticeTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .seconds(4))
+            self?.boostNoticeVisible = false
+        }
+    }
+
+    func hideBoostNotice() {
+        boostNoticeTask?.cancel()
+        boostNoticeVisible = false
+    }
+
     // MARK: - RAW レンダリング
     var autoRenderRawThumbnails: Bool = bool("autoRenderRawThumbnails", default: false) {
         didSet { UserDefaults.standard.set(autoRenderRawThumbnails, forKey: "autoRenderRawThumbnails") }

@@ -746,6 +746,22 @@
         }
       }
     },
+    "Boost Mode active" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Boost Mode active — higher priority than other apps"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ブーストモード実行中 — 他のアプリより実行優先度が高まります"
+          }
+        }
+      }
+    },
     "Boost Mode" : {
       "localizations" : {
         "en" : {
