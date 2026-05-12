@@ -153,20 +153,24 @@ enum ThumbnailPipeline {
                 kCGImageSourceShouldCache: false,
             ]
             guard var thumb = CGImageSourceCreateThumbnailAtIndex(src, 0, options as CFDictionary) else { return nil }
-            // 埋め込みサムネイルのアスペクト比がマスターと 2% 以上乖離している場合
-            // （カメラが 4:3 黒帯サムネイルを埋め込む SOOC JPG 等）、マスターから再生成する。
-            if let masterAspect = inspectMasterAspect(src), masterAspect > 0 {
+            // 埋め込みサムネイルが小さすぎる（標準的な 160px EXIF サムネイル等）か、
+            // アスペクト比がマスターと 2% 以上乖離している場合（カメラが 4:3 黒帯サムネイルを
+            // 埋め込む SOOC JPG 等）はマスターから再生成する。
+            let isTooSmall = max(thumb.width, thumb.height) < minCachePixels
+            let hasBadAspect: Bool = {
+                guard let masterAspect = inspectMasterAspect(src), masterAspect > 0 else { return false }
                 let thumbAspect = CGFloat(thumb.width) / CGFloat(thumb.height)
-                if abs(thumbAspect - masterAspect) / masterAspect > 0.02 {
-                    let alwaysOptions: [CFString: Any] = [
-                        kCGImageSourceThumbnailMaxPixelSize: maxPixels,
-                        kCGImageSourceCreateThumbnailFromImageAlways: true,
-                        kCGImageSourceCreateThumbnailWithTransform: true,
-                        kCGImageSourceShouldCache: false,
-                    ]
-                    if let fresh = CGImageSourceCreateThumbnailAtIndex(src, 0, alwaysOptions as CFDictionary) {
-                        thumb = fresh
-                    }
+                return abs(thumbAspect - masterAspect) / masterAspect > 0.02
+            }()
+            if isTooSmall || hasBadAspect {
+                let alwaysOptions: [CFString: Any] = [
+                    kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceShouldCache: false,
+                ]
+                if let fresh = CGImageSourceCreateThumbnailAtIndex(src, 0, alwaysOptions as CFDictionary) {
+                    thumb = fresh
                 }
             }
             return thumb
