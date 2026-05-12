@@ -44,11 +44,14 @@ actor ConcurrencyLimiter {
 
     func updateMax(_ n: Int) {
         maxConcurrent = n
-        // 空きが増えた場合は待機中のタスクを即時解放する
-        while running < maxConcurrent, let waiter = waiters.first {
-            waiters.removeFirst()
+        // acquire() はコンティニュエーション再開後に running += 1 するため、
+        // ここで running を変更すると二重カウントになる。
+        // 解放数を事前計算してウェイターを起こすだけにする。
+        let slotsToFill = max(0, maxConcurrent - running)
+        let toWake = min(slotsToFill, waiters.count)
+        for _ in 0..<toWake {
+            let waiter = waiters.removeFirst()
             waiter.continuation.resume()
-            running += 1
         }
     }
 

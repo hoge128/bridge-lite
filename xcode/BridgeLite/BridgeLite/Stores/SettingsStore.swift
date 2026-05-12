@@ -362,7 +362,8 @@ final class SettingsStore {
 
     // Boost Mode 通知バナー: ON 切替時に true になり、数秒後に自動クリアされる。
     var boostNoticeVisible: Bool = false
-    private var boostNoticeTask: Task<Void, Never>?
+    // @ObservationIgnored: タスク生成のたびに @Observable が反応してツールバーが再描画されるのを防ぐ
+    @ObservationIgnored private var boostNoticeTask: Task<Void, Never>?
 
     func showBoostNotice() {
         boostNoticeTask?.cancel()
