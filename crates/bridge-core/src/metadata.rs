@@ -229,10 +229,39 @@ fn read_user_comment(exif: &exif::Exif) -> Option<String> {
 /// "Tiff" tag namespace rather than "Exif", so Tag::DateTimeOriginal lookups
 /// would silently return None.
 fn read_exif_from_cr3(path: &std::path::Path) -> Option<ExifData> {
-    let data = std::fs::read(path).ok()?;
+    use std::io::{BufReader, Read, Seek, SeekFrom};
 
-    let cmt1 = cr3_find_cmt_box(&data, b"CMT1");
-    let cmt2 = cr3_find_cmt_box(&data, b"CMT2");
+    let file = std::fs::File::open(path).ok()?;
+    let file_len = file.metadata().ok()?.len();
+    let mut f = BufReader::with_capacity(65536, file);
+
+    let mut cmt1: Option<Vec<u8>> = None;
+    let mut cmt2: Option<Vec<u8>> = None;
+    let mut pos: u64 = 0;
+
+    while pos + 8 <= file_len && (cmt1.is_none() || cmt2.is_none()) {
+        let mut hdr = [0u8; 8];
+        if f.read_exact(&mut hdr).is_err() { break; }
+        let box_size = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]) as u64;
+        let box_type = &hdr[4..8];
+        if box_size < 8 || pos + box_size > file_len { break; }
+
+        if box_type == b"moov" {
+            let content_len = (box_size - 8) as usize;
+            // Guard against corrupt files; moov is typically < 2MB for CR3
+            if content_len > 8 * 1024 * 1024 { break; }
+            let mut content = vec![0u8; content_len];
+            if f.read_exact(&mut content).is_err() { break; }
+            let (c1, c2) = cr3_walk_for_cmt(&content);
+            if c1.is_some() { cmt1 = c1; }
+            if c2.is_some() { cmt2 = c2; }
+        }
+        pos += box_size;
+        if f.seek(SeekFrom::Start(pos)).is_err() { break; }
+    }
+
+    // CMT1 may also appear as a top-level uuid box in some CR3 variants (fallback)
+    if cmt1.is_none() && cmt2.is_none() { return None; }
 
     let r = |tiff: Option<&Vec<u8>>, tag: u16| tiff.and_then(|d| tiff_ascii(d, tag));
     let ri = |tiff: Option<&Vec<u8>>, tag: u16| tiff.and_then(|d| tiff_short(d, tag));
@@ -271,26 +300,40 @@ fn read_exif_from_cr3(path: &std::path::Path) -> Option<ExifData> {
     })
 }
 
-/// Scan a CR3 file for an ISOBMFF box of the given 4-byte type and return its
-/// payload (everything after the 8-byte box header) if the payload starts with
-/// a valid TIFF byte-order mark.
-fn cr3_find_cmt_box(data: &[u8], target: &[u8; 4]) -> Option<Vec<u8>> {
+/// Walk ISOBMFF boxes in `data`, recursing into container boxes, and collect
+/// CMT1 / CMT2 payloads (TIFF-encoded EXIF data used by Canon CR3).
+fn cr3_walk_for_cmt(data: &[u8]) -> (Option<Vec<u8>>, Option<Vec<u8>>) {
+    let mut cmt1 = None;
+    let mut cmt2 = None;
     let mut i = 0usize;
     while i + 8 <= data.len() {
-        if &data[i + 4..i + 8] == target {
-            let box_size =
-                u32::from_be_bytes([data[i], data[i + 1], data[i + 2], data[i + 3]])
-                    as usize;
-            if box_size >= 12 && i + box_size <= data.len() {
-                let payload = &data[i + 8..i + box_size];
-                if payload.len() >= 4 && (payload[..2] == *b"II" || payload[..2] == *b"MM") {
-                    return Some(payload.to_vec());
+        let box_size = u32::from_be_bytes([data[i], data[i+1], data[i+2], data[i+3]]) as usize;
+        let box_type = &data[i+4..i+8];
+        if box_size < 8 || i + box_size > data.len() { break; }
+        let payload = &data[i+8..i+box_size];
+        match box_type {
+            b"CMT1" if cmt1.is_none() => {
+                if payload.len() >= 2 && (payload.starts_with(b"II") || payload.starts_with(b"MM")) {
+                    cmt1 = Some(payload.to_vec());
                 }
             }
+            b"CMT2" if cmt2.is_none() => {
+                if payload.len() >= 2 && (payload.starts_with(b"II") || payload.starts_with(b"MM")) {
+                    cmt2 = Some(payload.to_vec());
+                }
+            }
+            // Recurse into container boxes
+            b"moov" | b"trak" | b"mdia" | b"minf" | b"stbl" | b"udta" | b"CMT3" => {
+                let (c1, c2) = cr3_walk_for_cmt(payload);
+                if c1.is_some() && cmt1.is_none() { cmt1 = c1; }
+                if c2.is_some() && cmt2.is_none() { cmt2 = c2; }
+            }
+            _ => {}
         }
-        i += 1;
+        if cmt1.is_some() && cmt2.is_some() { break; }
+        i += box_size;
     }
-    None
+    (cmt1, cmt2)
 }
 
 // ── Minimal TIFF IFD readers (used by CR3) ────────────────────────────────────
@@ -393,11 +436,15 @@ fn tiff_rational_display(data: &[u8], tag: u16) -> Option<String> {
 /// of the standard 0x002A. Patch the two magic bytes in a local copy so that
 /// kamadak-exif can parse the IFD chain normally.
 fn read_exif_from_orf(path: &std::path::Path) -> Option<exif::Exif> {
-    let mut data = std::fs::read(path).ok()?;
-    if data.len() < 4 {
-        return None;
-    }
-    // ORF is always little-endian ("II"); patch bytes [2..4] to standard TIFF magic.
+    use std::io::Read;
+    // ORF EXIF lives near the start of the file; limit to 1MB to avoid reading raw sensor data.
+    let file = std::fs::File::open(path).ok()?;
+    let file_len = file.metadata().ok()?.len();
+    let read_limit = file_len.min(1024 * 1024);
+    let mut data = Vec::with_capacity(read_limit as usize);
+    file.take(read_limit).read_to_end(&mut data).ok()?;
+    if data.len() < 4 { return None; }
+    // Patch Olympus magic 0x4F52 → standard TIFF magic 0x002A so kamadak-exif can parse.
     data[2] = 0x2A;
     data[3] = 0x00;
     let mut cursor = std::io::Cursor::new(data);
@@ -407,7 +454,11 @@ fn read_exif_from_orf(path: &std::path::Path) -> Option<exif::Exif> {
 /// Read pixel dimensions from a JPEG SOF (Start of Frame) marker.
 /// Scans for SOF0/SOF1/SOF2 and returns (width, height).
 fn jpeg_sof_dimensions(path: &std::path::Path) -> Option<(u32, u32)> {
-    let data = std::fs::read(path).ok()?;
+    use std::io::Read;
+    // SOF marker appears within the first few KB; 64KB is more than enough.
+    let file = std::fs::File::open(path).ok()?;
+    let mut data = Vec::with_capacity(65536);
+    file.take(65536).read_to_end(&mut data).ok()?;
     if data.len() < 4 || data[0] != 0xFF || data[1] != 0xD8 {
         return None;
     }

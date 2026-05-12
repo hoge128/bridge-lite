@@ -14,7 +14,7 @@ pub mod scanner;
 pub mod xmp;
 
 pub use error::{CoreError, CoreErrorId};
-pub use scanner::{ImageEntry, is_raw, SUPPORTED_EXTENSIONS, RAW_EXTENSIONS};
+pub use scanner::{ImageEntry, ScanResult, is_raw, SUPPORTED_EXTENSIONS, RAW_EXTENSIONS};
 pub use metadata::ExifData;
 pub use xmp::{XmpData, Label, Flag};
 pub use phash::{hamming, compute_phash_from_luma_32x32};

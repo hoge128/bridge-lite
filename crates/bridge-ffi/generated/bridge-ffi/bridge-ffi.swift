@@ -14,6 +14,12 @@ public func bridge_scan_directory<GenericToRustStr: ToRustStr>(_ db: BridgeDatab
 public func image_entry_list_count(_ list: ImageEntryListRef) -> UInt {
     __swift_bridge__$image_entry_list_count(list.ptr)
 }
+public func image_entry_list_total_files(_ list: ImageEntryListRef) -> UInt {
+    __swift_bridge__$image_entry_list_total_files(list.ptr)
+}
+public func image_entry_list_image_files(_ list: ImageEntryListRef) -> UInt {
+    __swift_bridge__$image_entry_list_image_files(list.ptr)
+}
 public func image_entry_list_get(_ list: ImageEntryListRef, _ idx: UInt) -> FfiImageEntry {
     FfiImageEntry(ptr: __swift_bridge__$image_entry_list_get(list.ptr, idx))
 }
@@ -181,6 +187,15 @@ public func bridge_store_cached_thumbnail<GenericToRustStr: ToRustStr>(_ db: Bri
     path.toRustStr({ pathAsRustStr in
         __swift_bridge__$bridge_store_cached_thumbnail(db.ptr, pathAsRustStr, jpeg.toFfiSlice())
     })
+}
+public func bridge_fetch_cached_thumbnails_for_entries(_ db: BridgeDatabaseRef, _ entries: ImageEntryListRef) -> FfiThumbBatch {
+    FfiThumbBatch(ptr: __swift_bridge__$bridge_fetch_cached_thumbnails_for_entries(db.ptr, entries.ptr))
+}
+public func ffi_thumb_batch_count(_ r: FfiThumbBatchRef) -> UInt {
+    __swift_bridge__$ffi_thumb_batch_count(r.ptr)
+}
+public func ffi_thumb_batch_jpeg_at(_ r: FfiThumbBatchRef, _ idx: UInt) -> FfiOptionalBytes {
+    FfiOptionalBytes(ptr: __swift_bridge__$ffi_thumb_batch_jpeg_at(r.ptr, idx))
 }
 public func bridge_fetch_cached_rendered<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ engine: GenericToRustStr, _ width: UInt32) -> FfiOptionalBytes {
     return engine.toRustStr({ engineAsRustStr in
@@ -391,6 +406,81 @@ extension ShotGroupsMap: Vectorizable {
 
     public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
         __swift_bridge__$Vec_ShotGroupsMap$len(vecPtr)
+    }
+}
+
+
+public class FfiThumbBatch: FfiThumbBatchRefMut {
+    var isOwned: Bool = true
+
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+
+    deinit {
+        if isOwned {
+            __swift_bridge__$FfiThumbBatch$_free(ptr)
+        }
+    }
+}
+public class FfiThumbBatchRefMut: FfiThumbBatchRef {
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+}
+public class FfiThumbBatchRef {
+    var ptr: UnsafeMutableRawPointer
+
+    public init(ptr: UnsafeMutableRawPointer) {
+        self.ptr = ptr
+    }
+}
+extension FfiThumbBatch: Vectorizable {
+    public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
+        __swift_bridge__$Vec_FfiThumbBatch$new()
+    }
+
+    public static func vecOfSelfFree(vecPtr: UnsafeMutableRawPointer) {
+        __swift_bridge__$Vec_FfiThumbBatch$drop(vecPtr)
+    }
+
+    public static func vecOfSelfPush(vecPtr: UnsafeMutableRawPointer, value: FfiThumbBatch) {
+        __swift_bridge__$Vec_FfiThumbBatch$push(vecPtr, {value.isOwned = false; return value.ptr;}())
+    }
+
+    public static func vecOfSelfPop(vecPtr: UnsafeMutableRawPointer) -> Optional<Self> {
+        let pointer = __swift_bridge__$Vec_FfiThumbBatch$pop(vecPtr)
+        if pointer == nil {
+            return nil
+        } else {
+            return (FfiThumbBatch(ptr: pointer!) as! Self)
+        }
+    }
+
+    public static func vecOfSelfGet(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<FfiThumbBatchRef> {
+        let pointer = __swift_bridge__$Vec_FfiThumbBatch$get(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return FfiThumbBatchRef(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfGetMut(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<FfiThumbBatchRefMut> {
+        let pointer = __swift_bridge__$Vec_FfiThumbBatch$get_mut(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return FfiThumbBatchRefMut(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<FfiThumbBatchRef> {
+        UnsafePointer<FfiThumbBatchRef>(OpaquePointer(__swift_bridge__$Vec_FfiThumbBatch$as_ptr(vecPtr)))
+    }
+
+    public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
+        __swift_bridge__$Vec_FfiThumbBatch$len(vecPtr)
     }
 }
 

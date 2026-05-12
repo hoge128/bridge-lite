@@ -19,11 +19,25 @@ enum ThumbnailPipeline {
         store: LibraryStore,
         db: BridgeCoreDatabase,
         phashPipeline: PHashPipeline,
-        generation: Int
+        generation: Int,
+        imageList: BridgeCoreImageList? = nil
     ) async {
+        // Pre-fetch all thumbnails in one SQLite connection to avoid per-entry connection overhead.
+        let prefetched: [URL: Data]
+        if let list = imageList {
+            prefetched = await BridgeCore.fetchCachedThumbnailBatch(list: list, db: db)
+        } else {
+            prefetched = [:]
+        }
+
         await withTaskGroup(of: Void.self) { group in
             for entry in entries {
-                group.addTask { await loadOne(entry: entry, store: store, db: db, phashPipeline: phashPipeline, generation: generation) }
+                let cached = prefetched[entry.url]
+                group.addTask {
+                    await loadOne(entry: entry, store: store, db: db,
+                                  phashPipeline: phashPipeline, generation: generation,
+                                  prefetchedJpeg: cached)
+                }
             }
         }
     }
@@ -45,7 +59,8 @@ enum ThumbnailPipeline {
         store: LibraryStore,
         db: BridgeCoreDatabase,
         phashPipeline: PHashPipeline,
-        generation: Int
+        generation: Int,
+        prefetchedJpeg: Data? = nil
     ) async {
         // stale 世代は limiter slot を奪わずに即 exit（新世代の loadAll を妨げない）
         let isStale = await MainActor.run { store.scanGeneration != generation }
@@ -54,8 +69,9 @@ enum ThumbnailPipeline {
             // slot 取得後にも再チェック（待機中に reset() が走ることがある）
             let stale = await MainActor.run { store.scanGeneration != generation }
             guard !stale else { return }
-            // 1. SQLite thumbnail cache — skip if too small for Retina (auto-migrate old 200px entries)
-            if let jpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db) {
+            // 1. SQLite thumbnail cache — pre-fetched by loadAll, fall back to individual fetch
+            let cachedJpeg = prefetchedJpeg ?? (await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db))
+            if let jpeg = cachedJpeg {
                 let cached = CGImage.fromJPEGData(jpeg)
                 let isAdequate = cached.map { max($0.width, $0.height) >= minCachePixels } ?? false
                 // カメラ固有の黒帯入り EXIF サムネがキャッシュされている場合は再生成する

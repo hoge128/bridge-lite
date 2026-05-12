@@ -147,57 +147,68 @@ fn extract_from_ifd(path: &Path, ifd: In) -> Option<Vec<u8>> {
 // are invisible to it. We walk them manually.
 
 fn extract_tiff_subifd(path: &Path, is_le: bool, quality: Quality) -> Option<Vec<u8>> {
-    let data = std::fs::read(path).ok()?;
-    let file_len = data.len() as u64;
+    use std::io::{BufReader, Read, Seek, SeekFrom};
 
-    let r16 = |off: usize| -> Option<u16> {
-        let b = data.get(off..off + 2)?;
-        Some(if is_le { u16::from_le_bytes([b[0], b[1]]) } else { u16::from_be_bytes([b[0], b[1]]) })
-    };
-    let r32 = |off: usize| -> Option<u32> {
-        let b = data.get(off..off + 4)?;
-        Some(if is_le { u32::from_le_bytes([b[0], b[1], b[2], b[3]]) } else { u32::from_be_bytes([b[0], b[1], b[2], b[3]]) })
-    };
+    fn r16(buf: &[u8], le: bool) -> u16 {
+        if le { u16::from_le_bytes([buf[0], buf[1]]) } else { u16::from_be_bytes([buf[0], buf[1]]) }
+    }
+    fn r32(buf: &[u8], le: bool) -> u32 {
+        if le { u32::from_le_bytes([buf[0], buf[1], buf[2], buf[3]]) } else { u32::from_be_bytes([buf[0], buf[1], buf[2], buf[3]]) }
+    }
+    fn read16(f: &mut impl Read, le: bool) -> Option<u16> {
+        let mut b = [0u8; 2]; f.read_exact(&mut b).ok()?;
+        Some(if le { u16::from_le_bytes(b) } else { u16::from_be_bytes(b) })
+    }
+    fn read32(f: &mut impl Read, le: bool) -> Option<u32> {
+        let mut b = [0u8; 4]; f.read_exact(&mut b).ok()?;
+        Some(if le { u32::from_le_bytes(b) } else { u32::from_be_bytes(b) })
+    }
 
-    let ifd0_off = r32(4)? as usize;
+    let file = std::fs::File::open(path).ok()?;
+    let file_len = file.metadata().ok()?.len();
+    let mut f = BufReader::with_capacity(65536, file);
 
-    // Collect all JPEG candidates from SubIFDs
-    // Each entry: (jpeg_offset, jpeg_length)
-    let mut candidates: Vec<(u64, usize)> = Vec::new();
+    // Read IFD0 offset from TIFF header
+    f.seek(SeekFrom::Start(4)).ok()?;
+    let ifd0_off = read32(&mut f, is_le)? as u64;
 
-    // Walk IFD0 to find tag 0x014A (SubIFDs)
-    let entry_count = r16(ifd0_off)? as usize;
-    let mut subifd_offsets: Vec<usize> = Vec::new();
+    // Read IFD0 entry count + all entries as a block
+    f.seek(SeekFrom::Start(ifd0_off)).ok()?;
+    let entry_count = read16(&mut f, is_le)?.min(1000) as usize;
+    let mut ifd0_buf = vec![0u8; entry_count * 12];
+    f.read_exact(&mut ifd0_buf).ok()?;
 
+    // Find SubIFDs tag (0x014A) in IFD0
+    let mut subifd_offsets: Vec<u64> = Vec::new();
     for i in 0..entry_count {
-        let base = ifd0_off + 2 + i * 12;
-        let tag = r16(base)?;
-        if tag == 0x014A {
-            // SubIFDs: array of LONG offsets
-            let count = r32(base + 4)? as usize;
-            let val_or_off = r32(base + 8)?;
-            // If count * 4 > 4, val_or_off is an offset; otherwise inline
+        let base = i * 12;
+        if base + 12 > ifd0_buf.len() { break; }
+        if r16(&ifd0_buf[base..], is_le) == 0x014A {
+            let count = r32(&ifd0_buf[base + 4..], is_le) as usize;
+            let val   = r32(&ifd0_buf[base + 8..], is_le) as u64;
             if count * 4 > 4 {
-                for j in 0..count {
-                    if let Some(sub) = r32(val_or_off as usize + j * 4) {
-                        subifd_offsets.push(sub as usize);
+                f.seek(SeekFrom::Start(val)).ok()?;
+                for _ in 0..count.min(32) {
+                    if let Some(sub) = read32(&mut f, is_le) {
+                        subifd_offsets.push(sub as u64);
                     }
                 }
             } else {
-                subifd_offsets.push(val_or_off as usize);
+                subifd_offsets.push(val);
             }
             break;
         }
     }
 
+    let mut candidates: Vec<(u64, usize)> = Vec::new();
+
     for sub_off in subifd_offsets {
-        if sub_off + 2 > data.len() {
-            continue;
-        }
-        let sub_count = match r16(sub_off) {
-            Some(c) => c as usize,
-            None => continue,
-        };
+        f.seek(SeekFrom::Start(sub_off)).ok()?;
+        let sub_count = read16(&mut f, is_le).unwrap_or(0).min(500) as usize;
+        if sub_count == 0 { continue; }
+
+        let mut sub_buf = vec![0u8; sub_count * 12];
+        if f.read_exact(&mut sub_buf).is_err() { continue; }
 
         let mut jpeg_off: Option<u64> = None;
         let mut jpeg_len: Option<usize> = None;
@@ -206,53 +217,42 @@ fn extract_tiff_subifd(path: &Path, is_le: bool, quality: Quality) -> Option<Vec
         let mut compression: u32 = 1;
 
         for i in 0..sub_count {
-            let base = sub_off + 2 + i * 12;
-            if base + 12 > data.len() {
-                break;
-            }
-            let tag = match r16(base) { Some(t) => t, None => break };
-            let val = match r32(base + 8) { Some(v) => v, None => break };
-
+            let base = i * 12;
+            if base + 12 > sub_buf.len() { break; }
+            let tag = r16(&sub_buf[base..], is_le);
+            let val = r32(&sub_buf[base + 8..], is_le) as u64;
             match tag {
-                0x0201 => jpeg_off  = Some(val as u64),  // JPEGInterchangeFormat
-                0x0202 => jpeg_len  = Some(val as usize), // JPEGInterchangeFormatLength
-                0x0111 => strip_off = Some(val as u64),   // StripOffsets
-                0x0117 => strip_len = Some(val as usize), // StripByteCounts
-                0x0103 => compression = val,               // Compression (7 = JPEG)
+                0x0201 => jpeg_off  = Some(val),
+                0x0202 => jpeg_len  = Some(val as usize),
+                0x0111 => strip_off = Some(val),
+                0x0117 => strip_len = Some(val as usize),
+                0x0103 => compression = val as u32,
                 _ => {}
             }
         }
 
-        // NEF style: explicit JPEG pointer
         if let (Some(off), Some(len)) = (jpeg_off, jpeg_len) {
-            if len >= 10 && off + len as u64 <= file_len {
-                candidates.push((off, len));
-            }
+            if len >= 10 && off + len as u64 <= file_len { candidates.push((off, len)); }
         }
-        // DNG style: Compression=7 with strip offsets
         if compression == 7 {
             if let (Some(off), Some(len)) = (strip_off, strip_len) {
-                if len >= 10 && off + len as u64 <= file_len {
-                    candidates.push((off, len));
-                }
+                if len >= 10 && off + len as u64 <= file_len { candidates.push((off, len)); }
             }
         }
     }
 
-    if candidates.is_empty() {
-        return None;
-    }
-
-    // Sort by JPEG length
+    if candidates.is_empty() { return None; }
     candidates.sort_by_key(|&(_, len)| len);
 
     let (off, len) = match quality {
         Quality::Thumbnail => candidates[0],
-        Quality::Preview   => candidates[candidates.len() / 2], // middle size
+        Quality::Preview   => candidates[candidates.len() / 2],
         Quality::Full      => *candidates.last()?,
     };
 
-    let buf = data.get(off as usize..off as usize + len)?.to_vec();
+    f.seek(SeekFrom::Start(off)).ok()?;
+    let mut buf = vec![0u8; len];
+    f.read_exact(&mut buf).ok()?;
     if buf.starts_with(&[0xFF, 0xD8]) { Some(buf) } else { None }
 }
 
@@ -317,11 +317,14 @@ fn extract_rw2(path: &Path, quality: Quality) -> Option<Vec<u8>> {
 // scan the first portion of the file for JPEG SOI/EOI pairs.
 
 fn extract_orf(path: &Path, quality: Quality) -> Option<Vec<u8>> {
-    let data = std::fs::read(path).ok()?;
+    // Preview JPEGs appear in the first ~10% of the file before raw sensor data
+    let file = std::fs::File::open(path).ok()?;
+    let file_len = file.metadata().ok()?.len();
+    let scan_limit = (file_len / 10).max(128 * 1024);
+    let mut data = Vec::with_capacity(scan_limit as usize);
+    file.take(scan_limit).read_to_end(&mut data).ok()?;
 
-    // Scan for JPEG SOIs in the first 10% of the file to avoid raw image data
-    let scan_limit = (data.len() / 10).max(128 * 1024);
-    let jpegs = collect_jpegs(&data[..scan_limit]);
+    let jpegs = collect_jpegs(&data);
     if jpegs.is_empty() { return None; }
 
     let (rel_off, jpeg_len) = match quality {
@@ -385,61 +388,80 @@ const CR3_THMB_UUID: [u8; 16] = [
 ];
 
 fn extract_cr3(path: &Path, quality: Quality) -> Option<Vec<u8>> {
-    let data = std::fs::read(path).ok()?;
-    let file_len = data.len();
+    use std::io::{BufReader, Read, Seek, SeekFrom};
 
-    let mut offset = 0usize;
-    let mut prvw: Option<(usize, usize)> = None; // (offset, size) of PRVW JPEG
-    let mut thmb: Option<(usize, usize)> = None; // (offset, size) of THMB JPEG
+    let file = std::fs::File::open(path).ok()?;
+    let file_len = file.metadata().ok()?.len();
+    let mut f = BufReader::with_capacity(65536, file);
 
-    while offset + 8 <= file_len {
-        let box_size = u32::from_be_bytes([
-            data[offset], data[offset+1], data[offset+2], data[offset+3],
-        ]) as usize;
-        let box_type = &data[offset+4..offset+8];
+    let mut prvw: Option<(u64, usize)> = None; // (file offset, size)
+    let mut thmb: Option<Vec<u8>> = None;       // already extracted bytes
+    let mut pos: u64 = 0;
 
-        if box_size < 8 || offset + box_size > file_len {
-            break;
-        }
+    while pos + 8 <= file_len {
+        let mut hdr = [0u8; 8];
+        if f.read_exact(&mut hdr).is_err() { break; }
+        let box_size = u32::from_be_bytes([hdr[0], hdr[1], hdr[2], hdr[3]]) as u64;
+        let box_type = &hdr[4..8];
 
-        if box_type == b"uuid" && offset + 24 <= file_len {
-            let uuid = &data[offset+8..offset+24];
+        if box_size < 8 || pos + box_size > file_len { break; }
 
-            if uuid == CR3_PRVW_UUID {
-                // JPEG size is stored at box+52 (big-endian u32); JPEG data at box+56.
-                if offset + 56 <= file_len {
-                    let sz_bytes = &data[offset+52..offset+56];
-                    let jpeg_size = u32::from_be_bytes([sz_bytes[0], sz_bytes[1], sz_bytes[2], sz_bytes[3]]) as usize;
-                    let jpeg_start = offset + 56;
-                    if jpeg_size >= 10 && jpeg_start + jpeg_size <= file_len
-                        && data[jpeg_start..jpeg_start+2] == [0xFF, 0xD8]
-                    {
-                        prvw = Some((jpeg_start, jpeg_size));
+        if box_type == b"uuid" && box_size >= 24 {
+            let mut uuid = [0u8; 16];
+            if f.read_exact(&mut uuid).is_err() { break; }
+
+            if uuid == CR3_PRVW_UUID && prvw.is_none() && box_size > 60 {
+                // JPEG size at box+52, data at box+56
+                if f.seek(SeekFrom::Start(pos + 52)).is_ok() {
+                    let mut sz = [0u8; 4];
+                    if f.read_exact(&mut sz).is_ok() {
+                        let jpeg_size = u32::from_be_bytes(sz) as usize;
+                        let jpeg_off = pos + 56;
+                        if jpeg_size >= 10 && jpeg_off + jpeg_size as u64 <= file_len {
+                            prvw = Some((jpeg_off, jpeg_size));
+                        }
                     }
                 }
-            } else if uuid == CR3_THMB_UUID {
-                // Thumbnail JPEG: scan the inner content of this uuid
-                let inner = &data[offset+24..offset+box_size];
-                let found = collect_jpegs(inner);
-                if let Some(&(rel, sz)) = found.last() {
-                    thmb = Some((offset + 24 + rel, sz));
+            } else if uuid == CR3_THMB_UUID && thmb.is_none() {
+                let inner_len = (box_size - 24) as usize;
+                let mut inner = vec![0u8; inner_len];
+                if f.read_exact(&mut inner).is_ok() {
+                    let found = collect_jpegs(&inner);
+                    if let Some(&(rel, sz)) = found.last() {
+                        thmb = Some(inner[rel..rel + sz].to_vec());
+                    }
                 }
             }
         }
 
-        offset += box_size;
+        pos += box_size;
+        if f.seek(SeekFrom::Start(pos)).is_err() { break; }
+
+        let done = match quality {
+            Quality::Thumbnail => thmb.is_some() || prvw.is_some(),
+            Quality::Preview | Quality::Full => prvw.is_some(),
+        };
+        if done { break; }
     }
 
     match quality {
         Quality::Thumbnail => {
-            // Use THMB if available, otherwise PRVW
-            let (jpeg_off, jpeg_len) = thmb.or(prvw)?;
-            let buf = data.get(jpeg_off..jpeg_off + jpeg_len)?.to_vec();
-            if buf.starts_with(&[0xFF, 0xD8]) { Some(buf) } else { None }
+            if let Some(bytes) = thmb {
+                if bytes.starts_with(&[0xFF, 0xD8]) { return Some(bytes); }
+            }
+            if let Some((off, len)) = prvw {
+                f.seek(SeekFrom::Start(off)).ok()?;
+                let mut buf = vec![0u8; len];
+                f.read_exact(&mut buf).ok()?;
+                if buf.starts_with(&[0xFF, 0xD8]) { return Some(buf); }
+            }
+            None
         }
         Quality::Preview | Quality::Full => {
-            let (jpeg_off, jpeg_len) = prvw?;
-            let buf = data.get(jpeg_off..jpeg_off + jpeg_len)?.to_vec();
+            let (off, len) = prvw?;
+            f.seek(SeekFrom::Start(off)).ok()?;
+            let mut buf = vec![0u8; len];
+            f.read_exact(&mut buf).ok()?;
             if buf.starts_with(&[0xFF, 0xD8]) { Some(buf) } else { None }
         }
     }

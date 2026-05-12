@@ -173,8 +173,19 @@ pub fn has_images_beyond_depth(path: &Path, depth: usize) -> bool {
         })
 }
 
-pub fn scan_directory(path: PathBuf) -> Vec<ImageEntry> {
+/// Result of a directory scan, including file counts for progress reporting.
+pub struct ScanResult {
+    pub entries: Vec<ImageEntry>,
+    /// Total number of files encountered (all extensions, not just images).
+    pub total_files: usize,
+    /// Number of files with a supported image or RAW extension.
+    pub image_files: usize,
+}
+
+pub fn scan_directory(path: PathBuf) -> ScanResult {
     let mut entries = Vec::new();
+    let mut total_files = 0usize;
+    let mut image_files = 0usize;
 
     for dir_entry in WalkDir::new(&path)
         .max_depth(SCAN_MAX_DEPTH)
@@ -183,6 +194,7 @@ pub fn scan_directory(path: PathBuf) -> Vec<ImageEntry> {
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
     {
+        total_files += 1;
         let entry_path = dir_entry.path().to_path_buf();
 
         let ext_lower = entry_path
@@ -216,6 +228,7 @@ pub fn scan_directory(path: PathBuf) -> Vec<ImageEntry> {
             .unwrap_or("");
         let shot_id = compute_shot_id(&normalize_stem(stem));
 
+        image_files += 1;
         entries.push(ImageEntry {
             id: 0,
             path: entry_path,
@@ -254,7 +267,7 @@ pub fn scan_directory(path: PathBuf) -> Vec<ImageEntry> {
         entry.id = i;
     }
 
-    entries
+    ScanResult { entries, total_files, image_files }
 }
 
 #[cfg(test)]

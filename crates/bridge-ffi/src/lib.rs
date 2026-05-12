@@ -68,9 +68,13 @@ pub struct BridgeFfiError {
     pub message: String,
 }
 
-/// A list of image entries returned from a scan.
+/// A list of image entries returned from a scan, plus file counts for progress reporting.
 pub struct ImageEntryList {
     pub entries: Vec<CoreImageEntry>,
+    /// Total files encountered during the directory walk (all extensions).
+    pub total_files: usize,
+    /// Files with a supported image or RAW extension.
+    pub image_files: usize,
 }
 
 /// A single image entry exposed to Swift.
@@ -189,6 +193,11 @@ pub struct FfiExifBatch {
     results: Vec<FfiExifResult>,
 }
 
+/// Thumbnail batch result — index-aligned with the ImageEntryList used to create it.
+pub struct FfiThumbBatch {
+    results: Vec<FfiOptionalBytes>,
+}
+
 /// XMP result (found flag + fields).
 pub struct FfiXmpResult {
     pub found: bool,
@@ -237,6 +246,7 @@ impl FfiXmpResult {
 }
 
 /// Optional bytes result (found flag + data).
+#[derive(Clone)]
 pub struct FfiOptionalBytes {
     pub found: bool,
     pub data: Vec<u8>,
@@ -301,6 +311,7 @@ mod ffi {
         type FfiExifBatch;
         type FfiXmpResult;
         type FfiOptionalBytes;
+        type FfiThumbBatch;
         type ShotGroupsMap;
         type DuplicateGroupsMap;
 
@@ -311,6 +322,8 @@ mod ffi {
         // Scan API
         fn bridge_scan_directory(db: &BridgeDatabase, path: &str) -> ImageEntryList;
         fn image_entry_list_count(list: &ImageEntryList) -> usize;
+        fn image_entry_list_total_files(list: &ImageEntryList) -> usize;
+        fn image_entry_list_image_files(list: &ImageEntryList) -> usize;
         fn image_entry_list_get(list: &ImageEntryList, idx: usize) -> FfiImageEntry;
 
         // ImageEntry field accessors
@@ -372,6 +385,10 @@ mod ffi {
         fn ffi_optional_bytes_found(r: &FfiOptionalBytes) -> bool;
         fn ffi_optional_bytes_data(r: &FfiOptionalBytes) -> Vec<u8>;
         fn bridge_store_cached_thumbnail(db: &BridgeDatabase, path: &str, jpeg: &[u8]);
+        // Batch thumbnail fetch — 1 SQLite connection, index-aligned with entries list
+        fn bridge_fetch_cached_thumbnails_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) -> FfiThumbBatch;
+        fn ffi_thumb_batch_count(r: &FfiThumbBatch) -> usize;
+        fn ffi_thumb_batch_jpeg_at(r: &FfiThumbBatch, idx: usize) -> FfiOptionalBytes;
 
         // Rendered thumbnail cache API
         fn bridge_fetch_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32) -> FfiOptionalBytes;
@@ -414,18 +431,22 @@ fn bridge_ffi_error_message(e: &BridgeFfiError) -> String {
 // ── Scan API impl ──────────────────────────────────────────────────────────
 
 fn bridge_scan_directory(db: &BridgeDatabase, path: &str) -> ImageEntryList {
-    let entries = bridge_core::scanner::scan_directory(PathBuf::from(path));
+    let result = bridge_core::scanner::scan_directory(PathBuf::from(path));
     // Persist EXIF to DB for newly scanned entries in parallel (cache hits via
     // one IN-clause query, misses parsed with rayon, written in one transaction).
     let db_path = db.db_path.clone();
-    let paths: Vec<PathBuf> = entries.iter().map(|e| e.path.clone()).collect();
+    let paths: Vec<PathBuf> = result.entries.iter().map(|e| e.path.clone()).collect();
     bridge_core::db::index_new_entries(&paths, &db_path);
-    ImageEntryList { entries }
+    ImageEntryList {
+        entries: result.entries,
+        total_files: result.total_files,
+        image_files: result.image_files,
+    }
 }
 
-fn image_entry_list_count(list: &ImageEntryList) -> usize {
-    list.entries.len()
-}
+fn image_entry_list_count(list: &ImageEntryList) -> usize { list.entries.len() }
+fn image_entry_list_total_files(list: &ImageEntryList) -> usize { list.total_files }
+fn image_entry_list_image_files(list: &ImageEntryList) -> usize { list.image_files }
 
 fn image_entry_list_get(list: &ImageEntryList, idx: usize) -> FfiImageEntry {
     FfiImageEntry::from_core(&list.entries[idx])
@@ -583,6 +604,23 @@ fn bridge_store_cached_thumbnail(db: &BridgeDatabase, path: &str, jpeg: &[u8]) {
     let p = Path::new(path);
     bridge_core::db::store_thumb(p, &db.db_path, jpeg);
 }
+
+fn bridge_fetch_cached_thumbnails_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) -> FfiThumbBatch {
+    let paths: Vec<PathBuf> = entries.entries.iter().map(|e| e.path.clone()).collect();
+    let mut map = bridge_core::db::fetch_thumb_batch(&paths, &db.db_path);
+    let results = paths
+        .into_iter()
+        .map(|p| {
+            map.remove(&p)
+                .map(FfiOptionalBytes::some)
+                .unwrap_or_else(FfiOptionalBytes::none)
+        })
+        .collect();
+    FfiThumbBatch { results }
+}
+
+fn ffi_thumb_batch_count(r: &FfiThumbBatch) -> usize { r.results.len() }
+fn ffi_thumb_batch_jpeg_at(r: &FfiThumbBatch, idx: usize) -> FfiOptionalBytes { r.results[idx].clone() }
 
 // ── Rendered thumbnail cache API impl ─────────────────────────────────────
 

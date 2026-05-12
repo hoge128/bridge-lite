@@ -495,6 +495,61 @@ pub async fn fetch_phash_batch_async(
         .unwrap_or_default()
 }
 
+/// Fetch cached thumbnail JPEGs for all given paths in a single connection.
+/// Only entries whose mtime still matches the current file mtime are returned.
+pub fn fetch_thumb_batch(
+    paths: &[PathBuf],
+    db_path: &Path,
+) -> std::collections::HashMap<PathBuf, Vec<u8>> {
+    let mut out = std::collections::HashMap::new();
+    let Ok(conn) = Connection::open(db_path) else { return out };
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(1));
+    for chunk in paths.chunks(500) {
+        let placeholders = std::iter::repeat("?")
+            .take(chunk.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!(
+            "SELECT path, mtime, jpeg FROM thumbnails WHERE path IN ({placeholders})"
+        );
+        let Ok(mut stmt) = conn.prepare(&sql) else { continue };
+        let params_iter = rusqlite::params_from_iter(
+            chunk.iter().map(|p| p.to_string_lossy().into_owned()),
+        );
+        let Ok(rows) = stmt.query_map(params_iter, |row| {
+            let path_str: String = row.get(0)?;
+            let stored_mtime: i64 = row.get(1)?;
+            let jpeg: Vec<u8> = row.get(2)?;
+            Ok((PathBuf::from(path_str), stored_mtime, jpeg))
+        }) else {
+            continue;
+        };
+        for row in rows.flatten() {
+            let (path, stored_mtime, jpeg) = row;
+            if file_mtime(&path) == stored_mtime {
+                out.insert(path, jpeg);
+            }
+        }
+    }
+    out
+}
+
+/// Persist multiple thumbnail JPEG blobs in a single transaction.
+pub fn store_thumb_batch(items: &[(PathBuf, Vec<u8>)], db_path: &Path) {
+    let Ok(conn) = Connection::open(db_path) else { return };
+    let _ = conn.busy_timeout(std::time::Duration::from_secs(2));
+    let _ = conn.execute_batch("BEGIN");
+    for (path, jpeg) in items {
+        let mtime = file_mtime(path);
+        let _ = conn.execute(
+            "INSERT OR REPLACE INTO thumbnails (path, mtime, jpeg, cached_at)
+             VALUES (?1, ?2, ?3, strftime('%s','now'))",
+            rusqlite::params![path.to_string_lossy().as_ref(), mtime, jpeg.as_slice()],
+        );
+    }
+    let _ = conn.execute_batch("COMMIT");
+}
+
 /// Delete thumbnail and pHash cache entries older than `max_age_days` days.
 ///
 /// Only rows with a valid `cached_at` value are considered; rows where

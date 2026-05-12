@@ -52,9 +52,8 @@ final class LibraryStore {
     var isLoading: Bool = false
     var depthExceeded: Bool = false
 
-    enum ScanPhase { case idle, preScanning, scanning, loading }
+    enum ScanPhase { case idle, scanning, loading }
     private(set) var scanPhase: ScanPhase = .idle
-    private(set) var preScanTotalFiles: Int = 0
     private(set) var preScanImageFiles: Int = 0
     private(set) var loadedThumbnailCount: Int = 0
     @ObservationIgnored private var pendingLoadedCount: Int = 0
@@ -114,8 +113,6 @@ final class LibraryStore {
     private var thumbnailLoadTask: Task<Void, Never>?
     // フォルダオープン本体タスク（ユーザーがキャンセル可能）
     private var openDirTask: Task<Void, Never>?
-    // プリスキャンタスク（Task.detached なので明示的にキャンセルが必要）
-    private var preScanTask: Task<(Int, Int), Error>?
 
     private(set) var currentDirectoryURL: URL?
     /// このストアが属する NSWindow。ContentView から設定される。
@@ -301,39 +298,30 @@ final class LibraryStore {
         guard !isLoading else { return }
         isLoading = true
         depthExceeded = false
-        scanPhase = .preScanning
-        preScanTotalFiles = 0
+        scanPhase = .scanning
         preScanImageFiles = 0
         loadedThumbnailCount = 0
-        statusMessage = String(localized: "Counting files…")
+        statusMessage = String(localized: "Scanning…")
         reset()
         currentDirectoryURL = url
         let gen = scanGeneration // reset() がバンプした世代を確定
 
         do {
-            // Phase 1: プリスキャン（拡張子カウント）
-            let (total, images) = try await runPreScan(url: url)
-            guard gen == scanGeneration else { return }
-            try Task.checkCancellation()
-            preScanTotalFiles = total
-            preScanImageFiles = images
-
-            // Phase 2: BridgeCore スキャン（Rust FFI、ブラックボックス）
-            scanPhase = .scanning
-            statusMessage = String(
-                format: String(localized: "Scanning %d images…"),
-                images
-            )
-
+            // BridgeCore スキャン（Rust FFI）— ファイル数カウントを同時に取得
             let db = try BridgeCoreDatabase.open(path: dbURL())
             database = db
 
             let scanned: [PhotoEntry]
             do {
-                let (entries, list) = try await BridgeCore.scanDirectory(url: url, db: db)
+                let (entries, list, _, imageFiles) = try await BridgeCore.scanDirectory(url: url, db: db)
                 guard gen == scanGeneration else { return }
                 scanned = entries
                 lastImageList = list
+                preScanImageFiles = imageFiles
+                statusMessage = String(
+                    format: String(localized: "Scanning %d images…"),
+                    imageFiles
+                )
             } catch is CancellationError {
                 scanPhase = .idle
                 return
@@ -399,7 +387,7 @@ final class LibraryStore {
                 + orderedIDs.filter { !visibleSet.contains($0) }.compactMap { entries[$0] }
             let capturedPhash = phashPipeline
             let capturedPairing = pairingPipeline
-            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash, generation: gen)
+            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash, generation: gen, imageList: capturedList)
             guard gen == scanGeneration else { return }
             await capturedPhash.waitForAllPending()
             guard gen == scanGeneration else { return }
@@ -434,53 +422,6 @@ final class LibraryStore {
         pendingRecomputeTask = nil
         recomputeVisible()
         startFolderWatchIfEnabled()
-    }
-
-    // MARK: - プリスキャン
-
-    /// BridgeCore スキャン前にファイル数を素早く数えて分母を確定する。
-    /// AsyncStream で 100 件ごとに live update し、完了時に最終値を返す。
-    private func runPreScan(url: URL) async throws -> (Int, Int) {
-        guard preScanTask == nil else { return (0, 0) }
-
-        // [weak self] で MainActor に hop するため await を使う。
-        // Task.detached 内の await self?.updatePreScanCounts(...) が
-        // 100 件ごとに MainActor へ制御を渡し、UI を確実に更新する。
-        let task = Task.detached(priority: BridgeQoS.scan) { [weak self] () -> (Int, Int) in
-            let supported = ScanPipeline.supportedExtensionsSet
-            let fm = FileManager.default
-            guard let enumerator = fm.enumerator(
-                at: url,
-                includingPropertiesForKeys: nil,
-                options: [.skipsHiddenFiles, .skipsPackageDescendants]
-            ) else { return (0, 0) }
-            var total = 0, images = 0
-            while let obj = enumerator.nextObject() {
-                try Task.checkCancellation()
-                guard let fileURL = obj as? URL else { continue }
-                if fileURL.hasDirectoryPath { continue }
-                total += 1
-                if supported.contains(fileURL.pathExtension.lowercased()) { images += 1 }
-                if total % 100 == 0 {
-                    await self?.updatePreScanCounts(total: total, images: images)
-                }
-            }
-            return (total, images)
-        }
-        preScanTask = task
-        defer { preScanTask = nil }
-        let result = try await task.value
-        updatePreScanCounts(total: result.0, images: result.1)
-        return result
-    }
-
-    private func updatePreScanCounts(total: Int, images: Int) {
-        preScanTotalFiles = total
-        preScanImageFiles = images
-        statusMessage = String(
-            format: String(localized: "Counting… %d images"),
-            images
-        )
     }
 
     // MARK: - サムネイル進捗
@@ -2169,9 +2110,6 @@ final class LibraryStore {
         thumbnailLoadTask?.cancel()
         thumbnailLoadTask = nil
         // openDirTask は cancelLoading() 経由でキャンセルする（reset は openDirectory() 内から呼ばれるため自己キャンセル不可）
-        // preScanTask も同様（openDirectory 内の runPreScan が pending 中の場合に備える）
-        preScanTask?.cancel()
-        preScanTask = nil
         loadedThumbnailCount = 0
         pendingLoadedCount = 0
         loadedCountFlushTask?.cancel()

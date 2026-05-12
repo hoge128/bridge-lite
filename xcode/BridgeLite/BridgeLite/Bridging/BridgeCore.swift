@@ -34,19 +34,43 @@ enum BridgeCore {
 
     // MARK: Scan
 
-    /// Scan a directory and return (PhotoEntry array, opaque list handle).
+    /// Scan a directory and return (PhotoEntry array, opaque list handle, totalFiles, imageFiles).
     /// The opaque list handle must be kept alive until reindexShotGroups is called.
-    static func scanDirectory(url: URL, db: BridgeCoreDatabase) async throws -> ([PhotoEntry], BridgeCoreImageList) {
+    /// totalFiles / imageFiles replace the pre-scan enumeration pass.
+    static func scanDirectory(url: URL, db: BridgeCoreDatabase) async throws -> ([PhotoEntry], BridgeCoreImageList, Int, Int) {
         return await Task.detached(priority: BridgeQoS.scan) {
             let rawList = bridge_scan_directory(db.inner, url.path)
             let count = image_entry_list_count(rawList)
+            let totalFiles = Int(image_entry_list_total_files(rawList))
+            let imageFiles = Int(image_entry_list_image_files(rawList))
             var entries: [PhotoEntry] = []
             entries.reserveCapacity(Int(count))
             for i in 0..<count {
                 let entry = image_entry_list_get(rawList, i)
                 entries.append(PhotoEntry(ffiEntry: entry))
             }
-            return (entries, BridgeCoreImageList(rawList))
+            return (entries, BridgeCoreImageList(rawList), totalFiles, imageFiles)
+        }.value
+    }
+
+    // MARK: Thumbnail batch cache
+
+    /// Fetch cached thumbnails for all entries in a single SQLite connection.
+    /// Returns a dictionary keyed by file URL for O(1) lookup in ThumbnailPipeline.
+    static func fetchCachedThumbnailBatch(list: BridgeCoreImageList, db: BridgeCoreDatabase) async -> [URL: Data] {
+        return await Task.detached(priority: .utility) {
+            let batch = bridge_fetch_cached_thumbnails_for_entries(db.inner, list.inner)
+            let count = Int(ffi_thumb_batch_count(batch))
+            var result: [URL: Data] = [:]
+            result.reserveCapacity(count)
+            for i in 0..<count {
+                let r = ffi_thumb_batch_jpeg_at(batch, UInt(i))
+                guard ffi_optional_bytes_found(r) else { continue }
+                let entry = image_entry_list_get(list.inner, UInt(i))
+                let path = ffi_image_entry_path(entry).toString()
+                result[URL(fileURLWithPath: path)] = Data(rustVec: ffi_optional_bytes_data(r))
+            }
+            return result
         }.value
     }
 

@@ -25,6 +25,18 @@ void* __swift_bridge__$Vec_ShotGroupsMap$get_mut(void* vec_ptr, uintptr_t index)
 uintptr_t __swift_bridge__$Vec_ShotGroupsMap$len(void* vec_ptr);
 void* __swift_bridge__$Vec_ShotGroupsMap$as_ptr(void* vec_ptr);
 
+typedef struct FfiThumbBatch FfiThumbBatch;
+void __swift_bridge__$FfiThumbBatch$_free(void* self);
+
+void* __swift_bridge__$Vec_FfiThumbBatch$new(void);
+void __swift_bridge__$Vec_FfiThumbBatch$drop(void* vec_ptr);
+void __swift_bridge__$Vec_FfiThumbBatch$push(void* vec_ptr, void* item_ptr);
+void* __swift_bridge__$Vec_FfiThumbBatch$pop(void* vec_ptr);
+void* __swift_bridge__$Vec_FfiThumbBatch$get(void* vec_ptr, uintptr_t index);
+void* __swift_bridge__$Vec_FfiThumbBatch$get_mut(void* vec_ptr, uintptr_t index);
+uintptr_t __swift_bridge__$Vec_FfiThumbBatch$len(void* vec_ptr);
+void* __swift_bridge__$Vec_FfiThumbBatch$as_ptr(void* vec_ptr);
+
 typedef struct FfiOptionalBytes FfiOptionalBytes;
 void __swift_bridge__$FfiOptionalBytes$_free(void* self);
 
@@ -125,6 +137,8 @@ struct __private__ResultPtrAndPtr __swift_bridge__$bridge_open_database(struct R
 void* __swift_bridge__$bridge_ffi_error_message(void* e);
 void* __swift_bridge__$bridge_scan_directory(void* db, struct RustStr path);
 uintptr_t __swift_bridge__$image_entry_list_count(void* list);
+uintptr_t __swift_bridge__$image_entry_list_total_files(void* list);
+uintptr_t __swift_bridge__$image_entry_list_image_files(void* list);
 void* __swift_bridge__$image_entry_list_get(void* list, uintptr_t idx);
 uint64_t __swift_bridge__$ffi_image_entry_id(void* entry);
 void* __swift_bridge__$ffi_image_entry_path(void* entry);
@@ -175,6 +189,9 @@ void* __swift_bridge__$bridge_fetch_cached_thumbnail(void* db, struct RustStr pa
 bool __swift_bridge__$ffi_optional_bytes_found(void* r);
 void* __swift_bridge__$ffi_optional_bytes_data(void* r);
 void __swift_bridge__$bridge_store_cached_thumbnail(void* db, struct RustStr path, struct __private__FfiSlice jpeg);
+void* __swift_bridge__$bridge_fetch_cached_thumbnails_for_entries(void* db, void* entries);
+uintptr_t __swift_bridge__$ffi_thumb_batch_count(void* r);
+void* __swift_bridge__$ffi_thumb_batch_jpeg_at(void* r, uintptr_t idx);
 void* __swift_bridge__$bridge_fetch_cached_rendered(void* db, struct RustStr path, struct RustStr engine, uint32_t width);
 void __swift_bridge__$bridge_store_cached_rendered(void* db, struct RustStr path, struct RustStr engine, uint32_t width, struct __private__FfiSlice jpeg);
 void __swift_bridge__$bridge_clear_rendered_cache(void* db);
