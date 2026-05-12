@@ -290,6 +290,10 @@ struct ViewerView: View {
 
             Divider()
 
+            Button(String(localized: "compare.context.back_to_grid",
+                          defaultValue: "Back to Grid")) {
+                store.viewerMode = false
+            }
             Button(String(localized: "viewer.context.move_to_compare",
                           defaultValue: "Move to Compare")) {
                 store.compareAnchorID = entry.id

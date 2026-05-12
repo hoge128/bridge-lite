@@ -402,18 +402,15 @@ private struct CompareMemberColumn: View {
 
             Divider()
 
-            Button(String(localized: "thumbnail.context.move_to_viewer",
-                          defaultValue: "Move to Viewer")) {
-                store.selectEntry(memberID)
-                store.viewerMode = true
-            }
-
-            Divider()
-
             Button(String(localized: "compare.context.back_to_grid",
                           defaultValue: "Back to Grid")) {
                 store.selectEntry(memberID)
                 store.compareMode = false
+            }
+            Button(String(localized: "thumbnail.context.move_to_viewer",
+                          defaultValue: "Move to Viewer")) {
+                store.selectEntry(memberID)
+                store.viewerMode = true
             }
 
             Divider()
