@@ -101,8 +101,22 @@ targets:
     deploymentTarget: "18.0"
     sources:
       - path: BridgeLiteiOS
+      - path: Generated
+        optional: true
+      # Cross-platform Swift files shared with macOS target
+      - path: BridgeLite/Pipelines/ConcurrencyLimiter.swift
+      - path: BridgeLite/Models/PhotoEntry.swift
+      - path: BridgeLite/Models/ExifData.swift
+      - path: BridgeLite/Models/XmpData.swift
+      - path: BridgeLite/Models/ShotGroup.swift
+      - path: BridgeLite/Bridging/BridgeCore.swift
+      - path: BridgeLite/Bridging/ImageEntry+Convert.swift
+      - path: BridgeLite/Bridging/CoreError+LocalizedError.swift
     entitlements:
       path: BridgeLiteiOS/BridgeLiteiOS.entitlements
+    configFiles:
+      Debug: BridgeLiteiOS/RustLink.xcconfig
+      Release: BridgeLiteiOS/RustLink.xcconfig
     settings:
       base:
         SWIFT_VERSION: 6.0
@@ -110,6 +124,11 @@ targets:
         PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite.ios
         PRODUCT_NAME: BridgeLite
         SWIFT_EMIT_LOC_STRINGS: YES
+        # Rust static library (path selected per-SDK in RustLink.xcconfig)
+        OTHER_LDFLAGS: $(inherited) -lbridge_ffi -lc++
+        # swift-bridge C headers via bridging header
+        HEADER_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/include
+        SWIFT_OBJC_BRIDGING_HEADER: BridgeLiteiOS/BridgeLiteiOS-Bridging-Header.h
     info:
       path: BridgeLiteiOS/Resources/Info.plist
       properties:
@@ -120,3 +139,4 @@ targets:
         CFBundleShortVersionString: "0.1.0"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer for iPhone"
         UILaunchScreen: {}
+        NSPhotoLibraryAddUsageDescription: "写真ライブラリへのエクスポートに使用します。"

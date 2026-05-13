@@ -22,6 +22,8 @@
 	<string>1</string>
 	<key>NSHumanReadableDescription</key>
 	<string>Lightweight RAW+JPG image viewer for iPhone</string>
+	<key>NSPhotoLibraryAddUsageDescription</key>
+	<string>写真ライブラリへのエクスポートに使用します。</string>
 	<key>UILaunchScreen</key>
 	<dict/>
 </dict>

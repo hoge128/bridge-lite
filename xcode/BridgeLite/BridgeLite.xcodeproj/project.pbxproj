@@ -7,22 +7,36 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		01D99717EFC9132583EC925A /* FolderPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */; };
+		05ECD571285BD5D65864592F /* FilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */; };
 		080BCFEFED5119F429F6EF37 /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
 		0B0BC12A398E84A26C01BBBC /* TabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */; };
+		0B3AB796AA1680194C81402E /* BridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */; };
 		0B60DE05312E9F3B3E292659 /* DatePresetChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2384ADFCC6A85641754CACC6 /* DatePresetChips.swift */; };
 		0BF5211BFCBCCD0800E28289 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E9544AD911B7B44DF245CA /* HelpView.swift */; };
+		18F473074BA8B73A8706C1D9 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
+		1CA3A2C4229728F0691BEAB8 /* ShotGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E644DA2225FFA58312896A06 /* ShotGroup.swift */; };
 		1E5E68B25E2EC686594106E6 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D049A57268958B6678D2C20 /* UpdaterController.swift */; };
 		2017A2227FC3FB4B6E5DEDEB /* CoreError+LocalizedError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */; };
 		20FA827723A350BA5FA21B62 /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
+		215494EF82648C16BB89CE55 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A857B065B055D6ACA28D45 /* BookmarkStore.swift */; };
 		221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 562FFC709A5EF19C156C3F4B /* LibraryStore.swift */; };
 		2B393FBA258B56A1BD277370 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A4260412EA9F57B97926BB9 /* SettingsView.swift */; };
+		2BC3C6189802029B5387B89C /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
+		2BE62A4FCB568FF94B43F5F6 /* RatingBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */; };
+		321E9F5925168E01168CF59B /* bridge-ffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */; };
 		33C078EF4BC9AA58CA3FA762 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 15664F7FA303F94AF6538F3E /* AppIcon.icon */; };
 		35EC070FBDA487AA56355519 /* ZoomableImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 967747AA45B0717E1ABB3BC8 /* ZoomableImage.swift */; };
+		37B766B17BB5740BA7505661 /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE2F5F0FC1CBE2DFCB5E024F /* ThumbnailCellView.swift */; };
 		39AE66ED4011C68812AED891 /* Help.md in Resources */ = {isa = PBXBuildFile; fileRef = 378A4578CCFA7628D5DBDC95 /* Help.md */; };
 		3C455A207919FF49AB0272DE /* GroupCompareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6719A1E8E79428CC067F6086 /* GroupCompareView.swift */; };
 		3D9618AA9A9F30F68301F355 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1C59E59994061A04481C6A6A /* Localizable.xcstrings */; };
+		3E440C342AD8D7EC85E9F37B /* ScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE75B59E9A9916005F01D79 /* ScanStore.swift */; };
+		3EBEFECC6EABD9B8AEE71BA0 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */; };
 		3ECF458059E0E92F6318ABA0 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F0D4EF54B7033D13443243 /* SidebarView.swift */; };
+		42C21D5247C07C7E1B455749 /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */; };
 		46298ED8412E1E06AADF32B2 /* FilterCriteria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */; };
+		4779F287F1B4C86EE63CCFEB /* JpgWriteMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAE570D73DB707E72992F2C3 /* JpgWriteMode.swift */; };
 		487E0F471C54D7589919532C /* PhotoEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B64F29E109361726718A3C /* PhotoEntry.swift */; };
 		5478CCDC6D2D1C6C2FEEBEFF /* ThumbnailPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */; };
 		54F4CBE0C0AF7B59DE4D27DF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49A54E1E164617C20BDC0BE8 /* Assets.xcassets */; };
@@ -31,20 +45,30 @@
 		68AFA52E99B3C8444EBAA652 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 36DF9C66D41809477B26A054 /* Sparkle */; };
 		740B6E0B825A83C207B42109 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6259A93CEB1040679F6D1C26 /* ToolbarView.swift */; };
 		74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */; };
+		7536EC2290FDDDE51D587021 /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
 		757F65595D73658FC438F522 /* BridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */; };
 		75BBD1B5458C5D8D77610FB6 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F1394BA720F5BB1FAC74FB /* TabManager.swift */; };
+		7E3DB46D71165F7E199F8D9A /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52544FC27897A0CD233A37E /* ThumbnailGridView.swift */; };
 		8061ABA38A6138E7DF26799E /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E01FA6276D771ABD948AEB /* CalendarDayCell.swift */; };
 		867E4D731D55D911BE92FCDA /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */; };
+		872FA057AD91A7DD74ED9120 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = C9FC0A3C174E5AB7BE1EB987 /* libbridge_ffi.a */; };
 		89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		8F544229F248278F9D38D074 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
+		909FBB7C62F31EDF0BFC3AEA /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
+		936EAB6141C91B2B1E4A54E2 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
 		9BF8C6AB43E6FF9A22E6B3F1 /* ManageApplicationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08267E9BB3F4272FE0BBD6B3 /* ManageApplicationsSheet.swift */; };
 		9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8959834812C243F4AB214555 /* ViewerView.swift */; };
+		9F79B88BADD0DA52E8CE4683 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = 7BB0767F10B731C23CC9A61D /* libbridge_ffi.a */; };
 		9FE9F88FC4671DAF54FB52A3 /* ThumbnailDecodeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A25B9314CAA8624F7FEAE8 /* ThumbnailDecodeCache.swift */; };
 		A017CA3928F5411EB8A668A1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B123E21AF2DA71784C11365 /* SettingsStore.swift */; };
+		A25971232D7E0AD8FC6C0E12 /* ThumbnailService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940DD5D430F25636C785B60A /* ThumbnailService.swift */; };
+		A5C7AF7B756C4E14095476E7 /* RatingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29F4F691391FA55169693EC /* RatingStore.swift */; };
 		A697498B8D3F1EC28704C642 /* OpenFolderRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */; };
 		ADFD4A2AE0A9DA9BA0CEF576 /* CalendarPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4B133A4910622F9BE06420A /* CalendarPickerView.swift */; };
 		B381E002D017743456FC7713 /* bridge-ffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */; };
+		B8167BC2395FD9F9A557FD6B /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C85D8596A0E46A5E932A65FA /* DetailView.swift */; };
 		B8D2E26E4404EF20904397E4 /* FilterPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 449E124463D6E6D28958EBE9 /* FilterPanelView.swift */; };
+		BA3ABE11F380FACA3F567D52 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = 7BB0767F10B731C23CC9A61D /* libbridge_ffi.a */; };
 		BD135BC5DA5312F04B946CC4 /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
 		C5E75A4F20CD758BDD8C2EFC /* BridgeLiteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */; };
 		CBD8D3D6954D40D54CF4655C /* ShotGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E644DA2225FFA58312896A06 /* ShotGroup.swift */; };
@@ -53,8 +77,10 @@
 		D1EC203AA8C20B42769BD3ED /* StorageProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB29D70D3C5AFA843D165F7 /* StorageProbe.swift */; };
 		D4242D876FEFDA8DA59C5D73 /* DateModeToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FAA6D6FCBC572B4F19C4347 /* DateModeToggle.swift */; };
 		D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
+		D94D2E517C63501996A36845 /* CoreError+LocalizedError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */; };
 		E807A02B6D748E5BBE9F17CB /* FolderWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5954B00B0C942104F38783B /* FolderWatcher.swift */; };
 		E8F5A37ADB423EFE6A24493D /* ScanPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829D014EC927B51D64289330 /* ScanPipeline.swift */; };
+		EB75052F94D03E07762F3E62 /* PhotoEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B64F29E109361726718A3C /* PhotoEntry.swift */; };
 		EB98541B8291C56BC7DAAE8C /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */; };
 		ECE6710712DBC27DCC0E6E19 /* BridgeLiteiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DEFE7CAC099009D687EF89 /* BridgeLiteiOSApp.swift */; };
 		EF5F1D3737463925000086EB /* LargeImageDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79936F50668EA508B13ADA64 /* LargeImageDecoder.swift */; };
@@ -62,6 +88,7 @@
 		F992512EC9A4A82A8EC53439 /* OpenWithService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */; };
 		FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */; };
 		FFBB566343EEA7BA991F4AAE /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086AA6CCBB10934498DD210 /* ContentView.swift */; };
+		FFEFC131B3297AF78C473271 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = C9FC0A3C174E5AB7BE1EB987 /* libbridge_ffi.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -75,8 +102,10 @@
 		1C59E59994061A04481C6A6A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
 		2384ADFCC6A85641754CACC6 /* DatePresetChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatePresetChips.swift; sourceTree = "<group>"; };
 		2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridView.swift; sourceTree = "<group>"; };
+		2BE75B59E9A9916005F01D79 /* ScanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanStore.swift; sourceTree = "<group>"; };
 		2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "bridge-ffi.swift"; sourceTree = "<group>"; };
+		2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterSheetView.swift; sourceTree = "<group>"; };
 		30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftBridgeCore.swift; sourceTree = "<group>"; };
 		3086AA6CCBB10934498DD210 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		308967E43D60C214153E9BF1 /* ja */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = ja; path = ja.lproj/Help.md; sourceTree = "<group>"; };
@@ -87,6 +116,8 @@
 		3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingPipeline.swift; sourceTree = "<group>"; };
 		449E124463D6E6D28958EBE9 /* FilterPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterPanelView.swift; sourceTree = "<group>"; };
 		49A54E1E164617C20BDC0BE8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderPickerView.swift; sourceTree = "<group>"; };
+		4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingBarView.swift; sourceTree = "<group>"; };
 		4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarView.swift; sourceTree = "<group>"; };
 		4D049A57268958B6678D2C20 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 		562FFC709A5EF19C156C3F4B /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
@@ -101,10 +132,14 @@
 		75FDBA41BF6AE4904E4BEF2F /* BridgeLiteiOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BridgeLiteiOS.entitlements; sourceTree = "<group>"; };
 		79936F50668EA508B13ADA64 /* LargeImageDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeImageDecoder.swift; sourceTree = "<group>"; };
 		7B123E21AF2DA71784C11365 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
+		7BB0767F10B731C23CC9A61D /* libbridge_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libbridge_ffi.a; sourceTree = "<group>"; };
 		829D014EC927B51D64289330 /* ScanPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanPipeline.swift; sourceTree = "<group>"; };
 		851B10EDFF439C8C3987E4B6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8897A02D7131985030D5B46D /* ExifHistogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExifHistogramView.swift; sourceTree = "<group>"; };
 		8959834812C243F4AB214555 /* ViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerView.swift; sourceTree = "<group>"; };
+		8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSheet.swift; sourceTree = "<group>"; };
+		8B691B7F084D124BC8711440 /* RustLink.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = RustLink.xcconfig; sourceTree = "<group>"; };
+		940DD5D430F25636C785B60A /* ThumbnailService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailService.swift; sourceTree = "<group>"; };
 		967747AA45B0717E1ABB3BC8 /* ZoomableImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomableImage.swift; sourceTree = "<group>"; };
 		9A4260412EA9F57B97926BB9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9CE46BEBEEE9B02A6F31B9F8 /* BridgeLite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BridgeLite.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -114,21 +149,29 @@
 		A8476046BC02C30936274119 /* bridge-ffi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bridge-ffi.h"; sourceTree = "<group>"; };
 		A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeLiteApp.swift; sourceTree = "<group>"; };
 		B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeCore.swift; sourceTree = "<group>"; };
+		B9A857B065B055D6ACA28D45 /* BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkStore.swift; sourceTree = "<group>"; };
+		BA0EA6AE78D3DC167B7D59E5 /* BridgeLiteiOS-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "BridgeLiteiOS-Bridging-Header.h"; sourceTree = "<group>"; };
+		C85D8596A0E46A5E932A65FA /* DetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailView.swift; sourceTree = "<group>"; };
+		C9FC0A3C174E5AB7BE1EB987 /* libbridge_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libbridge_ffi.a; sourceTree = "<group>"; };
 		CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithMenu.swift; sourceTree = "<group>"; };
 		D190D06914E2B2F68880DE4D /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libbridge_ffi.a; sourceTree = "<group>"; };
+		D29F4F691391FA55169693EC /* RatingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingStore.swift; sourceTree = "<group>"; };
 		D4B133A4910622F9BE06420A /* CalendarPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPickerView.swift; sourceTree = "<group>"; };
+		D52544FC27897A0CD233A37E /* ThumbnailGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridView.swift; sourceTree = "<group>"; };
 		E18D649E31736AC707A51F47 /* BridgeLite.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BridgeLite.entitlements; sourceTree = "<group>"; };
 		E2E9544AD911B7B44DF245CA /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFolderRegistry.swift; sourceTree = "<group>"; };
 		E5E4D2077F4EF0B418BE9762 /* BridgeLite-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "BridgeLite-Bridging-Header.h"; sourceTree = "<group>"; };
 		E644DA2225FFA58312896A06 /* ShotGroup.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShotGroup.swift; sourceTree = "<group>"; };
 		E8B64F29E109361726718A3C /* PhotoEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEntry.swift; sourceTree = "<group>"; };
+		EAE570D73DB707E72992F2C3 /* JpgWriteMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JpgWriteMode.swift; sourceTree = "<group>"; };
 		F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithService.swift; sourceTree = "<group>"; };
 		F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BridgeLiteiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
 		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
 		F9F1394BA720F5BB1FAC74FB /* TabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabManager.swift; sourceTree = "<group>"; };
+		FE2F5F0FC1CBE2DFCB5E024F /* ThumbnailCellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCellView.swift; sourceTree = "<group>"; };
 		FEB29D70D3C5AFA843D165F7 /* StorageProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageProbe.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -165,10 +208,16 @@
 		18D6ECEB811EEA8AF948A5DD /* BridgeLiteiOS */ = {
 			isa = PBXGroup;
 			children = (
+				BA0EA6AE78D3DC167B7D59E5 /* BridgeLiteiOS-Bridging-Header.h */,
 				75FDBA41BF6AE4904E4BEF2F /* BridgeLiteiOS.entitlements */,
 				17DEFE7CAC099009D687EF89 /* BridgeLiteiOSApp.swift */,
 				3086AA6CCBB10934498DD210 /* ContentView.swift */,
+				8B691B7F084D124BC8711440 /* RustLink.xcconfig */,
 				0309610486ADC9BA569EBF88 /* Resources */,
+				6B33E347AAFC49BD48938A1D /* Services */,
+				39438F5F94ABEE0555094F85 /* Shared */,
+				EEBADD6FB38BC75658049798 /* Stores */,
+				CB331342A84F87A00099B454 /* Views */,
 			);
 			path = BridgeLiteiOS;
 			sourceTree = "<group>";
@@ -213,6 +262,22 @@
 			path = BridgeLite;
 			sourceTree = "<group>";
 		};
+		31501CF708D417109D104A7C /* lib-ios-sim */ = {
+			isa = PBXGroup;
+			children = (
+				C9FC0A3C174E5AB7BE1EB987 /* libbridge_ffi.a */,
+			);
+			path = "lib-ios-sim";
+			sourceTree = "<group>";
+		};
+		39438F5F94ABEE0555094F85 /* Shared */ = {
+			isa = PBXGroup;
+			children = (
+				EAE570D73DB707E72992F2C3 /* JpgWriteMode.swift */,
+			);
+			path = Shared;
+			sourceTree = "<group>";
+		};
 		5C7EFF5C58CDF69D785187E9 /* Stores */ = {
 			isa = PBXGroup;
 			children = (
@@ -233,6 +298,22 @@
 				F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */,
 			);
 			name = Products;
+			sourceTree = "<group>";
+		};
+		6621FE919E8A4A02E0704C89 /* lib-ios */ = {
+			isa = PBXGroup;
+			children = (
+				7BB0767F10B731C23CC9A61D /* libbridge_ffi.a */,
+			);
+			path = "lib-ios";
+			sourceTree = "<group>";
+		};
+		6B33E347AAFC49BD48938A1D /* Services */ = {
+			isa = PBXGroup;
+			children = (
+				940DD5D430F25636C785B60A /* ThumbnailService.swift */,
+			);
+			path = Services;
 			sourceTree = "<group>";
 		};
 		7DB8B529540DDBB0E185EC2A /* include */ = {
@@ -264,6 +345,8 @@
 				30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */,
 				7DB8B529540DDBB0E185EC2A /* include */,
 				FE007466483FBC73D779BC68 /* lib */,
+				6621FE919E8A4A02E0704C89 /* lib-ios */,
+				31501CF708D417109D104A7C /* lib-ios-sim */,
 			);
 			path = Generated;
 			sourceTree = "<group>";
@@ -278,6 +361,20 @@
 				378A4578CCFA7628D5DBDC95 /* Help.md */,
 			);
 			path = Resources;
+			sourceTree = "<group>";
+		};
+		CB331342A84F87A00099B454 /* Views */ = {
+			isa = PBXGroup;
+			children = (
+				C85D8596A0E46A5E932A65FA /* DetailView.swift */,
+				8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */,
+				2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */,
+				4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */,
+				4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */,
+				FE2F5F0FC1CBE2DFCB5E024F /* ThumbnailCellView.swift */,
+				D52544FC27897A0CD233A37E /* ThumbnailGridView.swift */,
+			);
+			path = Views;
 			sourceTree = "<group>";
 		};
 		DCEED3D7ADB9AF247F944868 /* Bridging */ = {
@@ -318,6 +415,16 @@
 			path = Views;
 			sourceTree = "<group>";
 		};
+		EEBADD6FB38BC75658049798 /* Stores */ = {
+			isa = PBXGroup;
+			children = (
+				B9A857B065B055D6ACA28D45 /* BookmarkStore.swift */,
+				D29F4F691391FA55169693EC /* RatingStore.swift */,
+				2BE75B59E9A9916005F01D79 /* ScanStore.swift */,
+			);
+			path = Stores;
+			sourceTree = "<group>";
+		};
 		FE007466483FBC73D779BC68 /* lib */ = {
 			isa = PBXGroup;
 			children = (
@@ -354,6 +461,7 @@
 			buildConfigurationList = 8FAD31AC341F504B002C90BD /* Build configuration list for PBXNativeTarget "BridgeLiteiOS" */;
 			buildPhases = (
 				6A8DAC30238F2FD1A70BF0CE /* Sources */,
+				28267DCD61F6E524D649D17C /* Resources */,
 			);
 			buildRules = (
 			);
@@ -402,6 +510,16 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
+		28267DCD61F6E524D649D17C /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				FFEFC131B3297AF78C473271 /* libbridge_ffi.a in Resources */,
+				9F79B88BADD0DA52E8CE4683 /* libbridge_ffi.a in Resources */,
+				3EBEFECC6EABD9B8AEE71BA0 /* libbridge_ffi.a in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
 		E153B379A04838498FD7F9F5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -410,6 +528,8 @@
 				54F4CBE0C0AF7B59DE4D27DF /* Assets.xcassets in Resources */,
 				39AE66ED4011C68812AED891 /* Help.md in Resources */,
 				3D9618AA9A9F30F68301F355 /* Localizable.xcstrings in Resources */,
+				872FA057AD91A7DD74ED9120 /* libbridge_ffi.a in Resources */,
+				BA3ABE11F380FACA3F567D52 /* libbridge_ffi.a in Resources */,
 				639D3ABDDEE404D4558F0932 /* libbridge_ffi.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -421,8 +541,30 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				215494EF82648C16BB89CE55 /* BookmarkStore.swift in Sources */,
+				0B3AB796AA1680194C81402E /* BridgeCore.swift in Sources */,
 				ECE6710712DBC27DCC0E6E19 /* BridgeLiteiOSApp.swift in Sources */,
+				2BC3C6189802029B5387B89C /* ConcurrencyLimiter.swift in Sources */,
 				FFBB566343EEA7BA991F4AAE /* ContentView.swift in Sources */,
+				D94D2E517C63501996A36845 /* CoreError+LocalizedError.swift in Sources */,
+				B8167BC2395FD9F9A557FD6B /* DetailView.swift in Sources */,
+				18F473074BA8B73A8706C1D9 /* ExifData.swift in Sources */,
+				42C21D5247C07C7E1B455749 /* ExportSheet.swift in Sources */,
+				05ECD571285BD5D65864592F /* FilterSheetView.swift in Sources */,
+				01D99717EFC9132583EC925A /* FolderPickerView.swift in Sources */,
+				936EAB6141C91B2B1E4A54E2 /* ImageEntry+Convert.swift in Sources */,
+				4779F287F1B4C86EE63CCFEB /* JpgWriteMode.swift in Sources */,
+				EB75052F94D03E07762F3E62 /* PhotoEntry.swift in Sources */,
+				2BE62A4FCB568FF94B43F5F6 /* RatingBarView.swift in Sources */,
+				A5C7AF7B756C4E14095476E7 /* RatingStore.swift in Sources */,
+				3E440C342AD8D7EC85E9F37B /* ScanStore.swift in Sources */,
+				1CA3A2C4229728F0691BEAB8 /* ShotGroup.swift in Sources */,
+				7536EC2290FDDDE51D587021 /* SwiftBridgeCore.swift in Sources */,
+				37B766B17BB5740BA7505661 /* ThumbnailCellView.swift in Sources */,
+				7E3DB46D71165F7E199F8D9A /* ThumbnailGridView.swift in Sources */,
+				A25971232D7E0AD8FC6C0E12 /* ThumbnailService.swift in Sources */,
+				909FBB7C62F31EDF0BFC3AEA /* XmpData.swift in Sources */,
+				321E9F5925168E01168CF59B /* bridge-ffi.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -616,20 +758,24 @@
 		};
 		B7F9608D6CBA50F3E425E1F0 /* Debug */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8B691B7F084D124BC8711440 /* RustLink.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BridgeLiteiOS/BridgeLiteiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLiteiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "BridgeLiteiOS/BridgeLiteiOS-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
@@ -662,20 +808,24 @@
 		};
 		EE7B683B9A9AC894C839C5EF /* Release */ = {
 			isa = XCBuildConfiguration;
+			baseConfigurationReference = 8B691B7F084D124BC8711440 /* RustLink.xcconfig */;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				CODE_SIGN_ENTITLEMENTS = BridgeLiteiOS/BridgeLiteiOS.entitlements;
 				CODE_SIGN_IDENTITY = "iPhone Developer";
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLiteiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = iphoneos;
 				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "BridgeLiteiOS/BridgeLiteiOS-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
 				TARGETED_DEVICE_FAMILY = "1,2";
 			};
