@@ -189,11 +189,6 @@ struct ToolbarView: ToolbarContent {
             }
             .disabled(!store.canUndo)
             .help(store.undoActionTitle ?? String(localized: "Undo (⌘Z)"))
-            Button(action: { store.undoManager.redo() }) {
-                Label("Redo", systemImage: "arrow.uturn.forward")
-            }
-            .disabled(!store.canRedo)
-            .help(store.redoActionTitle ?? String(localized: "Redo (⇧⌘Z)"))
         }
 
         ToolbarItemGroup(placement: .principal) {

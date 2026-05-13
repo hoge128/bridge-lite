@@ -161,16 +161,6 @@ struct BridgeLiteCommands: Commands {
             .keyboardShortcut("z", modifiers: .command)
             .disabled(!(store?.canUndo ?? false))
 
-            Button(store?.redoActionTitle ?? String(localized: "Redo")) {
-                let fr = NSApp.keyWindow?.firstResponder
-                if fr is NSTextView || fr is NSTextField {
-                    NSApp.sendAction(Selector("redo:"), to: nil, from: nil)
-                } else {
-                    store?.undoManager.redo()
-                }
-            }
-            .keyboardShortcut("z", modifiers: [.command, .shift])
-            .disabled(!(store?.canRedo ?? false))
         }
         CommandGroup(replacing: .newItem) {
             Button("Open Folder…") {

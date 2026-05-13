@@ -71,9 +71,7 @@ final class LibraryStore {
     private(set) var undoMessage: String?
     private var undoMessageTask: Task<Void, Never>?
     var canUndo: Bool { _ = undoVersion; return undoManager.canUndo }
-    var canRedo: Bool { _ = undoVersion; return undoManager.canRedo }
     var undoActionTitle: String? { _ = undoVersion; return undoManager.canUndo ? undoManager.undoMenuItemTitle : nil }
-    var redoActionTitle: String? { _ = undoVersion; return undoManager.canRedo ? undoManager.redoMenuItemTitle : nil }
 
     // Batch flush — coalesces rapid dict mutations to reduce @Observable invalidation frequency
     private var pendingThumbnails: [UInt64: Data] = [:]
@@ -140,17 +138,6 @@ final class LibraryStore {
                 self.undoVersion &+= 1
                 let name = self.undoManager.redoActionName
                 if !name.isEmpty { self.showUndoMessage(String(localized: "Undid: \(name)")) }
-            },
-            subscribe(.NSUndoManagerDidRedoChange) { [weak self] _ in
-                guard let self else { return }
-                self.undoVersion &+= 1
-                let name = self.undoManager.undoActionName
-                if !name.isEmpty {
-                    self.showUndoMessage(String(
-                        format: String(localized: "undo.toast.redid", defaultValue: "Redid: %@"),
-                        name
-                    ))
-                }
             },
             subscribe(.NSUndoManagerDidCloseUndoGroup) { [weak self] _ in self?.undoVersion &+= 1 }
         ]
