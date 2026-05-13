@@ -9,6 +9,7 @@ options:
   bundleIdPrefix: io.github.bridge-lite
   deploymentTarget:
     macOS: "14.0"
+    iOS: "18.0"
   xcodeVersion: "16.3"
   generateEmptyDirectories: true
 
@@ -17,6 +18,20 @@ schemes:
     build:
       targets:
         BridgeLite: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  BridgeLiteiOS:
+    build:
+      targets:
+        BridgeLiteiOS: all
     run:
       config: Debug
     test:
@@ -79,3 +94,29 @@ targets:
             LSHandlerRank: Alternate
             LSItemContentTypes:
               - public.folder
+
+  BridgeLiteiOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: BridgeLiteiOS
+    entitlements:
+      path: BridgeLiteiOS/BridgeLiteiOS.entitlements
+    settings:
+      base:
+        SWIFT_VERSION: 6.0
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite.ios
+        PRODUCT_NAME: BridgeLite
+        SWIFT_EMIT_LOC_STRINGS: YES
+    info:
+      path: BridgeLiteiOS/Resources/Info.plist
+      properties:
+        CFBundleName: BridgeLite
+        CFBundleDisplayName: BridgeLite
+        CFBundleIdentifier: io.github.bridge-lite.ios
+        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.1.0"
+        NSHumanReadableDescription: "Lightweight RAW+JPG image viewer for iPhone"
+        UILaunchScreen: {}
