@@ -32,7 +32,6 @@
 		3C455A207919FF49AB0272DE /* GroupCompareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6719A1E8E79428CC067F6086 /* GroupCompareView.swift */; };
 		3D9618AA9A9F30F68301F355 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1C59E59994061A04481C6A6A /* Localizable.xcstrings */; };
 		3E440C342AD8D7EC85E9F37B /* ScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE75B59E9A9916005F01D79 /* ScanStore.swift */; };
-		3EBEFECC6EABD9B8AEE71BA0 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */; };
 		3ECF458059E0E92F6318ABA0 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F0D4EF54B7033D13443243 /* SidebarView.swift */; };
 		42C21D5247C07C7E1B455749 /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */; };
 		46298ED8412E1E06AADF32B2 /* FilterCriteria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */; };
@@ -51,14 +50,12 @@
 		7E3DB46D71165F7E199F8D9A /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52544FC27897A0CD233A37E /* ThumbnailGridView.swift */; };
 		8061ABA38A6138E7DF26799E /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E01FA6276D771ABD948AEB /* CalendarDayCell.swift */; };
 		867E4D731D55D911BE92FCDA /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */; };
-		872FA057AD91A7DD74ED9120 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = C9FC0A3C174E5AB7BE1EB987 /* libbridge_ffi.a */; };
 		89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		8F544229F248278F9D38D074 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
 		909FBB7C62F31EDF0BFC3AEA /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
 		936EAB6141C91B2B1E4A54E2 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
 		9BF8C6AB43E6FF9A22E6B3F1 /* ManageApplicationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08267E9BB3F4272FE0BBD6B3 /* ManageApplicationsSheet.swift */; };
 		9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8959834812C243F4AB214555 /* ViewerView.swift */; };
-		9F79B88BADD0DA52E8CE4683 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = 7BB0767F10B731C23CC9A61D /* libbridge_ffi.a */; };
 		9FE9F88FC4671DAF54FB52A3 /* ThumbnailDecodeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A25B9314CAA8624F7FEAE8 /* ThumbnailDecodeCache.swift */; };
 		A017CA3928F5411EB8A668A1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B123E21AF2DA71784C11365 /* SettingsStore.swift */; };
 		A25971232D7E0AD8FC6C0E12 /* ThumbnailService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940DD5D430F25636C785B60A /* ThumbnailService.swift */; };
@@ -68,7 +65,6 @@
 		B381E002D017743456FC7713 /* bridge-ffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */; };
 		B8167BC2395FD9F9A557FD6B /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C85D8596A0E46A5E932A65FA /* DetailView.swift */; };
 		B8D2E26E4404EF20904397E4 /* FilterPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 449E124463D6E6D28958EBE9 /* FilterPanelView.swift */; };
-		BA3ABE11F380FACA3F567D52 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = 7BB0767F10B731C23CC9A61D /* libbridge_ffi.a */; };
 		BD135BC5DA5312F04B946CC4 /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
 		C5E75A4F20CD758BDD8C2EFC /* BridgeLiteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */; };
 		CBD8D3D6954D40D54CF4655C /* ShotGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E644DA2225FFA58312896A06 /* ShotGroup.swift */; };
@@ -88,7 +84,6 @@
 		F992512EC9A4A82A8EC53439 /* OpenWithService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */; };
 		FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */; };
 		FFBB566343EEA7BA991F4AAE /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086AA6CCBB10934498DD210 /* ContentView.swift */; };
-		FFEFC131B3297AF78C473271 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = C9FC0A3C174E5AB7BE1EB987 /* libbridge_ffi.a */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -132,7 +127,6 @@
 		75FDBA41BF6AE4904E4BEF2F /* BridgeLiteiOS.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BridgeLiteiOS.entitlements; sourceTree = "<group>"; };
 		79936F50668EA508B13ADA64 /* LargeImageDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeImageDecoder.swift; sourceTree = "<group>"; };
 		7B123E21AF2DA71784C11365 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
-		7BB0767F10B731C23CC9A61D /* libbridge_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libbridge_ffi.a; sourceTree = "<group>"; };
 		829D014EC927B51D64289330 /* ScanPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanPipeline.swift; sourceTree = "<group>"; };
 		851B10EDFF439C8C3987E4B6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8897A02D7131985030D5B46D /* ExifHistogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExifHistogramView.swift; sourceTree = "<group>"; };
@@ -152,7 +146,6 @@
 		B9A857B065B055D6ACA28D45 /* BookmarkStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BookmarkStore.swift; sourceTree = "<group>"; };
 		BA0EA6AE78D3DC167B7D59E5 /* BridgeLiteiOS-Bridging-Header.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "BridgeLiteiOS-Bridging-Header.h"; sourceTree = "<group>"; };
 		C85D8596A0E46A5E932A65FA /* DetailView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailView.swift; sourceTree = "<group>"; };
-		C9FC0A3C174E5AB7BE1EB987 /* libbridge_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libbridge_ffi.a; sourceTree = "<group>"; };
 		CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithMenu.swift; sourceTree = "<group>"; };
 		D190D06914E2B2F68880DE4D /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libbridge_ffi.a; sourceTree = "<group>"; };
@@ -262,14 +255,6 @@
 			path = BridgeLite;
 			sourceTree = "<group>";
 		};
-		31501CF708D417109D104A7C /* lib-ios-sim */ = {
-			isa = PBXGroup;
-			children = (
-				C9FC0A3C174E5AB7BE1EB987 /* libbridge_ffi.a */,
-			);
-			path = "lib-ios-sim";
-			sourceTree = "<group>";
-		};
 		39438F5F94ABEE0555094F85 /* Shared */ = {
 			isa = PBXGroup;
 			children = (
@@ -298,14 +283,6 @@
 				F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */,
 			);
 			name = Products;
-			sourceTree = "<group>";
-		};
-		6621FE919E8A4A02E0704C89 /* lib-ios */ = {
-			isa = PBXGroup;
-			children = (
-				7BB0767F10B731C23CC9A61D /* libbridge_ffi.a */,
-			);
-			path = "lib-ios";
 			sourceTree = "<group>";
 		};
 		6B33E347AAFC49BD48938A1D /* Services */ = {
@@ -345,8 +322,6 @@
 				30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */,
 				7DB8B529540DDBB0E185EC2A /* include */,
 				FE007466483FBC73D779BC68 /* lib */,
-				6621FE919E8A4A02E0704C89 /* lib-ios */,
-				31501CF708D417109D104A7C /* lib-ios-sim */,
 			);
 			path = Generated;
 			sourceTree = "<group>";
@@ -461,7 +436,6 @@
 			buildConfigurationList = 8FAD31AC341F504B002C90BD /* Build configuration list for PBXNativeTarget "BridgeLiteiOS" */;
 			buildPhases = (
 				6A8DAC30238F2FD1A70BF0CE /* Sources */,
-				28267DCD61F6E524D649D17C /* Resources */,
 			);
 			buildRules = (
 			);
@@ -510,16 +484,6 @@
 /* End PBXProject section */
 
 /* Begin PBXResourcesBuildPhase section */
-		28267DCD61F6E524D649D17C /* Resources */ = {
-			isa = PBXResourcesBuildPhase;
-			buildActionMask = 2147483647;
-			files = (
-				FFEFC131B3297AF78C473271 /* libbridge_ffi.a in Resources */,
-				9F79B88BADD0DA52E8CE4683 /* libbridge_ffi.a in Resources */,
-				3EBEFECC6EABD9B8AEE71BA0 /* libbridge_ffi.a in Resources */,
-			);
-			runOnlyForDeploymentPostprocessing = 0;
-		};
 		E153B379A04838498FD7F9F5 /* Resources */ = {
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
@@ -528,8 +492,6 @@
 				54F4CBE0C0AF7B59DE4D27DF /* Assets.xcassets in Resources */,
 				39AE66ED4011C68812AED891 /* Help.md in Resources */,
 				3D9618AA9A9F30F68301F355 /* Localizable.xcstrings in Resources */,
-				872FA057AD91A7DD74ED9120 /* libbridge_ffi.a in Resources */,
-				BA3ABE11F380FACA3F567D52 /* libbridge_ffi.a in Resources */,
 				639D3ABDDEE404D4558F0932 /* libbridge_ffi.a in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;

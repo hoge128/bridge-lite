@@ -52,6 +52,9 @@ targets:
       - path: BridgeLite
       - path: Generated
         optional: true
+        excludes:
+          - "lib-ios/**"
+          - "lib-ios-sim/**"
     settings:
       base:
         SWIFT_VERSION: 6.0
@@ -103,6 +106,10 @@ targets:
       - path: BridgeLiteiOS
       - path: Generated
         optional: true
+        excludes:
+          - "lib/**"
+          - "lib-ios/**"
+          - "lib-ios-sim/**"
       # Cross-platform Swift files shared with macOS target
       - path: BridgeLite/Pipelines/ConcurrencyLimiter.swift
       - path: BridgeLite/Models/PhotoEntry.swift
