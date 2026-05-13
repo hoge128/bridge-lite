@@ -12,6 +12,22 @@ options:
   xcodeVersion: "16.3"
   generateEmptyDirectories: true
 
+schemes:
+  BridgeLite:
+    build:
+      targets:
+        BridgeLite: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+
 targets:
   BridgeLite:
     type: application
