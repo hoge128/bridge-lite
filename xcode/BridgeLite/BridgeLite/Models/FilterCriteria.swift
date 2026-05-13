@@ -113,17 +113,17 @@ struct FilterCriteria: Sendable, Equatable {
         }
         // Focal length filter (35mm換算優先)
         if let focal = exif?.effectiveFocalMm {
-            if let min = Double(focalMin), focal < min { return false }
+            if let min = Double(focalMin), focal <= min { return false }
             if let max = Double(focalMax), focal > max { return false }
         }
         // Shutter speed filter (秒単位: "1/200" or "0.005")
         if let shutter = exif?.shutterSeconds {
-            if let min = parseSeconds(shutterMin), shutter < min { return false }
+            if let min = parseSeconds(shutterMin), shutter <= min { return false }
             if let max = parseSeconds(shutterMax), shutter > max { return false }
         }
         // Aperture (F値) filter
         if let aperture = exif?.fnumberValue {
-            if let min = Double(apertureMin), aperture < min { return false }
+            if let min = Double(apertureMin), aperture <= min { return false }
             if let max = Double(apertureMax), aperture > max { return false }
         }
         // Date filter — EXIF datetime preferred, fallback to file creation date

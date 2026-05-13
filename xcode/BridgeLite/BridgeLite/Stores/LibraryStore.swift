@@ -1758,7 +1758,7 @@ final class LibraryStore {
             ("128", 159,       "128", "159"),
             ("160", 191,       "160", "191"),
             ("192", 223,       "192", "223"),
-            ("255", .infinity, "224", ""),
+            ("224", .infinity, "224", ""),
         ]
         var counts = Array(repeating: 0, count: specs.count)
         for id in ids {
@@ -1772,7 +1772,7 @@ final class LibraryStore {
         }
     }
 
-    // BT.709 輝度平均を 0–255 の整数で返す（32×32 グレースケールに縮小して計算）
+    // デバイスグレー平均を 0–255 の整数で返す（32×32 グレースケールに縮小して計算）
     private nonisolated static func computeLuminance(jpeg: Data) -> Int? {
         guard let src = CGImageSourceCreateWithData(jpeg as CFData, nil),
               let img = CGImageSourceCreateImageAtIndex(src, 0, nil) else { return nil }

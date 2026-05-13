@@ -225,10 +225,12 @@ struct ExifHistogramView: View {
 
     private static func smoothLinePath(pts: [CGPoint], size: CGSize) -> Path {
         let ext = extendedPoints(pts, size: size)
-        guard ext.count >= 2 else { return Path() }
+        // ext[0] と ext[last] は底辺コーナーのアンカー点。
+        // ストロークは実データ点（ext[1..n]）のみを通過させる。
+        guard ext.count >= 3 else { return Path() }
         var path = Path()
-        path.move(to: ext[0])
-        for i in 0..<(ext.count - 1) {
+        path.move(to: ext[1])
+        for i in 1..<(ext.count - 2) {
             let (c1, c2) = controlPoints(ext, at: i, height: size.height)
             path.addCurve(to: ext[i + 1], control1: c1, control2: c2)
         }
