@@ -115,14 +115,24 @@ struct FolderView: View {
         @Bindable var store = store
 
         ZStack {
-            // Main layout: NavigationSplitView (filter | thumbnails) + metadata panel + status bar
+            // Main layout: NavigationSplitView (filter | thumbnails + metadata panel) + status bar
             VStack(spacing: 0) {
-            HStack(spacing: 0) {
                 NavigationSplitView(columnVisibility: $store.columnVisibility) {
                     FilterPanelView()
                         .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
                 } detail: {
-                    ThumbnailGridView()
+                    HStack(spacing: 0) {
+                        ThumbnailGridView()
+
+                        if store.showSidebar {
+                            Divider()
+                            SidebarView()
+                                .frame(minWidth: 260, idealWidth: 300, maxWidth: 360)
+                                .background(Color(.windowBackgroundColor))
+                                .transition(.move(edge: .trailing))
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: store.showSidebar)
                 }
                 .toolbar {
                     ToolbarView()
@@ -183,17 +193,7 @@ struct FolderView: View {
                     .allowsHitTesting(false)
                 }
 
-                // Metadata panel — outside NavigationSplitView to avoid empty column artifact
-                if store.showSidebar {
-                    Divider()
-                    SidebarView()
-                        .frame(minWidth: 260, idealWidth: 300, maxWidth: 360)
-                        .transition(.move(edge: .trailing))
-                }
-            }
-            .animation(.easeInOut(duration: 0.2), value: store.showSidebar)
-
-            StatusBarView()
+                StatusBarView()
             } // VStack
 
             if store.compareMode, let anchorID = store.compareAnchorID {
