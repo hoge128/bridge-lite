@@ -1,10 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0" xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" xmlns:dc="http://purl.org/dc/elements/1.1/">
-  <channel>
-    <title>BridgeLite</title>
-    <link>https://hoge128.github.io/bridge-lite/appcast.xml</link>
-    <description>Most recent updates to BridgeLite</description>
-    <language>en</language>
-    <!-- リリース時は tools/release-appcast.sh を実行して自動生成してください -->
-  </channel>
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>BridgeLite</title>
+        <item>
+            <title>0.4.0</title>
+            <pubDate>Wed, 13 May 2026 14:12:13 +0900</pubDate>
+            <link>https://hoge128.github.io/bridge-lite/</link>
+            <sparkle:fullReleaseNotesLink>https://hoge128.github.io/bridge-lite/releases/0.4.0.html</sparkle:fullReleaseNotesLink>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/hoge128/bridge-lite/releases/download/v0.4.0/BridgeLite-0.4.0.dmg" length="17104070" type="application/octet-stream" sparkle:edSignature="gJc2ia6A2Xoj2upK4ARCL2YSolFuUnqmg70NnD3qPzpAJvJTraxCbdu0illjiN3pCDIL78jl3H53DCAprAwBAg=="/>
+        </item>
+    </channel>
 </rss>
