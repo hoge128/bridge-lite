@@ -66,9 +66,9 @@ for helper in "${SPARKLE_HELPERS[@]}"; do
     target="$APP_PATH/$helper"
     if [[ -e "$target" ]]; then
         SPARKLE_FOUND=true
-        if ! codesign --verify --verbose=2 "$target" 2>&1 | grep -qE "valid on disk|satisfies"; then
+        if ! codesign --verify "$target" >/dev/null 2>&1; then
             echo "ERROR: $helper の署名が無効です。"
-            echo "Xcode の Distribute App → Developer ID → Export から取得した .app を使用してください。"
+            echo "Xcode の Distribute App → Direct Distribution → Export から取得した .app を使用してください。"
             exit 1
         fi
     fi
