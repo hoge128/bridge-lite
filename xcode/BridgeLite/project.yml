@@ -35,6 +35,8 @@ targets:
         HEADER_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/include
         SWIFT_OBJC_BRIDGING_HEADER: BridgeLite/BridgeLite-Bridging-Header.h
         EXCLUDED_ARCHS: x86_64
+        # Required for Apple notarization
+        ENABLE_HARDENED_RUNTIME: YES
     dependencies:
       - package: Sparkle
         product: Sparkle
@@ -44,8 +46,8 @@ targets:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite
-        CFBundleVersion: "5"
-        CFBundleShortVersionString: "0.3.0"
+        CFBundleVersion: "6"
+        CFBundleShortVersionString: "0.4.0"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"
         # Finder の右クリック「このアプリケーションで開く」と Dock ドラッグで
         # フォルダを開けるようにするための公開ドキュメントタイプ宣言。

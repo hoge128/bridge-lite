@@ -9,21 +9,17 @@
 /* Begin PBXBuildFile section */
 		080BCFEFED5119F429F6EF37 /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
 		0B0BC12A398E84A26C01BBBC /* TabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */; };
+		0B60DE05312E9F3B3E292659 /* DatePresetChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2384ADFCC6A85641754CACC6 /* DatePresetChips.swift */; };
 		0BF5211BFCBCCD0800E28289 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E9544AD911B7B44DF245CA /* HelpView.swift */; };
 		1E5E68B25E2EC686594106E6 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D049A57268958B6678D2C20 /* UpdaterController.swift */; };
 		2017A2227FC3FB4B6E5DEDEB /* CoreError+LocalizedError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */; };
 		20FA827723A350BA5FA21B62 /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
-		6B06B35AB054D69E067D18B1 /* LargeImageDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = F448740A2ED5F7F86B153DC7 /* LargeImageDecoder.swift */; };
 		221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 562FFC709A5EF19C156C3F4B /* LibraryStore.swift */; };
 		2B393FBA258B56A1BD277370 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A4260412EA9F57B97926BB9 /* SettingsView.swift */; };
 		33C078EF4BC9AA58CA3FA762 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 15664F7FA303F94AF6538F3E /* AppIcon.icon */; };
 		35EC070FBDA487AA56355519 /* ZoomableImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 967747AA45B0717E1ABB3BC8 /* ZoomableImage.swift */; };
 		39AE66ED4011C68812AED891 /* Help.md in Resources */ = {isa = PBXBuildFile; fileRef = 378A4578CCFA7628D5DBDC95 /* Help.md */; };
 		3C455A207919FF49AB0272DE /* GroupCompareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6719A1E8E79428CC067F6086 /* GroupCompareView.swift */; };
-		ABFA42DB83664A928958F995 /* CalendarPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 408767782CEC40C5AB818F9D /* CalendarPickerView.swift */; };
-		89BEC3960ED843B9A9D15208 /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC4F3FD06CE945189A9D6EF3 /* CalendarDayCell.swift */; };
-		E9340B00DE5947FA94DEAC59 /* DatePresetChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 794281FB02CE4FA78C4B9197 /* DatePresetChips.swift */; };
-		B9D35B777C38430D85128945 /* DateModeToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = DE726B2189A44DED83FE6701 /* DateModeToggle.swift */; };
 		3D9618AA9A9F30F68301F355 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1C59E59994061A04481C6A6A /* Localizable.xcstrings */; };
 		3ECF458059E0E92F6318ABA0 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F0D4EF54B7033D13443243 /* SidebarView.swift */; };
 		46298ED8412E1E06AADF32B2 /* FilterCriteria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */; };
@@ -37,6 +33,7 @@
 		74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */; };
 		757F65595D73658FC438F522 /* BridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */; };
 		75BBD1B5458C5D8D77610FB6 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F1394BA720F5BB1FAC74FB /* TabManager.swift */; };
+		8061ABA38A6138E7DF26799E /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E01FA6276D771ABD948AEB /* CalendarDayCell.swift */; };
 		867E4D731D55D911BE92FCDA /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */; };
 		89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		8F544229F248278F9D38D074 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
@@ -45,6 +42,7 @@
 		9FE9F88FC4671DAF54FB52A3 /* ThumbnailDecodeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A25B9314CAA8624F7FEAE8 /* ThumbnailDecodeCache.swift */; };
 		A017CA3928F5411EB8A668A1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B123E21AF2DA71784C11365 /* SettingsStore.swift */; };
 		A697498B8D3F1EC28704C642 /* OpenFolderRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */; };
+		ADFD4A2AE0A9DA9BA0CEF576 /* CalendarPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4B133A4910622F9BE06420A /* CalendarPickerView.swift */; };
 		B381E002D017743456FC7713 /* bridge-ffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */; };
 		B8D2E26E4404EF20904397E4 /* FilterPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 449E124463D6E6D28958EBE9 /* FilterPanelView.swift */; };
 		BD135BC5DA5312F04B946CC4 /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
@@ -53,27 +51,27 @@
 		CF8892645373D041666BB500 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */; };
 		D0246288EB437833D4CB9511 /* RAWRenderPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66FAC10D47AADEDC3B802F22 /* RAWRenderPipeline.swift */; };
 		D1EC203AA8C20B42769BD3ED /* StorageProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB29D70D3C5AFA843D165F7 /* StorageProbe.swift */; };
+		D4242D876FEFDA8DA59C5D73 /* DateModeToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FAA6D6FCBC572B4F19C4347 /* DateModeToggle.swift */; };
 		D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
 		E807A02B6D748E5BBE9F17CB /* FolderWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5954B00B0C942104F38783B /* FolderWatcher.swift */; };
 		E8F5A37ADB423EFE6A24493D /* ScanPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829D014EC927B51D64289330 /* ScanPipeline.swift */; };
 		EB98541B8291C56BC7DAAE8C /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */; };
+		EF5F1D3737463925000086EB /* LargeImageDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79936F50668EA508B13ADA64 /* LargeImageDecoder.swift */; };
 		F049B58AD623462639BFDA52 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */; };
 		F992512EC9A4A82A8EC53439 /* OpenWithService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */; };
 		FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
+		03E01FA6276D771ABD948AEB /* CalendarDayCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDayCell.swift; sourceTree = "<group>"; };
 		05F0D4EF54B7033D13443243 /* SidebarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SidebarView.swift; sourceTree = "<group>"; };
 		07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PHashPipeline.swift; sourceTree = "<group>"; };
 		08267E9BB3F4272FE0BBD6B3 /* ManageApplicationsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ManageApplicationsSheet.swift; sourceTree = "<group>"; };
 		09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterCriteria.swift; sourceTree = "<group>"; };
 		15664F7FA303F94AF6538F3E /* AppIcon.icon */ = {isa = PBXFileReference; lastKnownFileType = wrapper.icon; path = AppIcon.icon; sourceTree = "<group>"; };
 		1C59E59994061A04481C6A6A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
+		2384ADFCC6A85641754CACC6 /* DatePresetChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatePresetChips.swift; sourceTree = "<group>"; };
 		2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridView.swift; sourceTree = "<group>"; };
-		408767782CEC40C5AB818F9D /* CalendarPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPickerView.swift; sourceTree = "<group>"; };
-		CC4F3FD06CE945189A9D6EF3 /* CalendarDayCell.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarDayCell.swift; sourceTree = "<group>"; };
-		794281FB02CE4FA78C4B9197 /* DatePresetChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatePresetChips.swift; sourceTree = "<group>"; };
-		DE726B2189A44DED83FE6701 /* DateModeToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateModeToggle.swift; sourceTree = "<group>"; };
 		2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "bridge-ffi.swift"; sourceTree = "<group>"; };
 		30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftBridgeCore.swift; sourceTree = "<group>"; };
@@ -91,10 +89,11 @@
 		5F6AB0BABA5195DAD2785DD6 /* en */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = en; path = en.lproj/Help.md; sourceTree = "<group>"; };
 		6259A93CEB1040679F6D1C26 /* ToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarView.swift; sourceTree = "<group>"; };
 		66FAC10D47AADEDC3B802F22 /* RAWRenderPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RAWRenderPipeline.swift; sourceTree = "<group>"; };
-		F448740A2ED5F7F86B153DC7 /* LargeImageDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeImageDecoder.swift; sourceTree = "<group>"; };
 		6719A1E8E79428CC067F6086 /* GroupCompareView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GroupCompareView.swift; sourceTree = "<group>"; };
 		6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "CoreError+LocalizedError.swift"; sourceTree = "<group>"; };
+		6FAA6D6FCBC572B4F19C4347 /* DateModeToggle.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DateModeToggle.swift; sourceTree = "<group>"; };
 		70EF463FF8F23594579AF67A /* SwiftBridgeCore.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = SwiftBridgeCore.h; sourceTree = "<group>"; };
+		79936F50668EA508B13ADA64 /* LargeImageDecoder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LargeImageDecoder.swift; sourceTree = "<group>"; };
 		7B123E21AF2DA71784C11365 /* SettingsStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsStore.swift; sourceTree = "<group>"; };
 		829D014EC927B51D64289330 /* ScanPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanPipeline.swift; sourceTree = "<group>"; };
 		851B10EDFF439C8C3987E4B6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
@@ -112,6 +111,7 @@
 		CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithMenu.swift; sourceTree = "<group>"; };
 		D190D06914E2B2F68880DE4D /* module.modulemap */ = {isa = PBXFileReference; lastKnownFileType = "sourcecode.module-map"; path = module.modulemap; sourceTree = "<group>"; };
 		D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */ = {isa = PBXFileReference; lastKnownFileType = archive.ar; path = libbridge_ffi.a; sourceTree = "<group>"; };
+		D4B133A4910622F9BE06420A /* CalendarPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPickerView.swift; sourceTree = "<group>"; };
 		E18D649E31736AC707A51F47 /* BridgeLite.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BridgeLite.entitlements; sourceTree = "<group>"; };
 		E2E9544AD911B7B44DF245CA /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFolderRegistry.swift; sourceTree = "<group>"; };
@@ -150,10 +150,10 @@
 			isa = PBXGroup;
 			children = (
 				F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */,
-					3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */,
+				79936F50668EA508B13ADA64 /* LargeImageDecoder.swift */,
+				3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */,
 				07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */,
 				66FAC10D47AADEDC3B802F22 /* RAWRenderPipeline.swift */,
-				F448740A2ED5F7F86B153DC7 /* LargeImageDecoder.swift */,
 				829D014EC927B51D64289330 /* ScanPipeline.swift */,
 				34A25B9314CAA8624F7FEAE8 /* ThumbnailDecodeCache.swift */,
 				5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */,
@@ -267,11 +267,11 @@
 			isa = PBXGroup;
 			children = (
 				A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */,
-				408767782CEC40C5AB818F9D /* CalendarPickerView.swift */,
-				CC4F3FD06CE945189A9D6EF3 /* CalendarDayCell.swift */,
+				03E01FA6276D771ABD948AEB /* CalendarDayCell.swift */,
+				D4B133A4910622F9BE06420A /* CalendarPickerView.swift */,
 				2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */,
-				DE726B2189A44DED83FE6701 /* DateModeToggle.swift */,
-				794281FB02CE4FA78C4B9197 /* DatePresetChips.swift */,
+				6FAA6D6FCBC572B4F19C4347 /* DateModeToggle.swift */,
+				2384ADFCC6A85641754CACC6 /* DatePresetChips.swift */,
 				8897A02D7131985030D5B46D /* ExifHistogramView.swift */,
 				449E124463D6E6D28958EBE9 /* FilterPanelView.swift */,
 				6719A1E8E79428CC067F6086 /* GroupCompareView.swift */,
@@ -376,17 +376,16 @@
 			buildActionMask = 2147483647;
 			files = (
 				F049B58AD623462639BFDA52 /* AboutView.swift in Sources */,
-				ABFA42DB83664A928958F995 /* CalendarPickerView.swift in Sources */,
-				89BEC3960ED843B9A9D15208 /* CalendarDayCell.swift in Sources */,
-				B9D35B777C38430D85128945 /* DateModeToggle.swift in Sources */,
-				E9340B00DE5947FA94DEAC59 /* DatePresetChips.swift in Sources */,
 				757F65595D73658FC438F522 /* BridgeCore.swift in Sources */,
 				C5E75A4F20CD758BDD8C2EFC /* BridgeLiteApp.swift in Sources */,
+				8061ABA38A6138E7DF26799E /* CalendarDayCell.swift in Sources */,
+				ADFD4A2AE0A9DA9BA0CEF576 /* CalendarPickerView.swift in Sources */,
 				20FA827723A350BA5FA21B62 /* ConcurrencyLimiter.swift in Sources */,
-				6B06B35AB054D69E067D18B1 /* LargeImageDecoder.swift in Sources */,
 				CF8892645373D041666BB500 /* ContentView.swift in Sources */,
 				2017A2227FC3FB4B6E5DEDEB /* CoreError+LocalizedError.swift in Sources */,
-					8F544229F248278F9D38D074 /* ExifData.swift in Sources */,
+				D4242D876FEFDA8DA59C5D73 /* DateModeToggle.swift in Sources */,
+				0B60DE05312E9F3B3E292659 /* DatePresetChips.swift in Sources */,
+				8F544229F248278F9D38D074 /* ExifData.swift in Sources */,
 				89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */,
 				46298ED8412E1E06AADF32B2 /* FilterCriteria.swift in Sources */,
 				B8D2E26E4404EF20904397E4 /* FilterPanelView.swift in Sources */,
@@ -394,6 +393,7 @@
 				3C455A207919FF49AB0272DE /* GroupCompareView.swift in Sources */,
 				0BF5211BFCBCCD0800E28289 /* HelpView.swift in Sources */,
 				D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */,
+				EF5F1D3737463925000086EB /* LargeImageDecoder.swift in Sources */,
 				221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */,
 				9BF8C6AB43E6FF9A22E6B3F1 /* ManageApplicationsSheet.swift in Sources */,
 				A697498B8D3F1EC28704C642 /* OpenFolderRegistry.swift in Sources */,
@@ -564,6 +564,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
@@ -588,6 +589,7 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
 				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
