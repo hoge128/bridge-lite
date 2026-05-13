@@ -1,103 +1,17 @@
-<?xml version="1.0" encoding="utf-8"?>
-<rss version="2.0"
-     xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle"
-     xmlns:dc="http://purl.org/dc/elements/1.1/">
-  <channel>
-    <title>BridgeLite</title>
-    <link>https://hoge128.github.io/bridge-lite/</link>
-    <description>Most recent updates to BridgeLite</description>
-    <language>en</language>
-    <!-- このファイルは tools/release-appcast.sh (generate_appcast) で上書きされます。
-         手動で編集する場合は DMG リリース後にのみ行ってください。 -->
-    <item>
-      <title>BridgeLite 0.4.0</title>
-      <pubDate>Wed, 14 May 2025 00:00:00 +0900</pubDate>
-      <!-- generate_appcast が DMG の EdDSA 署名・URL・CFBundleVersion を自動補完します -->
-      <sparkle:releaseNotesLink>https://hoge128.github.io/bridge-lite/releases/0.4.0.html</sparkle:releaseNotesLink>
-      <sparkle:releaseNotesLink xml:lang="ja">https://hoge128.github.io/bridge-lite/releases/0.4.0.html</sparkle:releaseNotesLink>
-      <description><![CDATA[
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8">
-  <style>
-    body { font-family: -apple-system, sans-serif; font-size: 13px; margin: 0; padding: 12px 16px; color: #1d1d1f; }
-    h2 { font-size: 15px; margin: 0 0 8px; }
-    h3 { font-size: 12px; font-weight: 600; margin: 12px 0 4px; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
-    ul { margin: 0 0 4px; padding-left: 18px; }
-    li { margin: 2px 0; }
-    .lang-divider { border: none; border-top: 1px solid #e0e0e0; margin: 16px 0; }
-  </style>
-</head>
-<body>
-
-<h2>BridgeLite 0.4.0</h2>
-
-<h3>New Features</h3>
-<ul>
-  <li>Context menus in all views — thumbnail grid, single view, and compare view now share a unified right-click menu with navigation actions</li>
-  <li>Delete photos from single view</li>
-  <li>Right-clicking an unselected thumbnail now auto-selects it before showing the menu</li>
-  <li>Returning from viewer or compare mode scrolls back to the last viewed photo</li>
-  <li>After deleting a photo, focus moves to the previous photo in sort order</li>
-  <li>Star filter now shows facet counts <em>(e.g. ★3 (12))</em></li>
-  <li>Boost Mode — increases scan and thumbnail priority when toggled on</li>
-</ul>
-
-<h3>Fixes</h3>
-<ul>
-  <li>RGB histogram now sampled from the master image rather than the embedded preview, eliminating discrepancies on Sony SOOC JPEGs</li>
-  <li>Histogram filter boundary values corrected (focal length, shutter speed, aperture)</li>
-  <li>Delete in flatten mode now deletes only the selected files, ignoring group members</li>
-  <li>Metadata sidebar scrollbar no longer overlaps the content</li>
-  <li>Small embedded EXIF thumbnails (160 px) are now regenerated from the master</li>
-  <li>UI state is correctly cleared when switching folders</li>
-  <li>Removed Redo (was unreliable)</li>
-</ul>
-
-<h3>Performance</h3>
-<ul>
-  <li>Faster initial scan via partial RAW reads and SQLite batch writes</li>
-  <li>Reduced CPU impact on other apps through QoS tuning</li>
-  <li>Fixed a deadlock in the scan concurrency limiter that could stall scanning</li>
-</ul>
-
-<hr class="lang-divider">
-
-<h2>BridgeLite 0.4.0</h2>
-
-<h3>新機能</h3>
-<ul>
-  <li>全ビューに右クリックメニューを追加 — サムネイルグリッド・単体ビュー・比較ビューで共通のコンテキストメニューからビュー遷移が可能に</li>
-  <li>単体ビューからの写真削除に対応</li>
-  <li>未選択のサムネイルを右クリックすると自動的に選択してからメニューを表示</li>
-  <li>ビューア・比較モードを閉じると最後に見ていた写真の位置に自動スクロール</li>
-  <li>写真削除後、ソート順で1つ前の写真にフォーカスを移動</li>
-  <li>星フィルタにファセットカウント表示 <em>（例：★3 (12)）</em></li>
-  <li>Boost Mode — オンにするとスキャン・サムネイル生成の優先度を上げる</li>
-</ul>
-
-<h3>バグ修正</h3>
-<ul>
-  <li>RGB ヒストグラムを埋め込みプレビューではなくマスター画像から計算するよう変更。Sony SOOC JPEG でヒストグラムが大きくずれる問題を修正</li>
-  <li>ヒストグラムフィルター（焦点距離・シャッタースピード・絞り値）の境界値の誤りを修正</li>
-  <li>フラット化モードで削除する際、グループメンバーを無視して選択ファイルのみ削除するよう変更</li>
-  <li>メタデータサイドバーのスクロールバー重なりを解消</li>
-  <li>160px の小さい埋め込み EXIF サムネイルをマスター画像から再生成するよう修正</li>
-  <li>フォルダ切り替え時に UI の残留状態を正しくクリア</li>
-  <li>Redo 機能を削除（動作が不安定なため）</li>
-</ul>
-
-<h3>パフォーマンス</h3>
-<ul>
-  <li>RAW 部分読み込みと SQLite バッチ書き込みによるスキャン高速化</li>
-  <li>QoS 調整により他アプリへの CPU 影響を軽減</li>
-  <li>スキャンが途中で止まることがあったデッドロックを修正</li>
-</ul>
-
-</body>
-</html>
-      ]]></description>
-    </item>
-  </channel>
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>BridgeLite</title>
+        <item>
+            <title>0.4.0</title>
+            <pubDate>Wed, 13 May 2026 14:12:13 +0900</pubDate>
+            <link>https://hoge128.github.io/bridge-lite/</link>
+            <sparkle:fullReleaseNotesLink>https://hoge128.github.io/bridge-lite/releases/0.4.0.html</sparkle:fullReleaseNotesLink>
+            <sparkle:version>6</sparkle:version>
+            <sparkle:shortVersionString>0.4.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/hoge128/bridge-lite/releases/download/v0.4.0/BridgeLite-0.4.0.dmg" length="17104070" type="application/octet-stream" sparkle:edSignature="gJc2ia6A2Xoj2upK4ARCL2YSolFuUnqmg70NnD3qPzpAJvJTraxCbdu0illjiN3pCDIL78jl3H53DCAprAwBAg=="/>
+        </item>
+    </channel>
 </rss>
