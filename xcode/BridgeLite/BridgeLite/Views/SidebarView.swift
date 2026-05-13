@@ -195,11 +195,12 @@ struct SidebarView: View {
                         }
                     } else {
                         async let preview = ThumbnailPipeline.generateWithImageIO(url: url, maxPixels: 800)
+                        async let histoSrc = ThumbnailPipeline.generateWithImageIO(url: url, maxPixels: 1024, forceFromMaster: true)
                         async let gps = Self.extractGPS(url: url)
-                        let (p, g) = await (preview, gps)
+                        let (p, h, g) = await (preview, histoSrc, gps)
                         highResPreview = p
                         gpsCoordinate = g
-                        if let img = p {
+                        if let img = h ?? p {
                             rgbHistogram = await Self.computeRGBHistogram(image: img, bins: 64)
                         } else if let thumb = thumbFallback {
                             rgbHistogram = await Self.computeRGBHistogram(image: thumb, bins: 64)
@@ -303,22 +304,27 @@ struct SidebarView: View {
 
     private static func computeRGBHistogram(image: CGImage, bins: Int) async -> RGBHistogram {
         return await Task.detached(priority: .utility) {
-            let side = 256
-            let cs = CGColorSpaceCreateDeviceRGB()
-            // BGRA little-endian: raw[i]=B, raw[i+1]=G, raw[i+2]=R, raw[i+3]=A
-            let bitmapInfo: UInt32 = CGImageAlphaInfo.premultipliedFirst.rawValue
+            let maxSide = 1024
+            let srcW = image.width
+            let srcH = image.height
+            let scale = CGFloat(maxSide) / CGFloat(max(srcW, srcH))
+            let w = max(1, Int(CGFloat(srcW) * scale))
+            let h = max(1, Int(CGFloat(srcH) * scale))
+            let cs = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+            // BGRA little-endian: raw[i]=B, raw[i+1]=G, raw[i+2]=R, raw[i+3]=skip
+            let bitmapInfo: UInt32 = CGImageAlphaInfo.noneSkipFirst.rawValue
                                    | CGBitmapInfo.byteOrder32Little.rawValue
-            var raw = [UInt8](repeating: 0, count: side * side * 4)
+            var raw = [UInt8](repeating: 0, count: w * h * 4)
             guard let ctx = CGContext(
-                data: &raw, width: side, height: side,
-                bitsPerComponent: 8, bytesPerRow: side * 4,
+                data: &raw, width: w, height: h,
+                bitsPerComponent: 8, bytesPerRow: w * 4,
                 space: cs, bitmapInfo: bitmapInfo
             ) else { return .empty }
-            ctx.draw(image, in: CGRect(x: 0, y: 0, width: side, height: side))
+            ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
             var r = [Int](repeating: 0, count: bins)
             var g = [Int](repeating: 0, count: bins)
             var b = [Int](repeating: 0, count: bins)
-            for i in stride(from: 0, to: side * side * 4, by: 4) {
+            for i in stride(from: 0, to: w * h * 4, by: 4) {
                 b[min(Int(raw[i])     * bins / 256, bins - 1)] += 1
                 g[min(Int(raw[i + 1]) * bins / 256, bins - 1)] += 1
                 r[min(Int(raw[i + 2]) * bins / 256, bins - 1)] += 1

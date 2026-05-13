@@ -137,7 +137,7 @@ enum ThumbnailPipeline {
         await store.noteThumbnailAttemptFinished(generation: generation)
     }
 
-    static func generateWithImageIO(url: URL, maxPixels: Int) async -> CGImage? {
+    static func generateWithImageIO(url: URL, maxPixels: Int, forceFromMaster: Bool = false) async -> CGImage? {
         return await Task.detached(priority: BridgeQoS.thumbnail) {
             let ext = url.pathExtension.lowercased()
             // Skip proprietary RAW — ImageIO's RawCamera handler causes macOS 26 crashes.
@@ -146,6 +146,17 @@ enum ThumbnailPipeline {
             if rawExts.contains(ext) { return nil }
 
             guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+
+            if forceFromMaster {
+                let alwaysOptions: [CFString: Any] = [
+                    kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceShouldCache: false,
+                ]
+                return CGImageSourceCreateThumbnailAtIndex(src, 0, alwaysOptions as CFDictionary)
+            }
+
             let options: [CFString: Any] = [
                 kCGImageSourceThumbnailMaxPixelSize: maxPixels,
                 kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
