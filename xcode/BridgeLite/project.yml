@@ -113,13 +113,18 @@ targets:
           - "lib-ios-sim/**"
       # Cross-platform Swift files shared with macOS target
       - path: BridgeLite/Pipelines/ConcurrencyLimiter.swift
+      - path: BridgeLite/Pipelines/PHashPipeline.swift
+      - path: BridgeLite/Pipelines/PairingPipeline.swift
       - path: BridgeLite/Models/PhotoEntry.swift
       - path: BridgeLite/Models/ExifData.swift
       - path: BridgeLite/Models/XmpData.swift
       - path: BridgeLite/Models/ShotGroup.swift
+      - path: BridgeLite/Models/PhotoKind.swift
       - path: BridgeLite/Bridging/BridgeCore.swift
       - path: BridgeLite/Bridging/ImageEntry+Convert.swift
       - path: BridgeLite/Bridging/CoreError+LocalizedError.swift
+      - path: BridgeLite/Resources/Localizable.xcstrings
+        buildPhase: resources
     entitlements:
       path: BridgeLiteiOS/BridgeLiteiOS.entitlements
     configFiles:

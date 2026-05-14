@@ -6,6 +6,7 @@ struct ThumbnailCellView: View {
     let thumbnails: [UInt64: Data]
     let ratings: [UInt64: XmpData]
     let exifs: [UInt64: ExifData]
+    let kind: PhotoKind
     /// nil = 2列モード（自然アスペクト比）、非 nil = 3列モード（正方形、値はセル幅）
     let squareCellSize: CGFloat?
     let isSelected: Bool
@@ -14,33 +15,6 @@ struct ThumbnailCellView: View {
     private var representativeID: UInt64? { group.representativeID }
     private var thumbnailData: Data? { representativeID.flatMap { thumbnails[$0] } }
     private var xmp: XmpData? { representativeID.flatMap { ratings[$0] } }
-
-    // Mac版 computeRepresentatives と同じ優先度: developed > sooc > raw > indeterminate
-    private var photoKind: PhotoKind {
-        var best: PhotoKind = .indeterminate
-        for id in group.memberIDs {
-            guard let entry = entries[id] else { continue }
-            let kind = kindOf(entry: entry, id: id)
-            switch kind {
-            case .developed:     return .developed   // 即返し（最優先）
-            case .sooc:          best = .sooc
-            case .raw:           if best == .indeterminate { best = .raw }
-            case .indeterminate: break
-            }
-        }
-        return best
-    }
-
-    private func kindOf(entry: PhotoEntry, id: UInt64) -> PhotoKind {
-        if entry.isRaw { return .raw }
-        let xmpData = ratings[id]
-        let exifData = exifs[id]
-        if entry.hasDevelopedSuffix || (xmpData?.developed == true) || (exifData?.isDeveloped == true) {
-            return .developed
-        }
-        if let e = exifData, (e.make ?? "").isEmpty && (e.model ?? "").isEmpty { return .indeterminate }
-        return .sooc
-    }
 
     var body: some View {
         Button(action: onTap) {
@@ -55,6 +29,7 @@ struct ThumbnailCellView: View {
             // 正方形: frame で明示的にサイズを確定してから scaledToFill でクロップ
             ZStack(alignment: .bottomLeading) {
                 squareThumbnail(size: size)
+                colorLabelStrip
                 overlayBadges
             }
             .frame(width: size, height: size)
@@ -64,10 +39,21 @@ struct ThumbnailCellView: View {
             // 自然アスペクト比
             ZStack(alignment: .bottomLeading) {
                 fitThumbnail
+                colorLabelStrip
                 overlayBadges
             }
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(selectionBorder(cornerRadius: 6))
+        }
+    }
+
+    @ViewBuilder
+    private var colorLabelStrip: some View {
+        if let label = xmp?.label {
+            VStack(spacing: 0) {
+                Spacer()
+                label.color.opacity(0.85).frame(height: 5)
+            }
         }
     }
 
@@ -101,12 +87,9 @@ struct ThumbnailCellView: View {
 
     @ViewBuilder
     private var overlayBadges: some View {
-        // bottom-leading: rating + label
-        if let xmp, xmp.rating != nil || xmp.label != nil {
+        // bottom-leading: rating
+        if let xmp, xmp.rating != nil {
             HStack(spacing: 3) {
-                if let label = xmp.label {
-                    Circle().fill(label.color).frame(width: 7, height: 7)
-                }
                 if let rating = xmp.rating, rating > 0 {
                     Text(String(repeating: "★", count: rating))
                         .font(.system(size: 8, weight: .semibold))
@@ -138,8 +121,7 @@ struct ThumbnailCellView: View {
 
     @ViewBuilder
     private var kindBadge: some View {
-        let kind = photoKind
-        Text(kind.badgeName)
+        Text(kind.localizedBadgeName)
             .font(.system(size: 9, weight: .bold))
             .foregroundStyle(kind == .sooc ? Color.primary : Color.white)
             .padding(.horizontal, 4)

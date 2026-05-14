@@ -4,7 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 @Observable @MainActor
-final class LibraryStore {
+final class LibraryStore: ReindexedGroupSink {
     // エントリ一覧
     private(set) var entries: [UInt64: PhotoEntry] = [:]
     private(set) var orderedIDs: [UInt64] = []

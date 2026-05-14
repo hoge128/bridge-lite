@@ -18,15 +18,14 @@ struct ExportSheet: UIViewControllerRepresentable {
 // MARK: - Export helpers
 
 enum ExportService {
-    /// グループ内の代表エントリ URL を収集する（RAW 優先、なければ JPG）
+    /// Mac の computeRepresentatives 互換: developed > SOOC > RAW newest の優先順で代表 URL を収集する
+    @MainActor
     static func urlsForGroups(
         _ groups: [ShotGroup],
-        entries: [UInt64: PhotoEntry]
+        scanStore: ScanStore,
+        xmps: [UInt64: XmpData]
     ) -> [URL] {
-        groups.compactMap { group in
-            let members = group.memberIDs.compactMap { entries[$0] }
-            return (members.first(where: { $0.isRaw }) ?? members.first)?.url
-        }
+        groups.compactMap { scanStore.representativeURL(for: $0, xmps: xmps) }
     }
 
     /// 特定ラベルを持つエントリの URL を収集する

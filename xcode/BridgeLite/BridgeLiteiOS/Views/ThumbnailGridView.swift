@@ -20,8 +20,19 @@ struct ThumbnailGridView: View {
         NavigationStack {
             ZStack {
                 if scanStore.isScanning {
-                    ProgressView("スキャン中…")
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                    VStack(spacing: 8) {
+                        ProgressView()
+                        if scanStore.scanTotalCount > 0 {
+                            Text("\(scanStore.scanLoadedCount) / \(scanStore.scanTotalCount)")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        } else {
+                            Text("Scanning…")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if scanStore.groups.isEmpty {
                     emptyState
                 } else {
@@ -85,6 +96,7 @@ struct ThumbnailGridView: View {
                             thumbnails: scanStore.thumbnails,
                             ratings: ratingStore.ratings,
                             exifs: scanStore.exifs,
+                            kind: scanStore.displayKind(for: group, xmps: ratingStore.ratings),
                             squareCellSize: columnCount == 3 ? cellSize : nil,
                             isSelected: selectedGroup?.id == group.id
                         ) {
@@ -128,7 +140,8 @@ struct ThumbnailGridView: View {
             Button {
                 exportURLs = ExportService.urlsForGroups(
                     scanStore.filteredGroups(ratings: ratingStore.ratings),
-                    entries: scanStore.entries
+                    scanStore: scanStore,
+                    xmps: ratingStore.ratings
                 )
                 showExportAll = true
             } label: {
