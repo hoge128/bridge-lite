@@ -8,6 +8,7 @@ struct ThumbnailGridView: View {
     @State private var showExportAll = false
     @State private var exportURLs: [URL] = []
     @State private var showFolderPicker = false
+    @State private var showSettings = false
     @State private var columnCount = 3
 
     private var gridSpacing: CGFloat { columnCount == 3 ? 1 : 4 }
@@ -71,6 +72,9 @@ struct ThumbnailGridView: View {
                     showFolderPicker = false
                     scanStore.scan(url: url)
                 }
+            }
+            .sheet(isPresented: $showSettings) {
+                SettingsSheetView(scanStore: scanStore) { showSettings = false }
             }
             .onChange(of: scanStore.entries) { _, newEntries in
                 let all = Array(newEntries.values)
@@ -137,6 +141,10 @@ struct ThumbnailGridView: View {
         }
 
         ToolbarItemGroup(placement: .navigationBarTrailing) {
+            Button { showSettings = true } label: {
+                Image(systemName: "gearshape")
+            }
+
             Button {
                 exportURLs = ExportService.urlsForGroups(
                     scanStore.filteredGroups(ratings: ratingStore.ratings),

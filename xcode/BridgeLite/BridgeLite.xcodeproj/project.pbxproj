@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		01D99717EFC9132583EC925A /* FolderPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */; };
 		05ECD571285BD5D65864592F /* FilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */; };
+		EEA76FD03A9240A79134CCD7 /* SettingsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAEE4B65DD6340FEA51174C7 /* SettingsSheetView.swift */; };
 		080BCFEFED5119F429F6EF37 /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
 		0B0BC12A398E84A26C01BBBC /* TabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */; };
 		0B3AB796AA1680194C81402E /* BridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */; };
@@ -107,6 +108,7 @@
 		2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "bridge-ffi.swift"; sourceTree = "<group>"; };
 		2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterSheetView.swift; sourceTree = "<group>"; };
+		AAEE4B65DD6340FEA51174C7 /* SettingsSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSheetView.swift; sourceTree = "<group>"; };
 		30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftBridgeCore.swift; sourceTree = "<group>"; };
 		3086AA6CCBB10934498DD210 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		308967E43D60C214153E9BF1 /* ja */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = ja; path = ja.lproj/Help.md; sourceTree = "<group>"; };
@@ -356,6 +358,7 @@
 				2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */,
 				4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */,
 				4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */,
+				AAEE4B65DD6340FEA51174C7 /* SettingsSheetView.swift */,
 				FE2F5F0FC1CBE2DFCB5E024F /* ThumbnailCellView.swift */,
 				D52544FC27897A0CD233A37E /* ThumbnailGridView.swift */,
 			);
@@ -543,6 +546,7 @@
 				2BE62A4FCB568FF94B43F5F6 /* RatingBarView.swift in Sources */,
 				A5C7AF7B756C4E14095476E7 /* RatingStore.swift in Sources */,
 				3E440C342AD8D7EC85E9F37B /* ScanStore.swift in Sources */,
+				EEA76FD03A9240A79134CCD7 /* SettingsSheetView.swift in Sources */,
 				1CA3A2C4229728F0691BEAB8 /* ShotGroup.swift in Sources */,
 				7536EC2290FDDDE51D587021 /* SwiftBridgeCore.swift in Sources */,
 				37B766B17BB5740BA7505661 /* ThumbnailCellView.swift in Sources */,

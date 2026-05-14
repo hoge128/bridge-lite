@@ -1,6 +1,20 @@
 import Foundation
 import Observation
 
+enum IOSSortKey: String, CaseIterable {
+    case filename
+    case modifiedDate
+    case createdDate
+
+    var localizedName: String {
+        switch self {
+        case .filename:     return String(localized: "Filename")
+        case .modifiedDate: return String(localized: "Date Modified")
+        case .createdDate:  return String(localized: "Date Created")
+        }
+    }
+}
+
 @Observable
 @MainActor
 final class ScanStore: ReindexedGroupSink {
@@ -22,6 +36,21 @@ final class ScanStore: ReindexedGroupSink {
     var filterMinRating: Int? = nil
     var filterLabel: XmpLabel? = nil
 
+    // MARK: - Sort state
+
+    var sortKey: IOSSortKey = .modifiedDate {
+        didSet {
+            UserDefaults.standard.set(sortKey.rawValue, forKey: "ios.sortKey")
+            applySort()
+        }
+    }
+    var sortAscending: Bool = false {
+        didSet {
+            UserDefaults.standard.set(sortAscending, forKey: "ios.sortAscending")
+            applySort()
+        }
+    }
+
     // MARK: - Internal
 
     private(set) var db: BridgeCoreDatabase?
@@ -31,7 +60,24 @@ final class ScanStore: ReindexedGroupSink {
     private var pairingPipeline = PairingPipeline()
     private var lastImageList: BridgeCoreImageList?
 
+    // MARK: - Init
+
+    init() {
+        if let raw = UserDefaults.standard.string(forKey: "ios.sortKey"),
+           let key = IOSSortKey(rawValue: raw) {
+            sortKey = key
+        }
+        if UserDefaults.standard.object(forKey: "ios.sortAscending") != nil {
+            sortAscending = UserDefaults.standard.bool(forKey: "ios.sortAscending")
+        }
+    }
+
     // MARK: - DB path
+
+    static func cacheSizeBytes() -> Int64 {
+        let attrs = try? FileManager.default.attributesOfItem(atPath: cacheDBURL().path)
+        return attrs?[.size] as? Int64 ?? 0
+    }
 
     static func cacheDBURL() -> URL {
         let appSupport = FileManager.default.urls(
@@ -120,14 +166,47 @@ final class ScanStore: ReindexedGroupSink {
     }
 
     private func buildGroups(from map: [UInt64: [UInt64]], entries: [UInt64: PhotoEntry]) -> [ShotGroup] {
-        map.map { shotId, memberIDs in
+        let unsorted = map.map { shotId, memberIDs in
             ShotGroup(id: shotId, memberIDs: sortedMemberIDs(memberIDs, entries: entries))
         }
-        .sorted { a, b in
-            let dateA = entries[a.representativeID ?? 0]?.modifiedDate ?? .distantPast
-            let dateB = entries[b.representativeID ?? 0]?.modifiedDate ?? .distantPast
-            return dateA > dateB
+        return sortedGroups(unsorted, entries: entries)
+    }
+
+    private func sortedGroups(_ input: [ShotGroup], entries: [UInt64: PhotoEntry]) -> [ShotGroup] {
+        input.sorted { a, b in
+            let entA = entries[a.representativeID ?? 0]
+            let entB = entries[b.representativeID ?? 0]
+            switch sortKey {
+            case .filename:
+                let fnA = entA?.filename ?? ""
+                let fnB = entB?.filename ?? ""
+                return sortAscending ? fnA < fnB : fnA > fnB
+            case .modifiedDate:
+                let dA = entA?.modifiedDate ?? .distantPast
+                let dB = entB?.modifiedDate ?? .distantPast
+                return sortAscending ? dA < dB : dA > dB
+            case .createdDate:
+                let dA = entA?.createdDate ?? .distantPast
+                let dB = entB?.createdDate ?? .distantPast
+                return sortAscending ? dA < dB : dA > dB
+            }
         }
+    }
+
+    func applySort() {
+        guard !groups.isEmpty else { return }
+        groups = sortedGroups(groups, entries: entries)
+    }
+
+    func clearCache() {
+        scanTask?.cancel()
+        try? FileManager.default.removeItem(at: Self.cacheDBURL())
+        db = nil
+        entries = [:]
+        groups = []
+        thumbnails = [:]
+        exifs = [:]
+        folderURL = nil
     }
 
     private func sortedMemberIDs(_ memberIDs: [UInt64], entries: [UInt64: PhotoEntry]) -> [UInt64] {
