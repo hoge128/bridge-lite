@@ -92,6 +92,7 @@ targets:
         SUEnableAutomaticChecks: true
         SUScheduledCheckInterval: 86400
         SUAllowsAutomaticUpdates: true
+        LSApplicationCategoryType: "public.app-category.photography"
         CFBundleDocumentTypes:
           - CFBundleTypeName: Folder
             LSHandlerRank: Alternate

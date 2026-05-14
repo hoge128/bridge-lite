@@ -21,14 +21,13 @@ struct DetailView: View {
         NavigationStack {
             ZStack {
                 Color.black.ignoresSafeArea()
-
                 if let entry = current {
                     photoView(entry: entry)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
-            .toolbarBackground(.ultraThinMaterial, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
+            .glassNavigationBar()
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button { dismiss() } label: {
@@ -57,36 +56,33 @@ struct DetailView: View {
     @ViewBuilder
     private func photoView(entry: PhotoEntry) -> some View {
         VStack(spacing: 0) {
-            // 画像
-            if let data = thumbnails[entry.id],
-               let uiImage = UIImage(data: data) {
-                Image(uiImage: uiImage)
-                    .resizable()
-                    .scaledToFit()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                ProgressView()
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-            }
+            photoImage(entry: entry)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
 
-            // メンバー切り替えタブ（グループに複数ある場合）
             if members.count > 1 {
                 memberStrip
             }
 
-            // レーティングバー
             ratingBar(entry: entry)
-                .background(.ultraThinMaterial)
+        }
+    }
+
+    @ViewBuilder
+    private func photoImage(entry: PhotoEntry) -> some View {
+        if let data = thumbnails[entry.id], let uiImage = UIImage(data: data) {
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFit()
+        } else {
+            ProgressView()
         }
     }
 
     private var memberStrip: some View {
         ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 4) {
+            HStack(spacing: 6) {
                 ForEach(Array(members.enumerated()), id: \.element.id) { idx, member in
-                    Button {
-                        currentIndex = idx
-                    } label: {
+                    Button { currentIndex = idx } label: {
                         VStack(spacing: 2) {
                             if let data = thumbnails[member.id],
                                let uiImage = UIImage(data: data) {
@@ -97,15 +93,17 @@ struct DetailView: View {
                                     .clipped()
                             } else {
                                 Rectangle()
-                                    .fill(Color(.systemGray4))
+                                    .fill(Color.white.opacity(0.1))
                                     .frame(width: 44, height: 44)
                             }
                             Text(member.fileExtension)
                                 .font(.system(size: 9))
                                 .foregroundStyle(.secondary)
                         }
+                        .padding(3)
+                        .adaptiveGlass(cornerRadius: 8)
                         .overlay(
-                            RoundedRectangle(cornerRadius: 4)
+                            RoundedRectangle(cornerRadius: 8)
                                 .stroke(idx == currentIndex ? Color.accentColor : Color.clear, lineWidth: 2)
                         )
                     }
@@ -113,9 +111,10 @@ struct DetailView: View {
                 }
             }
             .padding(.horizontal, 12)
-            .padding(.vertical, 6)
+            .padding(.vertical, 8)
         }
-        .background(.ultraThinMaterial)
+        .adaptiveGlass(cornerRadius: 0)
+        .colorScheme(.dark)
     }
 
     @ViewBuilder
@@ -127,7 +126,7 @@ struct DetailView: View {
         RatingBarView(entry: entry, xmp: binding) { newXmp in
             guard let db else { return }
             Task {
-                await BridgeCore.writeXmp(
+                _ = await BridgeCore.writeXmp(
                     url: entry.url,
                     xmp: newXmp,
                     db: db,
@@ -136,6 +135,8 @@ struct DetailView: View {
                 )
             }
         }
+        .adaptiveGlass(cornerRadius: 0)
+        .colorScheme(.dark)
     }
 }
 

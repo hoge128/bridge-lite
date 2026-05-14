@@ -8,8 +8,13 @@ struct ThumbnailGridView: View {
     @State private var showExportAll = false
     @State private var exportURLs: [URL] = []
     @State private var showFolderPicker = false
+    @State private var columnCount = 3
 
-    private let columns = [GridItem(.adaptive(minimum: 100, maximum: 160), spacing: 2)]
+    private var gridSpacing: CGFloat { columnCount == 3 ? 1 : 4 }
+
+    private var columns: [GridItem] {
+        Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: columnCount)
+    }
 
     var body: some View {
         NavigationStack {
@@ -25,6 +30,7 @@ struct ThumbnailGridView: View {
             }
             .navigationTitle(scanStore.folderURL?.lastPathComponent ?? "BridgeLite")
             .navigationBarTitleDisplayMode(.inline)
+            .glassNavigationBar()
             .toolbar { toolbar }
             .sheet(item: $selectedGroup) { group in
                 DetailView(
@@ -63,21 +69,39 @@ struct ThumbnailGridView: View {
     }
 
     private var grid: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 2) {
-                ForEach(scanStore.filteredGroups(ratings: ratingStore.ratings)) { group in
-                    ThumbnailCellView(
-                        group: group,
-                        entries: scanStore.entries,
-                        thumbnails: scanStore.thumbnails,
-                        ratings: ratingStore.ratings,
-                        isSelected: selectedGroup?.id == group.id
-                    ) {
-                        selectedGroup = group
+        GeometryReader { geo in
+            let n = CGFloat(columnCount)
+            // セル幅を確定：パディング 2 点 × 2 辺 + 間隔 × (列数-1) を除いた幅を等分
+            let cellSize: CGFloat = columnCount == 3
+                ? (geo.size.width - gridSpacing * 2 - gridSpacing * (n - 1)) / n
+                : 0
+
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: gridSpacing) {
+                    ForEach(scanStore.filteredGroups(ratings: ratingStore.ratings)) { group in
+                        ThumbnailCellView(
+                            group: group,
+                            entries: scanStore.entries,
+                            thumbnails: scanStore.thumbnails,
+                            ratings: ratingStore.ratings,
+                            exifs: scanStore.exifs,
+                            squareCellSize: columnCount == 3 ? cellSize : nil,
+                            isSelected: selectedGroup?.id == group.id
+                        ) {
+                            selectedGroup = group
+                        }
                     }
                 }
+                .padding(gridSpacing)
             }
-            .padding(2)
+            .gesture(
+                MagnificationGesture()
+                    .onEnded { scale in
+                        withAnimation(.easeInOut(duration: 0.2)) {
+                            columnCount = scale < 1.0 ? 3 : 2
+                        }
+                    }
+            )
         }
     }
 
@@ -123,7 +147,7 @@ struct ThumbnailGridView: View {
                 Image(systemName: isFiltering
                       ? "line.3.horizontal.decrease.circle.fill"
                       : "line.3.horizontal.decrease.circle")
-                    .foregroundStyle(isFiltering ? .tint : .primary)
+                    .foregroundStyle(isFiltering ? Color.accentColor : Color.primary)
             }
         }
     }
@@ -132,4 +156,3 @@ struct ThumbnailGridView: View {
         scanStore.filterMinRating != nil || scanStore.filterLabel != nil
     }
 }
-

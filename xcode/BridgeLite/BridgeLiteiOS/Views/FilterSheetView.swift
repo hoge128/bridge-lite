@@ -7,35 +7,14 @@ struct FilterSheetView: View {
 
     var body: some View {
         NavigationStack {
-            Form {
-                Section("最低レーティング") {
-                    HStack(spacing: 4) {
-                        Button("なし") {
-                            minRating = nil
-                        }
-                        .buttonStyle(.bordered)
-                        .tint(minRating == nil ? .accentColor : .secondary)
-
-                        ForEach(1...5, id: \.self) { star in
-                            Button(String(repeating: "★", count: star)) {
-                                minRating = minRating == star ? nil : star
-                            }
-                            .buttonStyle(.bordered)
-                            .tint(minRating == star ? .accentColor : .secondary)
-                            .font(.caption)
-                        }
-                    }
+            ScrollView {
+                VStack(spacing: 16) {
+                    ratingSection
+                    labelSection
                 }
-
-                Section("ラベル") {
-                    HStack(spacing: 12) {
-                        labelPill(nil, name: "なし")
-                        ForEach(XmpLabel.allCases, id: \.self) { label in
-                            labelPill(label, name: label.name)
-                        }
-                    }
-                }
+                .padding()
             }
+            .glassNavigationBar()
             .navigationTitle("フィルター")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
@@ -52,13 +31,60 @@ struct FilterSheetView: View {
         }
     }
 
-    @ViewBuilder
-    private func labelPill(_ label: XmpLabel?, name: String) -> some View {
-        let isSelected = filterLabel == label
-        Button(name) {
-            filterLabel = isSelected ? nil : label
+    private var ratingSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("最低レーティング")
+                .font(.headline)
+            HStack(spacing: 6) {
+                Button("なし") { minRating = nil }
+                    .buttonStyle(.adaptiveGlass(isActive: minRating == nil))
+                ForEach(1...5, id: \.self) { star in
+                    Button(String(repeating: "★", count: star)) {
+                        minRating = minRating == star ? nil : star
+                    }
+                    .buttonStyle(.adaptiveGlass(isActive: minRating == star))
+                    .font(.caption)
+                }
+            }
         }
-        .buttonStyle(.bordered)
-        .tint(isSelected ? (label?.color ?? .accentColor) : .secondary)
+        .padding()
+        .adaptiveGlass(cornerRadius: 16)
+    }
+
+    private var labelSection: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text("ラベル")
+                .font(.headline)
+            HStack(spacing: 14) {
+                labelCircle(nil, name: "なし")
+                ForEach(XmpLabel.allCases, id: \.self) { label in
+                    labelCircle(label, name: label.name)
+                }
+            }
+        }
+        .padding()
+        .adaptiveGlass(cornerRadius: 16)
+    }
+
+    @ViewBuilder
+    private func labelCircle(_ label: XmpLabel?, name: String) -> some View {
+        let isSelected = filterLabel == label
+        Button {
+            filterLabel = isSelected ? nil : label
+        } label: {
+            VStack(spacing: 4) {
+                Circle()
+                    .fill(label?.color ?? Color(.systemGray4))
+                    .frame(width: 32, height: 32)
+                    .overlay(
+                        Circle()
+                            .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 3)
+                    )
+                Text(name)
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .buttonStyle(.plain)
     }
 }

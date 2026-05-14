@@ -31,15 +31,15 @@ final class RatingStore {
         var xmp = ratings[entry.id] ?? XmpData()
         xmp.rating = rating
         ratings[entry.id] = xmp
-        await BridgeCore.writeXmp(url: entry.url, xmp: xmp, db: db,
-                                  jpgWriteMode: .sidecar, captionPresent: false)
+        _ = await BridgeCore.writeXmp(url: entry.url, xmp: xmp, db: db,
+                                      jpgWriteMode: .sidecar, captionPresent: false)
     }
 
     func setLabel(_ label: XmpLabel?, for entry: PhotoEntry, db: BridgeCoreDatabase) async {
         var xmp = ratings[entry.id] ?? XmpData()
         xmp.label = label
         ratings[entry.id] = xmp
-        await BridgeCore.writeXmp(url: entry.url, xmp: xmp, db: db,
-                                  jpgWriteMode: .sidecar, captionPresent: false)
+        _ = await BridgeCore.writeXmp(url: entry.url, xmp: xmp, db: db,
+                                      jpgWriteMode: .sidecar, captionPresent: false)
     }
 }

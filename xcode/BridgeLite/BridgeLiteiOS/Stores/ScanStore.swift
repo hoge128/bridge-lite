@@ -11,6 +11,7 @@ final class ScanStore {
     var entries: [UInt64: PhotoEntry] = [:]
     var groups: [ShotGroup] = []
     var thumbnails: [UInt64: Data] = [:]
+    var exifs: [UInt64: ExifData] = [:]
     var isScanning = false
     var scanError: String?
 
@@ -49,6 +50,7 @@ final class ScanStore {
         entries = [:]
         groups = []
         thumbnails = [:]
+        exifs = [:]
 
         do {
             let db = try BridgeCoreDatabase.open(path: Self.cacheDBURL())
@@ -64,7 +66,9 @@ final class ScanStore {
 
             isScanning = false
 
+            async let exifLoad: Void = loadExifs(imageList: imageList, db: db)
             await loadThumbnails(entries: scannedEntries, imageList: imageList, db: db)
+            await exifLoad
         } catch {
             scanError = error.localizedDescription
             isScanning = false
@@ -80,6 +84,11 @@ final class ScanStore {
             let dateB = entries[b.representativeID ?? 0]?.modifiedDate ?? .distantPast
             return dateA > dateB
         }
+    }
+
+    private func loadExifs(imageList: BridgeCoreImageList, db: BridgeCoreDatabase) async {
+        let map = await BridgeCore.fetchExifBatch(list: imageList, db: db)
+        self.exifs = map
     }
 
     private func loadThumbnails(
