@@ -49,6 +49,7 @@ struct ThumbnailGridView: View {
                     group: group,
                     entries: scanStore.entries,
                     thumbnails: scanStore.thumbnails,
+                    exifs: scanStore.exifs,
                     ratings: Binding(
                         get: { ratingStore.ratings },
                         set: { ratingStore.ratings = $0 }

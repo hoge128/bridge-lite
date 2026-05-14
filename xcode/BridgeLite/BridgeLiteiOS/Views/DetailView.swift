@@ -4,12 +4,30 @@ struct DetailView: View {
     let group: ShotGroup
     let entries: [UInt64: PhotoEntry]
     let thumbnails: [UInt64: Data]
+    let exifs: [UInt64: ExifData]
     @Binding var ratings: [UInt64: XmpData]
     let db: BridgeCoreDatabase?
     @Environment(\.dismiss) private var dismiss
 
-    @State private var currentIndex = 0
+    @State private var currentIndex: Int
+    @State private var showRatingPopup = false
     @State private var showExport = false
+
+    init(group: ShotGroup,
+         entries: [UInt64: PhotoEntry],
+         thumbnails: [UInt64: Data],
+         exifs: [UInt64: ExifData],
+         ratings: Binding<[UInt64: XmpData]>,
+         db: BridgeCoreDatabase?) {
+        self.group = group
+        self.entries = entries
+        self.thumbnails = thumbnails
+        self.exifs = exifs
+        self._ratings = ratings
+        self.db = db
+        let repIdx = group.representativeID.flatMap { group.memberIDs.firstIndex(of: $0) } ?? 0
+        self._currentIndex = State(initialValue: repIdx)
+    }
 
     private var members: [PhotoEntry] {
         group.memberIDs.compactMap { entries[$0] }
@@ -19,10 +37,30 @@ struct DetailView: View {
 
     var body: some View {
         NavigationStack {
-            ZStack {
+            ZStack(alignment: .bottom) {
                 Color.black.ignoresSafeArea()
                 if let entry = current {
-                    photoView(entry: entry)
+                    VStack(spacing: 0) {
+                        photoImage(entry: entry)
+                            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+                        if members.count > 1 {
+                            memberStrip
+                        }
+
+                        PhotoInfoCard(
+                            entry: entry,
+                            exif: exifs[entry.id],
+                            xmp: ratings[entry.id],
+                            thumbnailData: thumbnails[entry.id]
+                        )
+                        .padding(.horizontal, 16)
+                        .padding(.top, 8)
+                        .padding(.bottom, 88)
+                    }
+
+                    floatingRatingButton(entry: entry)
+                        .padding(.bottom, 20)
                 }
             }
             .navigationBarTitleDisplayMode(.inline)
@@ -54,25 +92,10 @@ struct DetailView: View {
     }
 
     @ViewBuilder
-    private func photoView(entry: PhotoEntry) -> some View {
-        VStack(spacing: 0) {
-            photoImage(entry: entry)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-            if members.count > 1 {
-                memberStrip
-            }
-
-            ratingBar(entry: entry)
-        }
-    }
-
-    @ViewBuilder
     private func photoImage(entry: PhotoEntry) -> some View {
         if let data = thumbnails[entry.id], let uiImage = UIImage(data: data) {
-            Image(uiImage: uiImage)
-                .resizable()
-                .scaledToFit()
+            ZoomableImageView(uiImage: uiImage)
+                .id(entry.id)
         } else {
             ProgressView()
         }
@@ -118,27 +141,358 @@ struct DetailView: View {
     }
 
     @ViewBuilder
-    private func ratingBar(entry: PhotoEntry) -> some View {
-        let binding = Binding<XmpData>(
-            get: { ratings[entry.id] ?? XmpData() },
-            set: { ratings[entry.id] = $0 }
-        )
-        RatingBarView(entry: entry, xmp: binding) { newXmp in
-            guard let db else { return }
-            Task {
-                _ = await BridgeCore.writeXmp(
-                    url: entry.url,
-                    xmp: newXmp,
-                    db: db,
-                    jpgWriteMode: .sidecar,
-                    captionPresent: false
-                )
+    private func floatingRatingButton(entry: PhotoEntry) -> some View {
+        let rating = ratings[entry.id]?.rating ?? 0
+        let labelColor = ratings[entry.id]?.label?.color
+
+        Button { showRatingPopup = true } label: {
+            ZStack(alignment: .bottomTrailing) {
+                Image(systemName: rating > 0 ? "star.fill" : "star")
+                    .font(.system(size: 22, weight: .semibold))
+                    .foregroundStyle(rating > 0 ? Color.yellow : Color.white)
+                    .frame(width: 56, height: 56)
+                if let c = labelColor {
+                    Circle()
+                        .fill(c)
+                        .frame(width: 12, height: 12)
+                        .overlay(Circle().stroke(Color.white.opacity(0.9), lineWidth: 1.5))
+                        .offset(x: 2, y: 2)
+                }
             }
+            .adaptiveGlass(cornerRadius: 28)
         }
-        .adaptiveGlass(cornerRadius: 0)
-        .colorScheme(.dark)
+        .buttonStyle(.plain)
+        .accessibilityLabel(Text("Rating and Label"))
+        .popover(isPresented: $showRatingPopup) {
+            let binding = Binding<XmpData>(
+                get: { ratings[entry.id] ?? XmpData() },
+                set: { ratings[entry.id] = $0 }
+            )
+            RatingBarView(entry: entry, xmp: binding) { newXmp in
+                guard let db else { return }
+                Task {
+                    _ = await BridgeCore.writeXmp(
+                        url: entry.url,
+                        xmp: newXmp,
+                        db: db,
+                        jpgWriteMode: .sidecar,
+                        captionPresent: false
+                    )
+                }
+            }
+            .padding(8)
+            .presentationCompactAdaptation(.popover)
+        }
     }
 }
+
+// MARK: - Info Card
+
+private struct PhotoInfoCard: View {
+    let entry: PhotoEntry
+    let exif: ExifData?
+    let xmp: XmpData?
+    let thumbnailData: Data?
+
+    @State private var histogram: RGBHistogram = .empty
+
+    private static let exifFont: Font = .system(.caption2, design: .monospaced)
+
+    private var fText: String? { exif?.fnumber }
+    private var ssText: String? {
+        guard let s = exif?.exposureTime else { return nil }
+        return s.components(separatedBy: " ").first ?? s
+    }
+    private var isoText: String? { exif?.iso.map { "ISO \($0)" } }
+    private var focalText: String? {
+        guard let mm = exif?.effectiveFocalMm else { return nil }
+        let v = mm == mm.rounded() ? "\(Int(mm))" : String(format: "%.1f", mm)
+        return "\(v) mm"
+    }
+    private var evText: String? { exif?.exposureBias }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(entry.filename)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.white.opacity(0.92))
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+
+            VStack(spacing: 0) {
+                HStack {
+                    Text(exif?.cameraName ?? "—")
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.white)
+                        .lineLimit(1)
+                    Spacer()
+                    Text(entry.fileExtension.uppercased())
+                        .font(.caption2.weight(.semibold))
+                        .foregroundStyle(.white.opacity(0.85))
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Color.white.opacity(0.18),
+                            in: RoundedRectangle(cornerRadius: 4)
+                        )
+                }
+                .padding(.horizontal, 14)
+                .padding(.top, 12)
+
+                if let lens = exif?.lensName {
+                    HStack {
+                        Text(lens)
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(0.75))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
+                    .padding(.bottom, 10)
+                } else {
+                    Spacer().frame(height: 10)
+                }
+
+                // Histogram (JPG/SOOC は RGB、RAW は灰色プレースホルダー)
+                Color.white.opacity(0.12).frame(height: 0.5)
+                Group {
+                    if !entry.isRaw && !histogram.isEmpty {
+                        RGBHistogramView(histogram: histogram)
+                    } else {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.white.opacity(0.06))
+                    }
+                }
+                .frame(height: 48)
+                .padding(.horizontal, 14)
+                .padding(.vertical, 6)
+
+                Color.white.opacity(0.12).frame(height: 0.5)
+
+                // ISO | focal | EV | f | SS
+                HStack(spacing: 0) {
+                    exifCell(isoText)
+                    vSep
+                    exifCell(focalText)
+                    vSep
+                    exifCell(evText)
+                    vSep
+                    exifCell(fText)
+                    vSep
+                    exifCell(ssText)
+                }
+                .padding(.vertical, 10)
+            }
+            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+        }
+        .task(id: entry.id) {
+            guard !entry.isRaw, let data = thumbnailData,
+                  let uiImage = UIImage(data: data),
+                  let cgImage = uiImage.cgImage else {
+                histogram = .empty
+                return
+            }
+            histogram = await computeRGBHistogram(image: cgImage, bins: 64)
+        }
+    }
+
+    private var vSep: some View {
+        Color.white.opacity(0.15).frame(width: 0.5, height: 14)
+    }
+
+    private func exifCell(_ value: String?) -> some View {
+        HStack(spacing: 0) {
+            Spacer(minLength: 0)
+            Text(value ?? "—")
+                .font(Self.exifFont)
+                .foregroundStyle(.white.opacity(value != nil ? 0.92 : 0.35))
+                .lineLimit(1)
+                .minimumScaleFactor(0.7)
+            Spacer(minLength: 0)
+        }
+    }
+}
+
+// MARK: - RGB Histogram
+
+private struct RGBHistogram {
+    let r: [Int]
+    let g: [Int]
+    let b: [Int]
+    var isEmpty: Bool { r.isEmpty }
+    static let empty = RGBHistogram(r: [], g: [], b: [])
+}
+
+private struct RGBHistogramView: View {
+    let histogram: RGBHistogram
+
+    private var maxVal: Int {
+        let all = histogram.r + histogram.g + histogram.b
+        return max(all.max() ?? 1, 1)
+    }
+
+    var body: some View {
+        Canvas { ctx, size in
+            guard !histogram.isEmpty else { return }
+            let mv = CGFloat(maxVal)
+            let n = histogram.r.count
+            guard n > 0 else { return }
+
+            func points(_ counts: [Int]) -> [CGPoint] {
+                let barW = size.width / CGFloat(n)
+                return counts.enumerated().map { i, c in
+                    CGPoint(x: (CGFloat(i) + 0.5) * barW,
+                            y: size.height - size.height * CGFloat(c) / mv)
+                }
+            }
+
+            ctx.fill(areaPath(points(histogram.b), size: size), with: .color(.blue.opacity(0.85)))
+            ctx.blendMode = .screen
+            ctx.fill(areaPath(points(histogram.g), size: size), with: .color(.green.opacity(0.85)))
+            ctx.fill(areaPath(points(histogram.r), size: size), with: .color(.red.opacity(0.85)))
+        }
+        .background(.black.opacity(0.4))
+        .clipShape(RoundedRectangle(cornerRadius: 4))
+    }
+
+    private func areaPath(_ pts: [CGPoint], size: CGSize) -> Path {
+        var ext = [CGPoint(x: 0, y: size.height)]
+        ext.append(contentsOf: pts)
+        ext.append(CGPoint(x: size.width, y: size.height))
+        guard ext.count >= 2 else { return Path() }
+        var path = Path()
+        path.move(to: CGPoint(x: 0, y: size.height))
+        path.addLine(to: ext[0])
+        for i in 0..<(ext.count - 1) {
+            let (c1, c2) = catmullRomCP(ext, i: i, height: size.height)
+            path.addCurve(to: ext[i + 1], control1: c1, control2: c2)
+        }
+        path.addLine(to: CGPoint(x: size.width, y: size.height))
+        path.closeSubpath()
+        return path
+    }
+
+    private func catmullRomCP(_ pts: [CGPoint], i: Int, height: CGFloat) -> (CGPoint, CGPoint) {
+        let p0 = pts[max(0, i - 1)]
+        let p1 = pts[i]
+        let p2 = pts[i + 1]
+        let p3 = pts[min(pts.count - 1, i + 2)]
+        let clamp = { (y: CGFloat) in max(0, min(height, y)) }
+        let c1 = CGPoint(x: p1.x + (p2.x - p0.x) / 6, y: clamp(p1.y + (p2.y - p0.y) / 6))
+        let c2 = CGPoint(x: p2.x - (p3.x - p1.x) / 6, y: clamp(p2.y - (p3.y - p1.y) / 6))
+        return (c1, c2)
+    }
+}
+
+private func computeRGBHistogram(image: CGImage, bins: Int) async -> RGBHistogram {
+    return await Task.detached(priority: .utility) {
+        let maxSide = 1024
+        let srcW = image.width, srcH = image.height
+        let scale = CGFloat(maxSide) / CGFloat(max(srcW, srcH))
+        let w = max(1, Int(CGFloat(srcW) * scale))
+        let h = max(1, Int(CGFloat(srcH) * scale))
+        let cs = CGColorSpace(name: CGColorSpace.sRGB) ?? CGColorSpaceCreateDeviceRGB()
+        let bitmapInfo: UInt32 = CGImageAlphaInfo.noneSkipFirst.rawValue
+                               | CGBitmapInfo.byteOrder32Little.rawValue
+        var raw = [UInt8](repeating: 0, count: w * h * 4)
+        guard let ctx = CGContext(
+            data: &raw, width: w, height: h,
+            bitsPerComponent: 8, bytesPerRow: w * 4,
+            space: cs, bitmapInfo: bitmapInfo
+        ) else { return .empty }
+        ctx.draw(image, in: CGRect(x: 0, y: 0, width: w, height: h))
+        var r = [Int](repeating: 0, count: bins)
+        var g = [Int](repeating: 0, count: bins)
+        var b = [Int](repeating: 0, count: bins)
+        for i in stride(from: 0, to: w * h * 4, by: 4) {
+            b[min(Int(raw[i])     * bins / 256, bins - 1)] += 1
+            g[min(Int(raw[i + 1]) * bins / 256, bins - 1)] += 1
+            r[min(Int(raw[i + 2]) * bins / 256, bins - 1)] += 1
+        }
+        return RGBHistogram(r: r, g: g, b: b)
+    }.value
+}
+
+// MARK: - Zoomable Image
+
+private struct ZoomableImageView: View {
+    let uiImage: UIImage
+
+    @GestureState private var liveScale: CGFloat = 1.0
+    @State private var baseScale: CGFloat = 1.0
+    @State private var offset: CGSize = .zero
+    @State private var dragBase: CGSize = .zero
+
+    private var displayScale: CGFloat { max(1.0, baseScale * liveScale) }
+
+    var body: some View {
+        GeometryReader { geo in
+            Image(uiImage: uiImage)
+                .resizable()
+                .scaledToFit()
+                .frame(width: geo.size.width, height: geo.size.height)
+                .contentShape(Rectangle())
+                .scaleEffect(displayScale, anchor: .center)
+                .offset(offset)
+                .clipped()
+                .gesture(
+                    MagnificationGesture()
+                        .updating($liveScale) { v, s, _ in s = v }
+                        .onEnded { v in
+                            baseScale = max(1.0, baseScale * v)
+                            if baseScale <= 1.0 {
+                                baseScale = 1.0
+                                withAnimation(.easeOut(duration: 0.15)) {
+                                    offset = .zero
+                                    dragBase = .zero
+                                }
+                            }
+                        }
+                )
+                .simultaneousGesture(
+                    DragGesture()
+                        .onChanged { v in
+                            guard baseScale > 1 else { return }
+                            offset = CGSize(
+                                width: dragBase.width + v.translation.width,
+                                height: dragBase.height + v.translation.height
+                            )
+                        }
+                        .onEnded { _ in dragBase = offset }
+                )
+                .gesture(
+                    SpatialTapGesture(count: 2)
+                        .onEnded { value in
+                            handleDoubleTap(at: value.location, in: geo.size)
+                        }
+                )
+        }
+    }
+
+    private func handleDoubleTap(at location: CGPoint, in size: CGSize) {
+        if baseScale <= 1.0 {
+            let target: CGFloat = 3.0
+            let dx = (size.width  / 2 - location.x) * (target - 1)
+            let dy = (size.height / 2 - location.y) * (target - 1)
+            withAnimation(.easeOut(duration: 0.25)) {
+                baseScale = target
+                offset = CGSize(width: dx, height: dy)
+                dragBase = offset
+            }
+        } else {
+            withAnimation(.easeOut(duration: 0.2)) {
+                baseScale = 1.0
+                offset = .zero
+                dragBase = .zero
+            }
+        }
+    }
+}
+
+// MARK: - Helpers
 
 private extension Array {
     subscript(safe index: Int) -> Element? {

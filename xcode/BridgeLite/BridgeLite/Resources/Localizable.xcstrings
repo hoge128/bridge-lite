@@ -3140,6 +3140,22 @@
         }
       }
     },
+    "Rating and Label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rating and Label"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "レーティングとラベル"
+          }
+        }
+      }
+    },
     "Rating": {
       "localizations": {
         "en": {
