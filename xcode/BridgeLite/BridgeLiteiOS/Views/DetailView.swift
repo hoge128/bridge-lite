@@ -485,27 +485,15 @@ private struct PhotoInfoCard: View {
                 }
                 .padding(.vertical, 10)
 
-                if let dt = datetimeText {
-                    Color.white.opacity(0.12).frame(height: 0.5)
-                    Text(dt)
-                        .font(Self.exifFont)
-                        .foregroundStyle(.white.opacity(0.6))
-                        .frame(maxWidth: .infinity, alignment: .center)
-                        .padding(.vertical, 8)
-                }
-
                 Color.white.opacity(0.12).frame(height: 0.5)
-                HStack {
-                    Text(entry.formattedFileSize)
-                    Spacer()
-                    if let res = exif?.resolutionString {
-                        Text(res)
-                    }
+                HStack(spacing: 0) {
+                    exifCell(datetimeText)
+                    vSep
+                    exifCell(entry.fileSize > 0 ? entry.formattedFileSize : nil)
+                    vSep
+                    exifCell(exif?.resolutionString)
                 }
-                .font(Self.exifFont)
-                .foregroundStyle(.white.opacity(0.6))
-                .padding(.horizontal, 14)
-                .padding(.vertical, 8)
+                .padding(.vertical, 10)
             }
             .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
         }
