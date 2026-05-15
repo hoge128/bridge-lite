@@ -87,19 +87,15 @@ struct ThumbnailCellView: View {
 
     @ViewBuilder
     private var overlayBadges: some View {
-        // bottom-leading: rating
-        if let xmp, xmp.rating != nil {
-            HStack(spacing: 3) {
-                if let rating = xmp.rating, rating > 0 {
-                    Text(String(repeating: "★", count: rating))
-                        .font(.system(size: 8, weight: .semibold))
-                        .foregroundStyle(.white)
-                }
-            }
-            .padding(.horizontal, 5)
-            .padding(.vertical, 3)
-            .adaptiveGlass(cornerRadius: 8)
-            .padding(4)
+        // bottom-leading: rating (only when rated)
+        if let rating = xmp?.rating, rating > 0 {
+            Text(String(repeating: "★", count: rating))
+                .font(.system(size: 8, weight: .semibold))
+                .foregroundStyle(.white)
+                .padding(.horizontal, 5)
+                .padding(.vertical, 3)
+                .adaptiveGlass(cornerRadius: 8)
+                .padding(4)
         }
 
         // top-trailing: member count (groups only)
