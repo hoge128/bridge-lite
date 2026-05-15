@@ -164,9 +164,6 @@ struct DetailView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    renderButton
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
                         guard let entry = current else { return }
                         let preview = thumbnails[entry.id].flatMap { UIImage(data: $0) }
@@ -223,22 +220,63 @@ struct DetailView: View {
                 ProgressView()
             }
 
-            if entry.isRaw && isLimitedRawPreview && !isFullscreen {
-                HStack(spacing: 5) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .font(.system(size: 10, weight: .semibold))
-                        .foregroundStyle(.yellow.opacity(0.85))
-                    Text(String(localized: "raw.limited.preview.ios.notice",
-                                defaultValue: "Embedded thumbnail only — RAW rendering is not supported"))
-                        .font(.system(size: 11))
-                        .foregroundStyle(.white.opacity(0.75))
-                }
-                .padding(.horizontal, 10)
-                .padding(.vertical, 5)
-                .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
-                .padding(.leading, 12)
-                .padding(.bottom, 8)
+            if entry.isRaw && !isFullscreen {
+                rawStateBadge(entry: entry)
+                    .padding(.leading, 12)
+                    .padding(.bottom, 8)
             }
+        }
+    }
+
+    @ViewBuilder
+    private func rawStateBadge(entry: PhotoEntry) -> some View {
+        if isLimitedRawPreview {
+            // 非対応フォーマット
+            HStack(spacing: 5) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.yellow.opacity(0.85))
+                Text(String(localized: "raw.limited.preview.ios.notice",
+                            defaultValue: "Embedded thumbnail only — RAW rendering is not supported"))
+                    .font(.system(size: 11))
+                    .foregroundStyle(.white.opacity(0.75))
+            }
+            .padding(.horizontal, 10)
+            .padding(.vertical, 5)
+            .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+        } else if isRendering {
+            HStack(spacing: 5) {
+                ProgressView().controlSize(.mini)
+                Text(String(localized: "render.loading", defaultValue: "Rendering…"))
+                    .font(.system(size: 10, weight: .semibold))
+                    .foregroundStyle(.white)
+            }
+            .padding(.horizontal, 6)
+            .padding(.vertical, 3)
+            .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
+        } else {
+            // 埋め込み / レンダリング済 切り替えバッジ
+            Button {
+                if rawRendered != nil {
+                    showRendered.toggle()
+                } else {
+                    triggerRender(entry: entry)
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    Image(systemName: showRendered ? "wand.and.stars.inverse" : "wand.and.stars")
+                        .font(.system(size: 9, weight: .semibold))
+                    Text(showRendered
+                         ? String(localized: "render.badge.rendered", defaultValue: "Rendered")
+                         : String(localized: "render.badge.embedded", defaultValue: "Embedded"))
+                        .font(.system(size: 10, weight: .semibold))
+                }
+                .foregroundStyle(.white)
+                .padding(.horizontal, 6)
+                .padding(.vertical, 3)
+                .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 4))
+            }
+            .buttonStyle(.plain)
         }
     }
 
@@ -328,32 +366,6 @@ struct DetailView: View {
             }
             .padding(8)
             .presentationCompactAdaptation(.popover)
-        }
-    }
-
-    @ViewBuilder
-    private var renderButton: some View {
-        if let entry = current, entry.isRaw, !isLimitedRawPreview {
-            if isRendering {
-                ProgressView()
-                    .controlSize(.small)
-            } else if rawRendered != nil {
-                Button {
-                    showRendered.toggle()
-                } label: {
-                    Image(systemName: showRendered ? "wand.and.stars.inverse" : "wand.and.stars")
-                }
-                .help(showRendered
-                      ? String(localized: "render.toggle.embedded", defaultValue: "Show embedded preview")
-                      : String(localized: "render.toggle.rendered", defaultValue: "Show rendered preview"))
-            } else {
-                Button {
-                    triggerRender(entry: entry)
-                } label: {
-                    Image(systemName: "wand.and.stars")
-                }
-                .help(String(localized: "render.button", defaultValue: "Render with engine"))
-            }
         }
     }
 
