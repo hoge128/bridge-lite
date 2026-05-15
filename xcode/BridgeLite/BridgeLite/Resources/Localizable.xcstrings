@@ -3703,6 +3703,22 @@
         }
       }
     },
+    "raw.limited.preview.ios.notice" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded thumbnail only — RAW rendering is not supported"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "埋め込みサムネイルのみ — RAW レンダリング非対応"
+          }
+        }
+      }
+    },
     "raw.limited.preview.notice" : {
       "localizations" : {
         "en" : {
@@ -3747,22 +3763,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "赤"
-          }
-        }
-      }
-    },
-    "raw.limited.preview.ios.notice" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Embedded thumbnail only — RAW rendering is not supported"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "埋め込みサムネイルのみ — RAW レンダリング非対応"
           }
         }
       }
@@ -4741,6 +4741,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "単体ビューでの削除を防止"
+          }
+        }
+      }
+    },
+    "settings.propagation.section" : {
+      "extractionState" : "extracted_with_value",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Rating Propagation"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "評価の伝播"
           }
         }
       }
