@@ -1,5 +1,15 @@
+import CoreGraphics
+import ImageIO
 import SwiftUI
 import UIKit
+
+// iOS 専用のフルサイズデコード用リミッター（IOSurface 枯渇防止）
+private let fullResLimiter = ConcurrencyLimiter(maxConcurrent: 1)
+
+private struct FullResEntry: Sendable {
+    let id: UInt64
+    let image: UIImage
+}
 
 struct DetailView: View {
     let groups: [ShotGroup]
@@ -19,6 +29,10 @@ struct DetailView: View {
     @State private var showRatingPopup = false
     @State private var showEmbedWarning = false
     @State private var pendingWriteEntry: (id: UInt64, url: URL, xmp: XmpData, previousXmp: XmpData?)?
+
+    // フルサイズキャッシュ（最大3枚 FIFO: prev / current / next）
+    @State private var fullResCache: [FullResEntry] = []
+    @State private var isLoadingFullRes = false
 
     init(groups: [ShotGroup],
          initialGroup: ShotGroup,
@@ -115,6 +129,12 @@ struct DetailView: View {
             .onChange(of: currentGroupIndex) {
                 currentIndex = group.representativeID.flatMap { group.memberIDs.firstIndex(of: $0) } ?? 0
             }
+            .task(id: current?.id) {
+                guard let entry = current else { return }
+                await loadAndCache(entry: entry)
+                // 現在の画像がロード完了したら隣グループを先読み
+                prefetchNeighbors()
+            }
             .onChange(of: isFullscreen) {
                 allowLandscape = isFullscreen
                 guard let scene = UIApplication.shared.connectedScenes
@@ -173,11 +193,19 @@ struct DetailView: View {
 
     @ViewBuilder
     private func photoImage(entry: PhotoEntry) -> some View {
-        if let data = thumbnails[entry.id], let uiImage = UIImage(data: data) {
-            ZoomableImageView(uiImage: uiImage, isZoomed: $isImageZoomed) {
+        let cached = fullResCache.first(where: { $0.id == entry.id })?.image
+        let thumb  = thumbnails[entry.id].flatMap { UIImage(data: $0) }
+        let display = cached ?? thumb
+
+        if let img = display {
+            ZoomableImageView(uiImage: img, isZoomed: $isImageZoomed) {
                 withAnimation(.easeInOut(duration: 0.2)) { isFullscreen.toggle() }
             }
             .id(entry.id)
+            // フルサイズ未着でサムネイル表示中はブラーをかけてロード中を示す
+            .blur(radius: (cached == nil && isLoadingFullRes) ? 8 : 0)
+            .opacity((cached == nil && isLoadingFullRes) ? 0.6 : 1.0)
+            .animation(.easeOut(duration: 0.2), value: cached == nil)
         } else {
             ProgressView()
         }
@@ -279,6 +307,62 @@ struct DetailView: View {
             ratings[pending.id] = previousXmp
         } else {
             ratings.removeValue(forKey: pending.id)
+        }
+    }
+
+    // MARK: - Full-resolution loading
+
+    /// キャッシュミス時のみロードし、最大3枚 FIFO で保持する。
+    @MainActor
+    private func loadAndCache(entry: PhotoEntry) async {
+        if fullResCache.contains(where: { $0.id == entry.id }) { return }
+        isLoadingFullRes = true
+        defer { isLoadingFullRes = false }
+        if let img = await decodeFullRes(entry: entry) {
+            if fullResCache.count >= 3 { fullResCache.removeFirst() }
+            fullResCache.append(FullResEntry(id: entry.id, image: img))
+        }
+    }
+
+    /// 前後グループの代表画像をバックグラウンドで先読み。
+    /// Task は @MainActor context を継承するため、loadAndCache は Main Actor 上で実行される。
+    private func prefetchNeighbors() {
+        for delta in [-1, 1] {
+            let idx = currentGroupIndex + delta
+            guard groups.indices.contains(idx) else { continue }
+            let g = groups[idx]
+            guard let repID = g.representativeID ?? g.memberIDs.first,
+                  let entry = entries[repID],
+                  !fullResCache.contains(where: { $0.id == entry.id }) else { continue }
+            Task(priority: .background) {
+                await loadAndCache(entry: entry)
+            }
+        }
+    }
+
+    /// RAW は埋め込み JPEG を抽出（limiter 外）→デコード（limiter 内）。
+    /// 非 RAW は URL から直接デコード（limiter 内）。
+    /// macOS LargeImageDecoder と同じ構成で IOSurface 枯渇を防ぐ。
+    private func decodeFullRes(entry: PhotoEntry) async -> UIImage? {
+        let url = entry.url
+        if entry.isRaw {
+            guard let data = await BridgeCore.extractRawJpeg(url: url, quality: .full) else { return nil }
+            return try? await fullResLimiter.run {
+                await Task.detached(priority: .userInitiated) {
+                    let opts = [kCGImageSourceShouldCache: false] as CFDictionary
+                    guard let src = CGImageSourceCreateWithData(data as CFData, opts),
+                          let cgImg = CGImageSourceCreateImageAtIndex(src, 0, opts) else { return nil }
+                    return UIImage(cgImage: cgImg)
+                }.value
+            }
+        }
+        return try? await fullResLimiter.run {
+            await Task.detached(priority: .userInitiated) {
+                let opts = [kCGImageSourceShouldCache: false] as CFDictionary
+                guard let src = CGImageSourceCreateWithURL(url as CFURL, opts),
+                      let cgImg = CGImageSourceCreateImageAtIndex(src, 0, opts) else { return nil }
+                return UIImage(cgImage: cgImg)
+            }.value
         }
     }
 }
