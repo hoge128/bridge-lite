@@ -29,93 +29,31 @@ final class ActivityURLWithPreview: NSObject, UIActivityItemSource {
     }
 }
 
-/// UIActivityViewController を SwiftUI から正しく呼び出すブリッジ。
-/// .sheet 内に UIActivityViewController を直接置くと activities リストが空になるため、
-/// 透明な UIViewController をコンテナにして present(_:animated:) で重ねる方式を使う。
-struct ExportSheet: UIViewControllerRepresentable {
-    let urls: [URL]
-    let onDismiss: () -> Void
+// MARK: - Share sheet presenter
 
-    func makeUIViewController(context: Context) -> UIViewController {
-        UIViewController()
+/// ウィンドウ内の最前面 VC から UIActivityViewController を提示する。
+/// SwiftUI の .sheet 内から呼ぶと AirDrop を含む全アクティビティが正しく表示されない
+/// ため、この関数で直接 UIKit 層に提示する。
+@MainActor
+func presentShareSheet(urls: [URL], previewImage: UIImage? = nil, title: String? = nil) {
+    guard let windowScene = UIApplication.shared.connectedScenes
+            .compactMap({ $0 as? UIWindowScene })
+            .first(where: { $0.activationState == .foregroundActive }),
+          let window = windowScene.windows.first(where: { $0.isKeyWindow }) else { return }
+    var topVC = window.rootViewController
+    while let presented = topVC?.presentedViewController { topVC = presented }
+    guard let topVC else { return }
+
+    var items: [Any]
+    if let previewImage, let first = urls.first, let title {
+        items = [ActivityURLWithPreview(url: first, previewImage: previewImage, title: title)]
+            + Array(urls.dropFirst())
+    } else {
+        items = urls
     }
 
-    func updateUIViewController(_ vc: UIViewController, context: Context) {
-        guard vc.presentedViewController == nil else { return }
-        let actVC = UIActivityViewController(activityItems: urls, applicationActivities: nil)
-        actVC.completionWithItemsHandler = { _, _, _, _ in
-            DispatchQueue.main.async { onDismiss() }
-        }
-        vc.present(actVC, animated: true)
-    }
-}
-
-// MARK: - Export guide (shown when no filter is active)
-
-struct ExportGuideSheet: View {
-    let fileCount: Int
-    let onContinue: () -> Void
-    let onCancel: () -> Void
-
-    var body: some View {
-        NavigationStack {
-            VStack(alignment: .leading, spacing: 20) {
-
-                Label(
-                    String(localized: "export.guide.count \(fileCount)"),
-                    systemImage: "doc.on.doc"
-                )
-                .font(.headline)
-
-                VStack(alignment: .leading, spacing: 10) {
-                    Label(
-                        String(localized: "export.guide.no_filter_title", defaultValue: "No filters applied"),
-                        systemImage: "exclamationmark.triangle.fill"
-                    )
-                    .font(.subheadline.weight(.semibold))
-                    .foregroundStyle(.orange)
-
-                    Text(String(localized: "export.guide.no_filter_body",
-                                defaultValue: "All representative files will be exported. Use filters to narrow down the target."))
-                        .font(.callout)
-                        .foregroundStyle(.secondary)
-
-                    VStack(alignment: .leading, spacing: 6) {
-                        Text(String(localized: "export.guide.examples_title", defaultValue: "Filter examples:"))
-                            .font(.caption.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        Text(String(localized: "export.guide.example_sooc",
-                                    defaultValue: "• File Type › Camera Output  →  SOOC JPG only"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                        Text(String(localized: "export.guide.example_rating",
-                                    defaultValue: "• Rating › ★★★ or above  →  high-rated photos only"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                }
-                .padding(14)
-                .background(.orange.opacity(0.08), in: RoundedRectangle(cornerRadius: 14))
-
-                Spacer()
-
-                Button(action: onContinue) {
-                    Text(String(localized: "export.guide.continue", defaultValue: "Export anyway"))
-                        .frame(maxWidth: .infinity)
-                }
-                .buttonStyle(.borderedProminent)
-            }
-            .padding()
-            .navigationTitle(String(localized: "export.guide.title", defaultValue: "Export"))
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button(String(localized: "Cancel"), action: onCancel)
-                }
-            }
-        }
-        .presentationDetents([.medium])
-    }
+    let actVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+    topVC.present(actVC, animated: true)
 }
 
 // MARK: - Export helpers

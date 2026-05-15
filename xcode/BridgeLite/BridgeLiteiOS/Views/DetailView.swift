@@ -1,7 +1,8 @@
 import SwiftUI
+import UIKit
 
 struct DetailView: View {
-    let group: ShotGroup
+    let groups: [ShotGroup]
     let entries: [UInt64: PhotoEntry]
     let thumbnails: [UInt64: Data]
     let exifs: [UInt64: ExifData]
@@ -10,29 +11,38 @@ struct DetailView: View {
     let jpgWriteMode: JpgWriteMode
     @Environment(\.dismiss) private var dismiss
 
+    @State private var currentGroupIndex: Int
     @State private var currentIndex: Int
+    @State private var swipeDirection = 0
+    @State private var isImageZoomed = false
+    @State private var isFullscreen = false
     @State private var showRatingPopup = false
-    @State private var showExport = false
     @State private var showEmbedWarning = false
     @State private var pendingWriteEntry: (id: UInt64, url: URL, xmp: XmpData, previousXmp: XmpData?)?
 
-    init(group: ShotGroup,
+    init(groups: [ShotGroup],
+         initialGroup: ShotGroup,
          entries: [UInt64: PhotoEntry],
          thumbnails: [UInt64: Data],
          exifs: [UInt64: ExifData],
          ratings: Binding<[UInt64: XmpData]>,
          db: BridgeCoreDatabase?,
          jpgWriteMode: JpgWriteMode = .embed) {
-        self.group = group
+        self.groups = groups
         self.entries = entries
         self.thumbnails = thumbnails
         self.exifs = exifs
         self._ratings = ratings
         self.db = db
         self.jpgWriteMode = jpgWriteMode
-        let repIdx = group.representativeID.flatMap { group.memberIDs.firstIndex(of: $0) } ?? 0
+        let groupIdx = groups.firstIndex(where: { $0.id == initialGroup.id }) ?? 0
+        self._currentGroupIndex = State(initialValue: groupIdx)
+        let g = groups.isEmpty ? initialGroup : groups[groupIdx]
+        let repIdx = g.representativeID.flatMap { g.memberIDs.firstIndex(of: $0) } ?? 0
         self._currentIndex = State(initialValue: repIdx)
     }
+
+    private var group: ShotGroup { groups[currentGroupIndex] }
 
     private var members: [PhotoEntry] {
         group.memberIDs.compactMap { entries[$0] }
@@ -46,29 +56,75 @@ struct DetailView: View {
                 Color.black.ignoresSafeArea()
                 if let entry = current {
                     VStack(spacing: 0) {
-                        photoImage(entry: entry)
-                            .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                        if members.count > 1 {
-                            memberStrip
+                        ZStack {
+                            photoImage(entry: entry)
+                                .id(currentGroupIndex)
+                                .transition(.asymmetric(
+                                    insertion: .move(edge: swipeDirection >= 0 ? .trailing : .leading),
+                                    removal: .move(edge: swipeDirection >= 0 ? .leading : .trailing)
+                                ))
                         }
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .clipped()
 
-                        PhotoInfoCard(
-                            entry: entry,
-                            exif: exifs[entry.id],
-                            xmp: ratings[entry.id],
-                            thumbnailData: thumbnails[entry.id]
-                        )
-                        .padding(.horizontal, 16)
-                        .padding(.top, 8)
-                        .padding(.bottom, 88)
+                        if !isFullscreen {
+                            if members.count > 1 {
+                                memberStrip
+                            }
+
+                            PhotoInfoCard(
+                                entry: entry,
+                                exif: exifs[entry.id],
+                                xmp: ratings[entry.id],
+                                thumbnailData: thumbnails[entry.id]
+                            )
+                            .padding(.horizontal, 16)
+                            .padding(.top, 8)
+                            .padding(.bottom, 88)
+                        }
                     }
 
-                    floatingRatingButton(entry: entry)
-                        .padding(.bottom, 20)
+                    if !isFullscreen {
+                        floatingRatingButton(entry: entry)
+                            .padding(.bottom, 20)
+                    }
                 }
             }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 60)
+                    .onEnded { value in
+                        guard !isImageZoomed else { return }
+                        let h = value.translation.height
+                        let w = value.translation.width
+                        if abs(h) > abs(w) {
+                            if h > 60 { dismiss() }
+                        } else if w < -60, currentGroupIndex < groups.count - 1 {
+                            swipeDirection = 1
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                currentGroupIndex += 1
+                            }
+                        } else if w > 60, currentGroupIndex > 0 {
+                            swipeDirection = -1
+                            withAnimation(.easeOut(duration: 0.25)) {
+                                currentGroupIndex -= 1
+                            }
+                        }
+                    }
+            )
+            .onChange(of: currentIndex) { isImageZoomed = false }
+            .onChange(of: currentGroupIndex) {
+                currentIndex = group.representativeID.flatMap { group.memberIDs.firstIndex(of: $0) } ?? 0
+            }
+            .onChange(of: isFullscreen) {
+                allowLandscape = isFullscreen
+                guard let scene = UIApplication.shared.connectedScenes
+                    .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
+                scene.requestGeometryUpdate(
+                    .iOS(interfaceOrientations: isFullscreen ? .all : .portrait)
+                )
+            }
             .navigationBarTitleDisplayMode(.inline)
+            .toolbar(isFullscreen ? .hidden : .visible, for: .navigationBar)
             .toolbarColorScheme(.dark, for: .navigationBar)
             .glassNavigationBar()
             .toolbar {
@@ -78,19 +134,14 @@ struct DetailView: View {
                     }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button("エクスポート", systemImage: "square.and.arrow.up") {
-                            showExport = true
-                        }
+                    Button {
+                        guard let entry = current else { return }
+                        let preview = thumbnails[entry.id].flatMap { UIImage(data: $0) }
+                        presentShareSheet(urls: [entry.url], previewImage: preview, title: entry.filename)
                     } label: {
-                        Image(systemName: "ellipsis.circle")
+                        Image(systemName: "square.and.arrow.up")
                     }
-                }
-            }
-            .sheet(isPresented: $showExport) {
-                if let entry = current {
-                    ExportSheet(urls: [entry.url]) { showExport = false }
-                        .presentationDetents([.medium])
+                    .disabled(current == nil)
                 }
             }
             .alert(
@@ -117,13 +168,16 @@ struct DetailView: View {
                             defaultValue: "Rating will be written directly into the JPEG file. The original file will be modified. You can switch to Sidecar mode in Settings."))
             }
         }
+        .statusBarHidden(isFullscreen)
     }
 
     @ViewBuilder
     private func photoImage(entry: PhotoEntry) -> some View {
         if let data = thumbnails[entry.id], let uiImage = UIImage(data: data) {
-            ZoomableImageView(uiImage: uiImage)
-                .id(entry.id)
+            ZoomableImageView(uiImage: uiImage, isZoomed: $isImageZoomed) {
+                withAnimation(.easeInOut(duration: 0.2)) { isFullscreen.toggle() }
+            }
+            .id(entry.id)
         } else {
             ProgressView()
         }
@@ -463,11 +517,14 @@ private func computeRGBHistogram(image: CGImage, bins: Int) async -> RGBHistogra
 
 private struct ZoomableImageView: View {
     let uiImage: UIImage
+    @Binding var isZoomed: Bool
+    var onSingleTap: (() -> Void)? = nil
 
     @GestureState private var liveScale: CGFloat = 1.0
     @State private var baseScale: CGFloat = 1.0
     @State private var offset: CGSize = .zero
     @State private var dragBase: CGSize = .zero
+    @State private var lastTap: (location: CGPoint, time: Date)? = nil
 
     private var displayScale: CGFloat { max(1.0, baseScale * liveScale) }
 
@@ -488,10 +545,13 @@ private struct ZoomableImageView: View {
                             baseScale = max(1.0, baseScale * v)
                             if baseScale <= 1.0 {
                                 baseScale = 1.0
+                                isZoomed = false
                                 withAnimation(.easeOut(duration: 0.15)) {
                                     offset = .zero
                                     dragBase = .zero
                                 }
+                            } else {
+                                isZoomed = true
                             }
                         }
                 )
@@ -507,9 +567,24 @@ private struct ZoomableImageView: View {
                         .onEnded { _ in dragBase = offset }
                 )
                 .gesture(
-                    SpatialTapGesture(count: 2)
+                    SpatialTapGesture(count: 1)
                         .onEnded { value in
-                            handleDoubleTap(at: value.location, in: geo.size)
+                            let location = value.location
+                            let now = Date()
+                            if let last = lastTap, now.timeIntervalSince(last.time) < 0.3 {
+                                lastTap = nil
+                                handleDoubleTap(at: last.location, in: geo.size)
+                            } else {
+                                lastTap = (location: location, time: now)
+                                let tapTime = now
+                                Task { @MainActor in
+                                    try? await Task.sleep(nanoseconds: 300_000_000)
+                                    guard let t = lastTap,
+                                          abs(t.time.timeIntervalSince(tapTime)) < 0.01 else { return }
+                                    lastTap = nil
+                                    onSingleTap?()
+                                }
+                            }
                         }
                 )
         }
@@ -520,12 +595,14 @@ private struct ZoomableImageView: View {
             let target: CGFloat = 3.0
             let dx = (size.width  / 2 - location.x) * (target - 1)
             let dy = (size.height / 2 - location.y) * (target - 1)
+            isZoomed = true
             withAnimation(.easeOut(duration: 0.25)) {
                 baseScale = target
                 offset = CGSize(width: dx, height: dy)
                 dragBase = offset
             }
         } else {
+            isZoomed = false
             withAnimation(.easeOut(duration: 0.2)) {
                 baseScale = 1.0
                 offset = .zero

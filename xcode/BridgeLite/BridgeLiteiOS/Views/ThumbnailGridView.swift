@@ -59,7 +59,8 @@ struct ThumbnailGridView: View {
             .safeAreaInset(edge: .bottom, spacing: 0) { filterBottomBar }
             .sheet(item: $selectedGroup) { group in
                 DetailView(
-                    group: group,
+                    groups: scanStore.filteredGroups(ratings: ratingStore.ratings),
+                    initialGroup: group,
                     entries: scanStore.entries,
                     thumbnails: scanStore.thumbnails,
                     exifs: scanStore.exifs,

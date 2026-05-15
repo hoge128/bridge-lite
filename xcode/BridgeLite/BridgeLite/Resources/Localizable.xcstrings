@@ -1753,6 +1753,174 @@
         }
       }
     },
+    "export.guide.continue" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export anyway"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "このまま続ける"
+          }
+        }
+      }
+    },
+    "export.guide.count %lld" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld files"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件のファイル"
+          }
+        }
+      }
+    },
+    "export.guide.example_rating" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "• Rating › ★★★ or above  →  high-rated photos only"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "• 評価 › ★★★ 以上  →  高評価の写真のみ"
+          }
+        }
+      }
+    },
+    "export.guide.example_sooc" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "• File Type › Camera Output  →  SOOC JPG only"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "• 種別 › カメラ出力  →  SOOC（撮って出し）のみ"
+          }
+        }
+      }
+    },
+    "export.guide.examples_title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter examples:"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フィルタの活用例:"
+          }
+        }
+      }
+    },
+    "export.guide.no_filter_body" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All representative files will be exported. Use filters to narrow down the target."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "すべてのグループの代表ファイルがエクスポートされます。フィルタを使うと対象を絞り込めます。"
+          }
+        }
+      }
+    },
+    "export.guide.no_filter_title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "No filters applied"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フィルタが設定されていません"
+          }
+        }
+      }
+    },
+    "export.guide.title" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Export"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "エクスポート"
+          }
+        }
+      }
+    },
+    "export.preview.multiple %lld" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld files"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld 件のファイル"
+          }
+        }
+      }
+    },
+    "export.preview.single" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 file"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "1 件のファイル"
+          }
+        }
+      }
+    },
     "Exposure" : {
       "extractionState" : "stale",
       "localizations" : {
@@ -1974,34 +2142,18 @@
         }
       }
     },
-    "Filtered kind only" : {
+    "filter.category.aperture" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Filtered kind only"
+            "value" : "Aperture"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "フィルタ対象のみ"
-          }
-        }
-      }
-    },
-    "Filters" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Filters"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "フィルタ"
+            "value" : "絞り"
           }
         }
       }
@@ -2150,22 +2302,6 @@
         }
       }
     },
-    "filter.category.aperture" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Aperture"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "絞り"
-          }
-        }
-      }
-    },
     "filter.clear" : {
       "localizations" : {
         "en" : {
@@ -2180,86 +2316,6 @@
             "value" : "クリア"
           }
         }
-      }
-    },
-    "filter.reset_all" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "リセット"
-          }
-        }
-      }
-    },
-    "export.preview.single" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "1 file" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "1 件のファイル" } }
-      }
-    },
-    "export.preview.multiple %lld" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "%lld files" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "%lld 件のファイル" } }
-      }
-    },
-    "export.guide.title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Export" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "エクスポート" } }
-      }
-    },
-    "export.guide.count %lld" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : { "state" : "translated", "value" : "%lld files" }
-        },
-        "ja" : {
-          "stringUnit" : { "state" : "translated", "value" : "%lld 件のファイル" }
-        }
-      }
-    },
-    "export.guide.no_filter_title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "No filters applied" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "フィルタが設定されていません" } }
-      }
-    },
-    "export.guide.no_filter_body" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "All representative files will be exported. Use filters to narrow down the target." } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "すべてのグループの代表ファイルがエクスポートされます。フィルタを使うと対象を絞り込めます。" } }
-      }
-    },
-    "export.guide.examples_title" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Filter examples:" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "フィルタの活用例:" } }
-      }
-    },
-    "export.guide.example_sooc" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "• File Type › Camera Output  →  SOOC JPG only" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "• 種別 › カメラ出力  →  SOOC（撮って出し）のみ" } }
-      }
-    },
-    "export.guide.example_rating" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "• Rating › ★★★ or above  →  high-rated photos only" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "• 評価 › ★★★ 以上  →  高評価の写真のみ" } }
-      }
-    },
-    "export.guide.continue" : {
-      "localizations" : {
-        "en" : { "stringUnit" : { "state" : "translated", "value" : "Export anyway" } },
-        "ja" : { "stringUnit" : { "state" : "translated", "value" : "このまま続ける" } }
       }
     },
     "filter.kind.camera_only" : {
@@ -2294,66 +2350,50 @@
         }
       }
     },
-    "settings.filter_order.section" : {
+    "filter.reset_all" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Filter Order"
+            "value" : "Reset"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "フィルター順"
+            "value" : "リセット"
           }
         }
       }
     },
-    "settings.filter_order.customize" : {
+    "Filtered kind only" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Customize Order"
+            "value" : "Filtered kind only"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "並び順をカスタマイズ"
+            "value" : "フィルタ対象のみ"
           }
         }
       }
     },
-    "settings.filter_order.title" : {
+    "Filters" : {
       "localizations" : {
         "en" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "Filter Order"
+            "value" : "Filters"
           }
         },
         "ja" : {
           "stringUnit" : {
             "state" : "translated",
-            "value" : "フィルター順"
-          }
-        }
-      }
-    },
-    "settings.filter_order.reset" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset to Default"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "デフォルトに戻す"
+            "value" : "フィルタ"
           }
         }
       }
@@ -4287,6 +4327,70 @@
         }
       }
     },
+    "settings.filter_order.customize" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Customize Order"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "並び順をカスタマイズ"
+          }
+        }
+      }
+    },
+    "settings.filter_order.reset" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset to Default"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デフォルトに戻す"
+          }
+        }
+      }
+    },
+    "settings.filter_order.section" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter Order"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フィルター順"
+          }
+        }
+      }
+    },
+    "settings.filter_order.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter Order"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フィルター順"
+          }
+        }
+      }
+    },
     "settings.folder_watch.description" : {
       "localizations" : {
         "en" : {
@@ -4609,22 +4713,6 @@
         }
       }
     },
-    "settings.reset_embed_warning" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Reset Write Warning"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "書き込み警告をリセット"
-          }
-        }
-      }
-    },
     "settings.prevent_viewer_delete" : {
       "localizations" : {
         "en" : {
@@ -4816,6 +4904,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "RAW レンダリング"
+          }
+        }
+      }
+    },
+    "settings.reset_embed_warning" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset Write Warning"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "書き込み警告をリセット"
           }
         }
       }
@@ -5849,10 +5953,6 @@
           }
         }
       }
-    },
-    "エクスポート" : {
-      "comment" : "The name of a menu item that exports photos.",
-      "isCommentAutoGenerated" : true
     },
     "クリア" : {
       "comment" : "A button that clears the filter.",
