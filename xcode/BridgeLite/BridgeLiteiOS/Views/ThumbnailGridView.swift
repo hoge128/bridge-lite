@@ -5,6 +5,7 @@ struct ThumbnailGridView: View {
     @State var scanStore: ScanStore
     @State var ratingStore: RatingStore
     @State private var selectedGroup: ShotGroup?
+    @State private var preferRendered = false
     @State private var selectedFilterCategory: FilterCategory?
     @State private var showFolderPicker = false
     @State private var showSettings = false
@@ -69,7 +70,8 @@ struct ThumbnailGridView: View {
                         set: { ratingStore.ratings = $0 }
                     ),
                     db: scanStore.db,
-                    jpgWriteMode: scanStore.jpgWriteMode
+                    jpgWriteMode: scanStore.jpgWriteMode,
+                    preferRendered: $preferRendered
                 )
             }
             .sheet(isPresented: $showFolderPicker) {

@@ -38,8 +38,8 @@ struct DetailView: View {
     @State private var rawRendered: UIImage? = nil
     @State private var isRendering = false
     @State private var showRendered = false
-    // true のとき、次の RAW に移動しても自動レンダリングする
-    @State private var preferRendered = false
+    // true のとき、次の RAW に移動しても自動レンダリングする（親 View で保持）
+    @Binding var preferRendered: Bool
 
     private var isLimitedRawPreview: Bool {
         current?.url.pathExtension.lowercased() == "cr2"
@@ -52,7 +52,8 @@ struct DetailView: View {
          exifs: [UInt64: ExifData],
          ratings: Binding<[UInt64: XmpData]>,
          db: BridgeCoreDatabase?,
-         jpgWriteMode: JpgWriteMode = .embed) {
+         jpgWriteMode: JpgWriteMode = .embed,
+         preferRendered: Binding<Bool>) {
         self.groups = groups
         self.entries = entries
         self.thumbnails = thumbnails
@@ -60,6 +61,7 @@ struct DetailView: View {
         self._ratings = ratings
         self.db = db
         self.jpgWriteMode = jpgWriteMode
+        self._preferRendered = preferRendered
         let groupIdx = groups.firstIndex(where: { $0.id == initialGroup.id }) ?? 0
         self._currentGroupIndex = State(initialValue: groupIdx)
         let g = groups.isEmpty ? initialGroup : groups[groupIdx]
