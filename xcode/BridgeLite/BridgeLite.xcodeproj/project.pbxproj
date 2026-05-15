@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		01D99717EFC9132583EC925A /* FolderPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */; };
 		05ECD571285BD5D65864592F /* FilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */; };
+		40F317BAC9A54624802975DC /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 71BE06BC4E6C420D8FD95A14 /* FilterBarView.swift */; };
 		EEA76FD03A9240A79134CCD7 /* SettingsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = AAEE4B65DD6340FEA51174C7 /* SettingsSheetView.swift */; };
 		080BCFEFED5119F429F6EF37 /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
 		0B0BC12A398E84A26C01BBBC /* TabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */; };
@@ -56,6 +57,7 @@
 		8061ABA38A6138E7DF26799E /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E01FA6276D771ABD948AEB /* CalendarDayCell.swift */; };
 		867E4D731D55D911BE92FCDA /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */; };
 		89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
+		CC2F8A3B1D4E9F05A7C3E812 /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		8F544229F248278F9D38D074 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
 		909FBB7C62F31EDF0BFC3AEA /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
 		936EAB6141C91B2B1E4A54E2 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
@@ -108,6 +110,7 @@
 		2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
 		2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "bridge-ffi.swift"; sourceTree = "<group>"; };
 		2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterSheetView.swift; sourceTree = "<group>"; };
+		71BE06BC4E6C420D8FD95A14 /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
 		AAEE4B65DD6340FEA51174C7 /* SettingsSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSheetView.swift; sourceTree = "<group>"; };
 		30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SwiftBridgeCore.swift; sourceTree = "<group>"; };
 		3086AA6CCBB10934498DD210 /* ContentView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ContentView.swift; sourceTree = "<group>"; };
@@ -356,6 +359,7 @@
 				C85D8596A0E46A5E932A65FA /* DetailView.swift */,
 				8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */,
 				2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */,
+				71BE06BC4E6C420D8FD95A14 /* FilterBarView.swift */,
 				4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */,
 				4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */,
 				AAEE4B65DD6340FEA51174C7 /* SettingsSheetView.swift */,
@@ -533,8 +537,10 @@
 				D94D2E517C63501996A36845 /* CoreError+LocalizedError.swift in Sources */,
 				B8167BC2395FD9F9A557FD6B /* DetailView.swift in Sources */,
 				18F473074BA8B73A8706C1D9 /* ExifData.swift in Sources */,
+				CC2F8A3B1D4E9F05A7C3E812 /* ExifHistogramView.swift in Sources */,
 				42C21D5247C07C7E1B455749 /* ExportSheet.swift in Sources */,
 				05ECD571285BD5D65864592F /* FilterSheetView.swift in Sources */,
+				40F317BAC9A54624802975DC /* FilterBarView.swift in Sources */,
 				01D99717EFC9132583EC925A /* FolderPickerView.swift in Sources */,
 				BBAC36178F92008A8F84A15B /* GlassHelper.swift in Sources */,
 				936EAB6141C91B2B1E4A54E2 /* ImageEntry+Convert.swift in Sources */,

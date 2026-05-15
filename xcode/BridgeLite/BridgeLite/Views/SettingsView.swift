@@ -141,6 +141,13 @@ struct SettingsView: View {
                     mdCaption("settings.metadata.conflict_policy.description",
                               defaultValue: "Controls what happens when a JPEG already has ratings or labels embedded directly and you rate it in Sidecar mode.\n**Ask each time**: shows a confirmation listing the affected filenames.\n**Always propagate**: silently updates both sidecar and embedded.\n**Never propagate**: writes only to the sidecar.")
                 }
+                if settings.jpgWriteMode == .embed && settings.hasShownJpgEmbedWarning {
+                    Button(String(localized: "settings.reset_embed_warning", defaultValue: "Reset Write Warning")) {
+                        JpgMetadataDefaults.resetJpgEmbedWarning()
+                        settings.hasShownJpgEmbedWarning = false
+                    }
+                    .foregroundStyle(.red)
+                }
             } header: {
                 Text(String(localized: "settings.metadata.section", defaultValue: "Metadata"))
             }

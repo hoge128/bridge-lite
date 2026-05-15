@@ -966,6 +966,25 @@ final class LibraryStore: ReindexedGroupSink {
 
     func triggerRating(_ stars: Int) {
         guard !selectedIDs.isEmpty else { return }
+        if settings.jpgWriteMode == .embed && !settings.hasShownJpgEmbedWarning {
+            let hasJpg = selectedIDs.contains { id in
+                guard let entry = entries[id] else { return false }
+                let ext = entry.url.pathExtension.lowercased()
+                return ext == "jpg" || ext == "jpeg"
+            }
+            if hasJpg {
+                let alert = NSAlert()
+                alert.messageText = String(localized: "alert.jpg_embed_first.title",
+                                           defaultValue: "Write Metadata into JPEG?")
+                alert.informativeText = String(localized: "alert.jpg_embed_first.message",
+                                               defaultValue: "Rating will be written directly into the JPEG file. The original file will be modified. You can switch to Sidecar mode in Settings.")
+                alert.addButton(withTitle: String(localized: "Yes"))
+                alert.addButton(withTitle: String(localized: "No"))
+                let resp = alert.runModal()
+                if resp != .alertFirstButtonReturn { return }
+                settings.hasShownJpgEmbedWarning = true
+            }
+        }
         if selectedIDs.count > 1 && settings.confirmBulkRating {
             let ratingLabel = stars == 0
                 ? String(localized: "No Rating")

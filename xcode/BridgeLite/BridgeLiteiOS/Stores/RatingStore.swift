@@ -2,7 +2,6 @@ import Foundation
 import Observation
 
 /// XMP レーティング・ラベルの読み書きと in-memory キャッシュ管理
-/// iOS では常に sidecar モード（元ファイルを改変しない）
 @Observable
 @MainActor
 final class RatingStore {
@@ -11,11 +10,11 @@ final class RatingStore {
 
     // MARK: - Load
 
-    func loadAll(entries: [PhotoEntry]) async {
+    func loadAll(entries: [PhotoEntry], jpgWriteMode: JpgWriteMode = .embed) async {
         await withTaskGroup(of: (UInt64, XmpData?).self) { group in
             for entry in entries {
                 group.addTask {
-                    let xmp = await BridgeCore.readXmp(url: entry.url, jpgWriteMode: .sidecar)
+                    let xmp = await BridgeCore.readXmp(url: entry.url, jpgWriteMode: jpgWriteMode)
                     return (entry.id, xmp)
                 }
             }
@@ -27,19 +26,21 @@ final class RatingStore {
 
     // MARK: - Write
 
-    func setRating(_ rating: Int?, for entry: PhotoEntry, db: BridgeCoreDatabase) async {
+    func setRating(_ rating: Int?, for entry: PhotoEntry, db: BridgeCoreDatabase,
+                   jpgWriteMode: JpgWriteMode = .embed) async {
         var xmp = ratings[entry.id] ?? XmpData()
         xmp.rating = rating
         ratings[entry.id] = xmp
         _ = await BridgeCore.writeXmp(url: entry.url, xmp: xmp, db: db,
-                                      jpgWriteMode: .sidecar, captionPresent: false)
+                                      jpgWriteMode: jpgWriteMode, captionPresent: false)
     }
 
-    func setLabel(_ label: XmpLabel?, for entry: PhotoEntry, db: BridgeCoreDatabase) async {
+    func setLabel(_ label: XmpLabel?, for entry: PhotoEntry, db: BridgeCoreDatabase,
+                  jpgWriteMode: JpgWriteMode = .embed) async {
         var xmp = ratings[entry.id] ?? XmpData()
         xmp.label = label
         ratings[entry.id] = xmp
         _ = await BridgeCore.writeXmp(url: entry.url, xmp: xmp, db: db,
-                                      jpgWriteMode: .sidecar, captionPresent: false)
+                                      jpgWriteMode: jpgWriteMode, captionPresent: false)
     }
 }

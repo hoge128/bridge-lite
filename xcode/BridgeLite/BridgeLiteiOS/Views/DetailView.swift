@@ -7,24 +7,29 @@ struct DetailView: View {
     let exifs: [UInt64: ExifData]
     @Binding var ratings: [UInt64: XmpData]
     let db: BridgeCoreDatabase?
+    let jpgWriteMode: JpgWriteMode
     @Environment(\.dismiss) private var dismiss
 
     @State private var currentIndex: Int
     @State private var showRatingPopup = false
     @State private var showExport = false
+    @State private var showEmbedWarning = false
+    @State private var pendingWriteEntry: (id: UInt64, url: URL, xmp: XmpData, previousXmp: XmpData?)?
 
     init(group: ShotGroup,
          entries: [UInt64: PhotoEntry],
          thumbnails: [UInt64: Data],
          exifs: [UInt64: ExifData],
          ratings: Binding<[UInt64: XmpData]>,
-         db: BridgeCoreDatabase?) {
+         db: BridgeCoreDatabase?,
+         jpgWriteMode: JpgWriteMode = .embed) {
         self.group = group
         self.entries = entries
         self.thumbnails = thumbnails
         self.exifs = exifs
         self._ratings = ratings
         self.db = db
+        self.jpgWriteMode = jpgWriteMode
         let repIdx = group.representativeID.flatMap { group.memberIDs.firstIndex(of: $0) } ?? 0
         self._currentIndex = State(initialValue: repIdx)
     }
@@ -87,6 +92,29 @@ struct DetailView: View {
                     ExportSheet(urls: [entry.url]) { showExport = false }
                         .presentationDetents([.medium])
                 }
+            }
+            .alert(
+                String(localized: "alert.jpg_embed_first.title",
+                       defaultValue: "Write Metadata into JPEG?"),
+                isPresented: $showEmbedWarning
+            ) {
+                Button(String(localized: "Yes"), role: .destructive) {
+                    UserDefaults.standard.set(true, forKey: JpgMetadataDefaults.hasShownJpgEmbedWarningKey)
+                    if let pending = pendingWriteEntry, let db {
+                        pendingWriteEntry = nil
+                        Task {
+                            _ = await BridgeCore.writeXmp(url: pending.url, xmp: pending.xmp,
+                                                          db: db, jpgWriteMode: .embed,
+                                                          captionPresent: false)
+                        }
+                    }
+                }
+                Button(String(localized: "No"), role: .cancel) {
+                    cancelPendingWrite()
+                }
+            } message: {
+                Text(String(localized: "alert.jpg_embed_first.message",
+                            defaultValue: "Rating will be written directly into the JPEG file. The original file will be modified. You can switch to Sidecar mode in Settings."))
             }
         }
     }
@@ -164,24 +192,39 @@ struct DetailView: View {
         .buttonStyle(.plain)
         .accessibilityLabel(Text("Rating and Label"))
         .popover(isPresented: $showRatingPopup) {
+            let previousXmp = ratings[entry.id]
             let binding = Binding<XmpData>(
                 get: { ratings[entry.id] ?? XmpData() },
                 set: { ratings[entry.id] = $0 }
             )
             RatingBarView(entry: entry, xmp: binding) { newXmp in
                 guard let db else { return }
-                Task {
-                    _ = await BridgeCore.writeXmp(
-                        url: entry.url,
-                        xmp: newXmp,
-                        db: db,
-                        jpgWriteMode: .sidecar,
-                        captionPresent: false
-                    )
+                let url = entry.url
+                let isJpg = ["jpg", "jpeg"].contains(url.pathExtension.lowercased())
+                if jpgWriteMode == .embed && isJpg
+                    && !JpgMetadataDefaults.hasShownJpgEmbedWarning() {
+                    pendingWriteEntry = (id: entry.id, url: url, xmp: newXmp, previousXmp: previousXmp)
+                    showEmbedWarning = true
+                } else {
+                    Task {
+                        _ = await BridgeCore.writeXmp(url: url, xmp: newXmp, db: db,
+                                                      jpgWriteMode: jpgWriteMode,
+                                                      captionPresent: false)
+                    }
                 }
             }
             .padding(8)
             .presentationCompactAdaptation(.popover)
+        }
+    }
+
+    private func cancelPendingWrite() {
+        guard let pending = pendingWriteEntry else { return }
+        pendingWriteEntry = nil
+        if let previousXmp = pending.previousXmp {
+            ratings[pending.id] = previousXmp
+        } else {
+            ratings.removeValue(forKey: pending.id)
         }
     }
 }

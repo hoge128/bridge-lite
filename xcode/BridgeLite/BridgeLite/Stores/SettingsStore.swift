@@ -333,6 +333,9 @@ final class SettingsStore {
     var confirmBulkRating: Bool = bool("confirmBulkRating", default: true) {
         didSet { UserDefaults.standard.set(confirmBulkRating, forKey: "confirmBulkRating") }
     }
+    var hasShownJpgEmbedWarning: Bool = bool("hasShownJpgEmbedWarning", default: false) {
+        didSet { UserDefaults.standard.set(hasShownJpgEmbedWarning, forKey: "hasShownJpgEmbedWarning") }
+    }
     var warnSlowStorage: Bool = bool("warnSlowStorage", default: true) {
         didSet { UserDefaults.standard.set(warnSlowStorage, forKey: "warnSlowStorage") }
     }

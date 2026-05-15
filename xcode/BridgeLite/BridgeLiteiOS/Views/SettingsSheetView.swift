@@ -24,6 +24,21 @@ struct SettingsSheetView: View {
                     Toggle(String(localized: "Ascending"), isOn: $scanStore.sortAscending)
                 }
 
+                Section(String(localized: "settings.metadata.section", defaultValue: "Metadata")) {
+                    Picker(String(localized: "settings.metadata.jpg_write_mode", defaultValue: "JPEG Metadata"),
+                           selection: $scanStore.jpgWriteMode) {
+                        ForEach(JpgWriteMode.allCases) { mode in
+                            Text(mode.localizedName).tag(mode)
+                        }
+                    }
+                    Button(role: .destructive) {
+                        JpgMetadataDefaults.resetJpgEmbedWarning()
+                    } label: {
+                        Label(String(localized: "settings.reset_embed_warning", defaultValue: "Reset Write Warning"), systemImage: "arrow.counterclockwise")
+                    }
+                    .disabled(scanStore.jpgWriteMode != .embed || !JpgMetadataDefaults.hasShownJpgEmbedWarning())
+                }
+
                 Section(String(localized: "Cache")) {
                     LabeledContent(String(localized: "Cache Size")) {
                         Text(Self.byteFormatter.string(fromByteCount: cacheSizeBytes))

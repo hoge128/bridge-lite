@@ -1,5 +1,11 @@
 import SwiftUI
 
+extension Set {
+    mutating func toggle(_ member: Element) {
+        if contains(member) { remove(member) } else { insert(member) }
+    }
+}
+
 // MARK: - View + Glass
 
 extension View {

@@ -33,8 +33,175 @@ final class ScanStore: ReindexedGroupSink {
 
     // MARK: - Filter state
 
-    var filterMinRating: Int? = nil
-    var filterLabel: XmpLabel? = nil
+    var filterRatings: Set<Int> = []
+    var filterLabels: Set<XmpLabel> = []
+    var filterKinds: Set<PhotoKind> = []
+    var filterCameras: Set<String> = []
+    var filterLenses: Set<String> = []
+    var filterArtists: Set<String> = []
+    var isoMin: String = ""
+    var isoMax: String = ""
+    var focalMin: String = ""
+    var focalMax: String = ""
+    var shutterMin: String = ""
+    var shutterMax: String = ""
+    var apertureMin: String = ""
+    var apertureMax: String = ""
+
+    var isFilterActive: Bool {
+        !filterRatings.isEmpty || !filterLabels.isEmpty || !filterKinds.isEmpty ||
+        !filterCameras.isEmpty || !filterLenses.isEmpty || !filterArtists.isEmpty ||
+        !isoMin.isEmpty || !isoMax.isEmpty ||
+        !focalMin.isEmpty || !focalMax.isEmpty ||
+        !shutterMin.isEmpty || !shutterMax.isEmpty ||
+        !apertureMin.isEmpty || !apertureMax.isEmpty
+    }
+
+    // MARK: - Available filter values (derived from loaded EXIF)
+
+    var availableCameras: [String]  { Set(exifs.values.compactMap(\.cameraName)).sorted() }
+    var availableLenses:  [String]  { Set(exifs.values.compactMap(\.lensName)).sorted() }
+    var availableArtists: [String]  { Set(exifs.values.compactMap(\.artist)).sorted() }
+
+    // MARK: - Histogram buckets
+
+    var isoBuckets: [ExifBucket] {
+        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
+        let specs: [Spec] = [
+            ("≤100",  100,      "",     "100"),
+            ("200",   200,      "101",  "200"),
+            ("400",   400,      "201",  "400"),
+            ("800",   800,      "401",  "800"),
+            ("1.6k",  1600,     "801",  "1600"),
+            ("3.2k",  3200,     "1601", "3200"),
+            ("6.4k",  6400,     "3201", "6400"),
+            (">6k",   .infinity,"6401", ""),
+        ]
+        var counts = Array(repeating: 0, count: specs.count)
+        for exif in exifs.values {
+            guard let iso = exif.iso else { continue }
+            let d = Double(iso)
+            for (i, spec) in specs.enumerated() where d <= spec.upTo { counts[i] += 1; break }
+        }
+        return specs.enumerated().map { i, spec in
+            ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
+                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    var focalBuckets: [ExifBucket] {
+        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
+        let specs: [Spec] = [
+            ("≤24",   24,        "",    "24"),
+            ("35",    35,        "24",  "35"),
+            ("50",    50,        "35",  "50"),
+            ("85",    85,        "50",  "85"),
+            ("135",   135,       "85",  "135"),
+            ("200",   200,       "135", "200"),
+            (">200",  .infinity, "200", ""),
+        ]
+        var counts = Array(repeating: 0, count: specs.count)
+        for exif in exifs.values {
+            guard let mm = exif.effectiveFocalMm else { continue }
+            for (i, spec) in specs.enumerated() where mm <= spec.upTo { counts[i] += 1; break }
+        }
+        return specs.enumerated().map { i, spec in
+            ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
+                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    var shutterBuckets: [ExifBucket] {
+        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
+        let specs: [Spec] = [
+            ("≥2k",  1.0 / 2000, "",       "1/2000"),
+            ("1k",   1.0 / 1000, "1/2000", "1/1000"),
+            ("500",  1.0 / 500,  "1/1000", "1/500"),
+            ("250",  1.0 / 250,  "1/500",  "1/250"),
+            ("125",  1.0 / 125,  "1/250",  "1/125"),
+            ("60",   1.0 / 60,   "1/125",  "1/60"),
+            ("<60",  .infinity,  "1/60",   ""),
+        ]
+        var counts = Array(repeating: 0, count: specs.count)
+        for exif in exifs.values {
+            guard let s = exif.shutterSeconds else { continue }
+            for (i, spec) in specs.enumerated() where s <= spec.upTo { counts[i] += 1; break }
+        }
+        return specs.enumerated().map { i, spec in
+            ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
+                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    var apertureBuckets: [ExifBucket] {
+        typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
+        let specs: [Spec] = [
+            ("≤1.8",  1.8,      "",    "1.8"),
+            ("2.8",   2.8,      "1.8", "2.8"),
+            ("4",     4.0,      "2.8", "4"),
+            ("5.6",   5.6,      "4",   "5.6"),
+            ("8",     8.0,      "5.6", "8"),
+            ("11",    11.0,     "8",   "11"),
+            (">11",   .infinity,"11",  ""),
+        ]
+        var counts = Array(repeating: 0, count: specs.count)
+        for exif in exifs.values {
+            guard let f = exif.fnumberValue else { continue }
+            for (i, spec) in specs.enumerated() where f <= spec.upTo { counts[i] += 1; break }
+        }
+        return specs.enumerated().map { i, spec in
+            ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
+                       lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    // MARK: - Filter toggle helpers
+
+    func toggleRating(_ v: Int)    { filterRatings.toggle(v) }
+    func toggleLabel(_ v: XmpLabel){ filterLabels.toggle(v) }
+    func toggleKind(_ v: PhotoKind){ filterKinds.toggle(v) }
+    func toggleCamera(_ v: String) { filterCameras.toggle(v) }
+    func toggleLens(_ v: String)   { filterLenses.toggle(v) }
+    func toggleArtist(_ v: String) { filterArtists.toggle(v) }
+
+    func clearFilter(_ category: FilterCategory) {
+        switch category {
+        case .rating:   filterRatings = []
+        case .label:    filterLabels = []
+        case .kind:     filterKinds = []
+        case .camera:   filterCameras = []
+        case .lens:     filterLenses = []
+        case .artist:   filterArtists = []
+        case .iso:      isoMin = ""; isoMax = ""
+        case .focal:    focalMin = ""; focalMax = ""
+        case .shutter:  shutterMin = ""; shutterMax = ""
+        case .aperture: apertureMin = ""; apertureMax = ""
+        }
+    }
+
+    func clearAllFilters() {
+        filterRatings = []; filterLabels = []; filterKinds = []
+        filterCameras = []; filterLenses = []; filterArtists = []
+        isoMin = ""; isoMax = ""
+        focalMin = ""; focalMax = ""
+        shutterMin = ""; shutterMax = ""
+        apertureMin = ""; apertureMax = ""
+    }
+
+    func isFilterActive(for category: FilterCategory) -> Bool {
+        switch category {
+        case .rating:   return !filterRatings.isEmpty
+        case .label:    return !filterLabels.isEmpty
+        case .kind:     return !filterKinds.isEmpty
+        case .camera:   return !filterCameras.isEmpty
+        case .lens:     return !filterLenses.isEmpty
+        case .artist:   return !filterArtists.isEmpty
+        case .iso:      return !isoMin.isEmpty || !isoMax.isEmpty
+        case .focal:    return !focalMin.isEmpty || !focalMax.isEmpty
+        case .shutter:  return !shutterMin.isEmpty || !shutterMax.isEmpty
+        case .aperture: return !apertureMin.isEmpty || !apertureMax.isEmpty
+        }
+    }
 
     // MARK: - Sort state
 
@@ -50,6 +217,9 @@ final class ScanStore: ReindexedGroupSink {
             applySort()
         }
     }
+    var jpgWriteMode: JpgWriteMode = JpgMetadataDefaults.readJpgWriteMode() {
+        didSet { UserDefaults.standard.set(jpgWriteMode.rawValue, forKey: JpgMetadataDefaults.jpgWriteModeKey) }
+    }
 
     // MARK: - Internal
 
@@ -63,6 +233,7 @@ final class ScanStore: ReindexedGroupSink {
     // MARK: - Init
 
     init() {
+        JpgMetadataDefaults.migrateLegacyKeysIfNeeded()
         if let raw = UserDefaults.standard.string(forKey: "ios.sortKey"),
            let key = IOSSortKey(rawValue: raw) {
             sortKey = key
@@ -274,6 +445,16 @@ final class ScanStore: ReindexedGroupSink {
         return (exif.make ?? "").isEmpty && (exif.model ?? "").isEmpty
     }
 
+    /// 代表メンバー1件の種別を返す（Mac の photoKind 相当）
+    func representativeKind(for group: ShotGroup, xmps: [UInt64: XmpData]) -> PhotoKind {
+        guard let repID = group.representativeID, let entry = entries[repID] else { return .indeterminate }
+        if entry.isRaw { return .raw }
+        let groupMinDate = group.memberIDs.compactMap { entries[$0]?.createdDate }.min()
+        if isDevelopedMember(repID, xmps: xmps, groupMinDate: groupMinDate) { return .developed }
+        if isIndeterminateMember(repID) { return .indeterminate }
+        return .sooc
+    }
+
     func displayKind(for group: ShotGroup, xmps: [UInt64: XmpData]) -> PhotoKind {
         let groupMinDate = group.memberIDs.compactMap { entries[$0]?.createdDate }.min()
         var best: PhotoKind = .indeterminate
@@ -330,16 +511,110 @@ final class ScanStore: ReindexedGroupSink {
         return entries[id]?.url
     }
 
+    private func filteredRepresentativeID(for group: ShotGroup, kinds: Set<PhotoKind>, xmps: [UInt64: XmpData]) -> UInt64? {
+        let members = group.memberIDs
+        guard !members.isEmpty else { return nil }
+
+        let groupMinDate = members.compactMap { entries[$0]?.createdDate }.min()
+        var devMembers: [UInt64] = []
+        var soocMembers: [UInt64] = []
+        var rawMembers: [UInt64] = []
+        var indMembers: [UInt64] = []
+
+        for id in members {
+            guard let entry = entries[id] else { continue }
+            if entry.isRaw {
+                rawMembers.append(id)
+            } else if isDevelopedMember(id, xmps: xmps, groupMinDate: groupMinDate) {
+                devMembers.append(id)
+            } else if isIndeterminateMember(id) {
+                indMembers.append(id)
+            } else {
+                soocMembers.append(id)
+            }
+        }
+
+        if kinds.contains(.developed), !devMembers.isEmpty, !soocMembers.isEmpty {
+            return devMembers[0]
+        } else if kinds.contains(.sooc), !soocMembers.isEmpty {
+            return soocMembers[0]
+        } else if kinds.contains(.indeterminate), !indMembers.isEmpty {
+            return indMembers[0]
+        } else if kinds.contains(.raw), !rawMembers.isEmpty {
+            return rawMembers.max {
+                (entries[$0]?.createdDate ?? .distantPast) < (entries[$1]?.createdDate ?? .distantPast)
+            }
+        }
+        return nil
+    }
+
+    private func replacingRepresentative(_ representativeID: UInt64, in group: ShotGroup) -> ShotGroup {
+        var filteredGroup = group
+        filteredGroup.memberIDs = [representativeID] + group.memberIDs.filter { $0 != representativeID }
+        return filteredGroup
+    }
+
     // MARK: - Filtered view
 
     func filteredGroups(ratings: [UInt64: XmpData]) -> [ShotGroup] {
-        guard filterMinRating != nil || filterLabel != nil else { return groups }
-        return groups.filter { group in
-            guard let repID = group.representativeID else { return false }
-            let xmp = ratings[repID]
-            if let min = filterMinRating, (xmp?.rating ?? 0) < min { return false }
-            if let lbl = filterLabel, xmp?.label != lbl { return false }
-            return true
+        guard isFilterActive else { return groups }
+        return groups.compactMap { group in
+            guard let repID = group.representativeID else { return nil }
+            let xmp  = ratings[repID]
+            let exif = exifs[repID]
+
+            if !filterRatings.isEmpty, !filterRatings.contains(xmp?.rating ?? 0) { return nil }
+            if !filterLabels.isEmpty {
+                guard let lbl = xmp?.label, filterLabels.contains(lbl) else { return nil }
+            }
+            var filteredGroup = group
+            if !filterKinds.isEmpty {
+                guard let representativeID = filteredRepresentativeID(for: group, kinds: filterKinds, xmps: ratings) else {
+                    return nil
+                }
+                filteredGroup = replacingRepresentative(representativeID, in: group)
+            }
+            if !filterCameras.isEmpty {
+                guard let cam = exif?.cameraName, filterCameras.contains(cam) else { return nil }
+            }
+            if !filterLenses.isEmpty {
+                guard let lens = exif?.lensName, filterLenses.contains(lens) else { return nil }
+            }
+            if !filterArtists.isEmpty {
+                guard let artist = exif?.artist, filterArtists.contains(artist) else { return nil }
+            }
+            if !isoMin.isEmpty || !isoMax.isEmpty {
+                guard let iso = exif?.iso else { return nil }
+                if let min = Int(isoMin), iso < min { return nil }
+                if let max = Int(isoMax), iso > max { return nil }
+            }
+            if !focalMin.isEmpty || !focalMax.isEmpty {
+                guard let mm = exif?.effectiveFocalMm else { return nil }
+                if let min = Double(focalMin), mm <= min { return nil }
+                if let max = Double(focalMax), mm > max  { return nil }
+            }
+            if !shutterMin.isEmpty || !shutterMax.isEmpty {
+                guard let s = exif?.shutterSeconds else { return nil }
+                if let min = Self.parseSeconds(shutterMin), s <= min { return nil }
+                if let max = Self.parseSeconds(shutterMax), s > max  { return nil }
+            }
+            if !apertureMin.isEmpty || !apertureMax.isEmpty {
+                guard let f = exif?.fnumberValue else { return nil }
+                if let min = Double(apertureMin), f <= min { return nil }
+                if let max = Double(apertureMax), f > max  { return nil }
+            }
+            return filteredGroup
         }
+    }
+
+    private static func parseSeconds(_ s: String) -> Double? {
+        guard !s.isEmpty else { return nil }
+        if let v = Double(s) { return v }
+        let parts = s.split(separator: "/")
+        guard parts.count == 2,
+              let n = Double(parts[0]),
+              let d = Double(parts[1]),
+              d != 0 else { return nil }
+        return n / d
     }
 }

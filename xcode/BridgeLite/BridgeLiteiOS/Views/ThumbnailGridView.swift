@@ -4,7 +4,7 @@ struct ThumbnailGridView: View {
     @State var scanStore: ScanStore
     @State var ratingStore: RatingStore
     @State private var selectedGroup: ShotGroup?
-    @State private var showFilter = false
+    @State private var selectedFilterCategory: FilterCategory?
     @State private var showExportAll = false
     @State private var exportURLs: [URL] = []
     @State private var showFolderPicker = false
@@ -39,11 +39,25 @@ struct ThumbnailGridView: View {
                 } else {
                     grid
                 }
+
+                if selectedFilterCategory != nil {
+                    Color.black.opacity(0.38)
+                        .ignoresSafeArea()
+                        .onTapGesture {
+                            withAnimation(.easeInOut(duration: 0.2)) {
+                                selectedFilterCategory = nil
+                            }
+                        }
+                        .transition(.opacity)
+                        .allowsHitTesting(true)
+                }
             }
+            .animation(.easeInOut(duration: 0.2), value: selectedFilterCategory)
             .navigationTitle(scanStore.folderURL?.lastPathComponent ?? "BridgeLite")
             .navigationBarTitleDisplayMode(.inline)
             .glassNavigationBar()
             .toolbar { toolbar }
+            .safeAreaInset(edge: .bottom, spacing: 0) { filterBottomBar }
             .sheet(item: $selectedGroup) { group in
                 DetailView(
                     group: group,
@@ -54,15 +68,9 @@ struct ThumbnailGridView: View {
                         get: { ratingStore.ratings },
                         set: { ratingStore.ratings = $0 }
                     ),
-                    db: scanStore.db
+                    db: scanStore.db,
+                    jpgWriteMode: scanStore.jpgWriteMode
                 )
-            }
-            .sheet(isPresented: $showFilter) {
-                FilterSheetView(
-                    minRating: $scanStore.filterMinRating,
-                    filterLabel: $scanStore.filterLabel
-                ) { showFilter = false }
-                .presentationDetents([.medium])
             }
             .sheet(isPresented: $showExportAll) {
                 ExportSheet(urls: exportURLs) { showExportAll = false }
@@ -79,7 +87,7 @@ struct ThumbnailGridView: View {
             }
             .onChange(of: scanStore.entries) { _, newEntries in
                 let all = Array(newEntries.values)
-                Task { await ratingStore.loadAll(entries: all) }
+                Task { await ratingStore.loadAll(entries: all, jpgWriteMode: scanStore.jpgWriteMode) }
             }
         }
     }
@@ -87,7 +95,6 @@ struct ThumbnailGridView: View {
     private var grid: some View {
         GeometryReader { geo in
             let n = CGFloat(columnCount)
-            // セル幅を確定：パディング 2 点 × 2 辺 + 間隔 × (列数-1) を除いた幅を等分
             let cellSize: CGFloat = columnCount == 3
                 ? (geo.size.width - gridSpacing * 2 - gridSpacing * (n - 1)) / n
                 : 0
@@ -101,7 +108,7 @@ struct ThumbnailGridView: View {
                             thumbnails: scanStore.thumbnails,
                             ratings: ratingStore.ratings,
                             exifs: scanStore.exifs,
-                            kind: scanStore.displayKind(for: group, xmps: ratingStore.ratings),
+                            kind: scanStore.representativeKind(for: group, xmps: ratingStore.ratings),
                             squareCellSize: columnCount == 3 ? cellSize : nil,
                             isSelected: selectedGroup?.id == group.id
                         ) {
@@ -140,12 +147,10 @@ struct ThumbnailGridView: View {
                 Image(systemName: "folder")
             }
         }
-
         ToolbarItemGroup(placement: .navigationBarTrailing) {
             Button { showSettings = true } label: {
                 Image(systemName: "gearshape")
             }
-
             Button {
                 exportURLs = ExportService.urlsForGroups(
                     scanStore.filteredGroups(ratings: ratingStore.ratings),
@@ -157,24 +162,26 @@ struct ThumbnailGridView: View {
                 Image(systemName: "square.and.arrow.up")
             }
             .disabled(scanStore.groups.isEmpty)
-
-            Button {
-                if isFiltering {
-                    scanStore.filterMinRating = nil
-                    scanStore.filterLabel = nil
-                } else {
-                    showFilter = true
-                }
-            } label: {
-                Image(systemName: isFiltering
-                      ? "line.3.horizontal.decrease.circle.fill"
-                      : "line.3.horizontal.decrease.circle")
-                    .foregroundStyle(isFiltering ? Color.accentColor : Color.primary)
-            }
         }
     }
 
-    private var isFiltering: Bool {
-        scanStore.filterMinRating != nil || scanStore.filterLabel != nil
+    @ViewBuilder
+    private var filterBottomBar: some View {
+        // Keep this container background-free; material in a safeAreaInset can fill
+        // the bottom safe area. Glass/material belongs on the shaped child views.
+        VStack(spacing: 0) {
+            if let category = selectedFilterCategory {
+                FilterOptionsPanelView(
+                    category: category,
+                    scanStore: scanStore,
+                    ratings: ratingStore.ratings
+                )
+                .transition(.move(edge: .bottom).combined(with: .opacity))
+            }
+            FilterBarView(selectedCategory: $selectedFilterCategory, scanStore: scanStore)
+                .padding(.horizontal, 16)
+                .padding(.vertical, 8)
+        }
+        .animation(.easeInOut(duration: 0.2), value: selectedFilterCategory)
     }
 }
