@@ -493,6 +493,19 @@ private struct PhotoInfoCard: View {
                         .frame(maxWidth: .infinity, alignment: .center)
                         .padding(.vertical, 8)
                 }
+
+                Color.white.opacity(0.12).frame(height: 0.5)
+                HStack {
+                    Text(entry.formattedFileSize)
+                    Spacer()
+                    if let res = exif?.resolutionString {
+                        Text(res)
+                    }
+                }
+                .font(Self.exifFont)
+                .foregroundStyle(.white.opacity(0.6))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 8)
             }
             .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
         }
