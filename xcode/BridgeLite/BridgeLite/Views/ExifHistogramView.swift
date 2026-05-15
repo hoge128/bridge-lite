@@ -116,7 +116,7 @@ struct ExifHistogramView: View {
                                     let rIdx = rightIndex
                                     let lx = CGFloat(lIdx) * barW
                                     let rx = CGFloat(rIdx + 1) * barW
-                                    let handleZone = max(barW * 0.5, 10)
+                                    let handleZone = max(barW * 0.5, 22)
 
                                     if abs(x - lx) < handleZone {
                                         activeHandle = .left
