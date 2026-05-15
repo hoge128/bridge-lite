@@ -71,6 +71,7 @@ struct ThumbnailGridView: View {
                     ),
                     db: scanStore.db,
                     jpgWriteMode: scanStore.jpgWriteMode,
+                    scanStore: scanStore,
                     preferRendered: $preferRendered
                 )
             }

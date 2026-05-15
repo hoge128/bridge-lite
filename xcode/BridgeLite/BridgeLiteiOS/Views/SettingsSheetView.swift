@@ -39,6 +39,12 @@ struct SettingsSheetView: View {
                     .disabled(scanStore.jpgWriteMode != .embed || !JpgMetadataDefaults.hasShownJpgEmbedWarning())
                 }
 
+                Section(String(localized: "settings.propagation.section", defaultValue: "Rating Propagation")) {
+                    propagationGrid
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                }
+
                 Section(String(localized: "settings.filter_order.section", defaultValue: "Filter Order")) {
                     NavigationLink(String(localized: "settings.filter_order.customize", defaultValue: "Customize Order")) {
                         FilterOrderEditorView(scanStore: scanStore)
@@ -82,6 +88,49 @@ struct SettingsSheetView: View {
         } message: {
             Text("Thumbnail cache will be deleted and regenerated on the next scan.")
         }
+    }
+
+    // MARK: - Propagation grid
+
+    @ViewBuilder
+    private var propagationGrid: some View {
+        @Bindable var store = scanStore
+        let soocLabel = PhotoKind.sooc.localizedName
+        let devLabel  = PhotoKind.developed.localizedName
+
+        Grid(alignment: .center, horizontalSpacing: 12, verticalSpacing: 6) {
+            GridRow {
+                Text("").gridCellAnchor(.center)
+                Text(soocLabel).font(.caption).foregroundStyle(.secondary)
+                Text("RAW").font(.caption).foregroundStyle(.secondary)
+                Text(devLabel).font(.caption).foregroundStyle(.secondary)
+            }
+            Divider().gridCellUnsizedAxes(.horizontal)
+            GridRow {
+                Text(soocLabel).font(.caption)
+                propagationLockedCell
+                Toggle("", isOn: $store.soocToRaw).labelsHidden()
+                Toggle("", isOn: $store.soocToDeveloped).labelsHidden()
+            }
+            GridRow {
+                Text("RAW").font(.caption)
+                Toggle("", isOn: $store.rawToSooc).labelsHidden()
+                propagationLockedCell
+                Toggle("", isOn: $store.rawToDeveloped).labelsHidden()
+            }
+            GridRow {
+                Text(devLabel).font(.caption)
+                Toggle("", isOn: $store.developedToSooc).labelsHidden()
+                Toggle("", isOn: $store.developedToRaw).labelsHidden()
+                propagationLockedCell
+            }
+        }
+    }
+
+    private var propagationLockedCell: some View {
+        Image(systemName: "checkmark.circle.fill")
+            .foregroundStyle(.secondary)
+            .gridCellAnchor(.center)
     }
 }
 

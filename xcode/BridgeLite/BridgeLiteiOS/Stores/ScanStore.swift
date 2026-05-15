@@ -1,6 +1,35 @@
 import Foundation
 import Observation
 
+// MARK: - PropagationMatrix
+
+struct PropagationMatrix: Sendable, Equatable {
+    var soocToRaw:       Bool
+    var soocToDeveloped: Bool
+    var rawToSooc:       Bool
+    var rawToDeveloped:  Bool
+    var developedToSooc: Bool
+    var developedToRaw:  Bool
+
+    func targets(for source: PhotoKind) -> Set<PhotoKind> {
+        var result: Set<PhotoKind> = [source]
+        switch source {
+        case .sooc:
+            if soocToRaw       { result.insert(.raw) }
+            if soocToDeveloped { result.insert(.developed) }
+        case .raw:
+            if rawToSooc       { result.insert(.sooc) }
+            if rawToDeveloped  { result.insert(.developed) }
+        case .developed:
+            if developedToSooc { result.insert(.sooc) }
+            if developedToRaw  { result.insert(.raw) }
+        case .indeterminate:
+            break
+        }
+        return result
+    }
+}
+
 enum IOSSortKey: String, CaseIterable {
     case filename
     case modifiedDate
@@ -244,6 +273,42 @@ final class ScanStore: ReindexedGroupSink {
     }
     var jpgWriteMode: JpgWriteMode = JpgMetadataDefaults.readJpgWriteMode() {
         didSet { UserDefaults.standard.set(jpgWriteMode.rawValue, forKey: JpgMetadataDefaults.jpgWriteModeKey) }
+    }
+
+    // MARK: - Propagation settings (same UserDefaults keys as macOS)
+
+    private static func boolPref(_ key: String, default value: Bool) -> Bool {
+        UserDefaults.standard.object(forKey: key) == nil ? value : UserDefaults.standard.bool(forKey: key)
+    }
+
+    var soocToRaw: Bool = ScanStore.boolPref("propagate.soocToRaw", default: true) {
+        didSet { UserDefaults.standard.set(soocToRaw, forKey: "propagate.soocToRaw") }
+    }
+    var soocToDeveloped: Bool = ScanStore.boolPref("propagate.soocToDeveloped", default: false) {
+        didSet { UserDefaults.standard.set(soocToDeveloped, forKey: "propagate.soocToDeveloped") }
+    }
+    var rawToSooc: Bool = ScanStore.boolPref("propagate.rawToSooc", default: true) {
+        didSet { UserDefaults.standard.set(rawToSooc, forKey: "propagate.rawToSooc") }
+    }
+    var rawToDeveloped: Bool = ScanStore.boolPref("propagate.rawToDeveloped", default: false) {
+        didSet { UserDefaults.standard.set(rawToDeveloped, forKey: "propagate.rawToDeveloped") }
+    }
+    var developedToSooc: Bool = ScanStore.boolPref("propagate.developedToSooc", default: false) {
+        didSet { UserDefaults.standard.set(developedToSooc, forKey: "propagate.developedToSooc") }
+    }
+    var developedToRaw: Bool = ScanStore.boolPref("propagate.developedToRaw", default: false) {
+        didSet { UserDefaults.standard.set(developedToRaw, forKey: "propagate.developedToRaw") }
+    }
+
+    var propagationMatrix: PropagationMatrix {
+        PropagationMatrix(
+            soocToRaw:       soocToRaw,
+            soocToDeveloped: soocToDeveloped,
+            rawToSooc:       rawToSooc,
+            rawToDeveloped:  rawToDeveloped,
+            developedToSooc: developedToSooc,
+            developedToRaw:  developedToRaw
+        )
     }
 
     // MARK: - Internal
@@ -509,6 +574,26 @@ final class ScanStore: ReindexedGroupSink {
     }
 
     // MARK: - Kind 判定 (Mac LibraryStore と同等)
+
+    func groupTargets(for id: UInt64, xmps: [UInt64: XmpData]) -> [UInt64] {
+        guard let entry = entries[id],
+              let group = groups.first(where: { $0.memberIDs.contains(id) }) else { return [id] }
+        let members = group.memberIDs
+        let groupMinDate = members.compactMap { entries[$0]?.createdDate }.min()
+        let sourceKind = entryKind(id: id, entry: entry, groupMinDate: groupMinDate, xmps: xmps)
+        let targetKinds = propagationMatrix.targets(for: sourceKind)
+        return members.filter { mid in
+            guard let me = entries[mid] else { return false }
+            return targetKinds.contains(entryKind(id: mid, entry: me, groupMinDate: groupMinDate, xmps: xmps))
+        }
+    }
+
+    private func entryKind(id: UInt64, entry: PhotoEntry, groupMinDate: Date?, xmps: [UInt64: XmpData]) -> PhotoKind {
+        if entry.isRaw { return .raw }
+        if isDevelopedMember(id, xmps: xmps, groupMinDate: groupMinDate) { return .developed }
+        if isIndeterminateMember(id) { return .indeterminate }
+        return .sooc
+    }
 
     func isDevelopedMember(_ id: UInt64, xmps: [UInt64: XmpData], groupMinDate: Date?) -> Bool {
         guard let entry = entries[id], !entry.isRaw else { return false }
