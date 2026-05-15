@@ -87,9 +87,6 @@ struct ThumbnailGridView: View {
                 let all = Array(newEntries.values)
                 Task { await ratingStore.loadAll(entries: all, jpgWriteMode: scanStore.jpgWriteMode) }
             }
-            .onChange(of: scanStore.folderURL) { _, url in
-                if url == nil { showFolderPicker = true }
-            }
         }
     }
 

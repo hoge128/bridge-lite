@@ -4,12 +4,20 @@ struct ContentView: View {
     @State private var scanStore = ScanStore()
     @State private var ratingStore = RatingStore()
     @State private var showFolderPicker = false
+    @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
-        if scanStore.folderURL != nil {
-            ThumbnailGridView(scanStore: scanStore, ratingStore: ratingStore)
-        } else {
-            welcomeView
+        Group {
+            if scanStore.folderURL != nil {
+                ThumbnailGridView(scanStore: scanStore, ratingStore: ratingStore)
+            } else {
+                welcomeView
+            }
+        }
+        .onChange(of: scenePhase) { _, phase in
+            if phase == .active {
+                Task { await scanStore.verifyFolderReachability() }
+            }
         }
     }
 

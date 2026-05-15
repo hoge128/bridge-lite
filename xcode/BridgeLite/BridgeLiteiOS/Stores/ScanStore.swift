@@ -321,6 +321,17 @@ final class ScanStore: ReindexedGroupSink {
         folderMonitor = nil
     }
 
+    func verifyFolderReachability() async {
+        guard let url = folderURL else { return }
+        let ok = await Task.detached(priority: .utility) {
+            let started = url.startAccessingSecurityScopedResource()
+            defer { if started { url.stopAccessingSecurityScopedResource() } }
+            var isDir: ObjCBool = false
+            return FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
+        }.value
+        if !ok { resetForDetachedVolume() }
+    }
+
     func resetForDetachedVolume() {
         stopFolderMonitor()
         scanTask?.cancel()

@@ -25,7 +25,13 @@ struct FolderPickerView: UIViewControllerRepresentable {
 
         func documentPicker(_ controller: UIDocumentPickerViewController, didPickDocumentsAt urls: [URL]) {
             guard let url = urls.first else { return }
-            _ = url.startAccessingSecurityScopedResource()
+            let started = url.startAccessingSecurityScopedResource()
+            var isDir: ObjCBool = false
+            let exists = FileManager.default.fileExists(atPath: url.path, isDirectory: &isDir) && isDir.boolValue
+            guard exists else {
+                if started { url.stopAccessingSecurityScopedResource() }
+                return
+            }
             onPick(url)
         }
     }
