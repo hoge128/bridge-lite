@@ -3751,6 +3751,22 @@
         }
       }
     },
+    "raw.limited.preview.ios.notice" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Embedded thumbnail only — RAW rendering is not supported"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "埋め込みサムネイルのみ — RAW レンダリング非対応"
+          }
+        }
+      }
+    },
     "render.badge.embedded" : {
       "localizations" : {
         "en" : {

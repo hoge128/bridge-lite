@@ -34,6 +34,15 @@ struct DetailView: View {
     @State private var fullResCache: [FullResEntry] = []
     @State private var isLoadingFullRes = false
 
+    // RAW レンダリング
+    @State private var rawRendered: UIImage? = nil
+    @State private var isRendering = false
+    @State private var showRendered = false
+
+    private var isLimitedRawPreview: Bool {
+        current?.url.pathExtension.lowercased() == "cr2"
+    }
+
     init(groups: [ShotGroup],
          initialGroup: ShotGroup,
          entries: [UInt64: PhotoEntry],
@@ -130,9 +139,10 @@ struct DetailView: View {
                 currentIndex = group.representativeID.flatMap { group.memberIDs.firstIndex(of: $0) } ?? 0
             }
             .task(id: current?.id) {
+                rawRendered = nil
+                showRendered = false
                 guard let entry = current else { return }
                 await loadAndCache(entry: entry)
-                // 現在の画像がロード完了したら隣グループを先読み
                 prefetchNeighbors()
             }
             .onChange(of: isFullscreen) {
@@ -152,6 +162,9 @@ struct DetailView: View {
                     Button { dismiss() } label: {
                         Image(systemName: "xmark")
                     }
+                }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    renderButton
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
                     Button {
@@ -193,21 +206,39 @@ struct DetailView: View {
 
     @ViewBuilder
     private func photoImage(entry: PhotoEntry) -> some View {
-        let cached = fullResCache.first(where: { $0.id == entry.id })?.image
+        let cached = showRendered ? rawRendered : fullResCache.first(where: { $0.id == entry.id })?.image
         let thumb  = thumbnails[entry.id].flatMap { UIImage(data: $0) }
         let display = cached ?? thumb
 
-        if let img = display {
-            ZoomableImageView(uiImage: img, isZoomed: $isImageZoomed) {
-                withAnimation(.easeInOut(duration: 0.2)) { isFullscreen.toggle() }
+        ZStack(alignment: .bottomLeading) {
+            if let img = display {
+                ZoomableImageView(uiImage: img, isZoomed: $isImageZoomed) {
+                    withAnimation(.easeInOut(duration: 0.2)) { isFullscreen.toggle() }
+                }
+                .id(entry.id)
+                .blur(radius: (cached == nil && isLoadingFullRes) ? 8 : 0)
+                .opacity((cached == nil && isLoadingFullRes) ? 0.6 : 1.0)
+                .animation(.easeOut(duration: 0.2), value: cached == nil)
+            } else {
+                ProgressView()
             }
-            .id(entry.id)
-            // フルサイズ未着でサムネイル表示中はブラーをかけてロード中を示す
-            .blur(radius: (cached == nil && isLoadingFullRes) ? 8 : 0)
-            .opacity((cached == nil && isLoadingFullRes) ? 0.6 : 1.0)
-            .animation(.easeOut(duration: 0.2), value: cached == nil)
-        } else {
-            ProgressView()
+
+            if entry.isRaw && isLimitedRawPreview && !isFullscreen {
+                HStack(spacing: 5) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.system(size: 10, weight: .semibold))
+                        .foregroundStyle(.yellow.opacity(0.85))
+                    Text(String(localized: "raw.limited.preview.ios.notice",
+                                defaultValue: "Embedded thumbnail only — RAW rendering is not supported"))
+                        .font(.system(size: 11))
+                        .foregroundStyle(.white.opacity(0.75))
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 5)
+                .background(.black.opacity(0.55), in: RoundedRectangle(cornerRadius: 6))
+                .padding(.leading, 12)
+                .padding(.bottom, 8)
+            }
         }
     }
 
@@ -297,6 +328,46 @@ struct DetailView: View {
             }
             .padding(8)
             .presentationCompactAdaptation(.popover)
+        }
+    }
+
+    @ViewBuilder
+    private var renderButton: some View {
+        if let entry = current, entry.isRaw, !isLimitedRawPreview {
+            if isRendering {
+                ProgressView()
+                    .controlSize(.small)
+            } else if rawRendered != nil {
+                Button {
+                    showRendered.toggle()
+                } label: {
+                    Image(systemName: showRendered ? "wand.and.stars.inverse" : "wand.and.stars")
+                }
+                .help(showRendered
+                      ? String(localized: "render.toggle.embedded", defaultValue: "Show embedded preview")
+                      : String(localized: "render.toggle.rendered", defaultValue: "Show rendered preview"))
+            } else {
+                Button {
+                    triggerRender(entry: entry)
+                } label: {
+                    Image(systemName: "wand.and.stars")
+                }
+                .help(String(localized: "render.button", defaultValue: "Render with engine"))
+            }
+        }
+    }
+
+    private func triggerRender(entry: PhotoEntry) {
+        guard let db else { return }
+        Task {
+            isRendering = true
+            defer { isRendering = false }
+            if let (cgImage, _) = await RAWRenderPipeline.shared.render(
+                url: entry.url, target: .viewer, db: db
+            ) {
+                rawRendered = UIImage(cgImage: cgImage)
+                showRendered = true
+            }
         }
     }
 
