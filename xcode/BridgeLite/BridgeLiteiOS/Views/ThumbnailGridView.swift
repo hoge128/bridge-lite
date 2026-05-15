@@ -1,12 +1,11 @@
 import SwiftUI
+import UIKit
 
 struct ThumbnailGridView: View {
     @State var scanStore: ScanStore
     @State var ratingStore: RatingStore
     @State private var selectedGroup: ShotGroup?
     @State private var selectedFilterCategory: FilterCategory?
-    @State private var showExportAll = false
-    @State private var exportURLs: [URL] = []
     @State private var showFolderPicker = false
     @State private var showSettings = false
     @State private var columnCount = 3
@@ -71,10 +70,6 @@ struct ThumbnailGridView: View {
                     db: scanStore.db,
                     jpgWriteMode: scanStore.jpgWriteMode
                 )
-            }
-            .sheet(isPresented: $showExportAll) {
-                ExportSheet(urls: exportURLs) { showExportAll = false }
-                    .presentationDetents([.medium])
             }
             .sheet(isPresented: $showFolderPicker) {
                 FolderPickerView { url in
@@ -155,17 +150,47 @@ struct ThumbnailGridView: View {
                 Image(systemName: "gearshape")
             }
             Button {
-                exportURLs = ExportService.urlsForGroups(
-                    scanStore.filteredGroups(ratings: ratingStore.ratings),
-                    scanStore: scanStore,
-                    xmps: ratingStore.ratings
-                )
-                showExportAll = true
+                let groups = scanStore.filteredGroups(ratings: ratingStore.ratings)
+                let urls = ExportService.urlsForGroups(groups, scanStore: scanStore, xmps: ratingStore.ratings)
+                guard !urls.isEmpty else { return }
+                // 先頭グループのサムネイルをプレビューとして渡す
+                var preview: UIImage? = nil
+                if let firstGroup = groups.first,
+                   let repID = firstGroup.representativeID,
+                   let data = scanStore.thumbnails[repID] {
+                    preview = UIImage(data: data)
+                }
+                presentActivityController(urls: urls, preview: preview, count: urls.count)
             } label: {
                 Image(systemName: "square.and.arrow.up")
             }
             .disabled(scanStore.groups.isEmpty)
         }
+    }
+
+    private func presentActivityController(urls: [URL], preview: UIImage?, count: Int) {
+        guard let windowScene = UIApplication.shared.connectedScenes
+                .compactMap({ $0 as? UIWindowScene })
+                .first(where: { $0.activationState == .foregroundActive }),
+              let window = windowScene.windows.first(where: { $0.isKeyWindow }) else { return }
+        var topVC = window.rootViewController
+        while let presented = topVC?.presentedViewController { topVC = presented }
+        guard let topVC else { return }
+
+        // 先頭 URL にサムネイルプレビューを添付し、残りは URL のまま渡す
+        var items: [Any]
+        if let preview, let first = urls.first {
+            let title = count == 1
+                ? String(localized: "export.preview.single", defaultValue: "1 file")
+                : String(localized: "export.preview.multiple \(count)")
+            items = [ActivityURLWithPreview(url: first, previewImage: preview, title: title)]
+                + Array(urls.dropFirst())
+        } else {
+            items = urls
+        }
+
+        let actVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        topVC.present(actVC, animated: true)
     }
 
     @ViewBuilder
