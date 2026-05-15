@@ -38,6 +38,8 @@ struct DetailView: View {
     @State private var rawRendered: UIImage? = nil
     @State private var isRendering = false
     @State private var showRendered = false
+    // true のとき、次の RAW に移動しても自動レンダリングする
+    @State private var preferRendered = false
 
     private var isLimitedRawPreview: Bool {
         current?.url.pathExtension.lowercased() == "cr2"
@@ -144,6 +146,16 @@ struct DetailView: View {
                 guard let entry = current else { return }
                 await loadAndCache(entry: entry)
                 prefetchNeighbors()
+                // preferRendered が有効な RAW なら自動レンダリング
+                guard preferRendered, entry.isRaw, !isLimitedRawPreview, let db else { return }
+                isRendering = true
+                defer { isRendering = false }
+                if let (cgImage, _) = await RAWRenderPipeline.shared.render(
+                    url: entry.url, target: .viewer, db: db
+                ) {
+                    rawRendered = UIImage(cgImage: cgImage)
+                    showRendered = true
+                }
             }
             .onChange(of: isFullscreen) {
                 allowLandscape = isFullscreen
@@ -259,6 +271,7 @@ struct DetailView: View {
             Button {
                 if rawRendered != nil {
                     showRendered.toggle()
+                    preferRendered = showRendered  // 埋め込みに戻したら自動レンダリングを解除
                 } else {
                     triggerRender(entry: entry)
                 }
@@ -371,6 +384,7 @@ struct DetailView: View {
 
     private func triggerRender(entry: PhotoEntry) {
         guard let db else { return }
+        preferRendered = true
         Task {
             isRendering = true
             defer { isRendering = false }
