@@ -110,9 +110,9 @@ struct FilterBarView: View {
             }
             .padding(.horizontal, 13)
             .padding(.vertical, 9)
-            .foregroundStyle(Color.accentColor)
+            .foregroundStyle(Color.red)
         }
-        .buttonStyle(GlassChipButtonStyle(isSelected: true, isActive: false))
+        .buttonStyle(GlassChipButtonStyle(isSelected: true, isActive: false, tintColor: .red))
         .contentShape(Capsule())
     }
 }
@@ -154,34 +154,36 @@ private struct GlassFilterChip: View {
 private struct GlassChipButtonStyle: ButtonStyle {
     var isSelected: Bool
     var isActive: Bool
+    var tintColor: Color = .accentColor
 
     func makeBody(configuration: Configuration) -> some View {
-        GlassChipBody(configuration: configuration, isSelected: isSelected, isActive: isActive)
+        GlassChipBody(configuration: configuration, isSelected: isSelected, isActive: isActive, tintColor: tintColor)
     }
 
     private struct GlassChipBody: View {
         let configuration: Configuration
         let isSelected: Bool
         let isActive: Bool
+        let tintColor: Color
 
         var body: some View {
             if #available(iOS 26, *) {
                 configuration.label
                     .glassEffect(
                         isActive
-                            ? .regular.interactive(true).tint(Color.accentColor.opacity(0.22))
-                            : .regular.interactive(true),
+                            ? .regular.interactive(true).tint(tintColor.opacity(0.22))
+                            : .regular.interactive(true).tint(isSelected ? tintColor.opacity(0.22) : Color.clear.opacity(0)),
                         in: Capsule()
                     )
                     .overlay(
                         Capsule()
                             .stroke(
-                                isSelected ? Color.accentColor.opacity(0.55) : Color.clear,
+                                isSelected ? tintColor.opacity(0.55) : Color.clear,
                                 lineWidth: 1
                             )
                     )
                     .shadow(
-                        color: isActive ? Color.accentColor.opacity(0.40) : .clear,
+                        color: isSelected ? tintColor.opacity(0.40) : .clear,
                         radius: 8, x: 0, y: 1
                     )
                     .opacity(configuration.isPressed ? 0.72 : 1)
@@ -190,19 +192,19 @@ private struct GlassChipButtonStyle: ButtonStyle {
                 configuration.label
                     .background(
                         isActive || isSelected
-                            ? AnyShapeStyle(Color.accentColor.opacity(isActive ? 0.16 : 0.14))
+                            ? AnyShapeStyle(tintColor.opacity(isActive ? 0.16 : 0.14))
                             : AnyShapeStyle(.ultraThinMaterial),
                         in: Capsule()
                     )
                     .overlay(
                         Capsule()
                             .stroke(
-                                isSelected ? Color.accentColor.opacity(0.55) : Color.secondary.opacity(0.2),
+                                isSelected ? tintColor.opacity(0.55) : Color.secondary.opacity(0.2),
                                 lineWidth: 1
                             )
                     )
                     .shadow(
-                        color: isActive ? Color.accentColor.opacity(0.38) : .clear,
+                        color: isSelected ? tintColor.opacity(0.38) : .clear,
                         radius: 8, x: 0, y: 1
                     )
                     .opacity(configuration.isPressed ? 0.72 : 1)
