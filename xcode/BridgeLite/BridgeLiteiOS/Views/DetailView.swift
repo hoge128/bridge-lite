@@ -379,6 +379,19 @@ private struct PhotoInfoCard: View {
 
     private static let exifFont: Font = .system(.caption2, design: .monospaced)
 
+    // EXIF datetime は "yyyy:MM:dd HH:mm:ss" 固定フォーマット
+    private static let exifDateParser: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        f.locale = Locale(identifier: "en_US_POSIX")
+        return f
+    }()
+    private static let displayDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.dateFormat = "yyyy/MM/dd  HH:mm:ss"
+        return f
+    }()
+
     private var fText: String? { exif?.fnumber }
     private var ssText: String? {
         guard let s = exif?.exposureTime else { return nil }
@@ -391,6 +404,11 @@ private struct PhotoInfoCard: View {
         return "\(v) mm"
     }
     private var evText: String? { exif?.exposureBias }
+    private var datetimeText: String? {
+        guard let raw = exif?.datetime,
+              let date = Self.exifDateParser.date(from: raw) else { return exif?.datetime }
+        return Self.displayDateFormatter.string(from: date)
+    }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 8) {
@@ -466,6 +484,15 @@ private struct PhotoInfoCard: View {
                     exifCell(ssText)
                 }
                 .padding(.vertical, 10)
+
+                if let dt = datetimeText {
+                    Color.white.opacity(0.12).frame(height: 0.5)
+                    Text(dt)
+                        .font(Self.exifFont)
+                        .foregroundStyle(.white.opacity(0.6))
+                        .frame(maxWidth: .infinity, alignment: .center)
+                        .padding(.vertical, 8)
+                }
             }
             .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
         }
