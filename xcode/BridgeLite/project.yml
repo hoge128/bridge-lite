@@ -119,6 +119,8 @@ targets:
       - path: BridgeLite/Models/ExifData.swift
       - path: BridgeLite/Models/XmpData.swift
       - path: BridgeLite/Models/ShotGroup.swift
+      - path: BridgeLite/Models/ExifBucket.swift
+      - path: BridgeLite/Views/ExifHistogramView.swift
       - path: BridgeLite/Models/PhotoKind.swift
       - path: BridgeLite/Bridging/BridgeCore.swift
       - path: BridgeLite/Bridging/ImageEntry+Convert.swift
@@ -136,6 +138,8 @@ targets:
         IPHONEOS_DEPLOYMENT_TARGET: "18.0"
         PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite.ios
         PRODUCT_NAME: BridgeLite
+        DEVELOPMENT_TEAM: KTQ8JQW28L
+        CODE_SIGN_STYLE: Automatic
         SWIFT_EMIT_LOC_STRINGS: YES
         # Rust static library (path selected per-SDK in RustLink.xcconfig)
         OTHER_LDFLAGS: $(inherited) -lbridge_ffi -lc++

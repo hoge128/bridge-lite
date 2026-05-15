@@ -229,6 +229,7 @@ final class ScanStore: ReindexedGroupSink {
     private(set) var scanGeneration: Int = 0
     private var pairingPipeline = PairingPipeline()
     private var lastImageList: BridgeCoreImageList?
+    private var folderMonitor: (any DispatchSourceFileSystemObject)?
 
     // MARK: - Init
 
@@ -267,6 +268,50 @@ final class ScanStore: ReindexedGroupSink {
         scanGeneration &+= 1
         let gen = scanGeneration
         scanTask = Task { await performScan(url: url, gen: gen) }
+        startFolderMonitor(url: url)
+    }
+
+    // NOTE_REVOKE fires when the volume containing the folder is unmounted (SD card removed).
+    private func startFolderMonitor(url: URL) {
+        stopFolderMonitor()
+        _ = url.startAccessingSecurityScopedResource()
+        let fd = open(url.path, O_EVTONLY)
+        url.stopAccessingSecurityScopedResource()
+        guard fd >= 0 else { return }
+        let source = DispatchSource.makeFileSystemObjectSource(
+            fileDescriptor: fd,
+            eventMask: [.delete, .rename, .revoke],
+            queue: .main
+        )
+        source.setEventHandler { [weak self] in
+            Task { @MainActor [weak self] in self?.resetForDetachedVolume() }
+        }
+        source.setCancelHandler { close(fd) }
+        source.resume()
+        folderMonitor = source
+    }
+
+    private func stopFolderMonitor() {
+        folderMonitor?.cancel()
+        folderMonitor = nil
+    }
+
+    func resetForDetachedVolume() {
+        stopFolderMonitor()
+        scanTask?.cancel()
+        scanTask = nil
+        scanGeneration &+= 1
+        isScanning = false
+        scanError = nil
+        entries = [:]
+        groups = []
+        thumbnails = [:]
+        exifs = [:]
+        scanTotalCount = 0
+        scanLoadedCount = 0
+        db = nil
+        folderURL = nil
+        BookmarkStore.clear()
     }
 
     private func performScan(url: URL, gen: Int) async {
@@ -370,6 +415,7 @@ final class ScanStore: ReindexedGroupSink {
     }
 
     func clearCache() {
+        stopFolderMonitor()
         scanTask?.cancel()
         try? FileManager.default.removeItem(at: Self.cacheDBURL())
         db = nil
