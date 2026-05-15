@@ -39,6 +39,12 @@ struct SettingsSheetView: View {
                     .disabled(scanStore.jpgWriteMode != .embed || !JpgMetadataDefaults.hasShownJpgEmbedWarning())
                 }
 
+                Section(String(localized: "settings.filter_order.section", defaultValue: "Filter Order")) {
+                    NavigationLink(String(localized: "settings.filter_order.customize", defaultValue: "Customize Order")) {
+                        FilterOrderEditorView(scanStore: scanStore)
+                    }
+                }
+
                 Section(String(localized: "Cache")) {
                     LabeledContent(String(localized: "Cache Size")) {
                         Text(Self.byteFormatter.string(fromByteCount: cacheSizeBytes))
@@ -60,8 +66,9 @@ struct SettingsSheetView: View {
                 }
             }
         }
-        .presentationDetents([.medium])
+        .presentationDetents([.medium, .large])
         .onAppear { cacheSizeBytes = ScanStore.cacheSizeBytes() }
+        .interactiveDismissDisabled(false)
         .confirmationDialog(
             String(localized: "Clear Cache?"),
             isPresented: $showCacheClearConfirm,
@@ -74,6 +81,35 @@ struct SettingsSheetView: View {
             Button(String(localized: "Cancel"), role: .cancel) {}
         } message: {
             Text("Thumbnail cache will be deleted and regenerated on the next scan.")
+        }
+    }
+}
+
+// MARK: - Filter Order Editor
+
+struct FilterOrderEditorView: View {
+    @Bindable var scanStore: ScanStore
+
+    var body: some View {
+        List {
+            ForEach(scanStore.filterCategoryOrder) { cat in
+                Label(cat.title, systemImage: cat.icon)
+            }
+            .onMove { from, to in
+                scanStore.filterCategoryOrder.move(fromOffsets: from, toOffset: to)
+                scanStore.saveFilterCategoryOrder()
+            }
+        }
+        .environment(\.editMode, .constant(.active))
+        .navigationTitle(String(localized: "settings.filter_order.title", defaultValue: "Filter Order"))
+        .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button(String(localized: "settings.filter_order.reset", defaultValue: "Reset to Default")) {
+                    withAnimation { scanStore.resetFilterCategoryOrder() }
+                }
+                .disabled(scanStore.filterCategoryOrder == FilterCategory.allCases)
+            }
         }
     }
 }

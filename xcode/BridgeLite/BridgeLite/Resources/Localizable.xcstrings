@@ -2198,6 +2198,22 @@
         }
       }
     },
+    "filter.kind.camera_only" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Camera shots only"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カメラ撮影のみ"
+          }
+        }
+      }
+    },
     "filter.no_data" : {
       "localizations" : {
         "en" : {
@@ -2210,6 +2226,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "データなし"
+          }
+        }
+      }
+    },
+    "settings.filter_order.section" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter Order"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フィルター順"
+          }
+        }
+      }
+    },
+    "settings.filter_order.customize" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Customize Order"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "並び順をカスタマイズ"
+          }
+        }
+      }
+    },
+    "settings.filter_order.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter Order"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フィルター順"
+          }
+        }
+      }
+    },
+    "settings.filter_order.reset" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Reset to Default"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "デフォルトに戻す"
           }
         }
       }

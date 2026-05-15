@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Filter category
 
 enum FilterCategory: String, CaseIterable, Identifiable {
-    case rating, label, kind, camera, lens, artist, iso, focal, shutter, aperture
+    case kind, rating, label, aperture, focal, shutter, iso, camera, lens, artist
     var id: String { rawValue }
 
     var icon: String {
@@ -79,7 +79,7 @@ struct FilterBarView: View {
                     .transition(.scale.combined(with: .opacity))
                     .id("reset")
             }
-            ForEach(FilterCategory.allCases) { cat in
+            ForEach(scanStore.filterCategoryOrder) { cat in
                 GlassFilterChip(
                     category: cat,
                     isSelected: selectedCategory == cat,
@@ -339,17 +339,32 @@ struct FilterCategoryContent: View {
     }
 
     private var kindRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ForEach([PhotoKind.raw, .sooc, .developed], id: \.self) { kind in
-                    Button(kind.localizedBadgeName) {
-                        scanStore.toggleKind(kind)
+        VStack(alignment: .leading, spacing: 10) {
+            ScrollView(.horizontal, showsIndicators: false) {
+                HStack(spacing: 8) {
+                    ForEach([PhotoKind.raw, .sooc, .developed, .indeterminate], id: \.self) { kind in
+                        Button(kind.localizedName) {
+                            scanStore.toggleKind(kind)
+                        }
+                        .buttonStyle(.adaptiveGlass(isActive: scanStore.filterKinds.contains(kind)))
+                        .font(.caption)
                     }
-                    .buttonStyle(.adaptiveGlass(isActive: scanStore.filterKinds.contains(kind)))
-                    .font(.caption)
+                }
+                .padding(.vertical, 2)
+            }
+
+            Button {
+                scanStore.filterCameraOnly.toggle()
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: scanStore.filterCameraOnly ? "checkmark.circle.fill" : "circle")
+                        .foregroundStyle(scanStore.filterCameraOnly ? Color.accentColor : Color.secondary)
+                    Text(String(localized: "filter.kind.camera_only", defaultValue: "Camera shots only"))
+                        .font(.caption)
+                        .foregroundStyle(scanStore.filterCameraOnly ? Color.primary : Color.secondary)
                 }
             }
-            .padding(.vertical, 2)
+            .buttonStyle(.plain)
         }
     }
 

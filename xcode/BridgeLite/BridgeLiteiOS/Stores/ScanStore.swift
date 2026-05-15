@@ -31,11 +31,36 @@ final class ScanStore: ReindexedGroupSink {
     private(set) var scanTotalCount: Int = 0
     private(set) var scanLoadedCount: Int = 0
 
+    // MARK: - Filter category order
+
+    private static let filterCategoryOrderKey = "ios.filterCategoryOrder"
+
+    var filterCategoryOrder: [FilterCategory] = ScanStore.loadFilterCategoryOrder()
+
+    private static func loadFilterCategoryOrder() -> [FilterCategory] {
+        guard let stored = UserDefaults.standard.stringArray(forKey: filterCategoryOrderKey) else {
+            return FilterCategory.allCases
+        }
+        let decoded = stored.compactMap { FilterCategory(rawValue: $0) }
+        let missing = FilterCategory.allCases.filter { !decoded.contains($0) }
+        return decoded + missing
+    }
+
+    func saveFilterCategoryOrder() {
+        UserDefaults.standard.set(filterCategoryOrder.map(\.rawValue), forKey: Self.filterCategoryOrderKey)
+    }
+
+    func resetFilterCategoryOrder() {
+        filterCategoryOrder = FilterCategory.allCases
+        UserDefaults.standard.removeObject(forKey: Self.filterCategoryOrderKey)
+    }
+
     // MARK: - Filter state
 
     var filterRatings: Set<Int> = []
     var filterLabels: Set<XmpLabel> = []
     var filterKinds: Set<PhotoKind> = []
+    var filterCameraOnly: Bool = false
     var filterCameras: Set<String> = []
     var filterLenses: Set<String> = []
     var filterArtists: Set<String> = []
@@ -49,7 +74,7 @@ final class ScanStore: ReindexedGroupSink {
     var apertureMax: String = ""
 
     var isFilterActive: Bool {
-        !filterRatings.isEmpty || !filterLabels.isEmpty || !filterKinds.isEmpty ||
+        !filterRatings.isEmpty || !filterLabels.isEmpty || !filterKinds.isEmpty || filterCameraOnly ||
         !filterCameras.isEmpty || !filterLenses.isEmpty || !filterArtists.isEmpty ||
         !isoMin.isEmpty || !isoMax.isEmpty ||
         !focalMin.isEmpty || !focalMax.isEmpty ||
@@ -168,7 +193,7 @@ final class ScanStore: ReindexedGroupSink {
         switch category {
         case .rating:   filterRatings = []
         case .label:    filterLabels = []
-        case .kind:     filterKinds = []
+        case .kind:     filterKinds = []; filterCameraOnly = false
         case .camera:   filterCameras = []
         case .lens:     filterLenses = []
         case .artist:   filterArtists = []
@@ -180,7 +205,7 @@ final class ScanStore: ReindexedGroupSink {
     }
 
     func clearAllFilters() {
-        filterRatings = []; filterLabels = []; filterKinds = []
+        filterRatings = []; filterLabels = []; filterKinds = []; filterCameraOnly = false
         filterCameras = []; filterLenses = []; filterArtists = []
         isoMin = ""; isoMax = ""
         focalMin = ""; focalMax = ""
@@ -192,7 +217,7 @@ final class ScanStore: ReindexedGroupSink {
         switch category {
         case .rating:   return !filterRatings.isEmpty
         case .label:    return !filterLabels.isEmpty
-        case .kind:     return !filterKinds.isEmpty
+        case .kind:     return !filterKinds.isEmpty || filterCameraOnly
         case .camera:   return !filterCameras.isEmpty
         case .lens:     return !filterLenses.isEmpty
         case .artist:   return !filterArtists.isEmpty
@@ -619,6 +644,9 @@ final class ScanStore: ReindexedGroupSink {
                     return nil
                 }
                 filteredGroup = replacingRepresentative(representativeID, in: group)
+            }
+            if filterCameraOnly {
+                guard exif?.make != nil || exif?.model != nil else { return nil }
             }
             if !filterCameras.isEmpty {
                 guard let cam = exif?.cameraName, filterCameras.contains(cam) else { return nil }
