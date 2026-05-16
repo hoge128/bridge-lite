@@ -176,7 +176,9 @@ void __swift_bridge__$bridge_store_phash(void* db, struct RustStr path, uint64_t
 void* __swift_bridge__$bridge_fetch_cached_thumbnail(void* db, struct RustStr path);
 bool __swift_bridge__$ffi_optional_bytes_found(void* r);
 void* __swift_bridge__$ffi_optional_bytes_data(void* r);
-void __swift_bridge__$bridge_store_cached_thumbnail(void* db, struct RustStr path, struct __private__FfiSlice jpeg);
+bool __swift_bridge__$ffi_optional_bytes_aspect_ok(void* r);
+uint8_t __swift_bridge__$ffi_optional_bytes_raw_orientation(void* r);
+void __swift_bridge__$bridge_store_cached_thumbnail(void* db, struct RustStr path, struct __private__FfiSlice jpeg, bool aspect_ok, uint8_t raw_orientation);
 void* __swift_bridge__$bridge_fetch_cached_thumbnails_for_entries(void* db, void* entries);
 uintptr_t __swift_bridge__$ffi_thumb_batch_count(void* r);
 void* __swift_bridge__$ffi_thumb_batch_jpeg_at(void* r, uintptr_t idx);

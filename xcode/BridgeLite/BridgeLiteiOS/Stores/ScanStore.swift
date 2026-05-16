@@ -555,7 +555,7 @@ final class ScanStore: ReindexedGroupSink {
 
         await withTaskGroup(of: (UInt64, Data?).self) { group in
             for entry in entries {
-                let cached = prefetched[entry.url]
+                let cached = prefetched[entry.url]?.jpeg
                 group.addTask {
                     let jpeg = try? await limiter.run {
                         if let c = cached { return c }
