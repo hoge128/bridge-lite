@@ -154,6 +154,16 @@ pub fn compute_shot_id(normalized_stem: &str) -> u64 {
 
 pub const SCAN_MAX_DEPTH: usize = 10;
 
+/// Returns true for entries whose name starts with `.`.
+/// depth == 0 is the user-selected root itself and is always kept.
+fn is_hidden(e: &walkdir::DirEntry) -> bool {
+    e.depth() > 0
+        && e.file_name()
+            .to_str()
+            .map(|n| n.starts_with('.'))
+            .unwrap_or(false)
+}
+
 /// Returns true if any supported image file exists beyond `depth` levels under `path`.
 /// Stops at the first match, so the cost is O(1) in the common (no violation) case.
 pub fn has_images_beyond_depth(path: &Path, depth: usize) -> bool {
@@ -162,6 +172,7 @@ pub fn has_images_beyond_depth(path: &Path, depth: usize) -> bool {
         .max_depth(depth + 1)
         .follow_links(true)
         .into_iter()
+        .filter_entry(|e| !is_hidden(e))
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
         .any(|e| {
@@ -191,6 +202,7 @@ pub fn scan_directory(path: PathBuf) -> ScanResult {
         .max_depth(SCAN_MAX_DEPTH)
         .follow_links(true)
         .into_iter()
+        .filter_entry(|e| !is_hidden(e))
         .filter_map(|e| e.ok())
         .filter(|e| e.file_type().is_file())
     {
@@ -272,7 +284,9 @@ pub fn scan_directory(path: PathBuf) -> ScanResult {
 
 #[cfg(test)]
 mod tests {
-    use super::{compute_shot_id, is_camera_generated_stem, normalize_stem};
+    use super::{compute_shot_id, is_camera_generated_stem, normalize_stem, scan_directory};
+    use std::fs;
+    use tempfile::tempdir;
 
     fn sid(s: &str) -> u64 { compute_shot_id(&normalize_stem(s)) }
 
@@ -340,6 +354,43 @@ mod tests {
         for s in &no_matches {
             assert!(!is_camera_generated_stem(s), "{s} should not match camera pattern");
         }
+    }
+
+    #[test]
+    fn hidden_files_and_dirs_are_excluded() {
+        let dir = tempdir().unwrap();
+        let root = dir.path();
+
+        // Normal image — should be included
+        fs::write(root.join("IMG_0001.JPG"), b"").unwrap();
+
+        // Hidden file at root level — excluded
+        fs::write(root.join(".DS_Store"), b"").unwrap();
+        // Apple resource-fork shadow (._filename) — excluded regardless of extension
+        fs::write(root.join("._IMG_0001.ARW"), b"").unwrap();
+        fs::write(root.join("._DSE00001.JPG"), b"").unwrap();
+
+        // Hidden subdirectory (.Spotlight-V100 etc.) — excluded along with its contents
+        let hidden_dir = root.join(".Spotlight-V100");
+        fs::create_dir(&hidden_dir).unwrap();
+        fs::write(hidden_dir.join("DSC_0002.ARW"), b"").unwrap();
+
+        // Normal subdirectory with image — included
+        let sub = root.join("sub");
+        fs::create_dir(&sub).unwrap();
+        fs::write(sub.join("DSC_0003.ARW"), b"").unwrap();
+
+        let result = scan_directory(root.to_path_buf());
+        let names: Vec<&str> = result.entries.iter()
+            .map(|e| e.filename.as_str())
+            .collect();
+
+        assert!(names.contains(&"IMG_0001.JPG"), "normal file should be included");
+        assert!(names.contains(&"DSC_0003.ARW"), "file in normal subdir should be included");
+        assert!(!names.contains(&".DS_Store"), ".DS_Store should be excluded");
+        assert!(!names.contains(&"._IMG_0001.ARW"), "resource fork shadow (.arw) should be excluded");
+        assert!(!names.contains(&"._DSE00001.JPG"), "resource fork shadow (.jpg) should be excluded");
+        assert!(!names.contains(&"DSC_0002.ARW"), "file in hidden dir should be excluded");
     }
 
     #[test]
