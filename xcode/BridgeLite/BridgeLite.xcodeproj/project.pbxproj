@@ -84,6 +84,7 @@
 		D1EC203AA8C20B42769BD3ED /* StorageProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB29D70D3C5AFA843D165F7 /* StorageProbe.swift */; };
 		D4242D876FEFDA8DA59C5D73 /* DateModeToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FAA6D6FCBC572B4F19C4347 /* DateModeToggle.swift */; };
 		D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
+		D6D0CEEDEC8AC157916A6652 /* RAWRenderPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66FAC10D47AADEDC3B802F22 /* RAWRenderPipeline.swift */; };
 		D94D2E517C63501996A36845 /* CoreError+LocalizedError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */; };
 		DEF30A887E4B37AD5335E2A0 /* ExifBucket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A627C92B271E8FA93132A5 /* ExifBucket.swift */; };
 		E5E2B3A3C79D72BA0C7FC841 /* PhotoKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F5F4B06F799171789826B0 /* PhotoKind.swift */; };
@@ -570,6 +571,7 @@
 				39C25C5135EBE1A39ABE30E6 /* PairingPipeline.swift in Sources */,
 				EB75052F94D03E07762F3E62 /* PhotoEntry.swift in Sources */,
 				79E1D0EBFDA23601F6574747 /* PhotoKind.swift in Sources */,
+				D6D0CEEDEC8AC157916A6652 /* RAWRenderPipeline.swift in Sources */,
 				2BE62A4FCB568FF94B43F5F6 /* RatingBarView.swift in Sources */,
 				A5C7AF7B756C4E14095476E7 /* RatingStore.swift in Sources */,
 				3E440C342AD8D7EC85E9F37B /* ScanStore.swift in Sources */,

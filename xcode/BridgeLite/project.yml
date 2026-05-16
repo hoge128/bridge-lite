@@ -115,6 +115,7 @@ targets:
       - path: BridgeLite/Pipelines/ConcurrencyLimiter.swift
       - path: BridgeLite/Pipelines/PHashPipeline.swift
       - path: BridgeLite/Pipelines/PairingPipeline.swift
+      - path: BridgeLite/Pipelines/RAWRenderPipeline.swift
       - path: BridgeLite/Models/PhotoEntry.swift
       - path: BridgeLite/Models/ExifData.swift
       - path: BridgeLite/Models/XmpData.swift
