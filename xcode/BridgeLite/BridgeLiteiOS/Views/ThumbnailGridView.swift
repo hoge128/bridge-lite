@@ -15,9 +15,9 @@ struct ThumbnailGridView: View {
     @State private var selectedFilterCategory: FilterCategory?
     @State private var showFolderPicker = false
     @State private var showSettings = false
-    @State private var columnCount = 3
 
-    private var gridSpacing: CGFloat { columnCount == 3 ? 1 : 4 }
+    private let gridSpacing: CGFloat = 1
+    private let columnCount = 3
 
     private var columns: [GridItem] {
         Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: columnCount)
@@ -100,9 +100,7 @@ struct ThumbnailGridView: View {
     private var grid: some View {
         GeometryReader { geo in
             let n = CGFloat(columnCount)
-            let cellSize: CGFloat = columnCount == 3
-                ? (geo.size.width - gridSpacing * 2 - gridSpacing * (n - 1)) / n
-                : 0
+            let cellSize = (geo.size.width - gridSpacing * (n + 1)) / n
 
             ScrollView {
                 LazyVGrid(columns: columns, spacing: gridSpacing) {
@@ -114,7 +112,7 @@ struct ThumbnailGridView: View {
                             ratings: ratingStore.ratings,
                             exifs: scanStore.exifs,
                             kind: scanStore.representativeKind(for: group, xmps: ratingStore.ratings),
-                            squareCellSize: columnCount == 3 ? cellSize : nil,
+                            squareCellSize: cellSize,
                             isSelected: selectedGroup?.id == group.id
                         ) {
                             selectedGroup = group
@@ -123,14 +121,6 @@ struct ThumbnailGridView: View {
                 }
                 .padding(gridSpacing)
             }
-            .gesture(
-                MagnificationGesture()
-                    .onEnded { scale in
-                        withAnimation(.easeInOut(duration: 0.2)) {
-                            columnCount = scale < 1.0 ? 3 : 2
-                        }
-                    }
-            )
         }
     }
 
