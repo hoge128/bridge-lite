@@ -727,13 +727,32 @@ final class ScanStore: ReindexedGroupSink {
     // MARK: - Filtered view
 
     func filteredGroups(ratings: [UInt64: XmpData]) -> [ShotGroup] {
-        guard isFilterActive else { return groups }
+        filteredGroupsInternal(ratings: ratings, skipRating: false)
+    }
+
+    /// 星フィルタ以外の条件で絞った母集団から★0〜★5の件数を返す（ファセットカウント用）。
+    func ratingCounts(from ratings: [UInt64: XmpData]) -> [Int: Int] {
+        var counts: [Int: Int] = [0:0, 1:0, 2:0, 3:0, 4:0, 5:0]
+        for group in filteredGroupsInternal(ratings: ratings, skipRating: true) {
+            guard let repID = group.representativeID else { continue }
+            let r = max(0, min(5, ratings[repID]?.rating ?? 0))
+            counts[r, default: 0] += 1
+        }
+        return counts
+    }
+
+    private func filteredGroupsInternal(ratings: [UInt64: XmpData], skipRating: Bool) -> [ShotGroup] {
+        let otherFiltersActive = !filterLabels.isEmpty || !filterKinds.isEmpty || filterCameraOnly ||
+            !filterCameras.isEmpty || !filterLenses.isEmpty || !filterArtists.isEmpty ||
+            !isoMin.isEmpty || !isoMax.isEmpty || !focalMin.isEmpty || !focalMax.isEmpty ||
+            !shutterMin.isEmpty || !shutterMax.isEmpty || !apertureMin.isEmpty || !apertureMax.isEmpty
+        guard !skipRating ? isFilterActive : otherFiltersActive else { return groups }
         return groups.compactMap { group in
             guard let repID = group.representativeID else { return nil }
             let xmp  = ratings[repID]
             let exif = exifs[repID]
 
-            if !filterRatings.isEmpty, !filterRatings.contains(xmp?.rating ?? 0) { return nil }
+            if !skipRating, !filterRatings.isEmpty, !filterRatings.contains(xmp?.rating ?? 0) { return nil }
             if !filterLabels.isEmpty {
                 guard let lbl = xmp?.label, filterLabels.contains(lbl) else { return nil }
             }

@@ -236,7 +236,7 @@ struct FilterOptionsPanelView: View {
             }
             .padding(.horizontal, 16)
 
-            FilterCategoryContent(category: category, scanStore: scanStore)
+            FilterCategoryContent(category: category, scanStore: scanStore, ratings: ratings)
                 .padding(.horizontal, 16)
                 .padding(.bottom, 8)
         }
@@ -252,6 +252,7 @@ struct FilterOptionsPanelView: View {
 struct FilterCategoryContent: View {
     let category: FilterCategory
     @Bindable var scanStore: ScanStore
+    var ratings: [UInt64: XmpData] = [:]
 
     var body: some View {
         Group {
@@ -308,18 +309,33 @@ struct FilterCategoryContent: View {
     }
 
     private var ratingRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
+        let counts = scanStore.ratingCounts(from: ratings)
+        return ScrollView(.horizontal, showsIndicators: false) {
             HStack(spacing: 8) {
+                ratingChip(star: 0, label: String(localized: "No Rating"),
+                           count: counts[0] ?? 0)
                 ForEach(1...5, id: \.self) { star in
-                    Button(String(repeating: "★", count: star)) {
-                        scanStore.toggleRating(star)
-                    }
-                    .buttonStyle(.adaptiveGlass(isActive: scanStore.filterRatings.contains(star)))
-                    .font(.caption)
+                    ratingChip(star: star,
+                               label: String(repeating: "★", count: star),
+                               count: counts[star] ?? 0)
                 }
             }
             .padding(.vertical, 2)
         }
+    }
+
+    private func ratingChip(star: Int, label: String, count: Int) -> some View {
+        Button { scanStore.toggleRating(star) } label: {
+            HStack(spacing: 3) {
+                Text(label)
+                    .font(.caption)
+                Text("(\(count))")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    .monospacedDigit()
+            }
+        }
+        .buttonStyle(.adaptiveGlass(isActive: scanStore.filterRatings.contains(star)))
     }
 
     private var labelRow: some View {
