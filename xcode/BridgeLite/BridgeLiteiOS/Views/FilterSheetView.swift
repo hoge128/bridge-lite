@@ -15,14 +15,14 @@ struct FilterSheetView: View {
                 .padding()
             }
             .glassNavigationBar()
-            .navigationTitle("フィルター")
+            .navigationTitle(String(localized: "filter.title", defaultValue: "Filter"))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .confirmationAction) {
-                    Button("完了") { onDismiss() }
+                    Button(String(localized: "Done")) { onDismiss() }
                 }
                 ToolbarItem(placement: .cancellationAction) {
-                    Button("クリア") {
+                    Button(String(localized: "filter.clear", defaultValue: "Clear")) {
                         minRating = nil
                         filterLabel = nil
                     }
@@ -33,10 +33,10 @@ struct FilterSheetView: View {
 
     private var ratingSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("最低レーティング")
+            Text(String(localized: "filter.min_rating", defaultValue: "Minimum Rating"))
                 .font(.headline)
             HStack(spacing: 6) {
-                Button("なし") { minRating = nil }
+                Button(String(localized: "filter.none", defaultValue: "None")) { minRating = nil }
                     .buttonStyle(.adaptiveGlass(isActive: minRating == nil))
                 ForEach(1...5, id: \.self) { star in
                     Button(String(repeating: "★", count: star)) {
@@ -53,10 +53,10 @@ struct FilterSheetView: View {
 
     private var labelSection: some View {
         VStack(alignment: .leading, spacing: 12) {
-            Text("ラベル")
+            Text(String(localized: "filter.label", defaultValue: "Label"))
                 .font(.headline)
             HStack(spacing: 14) {
-                labelCircle(nil, name: "なし")
+                labelCircle(nil, name: String(localized: "filter.none", defaultValue: "None"))
                 ForEach(XmpLabel.allCases, id: \.self) { label in
                     labelCircle(label, name: label.name)
                 }

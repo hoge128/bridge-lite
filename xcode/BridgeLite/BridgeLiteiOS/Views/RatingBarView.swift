@@ -29,7 +29,7 @@ struct RatingBarView: View {
 
             // カラーラベル
             HStack(spacing: 10) {
-                labelButton(nil, color: Color(.systemGray4), name: "なし")
+                labelButton(nil, color: Color(.systemGray4), name: String(localized: "filter.none", defaultValue: "None"))
                 ForEach(XmpLabel.allCases, id: \.self) { label in
                     labelButton(label, color: label.color, name: label.name)
                 }

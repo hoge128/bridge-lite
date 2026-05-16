@@ -129,7 +129,7 @@ struct ThumbnailGridView: View {
             Image(systemName: "photo.on.rectangle.angled")
                 .font(.system(size: 60))
                 .foregroundStyle(.secondary)
-            Text("写真が見つかりませんでした")
+            Text(String(localized: "grid.empty", defaultValue: "No photos found"))
                 .foregroundStyle(.secondary)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
