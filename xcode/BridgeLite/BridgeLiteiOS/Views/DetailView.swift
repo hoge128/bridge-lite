@@ -150,6 +150,9 @@ struct DetailView: View {
                 showRendered = false
                 guard let entry = current else { return }
                 await loadAndCache(entry: entry)
+                for sibling in members where sibling.id != entry.id {
+                    Task(priority: .utility) { await loadAndCache(entry: sibling) }
+                }
                 prefetchNeighbors()
                 // preferRendered が有効な RAW なら自動レンダリング
                 guard preferRendered, entry.isRaw, !isLimitedRawPreview, let db else { return }
@@ -447,7 +450,7 @@ struct DetailView: View {
         isLoadingFullRes = true
         defer { isLoadingFullRes = false }
         if let img = await decodeFullRes(entry: entry) {
-            if fullResCache.count >= 3 { fullResCache.removeFirst() }
+            if fullResCache.count >= 5 { fullResCache.removeFirst() }
             fullResCache.append(FullResEntry(id: entry.id, image: img))
         }
     }
