@@ -24,7 +24,7 @@ struct DetailView: View {
 
     @State private var currentGroupIndex: Int
     @State private var currentIndex: Int
-    @State private var swipeDirection = 0
+    @State private var dragOffset: CGFloat = 0
     @State private var isImageZoomed = false
     @State private var isFullscreen = false
     @State private var showRatingPopup = false
@@ -86,16 +86,49 @@ struct DetailView: View {
                 Color.black.ignoresSafeArea()
                 if let entry = current {
                     VStack(spacing: 0) {
-                        ZStack {
-                            photoImage(entry: entry)
-                                .id(currentGroupIndex)
-                                .transition(.asymmetric(
-                                    insertion: .move(edge: swipeDirection >= 0 ? .trailing : .leading),
-                                    removal: .move(edge: swipeDirection >= 0 ? .leading : .trailing)
-                                ))
+                        GeometryReader { geo in
+                            ZStack {
+                                // Previous image — shown only while swiping right
+                                if dragOffset > 2, let prevImg = imageForGroup(at: currentGroupIndex - 1) {
+                                    Image(uiImage: prevImg)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: geo.size.width, height: geo.size.height)
+                                        .offset(x: dragOffset - geo.size.width)
+                                }
+
+                                // Current image (full ZoomableImageView with all badges/overlays)
+                                photoImage(
+                                    entry: entry,
+                                    navDragOffset: $dragOffset,
+                                    screenWidth: geo.size.width,
+                                    canNavigatePrev: currentGroupIndex > 0,
+                                    canNavigateNext: currentGroupIndex < groups.count - 1,
+                                    onNavigate: { delta in
+                                        let targetOffset = delta < 0 ? geo.size.width : -geo.size.width
+                                        withAnimation(.easeOut(duration: 0.22)) { dragOffset = targetOffset }
+                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                                            currentGroupIndex += delta
+                                            dragOffset = 0
+                                        }
+                                    },
+                                    onDismiss: { dismiss() }
+                                )
+                                    .offset(x: dragOffset)
+
+                                // Next image — shown only while swiping left
+                                if dragOffset < -2, let nextImg = imageForGroup(at: currentGroupIndex + 1) {
+                                    Image(uiImage: nextImg)
+                                        .resizable()
+                                        .scaledToFit()
+                                        .frame(width: geo.size.width, height: geo.size.height)
+                                        .offset(x: dragOffset + geo.size.width)
+                                }
+                            }
+                            .clipped()
+                            .contentShape(Rectangle())
                         }
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                        .clipped()
 
                         if !isFullscreen {
                             if members.count > 1 {
@@ -120,29 +153,9 @@ struct DetailView: View {
                     }
                 }
             }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 60)
-                    .onEnded { value in
-                        guard !isImageZoomed else { return }
-                        let h = value.translation.height
-                        let w = value.translation.width
-                        if abs(h) > abs(w) {
-                            if h > 60 { dismiss() }
-                        } else if w < -60, currentGroupIndex < groups.count - 1 {
-                            swipeDirection = 1
-                            withAnimation(.easeOut(duration: 0.25)) {
-                                currentGroupIndex += 1
-                            }
-                        } else if w > 60, currentGroupIndex > 0 {
-                            swipeDirection = -1
-                            withAnimation(.easeOut(duration: 0.25)) {
-                                currentGroupIndex -= 1
-                            }
-                        }
-                    }
-            )
             .onChange(of: currentIndex) { isImageZoomed = false }
             .onChange(of: currentGroupIndex) {
+                dragOffset = 0
                 currentIndex = group.representativeID.flatMap { group.memberIDs.firstIndex(of: $0) } ?? 0
             }
             .task(id: current?.id) {
@@ -234,15 +247,41 @@ struct DetailView: View {
         .statusBarHidden(isFullscreen)
     }
 
+    private func imageForGroup(at index: Int) -> UIImage? {
+        guard groups.indices.contains(index) else { return nil }
+        let g = groups[index]
+        guard let repID = g.representativeID ?? g.memberIDs.first,
+              let entry = entries[repID] else { return nil }
+        return fullResCache.first(where: { $0.id == entry.id })?.image
+            ?? thumbnails[entry.id].flatMap { UIImage(data: $0) }
+    }
+
     @ViewBuilder
-    private func photoImage(entry: PhotoEntry) -> some View {
+    private func photoImage(
+        entry: PhotoEntry,
+        navDragOffset: Binding<CGFloat>,
+        screenWidth: CGFloat,
+        canNavigatePrev: Bool,
+        canNavigateNext: Bool,
+        onNavigate: @escaping (Int) -> Void,
+        onDismiss: @escaping () -> Void
+    ) -> some View {
         let cached = showRendered ? rawRendered : fullResCache.first(where: { $0.id == entry.id })?.image
         let thumb  = thumbnails[entry.id].flatMap { UIImage(data: $0) }
         let display = cached ?? thumb
 
         ZStack(alignment: .bottomLeading) {
             if let img = display {
-                ZoomableImageView(uiImage: img, isZoomed: $isImageZoomed) {
+                ZoomableImageView(
+                    uiImage: img,
+                    isZoomed: $isImageZoomed,
+                    navDragOffset: navDragOffset,
+                    screenWidth: screenWidth,
+                    canNavigatePrev: canNavigatePrev,
+                    canNavigateNext: canNavigateNext,
+                    onNavigate: onNavigate,
+                    onDismiss: onDismiss
+                ) {
                     withAnimation(.easeInOut(duration: 0.2)) { isFullscreen.toggle() }
                 }
                 .id(entry.id)
@@ -758,99 +797,263 @@ private func computeRGBHistogram(image: CGImage, bins: Int) async -> RGBHistogra
 
 // MARK: - Zoomable Image
 
-private struct ZoomableImageView: View {
+// UIScrollView をラップして Photos アプリ相当のズーム・パン操作を実現する。
+// isScrollEnabled をズーム状態に連動させることで、zoom=1x 時に親の
+// DragGesture（スワイプナビ）が UIScrollView の pan に妨げられない。
+private final class ImageScrollView: UIScrollView {
+    private var prevBoundsSize: CGSize = .zero
+    var onLayoutChange: (() -> Void)?
+
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        let sz = bounds.size
+        guard sz != prevBoundsSize, sz.width > 0, sz.height > 0 else { return }
+        prevBoundsSize = sz
+        onLayoutChange?()
+    }
+}
+
+private struct ZoomableImageView: UIViewRepresentable {
     let uiImage: UIImage
     @Binding var isZoomed: Bool
+    @Binding var navDragOffset: CGFloat
+    var screenWidth: CGFloat
+    var canNavigatePrev: Bool
+    var canNavigateNext: Bool
+    var onNavigate: ((Int) -> Void)?
+    var onDismiss: (() -> Void)?
     var onSingleTap: (() -> Void)? = nil
 
-    @GestureState private var liveScale: CGFloat = 1.0
-    @State private var baseScale: CGFloat = 1.0
-    @State private var offset: CGSize = .zero
-    @State private var dragBase: CGSize = .zero
-    @State private var lastTap: (location: CGPoint, time: Date)? = nil
-
-    private var displayScale: CGFloat { max(1.0, baseScale * liveScale) }
-
-    var body: some View {
-        GeometryReader { geo in
-            Image(uiImage: uiImage)
-                .resizable()
-                .scaledToFit()
-                .frame(width: geo.size.width, height: geo.size.height)
-                .contentShape(Rectangle())
-                .scaleEffect(displayScale, anchor: .center)
-                .offset(offset)
-                .clipped()
-                .gesture(
-                    MagnificationGesture()
-                        .updating($liveScale) { v, s, _ in s = v }
-                        .onEnded { v in
-                            baseScale = max(1.0, baseScale * v)
-                            if baseScale <= 1.0 {
-                                baseScale = 1.0
-                                isZoomed = false
-                                withAnimation(.easeOut(duration: 0.15)) {
-                                    offset = .zero
-                                    dragBase = .zero
-                                }
-                            } else {
-                                isZoomed = true
-                            }
-                        }
-                )
-                .simultaneousGesture(
-                    DragGesture()
-                        .onChanged { v in
-                            guard baseScale > 1 else { return }
-                            offset = CGSize(
-                                width: dragBase.width + v.translation.width,
-                                height: dragBase.height + v.translation.height
-                            )
-                        }
-                        .onEnded { _ in dragBase = offset }
-                )
-                .gesture(
-                    SpatialTapGesture(count: 1)
-                        .onEnded { value in
-                            let location = value.location
-                            let now = Date()
-                            if let last = lastTap, now.timeIntervalSince(last.time) < 0.3 {
-                                lastTap = nil
-                                handleDoubleTap(at: last.location, in: geo.size)
-                            } else {
-                                lastTap = (location: location, time: now)
-                                let tapTime = now
-                                Task { @MainActor in
-                                    try? await Task.sleep(nanoseconds: 300_000_000)
-                                    guard let t = lastTap,
-                                          abs(t.time.timeIntervalSince(tapTime)) < 0.01 else { return }
-                                    lastTap = nil
-                                    onSingleTap?()
-                                }
-                            }
-                        }
-                )
-        }
+    func makeCoordinator() -> Coordinator {
+        Coordinator(
+            isZoomed: $isZoomed,
+            navDragOffset: $navDragOffset,
+            screenWidth: screenWidth,
+            canNavigatePrev: canNavigatePrev,
+            canNavigateNext: canNavigateNext,
+            onNavigate: onNavigate,
+            onDismiss: onDismiss,
+            onSingleTap: onSingleTap
+        )
     }
 
-    private func handleDoubleTap(at location: CGPoint, in size: CGSize) {
-        if baseScale <= 1.0 {
-            let target: CGFloat = 3.0
-            let dx = (size.width  / 2 - location.x) * (target - 1)
-            let dy = (size.height / 2 - location.y) * (target - 1)
-            isZoomed = true
-            withAnimation(.easeOut(duration: 0.25)) {
-                baseScale = target
-                offset = CGSize(width: dx, height: dy)
-                dragBase = offset
+    func makeUIView(context: Context) -> ImageScrollView {
+        let sv = ImageScrollView()
+        sv.delegate = context.coordinator
+        sv.minimumZoomScale = 1.0
+        sv.maximumZoomScale = 8.0
+        sv.showsVerticalScrollIndicator = false
+        sv.showsHorizontalScrollIndicator = false
+        sv.contentInsetAdjustmentBehavior = .never
+        sv.backgroundColor = .clear
+        sv.bouncesZoom = true
+        sv.isScrollEnabled = false
+
+        let iv = UIImageView(image: uiImage)
+        iv.contentMode = .scaleAspectFit
+        iv.isUserInteractionEnabled = false
+        sv.addSubview(iv)
+        context.coordinator.imageView = iv
+
+        sv.onLayoutChange = { [weak sv] in
+            guard let sv else { return }
+            context.coordinator.recalculateLayout(sv)
+        }
+
+        let doubleTap = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleDoubleTap(_:))
+        )
+        doubleTap.numberOfTapsRequired = 2
+        sv.addGestureRecognizer(doubleTap)
+
+        let singleTap = UITapGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleSingleTap(_:))
+        )
+        singleTap.require(toFail: doubleTap)
+        sv.addGestureRecognizer(singleTap)
+
+        let navPan = UIPanGestureRecognizer(
+            target: context.coordinator,
+            action: #selector(Coordinator.handleNavPan(_:))
+        )
+        navPan.delegate = context.coordinator
+        sv.addGestureRecognizer(navPan)
+        context.coordinator.navPanGesture = navPan
+
+        return sv
+    }
+
+    func updateUIView(_ sv: ImageScrollView, context: Context) {
+        context.coordinator.onSingleTap = onSingleTap
+        context.coordinator.screenWidth = screenWidth
+        context.coordinator.canNavigatePrev = canNavigatePrev
+        context.coordinator.canNavigateNext = canNavigateNext
+        context.coordinator.onNavigate = onNavigate
+        context.coordinator.onDismiss = onDismiss
+        context.coordinator.navDragOffset = $navDragOffset
+        guard context.coordinator.imageView?.image !== uiImage else { return }
+        context.coordinator.imageView?.image = uiImage
+        context.coordinator.recalculateLayout(sv)
+    }
+
+    final class Coordinator: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate {
+        var isZoomed: Binding<Bool>
+        var navDragOffset: Binding<CGFloat> = .constant(0)
+        var screenWidth: CGFloat = 390
+        var canNavigatePrev: Bool = false
+        var canNavigateNext: Bool = false
+        var onNavigate: ((Int) -> Void)?
+        var onDismiss: (() -> Void)?
+        var onSingleTap: (() -> Void)?
+        weak var imageView: UIImageView?
+        weak var navPanGesture: UIPanGestureRecognizer?
+        private var navDragAxis: NavAxis = .undecided
+        private enum NavAxis { case undecided, horizontal, vertical }
+
+        init(
+            isZoomed: Binding<Bool>,
+            navDragOffset: Binding<CGFloat>,
+            screenWidth: CGFloat,
+            canNavigatePrev: Bool,
+            canNavigateNext: Bool,
+            onNavigate: ((Int) -> Void)?,
+            onDismiss: (() -> Void)?,
+            onSingleTap: (() -> Void)?
+        ) {
+            self.isZoomed = isZoomed
+            self.navDragOffset = navDragOffset
+            self.screenWidth = screenWidth
+            self.canNavigatePrev = canNavigatePrev
+            self.canNavigateNext = canNavigateNext
+            self.onNavigate = onNavigate
+            self.onDismiss = onDismiss
+            self.onSingleTap = onSingleTap
+        }
+
+        func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
+
+        func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
+            scrollView.isScrollEnabled = true
+        }
+
+        func scrollViewDidZoom(_ scrollView: UIScrollView) {
+            updateCenterInsets(scrollView)
+            let zoomed = scrollView.zoomScale > 1.01
+            if isZoomed.wrappedValue != zoomed { isZoomed.wrappedValue = zoomed }
+        }
+
+        func scrollViewDidEndZooming(_ scrollView: UIScrollView, with view: UIView?, atScale scale: CGFloat) {
+            if scale <= 1.01 { scrollView.isScrollEnabled = false }
+        }
+
+        private func updateCenterInsets(_ scrollView: UIScrollView) {
+            guard let iv = imageView else { return }
+            let sv = scrollView.bounds.size
+            let top  = max(0, (sv.height - iv.frame.height) / 2)
+            let left = max(0, (sv.width  - iv.frame.width)  / 2)
+            scrollView.contentInset = UIEdgeInsets(top: top, left: left, bottom: top, right: left)
+        }
+
+        func recalculateLayout(_ scrollView: UIScrollView) {
+            guard let iv = imageView, let img = iv.image else { return }
+            let svSize = scrollView.bounds.size
+            guard svSize.width > 0, svSize.height > 0 else { return }
+            let s = min(svSize.width / img.size.width, svSize.height / img.size.height)
+            let fitted = CGSize(width: floor(img.size.width * s), height: floor(img.size.height * s))
+            scrollView.setZoomScale(1.0, animated: false)
+            iv.frame = CGRect(origin: .zero, size: fitted)
+            scrollView.contentSize = fitted
+            scrollView.isScrollEnabled = false
+            updateCenterInsets(scrollView)
+        }
+
+        @objc func handleDoubleTap(_ g: UITapGestureRecognizer) {
+            guard let sv = g.view as? UIScrollView else { return }
+            if sv.zoomScale > 1.01 {
+                sv.setZoomScale(1.0, animated: true)
+            } else {
+                guard let iv = imageView else { return }
+                sv.isScrollEnabled = true
+                let pt = g.location(in: iv)
+                let w = iv.bounds.width  / 3
+                let h = iv.bounds.height / 3
+                sv.zoom(to: CGRect(x: pt.x - w/2, y: pt.y - h/2, width: w, height: h), animated: true)
             }
-        } else {
-            isZoomed = false
-            withAnimation(.easeOut(duration: 0.2)) {
-                baseScale = 1.0
-                offset = .zero
-                dragBase = .zero
+        }
+
+        @objc func handleSingleTap(_ g: UITapGestureRecognizer) { onSingleTap?() }
+
+        @objc func handleNavPan(_ g: UIPanGestureRecognizer) {
+            guard let sv = g.view as? UIScrollView, !sv.isScrollEnabled else {
+                if g.state == .began || g.state == .changed {
+                    g.setTranslation(.zero, in: g.view)
+                }
+                return
             }
+            let t = g.translation(in: g.view)
+            let vel = g.velocity(in: g.view)
+            switch g.state {
+            case .began:
+                navDragAxis = .undecided
+            case .changed:
+                if navDragAxis == .undecided {
+                    if abs(t.x) > abs(t.y) && abs(t.x) > 8 {
+                        navDragAxis = .horizontal
+                    } else if abs(t.y) > abs(t.x) && abs(t.y) > 8 {
+                        navDragAxis = .vertical
+                    }
+                }
+                if navDragAxis == .horizontal {
+                    let clampedOffset: CGFloat
+                    if t.x > 0 && !canNavigatePrev {
+                        clampedOffset = t.x * 0.2
+                    } else if t.x < 0 && !canNavigateNext {
+                        clampedOffset = t.x * 0.2
+                    } else {
+                        clampedOffset = t.x
+                    }
+                    navDragOffset.wrappedValue = clampedOffset
+                }
+            case .ended, .cancelled:
+                defer { navDragAxis = .undecided }
+                if navDragAxis == .vertical {
+                    if t.y > 60 || vel.y > 400 {
+                        onDismiss?()
+                    }
+                    navDragOffset.wrappedValue = 0
+                    return
+                }
+                if navDragAxis == .horizontal {
+                    let threshold = screenWidth * 0.35
+                    let goNext = (t.x < -threshold || vel.x < -600) && canNavigateNext
+                    let goPrev = (t.x >  threshold || vel.x >  600) && canNavigatePrev
+                    if goNext {
+                        onNavigate?(1)
+                    } else if goPrev {
+                        onNavigate?(-1)
+                    } else {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                            navDragOffset.wrappedValue = 0
+                        }
+                    }
+                } else {
+                    navDragOffset.wrappedValue = 0
+                }
+            default:
+                break
+            }
+        }
+
+        func gestureRecognizer(_ g1: UIGestureRecognizer,
+                               shouldRecognizeSimultaneouslyWith g2: UIGestureRecognizer) -> Bool {
+            if g1 === navPanGesture || g2 === navPanGesture {
+                if g2 is UIPinchGestureRecognizer || g1 is UIPinchGestureRecognizer { return true }
+                if g2 is UITapGestureRecognizer  || g1 is UITapGestureRecognizer  { return true }
+                return false
+            }
+            return true
         }
     }
 }
