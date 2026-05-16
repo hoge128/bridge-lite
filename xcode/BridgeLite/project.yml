@@ -150,8 +150,8 @@ targets:
     info:
       path: BridgeLiteiOS/Resources/Info.plist
       properties:
-        CFBundleName: BridgeLite
-        CFBundleDisplayName: BridgeLite
+        CFBundleName: BridgeLite for iOS
+        CFBundleDisplayName: BridgeLite for iOS
         CFBundleIdentifier: io.github.bridge-lite.ios
         CFBundleVersion: "1"
         CFBundleShortVersionString: "0.1.0"
