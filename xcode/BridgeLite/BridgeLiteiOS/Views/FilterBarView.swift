@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Filter category
 
 enum FilterCategory: String, CaseIterable, Identifiable {
-    case kind, rating, label, aperture, focal, shutter, iso, camera, lens, artist
+    case kind, rating, label, date, aperture, focal, shutter, iso, camera, lens, artist
     var id: String { rawValue }
 
     var icon: String {
@@ -11,6 +11,7 @@ enum FilterCategory: String, CaseIterable, Identifiable {
         case .rating:   return "star"
         case .label:    return "circle.fill"
         case .kind:     return "photo"
+        case .date:     return "calendar"
         case .camera:   return "camera"
         case .lens:     return "camera.aperture"
         case .artist:   return "person"
@@ -26,6 +27,7 @@ enum FilterCategory: String, CaseIterable, Identifiable {
         case .rating:   return String(localized: "filter.category.rating",   defaultValue: "Rating")
         case .label:    return String(localized: "filter.category.label",    defaultValue: "Label")
         case .kind:     return String(localized: "filter.category.kind",     defaultValue: "File Type")
+        case .date:     return String(localized: "filter.category.date",     defaultValue: "Date")
         case .camera:   return String(localized: "filter.category.camera",   defaultValue: "Camera")
         case .lens:     return String(localized: "filter.category.lens",     defaultValue: "Lens")
         case .artist:   return String(localized: "filter.category.artist",   defaultValue: "Artist")
@@ -260,6 +262,8 @@ struct FilterCategoryContent: View {
             case .rating:  ratingRow
             case .label:   labelRow
             case .kind:    kindRow
+            case .date:
+                IOSCalendarView(scanStore: scanStore, ratings: ratings)
             case .camera:
                 chipRow(values: scanStore.availableCameras,
                         isActive: { scanStore.filterCameras.contains($0) },

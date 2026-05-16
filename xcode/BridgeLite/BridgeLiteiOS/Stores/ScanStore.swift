@@ -30,6 +30,10 @@ struct PropagationMatrix: Sendable, Equatable {
     }
 }
 
+enum DateMode: String, Codable, Equatable, Sendable {
+    case range, multi
+}
+
 enum IOSSortKey: String, CaseIterable {
     case filename
     case modifiedDate
@@ -101,6 +105,10 @@ final class ScanStore: ReindexedGroupSink {
     var shutterMax: String = ""
     var apertureMin: String = ""
     var apertureMax: String = ""
+    var dateMin: String = ""
+    var dateMax: String = ""
+    var dateMode: DateMode = .range
+    var dateAllowList: Set<String> = []   // ISO yyyy-MM-dd (multi モード時のみ)
 
     var isFilterActive: Bool {
         !filterRatings.isEmpty || !filterLabels.isEmpty || !filterKinds.isEmpty || filterCameraOnly ||
@@ -108,7 +116,8 @@ final class ScanStore: ReindexedGroupSink {
         !isoMin.isEmpty || !isoMax.isEmpty ||
         !focalMin.isEmpty || !focalMax.isEmpty ||
         !shutterMin.isEmpty || !shutterMax.isEmpty ||
-        !apertureMin.isEmpty || !apertureMax.isEmpty
+        !apertureMin.isEmpty || !apertureMax.isEmpty ||
+        !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty
     }
 
     // MARK: - Available filter values (derived from loaded EXIF)
@@ -230,6 +239,7 @@ final class ScanStore: ReindexedGroupSink {
         case .focal:    focalMin = ""; focalMax = ""
         case .shutter:  shutterMin = ""; shutterMax = ""
         case .aperture: apertureMin = ""; apertureMax = ""
+        case .date:     dateMin = ""; dateMax = ""; dateAllowList = []
         }
     }
 
@@ -240,6 +250,7 @@ final class ScanStore: ReindexedGroupSink {
         focalMin = ""; focalMax = ""
         shutterMin = ""; shutterMax = ""
         apertureMin = ""; apertureMax = ""
+        dateMin = ""; dateMax = ""; dateAllowList = []
     }
 
     func isFilterActive(for category: FilterCategory) -> Bool {
@@ -254,6 +265,7 @@ final class ScanStore: ReindexedGroupSink {
         case .focal:    return !focalMin.isEmpty || !focalMax.isEmpty
         case .shutter:  return !shutterMin.isEmpty || !shutterMax.isEmpty
         case .aperture: return !apertureMin.isEmpty || !apertureMax.isEmpty
+        case .date:     return !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty
         }
     }
 
@@ -741,12 +753,62 @@ final class ScanStore: ReindexedGroupSink {
         return counts
     }
 
-    private func filteredGroupsInternal(ratings: [UInt64: XmpData], skipRating: Bool) -> [ShotGroup] {
+    /// 日付フィルタ以外の条件で絞った母集団から日別写真数を返す（カレンダーファセット用）。
+    func photosPerDay(from ratings: [UInt64: XmpData]) -> [Date: Int] {
+        var result: [Date: Int] = [:]
+        for group in filteredGroupsInternal(ratings: ratings, skipDate: true) {
+            guard let repID = group.representativeID,
+                  let entry = entries[repID] else { continue }
+            guard let date = Self.photoDate(exif: exifs[repID], entry: entry) else { continue }
+            let day = Calendar.current.startOfDay(for: date)
+            result[day, default: 0] += 1
+        }
+        return result
+    }
+
+    /// 全エントリの最古〜最新撮影日（カレンダー表示範囲の決定用）。
+    var datasetDateInterval: DateInterval? {
+        var minDate: Date? = nil
+        var maxDate: Date? = nil
+        for (id, entry) in entries {
+            guard let date = Self.photoDate(exif: exifs[id], entry: entry) else { continue }
+            if minDate == nil || date < minDate! { minDate = date }
+            if maxDate == nil || date > maxDate! { maxDate = date }
+        }
+        guard let min = minDate, let max = maxDate else { return nil }
+        return DateInterval(start: min, end: max)
+    }
+
+    // MARK: - Date helpers
+
+    static let exifDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy:MM:dd HH:mm:ss"
+        return f
+    }()
+
+    static let isoDateFormatter: DateFormatter = {
+        let f = DateFormatter()
+        f.locale = Locale(identifier: "en_US_POSIX")
+        f.dateFormat = "yyyy-MM-dd"
+        return f
+    }()
+
+    private static func photoDate(exif: ExifData?, entry: PhotoEntry) -> Date? {
+        exif?.datetime.flatMap { exifDateFormatter.date(from: $0) } ?? entry.createdDate
+    }
+
+    private func filteredGroupsInternal(ratings: [UInt64: XmpData], skipRating: Bool = false, skipDate: Bool = false) -> [ShotGroup] {
         let otherFiltersActive = !filterLabels.isEmpty || !filterKinds.isEmpty || filterCameraOnly ||
             !filterCameras.isEmpty || !filterLenses.isEmpty || !filterArtists.isEmpty ||
             !isoMin.isEmpty || !isoMax.isEmpty || !focalMin.isEmpty || !focalMax.isEmpty ||
             !shutterMin.isEmpty || !shutterMax.isEmpty || !apertureMin.isEmpty || !apertureMax.isEmpty
-        guard !skipRating ? isFilterActive : otherFiltersActive else { return groups }
+        let dateFiltersActive = !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty
+        let anyActive = otherFiltersActive ||
+            (!skipRating && !filterRatings.isEmpty) ||
+            (!skipDate && dateFiltersActive)
+        guard anyActive else { return groups }
         return groups.compactMap { group in
             guard let repID = group.representativeID else { return nil }
             let xmp  = ratings[repID]
@@ -794,6 +856,30 @@ final class ScanStore: ReindexedGroupSink {
                 guard let f = exif?.fnumberValue else { return nil }
                 if let min = Double(apertureMin), f <= min { return nil }
                 if let max = Double(apertureMax), f > max  { return nil }
+            }
+            if !skipDate {
+                let isoFmt = Self.isoDateFormatter
+                switch dateMode {
+                case .range:
+                    if !dateMin.isEmpty || !dateMax.isEmpty {
+                        guard let entry = entries[repID] else { return nil }
+                        let photoDate = Self.photoDate(exif: exif, entry: entry)
+                        if let date = photoDate {
+                            if let from = isoFmt.date(from: dateMin), date < from { return nil }
+                            if let to = isoFmt.date(from: dateMax) {
+                                let endOfDay = Calendar.current.date(bySettingHour: 23, minute: 59, second: 59, of: to) ?? to
+                                if date > endOfDay { return nil }
+                            }
+                        }
+                    }
+                case .multi:
+                    if !dateAllowList.isEmpty {
+                        guard let entry = entries[repID] else { return nil }
+                        let photoDate = Self.photoDate(exif: exif, entry: entry)
+                        guard let date = photoDate else { return nil }
+                        if !dateAllowList.contains(isoFmt.string(from: date)) { return nil }
+                    }
+                }
             }
             return filteredGroup
         }

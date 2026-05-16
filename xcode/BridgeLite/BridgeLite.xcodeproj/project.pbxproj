@@ -45,6 +45,7 @@
 		54EC15B9A343E7437C1D1606 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9CD8299E55E3AC885C1D9E24 /* Assets.xcassets */; };
 		54F4CBE0C0AF7B59DE4D27DF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49A54E1E164617C20BDC0BE8 /* Assets.xcassets */; };
 		584A95D26699F228799AFA44 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9262B1680B7331805E940E /* FilterBarView.swift */; };
+		A455337C1914468B8E9FCCCE /* IOSCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5DB228B236F4FED92FAC69C /* IOSCalendarView.swift */; };
 		5B7AA16F9AB39446C7450658 /* PairingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */; };
 		639D3ABDDEE404D4558F0932 /* libbridge_ffi.a in Resources */ = {isa = PBXBuildFile; fileRef = D27AE3D6B0885374AE6956F8 /* libbridge_ffi.a */; };
 		68AFA52E99B3C8444EBAA652 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 36DF9C66D41809477B26A054 /* Sparkle */; };
@@ -170,6 +171,7 @@
 		D4B133A4910622F9BE06420A /* CalendarPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPickerView.swift; sourceTree = "<group>"; };
 		D52544FC27897A0CD233A37E /* ThumbnailGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridView.swift; sourceTree = "<group>"; };
 		DA9262B1680B7331805E940E /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
+		A5DB228B236F4FED92FAC69C /* IOSCalendarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = IOSCalendarView.swift; sourceTree = "<group>"; };
 		E18D649E31736AC707A51F47 /* BridgeLite.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BridgeLite.entitlements; sourceTree = "<group>"; };
 		E2E9544AD911B7B44DF245CA /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
 		E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenFolderRegistry.swift; sourceTree = "<group>"; };
@@ -368,6 +370,7 @@
 				8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */,
 				DA9262B1680B7331805E940E /* FilterBarView.swift */,
 				2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */,
+				A5DB228B236F4FED92FAC69C /* IOSCalendarView.swift */,
 				4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */,
 				4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */,
 				B0AAC7F0B8C0E9D8E625EAE1 /* SettingsSheetView.swift */,
@@ -555,6 +558,7 @@
 				42C21D5247C07C7E1B455749 /* ExportSheet.swift in Sources */,
 				584A95D26699F228799AFA44 /* FilterBarView.swift in Sources */,
 				05ECD571285BD5D65864592F /* FilterSheetView.swift in Sources */,
+				A455337C1914468B8E9FCCCE /* IOSCalendarView.swift in Sources */,
 				01D99717EFC9132583EC925A /* FolderPickerView.swift in Sources */,
 				BBAC36178F92008A8F84A15B /* GlassHelper.swift in Sources */,
 				936EAB6141C91B2B1E4A54E2 /* ImageEntry+Convert.swift in Sources */,
