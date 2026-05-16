@@ -3,6 +3,7 @@ import SwiftUI
 struct SettingsSheetView: View {
     @Bindable var scanStore: ScanStore
     @State private var showCacheClearConfirm = false
+    @State private var showPropagationHelp = false
     @State private var cacheSizeBytes: Int64 = 0
     var onDismiss: () -> Void
 
@@ -48,10 +49,25 @@ struct SettingsSheetView: View {
                     }
                 }
 
-                Section(String(localized: "settings.propagation.section", defaultValue: "Rating Propagation")) {
+                Section {
                     propagationGrid
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 4)
+                } header: {
+                    HStack {
+                        Text(String(localized: "settings.propagation.section", defaultValue: "Rating Propagation"))
+                        Spacer()
+                        Button {
+                            showPropagationHelp = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
+                        .popover(isPresented: $showPropagationHelp, arrowEdge: .top) {
+                            propagationHelpPopover
+                        }
+                    }
                 }
 
                 Section(String(localized: "settings.filter_order.section", defaultValue: "Filter Order")) {
@@ -97,6 +113,24 @@ struct SettingsSheetView: View {
         } message: {
             Text("Thumbnail cache will be deleted and regenerated on the next scan.")
         }
+    }
+
+    // MARK: - Propagation help popover
+
+    private var propagationHelpPopover: some View {
+        let raw = String(localized: "settings.propagation.help.body",
+                         defaultValue: "When you rate or label a photo, the rating is automatically copied to the other file types in the same shot group.\n\n**Row**: the kind you are rating\n**Column**: the kinds that receive the same rating\n**✓**: always applies to the same kind")
+        let attr = (try? AttributedString(
+            markdown: raw,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(raw)
+        return ScrollView {
+            Text(attr)
+                .font(.callout)
+                .padding()
+                .frame(maxWidth: 320, alignment: .leading)
+        }
+        .presentationCompactAdaptation(.popover)
     }
 
     // MARK: - Propagation grid

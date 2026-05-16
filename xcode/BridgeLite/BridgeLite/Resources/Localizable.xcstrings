@@ -4959,6 +4959,22 @@
         }
       }
     },
+    "settings.propagation.help.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "When you rate or label a photo, the rating is automatically copied to the other file types in the same shot group.\n\n**Row**: the kind you are rating\n**Column**: the kinds that receive the same rating\n**✓**: always applies to the same kind"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真にレーティングやラベルを付けると、同じショットグループ内の他の種別へ自動的にコピーされます。\n\n**行**：レーティングを設定する種別\n**列**：同じレーティングを受け取る種別\n**✓**：同じ種別には常に適用されます"
+          }
+        }
+      }
+    },
     "settings.render.auto_compare" : {
       "localizations" : {
         "en" : {
