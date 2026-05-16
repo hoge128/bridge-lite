@@ -1,0 +1,331 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy — BridgeLite</title>
+  <meta name="description" content="BridgeLite Privacy Policy" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg: #f9f8f6;
+      --bg2: #f2f1ee;
+      --ink: #111110;
+      --muted: #767672;
+      --border: rgba(0,0,0,0.08);
+      --accent: #8a6f2e;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", Arial, sans-serif;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a { color: var(--accent); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+
+    /* ── Nav ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 40px;
+      height: 56px;
+      background: rgba(249,248,246,0.82);
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      border-bottom: 1px solid var(--border);
+    }
+
+    .nav-logo {
+      font-size: 17px;
+      font-weight: 600;
+      color: var(--ink);
+      text-decoration: none;
+    }
+
+    .nav-back {
+      font-size: 14px;
+      color: var(--muted);
+      text-decoration: none;
+    }
+    .nav-back:hover { color: var(--ink); text-decoration: none; }
+
+    /* ── Lang toggle ── */
+    .lang-toggle {
+      display: flex;
+      gap: 4px;
+    }
+
+    .lang-toggle button {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 4px 10px;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--muted);
+      cursor: pointer;
+      letter-spacing: 0.04em;
+      transition: color 0.15s, border-color 0.15s;
+    }
+
+    .lang-toggle button.active {
+      color: var(--ink);
+      border-color: rgba(0,0,0,0.25);
+    }
+
+    /* ── Content ── */
+    main {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 104px 40px 80px;
+    }
+
+    .page-eyebrow {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 12px;
+    }
+
+    h1 {
+      font-size: clamp(28px, 4vw, 40px);
+      font-weight: 700;
+      letter-spacing: -0.03em;
+      line-height: 1.1;
+      margin-bottom: 8px;
+    }
+
+    .updated {
+      font-size: 13px;
+      color: var(--muted);
+      margin-bottom: 48px;
+    }
+
+    section {
+      margin-bottom: 40px;
+    }
+
+    h2 {
+      font-size: 18px;
+      font-weight: 700;
+      margin-bottom: 12px;
+      letter-spacing: -0.01em;
+    }
+
+    p {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.75;
+      margin-bottom: 12px;
+    }
+
+    p:last-child { margin-bottom: 0; }
+
+    ul {
+      padding-left: 20px;
+      margin-bottom: 12px;
+    }
+
+    li {
+      font-size: 16px;
+      color: var(--muted);
+      line-height: 1.75;
+      margin-bottom: 4px;
+    }
+
+    .divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 48px 0;
+    }
+
+    .ja-section {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 32px;
+      margin-top: 48px;
+    }
+
+    .ja-section h2 {
+      font-size: 18px;
+    }
+
+    /* ── Footer ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 36px 40px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      font-size: 13px;
+      color: var(--muted);
+      flex-wrap: wrap;
+      gap: 12px;
+    }
+
+    @media (max-width: 600px) {
+      nav { padding: 0 20px; }
+      main { padding: 96px 20px 60px; }
+      footer { padding: 28px 20px; }
+      .ja-section { padding: 24px 20px; }
+    }
+  </style>
+</head>
+<body>
+
+<nav>
+  <a class="nav-logo" href="/">BridgeLite</a>
+  <a class="nav-back" href="/">← Back</a>
+</nav>
+
+<main>
+  <p class="page-eyebrow">Legal</p>
+  <h1>Privacy Policy</h1>
+  <p class="updated">Effective date: May 16, 2025 &ensp;·&ensp; Last updated: May 16, 2025</p>
+
+  <section>
+    <h2>Overview</h2>
+    <p>BridgeLite ("the App") is a personal project developed and maintained by a single individual. The App is a lightweight RAW+JPEG photo viewer designed for photographers who need to quickly review and rate large sets of images.</p>
+    <p><strong>BridgeLite does not collect, transmit, or share any personal data or usage information.</strong> All processing takes place entirely on your device.</p>
+  </section>
+
+  <section>
+    <h2>Data We Do Not Collect</h2>
+    <p>The App does not collect, store externally, or transmit:</p>
+    <ul>
+      <li>Personal identification information</li>
+      <li>Location data</li>
+      <li>Usage analytics or crash reports</li>
+      <li>Device identifiers or advertising identifiers</li>
+      <li>Photos, files, or any content from your device</li>
+    </ul>
+    <p>There are no third-party analytics SDKs, advertising networks, or tracking libraries included in the App.</p>
+  </section>
+
+  <section>
+    <h2>On-Device Data</h2>
+    <p>The App stores the following data locally on your device only:</p>
+    <ul>
+      <li><strong>Thumbnail cache:</strong> Small preview images generated from your photos are stored in the App's private container to speed up repeated access. This cache never leaves your device and can be cleared at any time from Settings.</li>
+      <li><strong>App preferences:</strong> Settings such as sort order, filter configuration, and display preferences are stored using iOS standard preferences (UserDefaults) and remain on your device.</li>
+      <li><strong>Folder bookmark:</strong> A security-scoped bookmark to your selected folder is saved locally so the App can reopen the same folder after restart.</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>Photo Library Access</h2>
+    <p>The App requests permission to <strong>add</strong> images to your Photo Library only when you explicitly use the export feature to save a photo to the Photos app. The App does not read from your Photo Library.</p>
+  </section>
+
+  <section>
+    <h2>File Access</h2>
+    <p>The App accesses photos in the folder you select through the system's Files interface (UIDocumentPickerViewController). Access is limited to the folder you explicitly choose. The App reads image files and associated XMP sidecar files, and may write XMP sidecar files or embed metadata into JPEG files when you set a rating or label. No files are uploaded or transmitted.</p>
+  </section>
+
+  <section>
+    <h2>Children's Privacy</h2>
+    <p>The App is not directed at children under 13. No personal information is collected from any user regardless of age.</p>
+  </section>
+
+  <section>
+    <h2>Changes to This Policy</h2>
+    <p>If this policy is updated, the revised version will be posted at this URL with a new effective date. Continued use of the App after any changes constitutes acceptance of the updated policy.</p>
+  </section>
+
+  <section>
+    <h2>Contact</h2>
+    <p>If you have any questions about this Privacy Policy, please contact:<br>
+    <a href="mailto:itotsum128lab@gmail.com">itotsum128lab@gmail.com</a></p>
+  </section>
+
+  <hr class="divider">
+
+  <!-- Japanese version -->
+  <div class="ja-section">
+    <p class="page-eyebrow">日本語</p>
+    <h1 style="font-size: clamp(22px,3vw,32px); margin-bottom:8px;">プライバシーポリシー</h1>
+    <p class="updated">発効日: 2025年5月16日 &ensp;·&ensp; 最終更新: 2025年5月16日</p>
+
+    <section>
+      <h2>概要</h2>
+      <p>BridgeLite（以下「本アプリ」）は、個人が開発・運営する軽量 RAW+JPEG 画像ビュワーです。大量撮影後のセレクト作業を高速に行えるよう設計されています。</p>
+      <p><strong>本アプリは、個人情報・利用データを一切収集・送信・共有しません。</strong>すべての処理はお使いのデバイス上で完結します。</p>
+    </section>
+
+    <section>
+      <h2>収集しないデータ</h2>
+      <p>本アプリは以下の情報を収集・外部保存・送信しません。</p>
+      <ul>
+        <li>個人識別情報</li>
+        <li>位置情報</li>
+        <li>利用状況の分析データ・クラッシュレポート</li>
+        <li>デバイス識別子・広告識別子</li>
+        <li>写真・ファイルなどデバイス上のコンテンツ</li>
+      </ul>
+      <p>本アプリにはサードパーティの分析 SDK・広告ネットワーク・トラッキングライブラリは含まれていません。</p>
+    </section>
+
+    <section>
+      <h2>デバイス内のデータ</h2>
+      <p>本アプリは以下のデータをデバイス内にのみ保存します。</p>
+      <ul>
+        <li><strong>サムネイルキャッシュ:</strong> 高速表示のために生成した小サイズのプレビュー画像をアプリのコンテナ内に保存します。デバイス外には出ず、設定画面からいつでも削除できます。</li>
+        <li><strong>アプリ設定:</strong> 並び順・フィルタ設定・表示設定などは iOS の標準的な設定保存領域（UserDefaults）に保存されます。デバイス外には送信されません。</li>
+        <li><strong>フォルダブックマーク:</strong> 再起動後も同じフォルダを開けるよう、選択したフォルダへのセキュリティスコープドブックマークをデバイス内に保存します。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>写真ライブラリへのアクセス</h2>
+      <p>本アプリは、エクスポート機能を使って写真を Photos アプリに保存する場合にのみ、写真ライブラリへの書き込み許可を求めます。写真ライブラリからの読み取りは行いません。</p>
+    </section>
+
+    <section>
+      <h2>ファイルアクセス</h2>
+      <p>本アプリは、ユーザーが Files アプリ経由で選択したフォルダ内の写真にのみアクセスします。画像ファイルおよび XMP サイドカーファイルを読み取り、評価やラベルを設定した際には XMP サイドカーへの書き込みまたは JPEG へのメタデータ埋め込みを行う場合があります。ファイルのアップロード・送信は一切行いません。</p>
+    </section>
+
+    <section>
+      <h2>子どものプライバシー</h2>
+      <p>本アプリは13歳未満の方を対象としていません。年齢に関わらず、個人情報は収集しません。</p>
+    </section>
+
+    <section>
+      <h2>ポリシーの変更</h2>
+      <p>本ポリシーを改定した場合は、このページに新しい発効日とともに掲載します。改定後も本アプリを継続してご利用いただくことで、改定後のポリシーに同意したものとみなします。</p>
+    </section>
+
+    <section>
+      <h2>お問い合わせ</h2>
+      <p>本ポリシーに関するご質問は以下までご連絡ください。<br>
+      <a href="mailto:itotsum128lab@gmail.com">itotsum128lab@gmail.com</a></p>
+    </section>
+  </div>
+</main>
+
+<footer>
+  <span>BridgeLite</span>
+  <span>
+    <a href="https://github.com/hoge128/bridge-lite">GitHub</a>
+    &ensp;·&ensp;
+    MIT License
+    &ensp;·&ensp;
+    <a href="mailto:itotsum128lab@gmail.com">Contact</a>
+  </span>
+</footer>
+
+</body>
+</html>
