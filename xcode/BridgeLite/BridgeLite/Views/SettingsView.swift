@@ -143,7 +143,6 @@ struct SettingsView: View {
                 }
                 if settings.jpgWriteMode == .embed && settings.hasShownJpgEmbedWarning {
                     Button(String(localized: "settings.reset_embed_warning", defaultValue: "Reset Write Warning")) {
-                        JpgMetadataDefaults.resetJpgEmbedWarning()
                         settings.hasShownJpgEmbedWarning = false
                     }
                     .foregroundStyle(.red)

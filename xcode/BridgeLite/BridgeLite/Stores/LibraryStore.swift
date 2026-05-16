@@ -1592,14 +1592,14 @@ final class LibraryStore: ReindexedGroupSink {
         return f
     }()
 
-    private static let isoDateFormatter: DateFormatter = {
+    private nonisolated(unsafe) static let isoDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
         return f
     }()
 
-    private static let monthLabelFormatter: DateFormatter = {
+    private nonisolated(unsafe) static let monthLabelFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "MMM"

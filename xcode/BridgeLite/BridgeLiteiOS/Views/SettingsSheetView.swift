@@ -88,6 +88,12 @@ struct SettingsSheetView: View {
                     }
                     .disabled(cacheSizeBytes == 0)
                 }
+
+                Section {
+                    Link(destination: URL(string: "https://hoge128.github.io/bridge-lite/privacy-policy")!) {
+                        Label(String(localized: "settings.privacy_policy", defaultValue: "Privacy Policy"), systemImage: "hand.raised")
+                    }
+                }
             }
             .navigationTitle(String(localized: "Settings"))
             .navigationBarTitleDisplayMode(.inline)

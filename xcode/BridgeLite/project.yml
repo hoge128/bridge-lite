@@ -156,4 +156,4 @@ targets:
         CFBundleShortVersionString: "0.1.0"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer for iPhone"
         UILaunchScreen: {}
-        NSPhotoLibraryAddUsageDescription: "写真ライブラリへのエクスポートに使用します。"
+        NSPhotoLibraryAddUsageDescription: "Used to save exported photos to your Photo Library."

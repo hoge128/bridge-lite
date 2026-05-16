@@ -5170,6 +5170,22 @@
         }
       }
     },
+    "settings.privacy_policy" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Privacy Policy"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "プライバシーポリシー"
+          }
+        }
+      }
+    },
     "settings.reset_embed_warning" : {
       "localizations" : {
         "en" : {

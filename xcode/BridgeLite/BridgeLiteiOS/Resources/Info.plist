@@ -23,14 +23,8 @@
 	<key>NSHumanReadableDescription</key>
 	<string>Lightweight RAW+JPG image viewer for iPhone</string>
 	<key>NSPhotoLibraryAddUsageDescription</key>
-	<string>写真ライブラリへのエクスポートに使用します。</string>
+	<string>Used to save exported photos to your Photo Library.</string>
 	<key>UILaunchScreen</key>
 	<dict/>
-	<key>UISupportedInterfaceOrientations</key>
-	<array>
-		<string>UIInterfaceOrientationPortrait</string>
-		<string>UIInterfaceOrientationLandscapeLeft</string>
-		<string>UIInterfaceOrientationLandscapeRight</string>
-	</array>
 </dict>
 </plist>
