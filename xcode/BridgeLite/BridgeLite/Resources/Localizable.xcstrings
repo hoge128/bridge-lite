@@ -6168,6 +6168,38 @@
         }
       }
     },
+    "welcome.open_folder" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Open SD Card"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SD カードを開く"
+          }
+        }
+      }
+    },
+    "welcome.subtitle" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Select photos from your SD card"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SD カードの写真をセレクト"
+          }
+        }
+      }
+    },
     "Write failed: %@" : {
       "localizations" : {
         "en" : {

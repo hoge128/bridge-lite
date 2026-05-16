@@ -38,7 +38,7 @@ struct ContentView: View {
                 VStack(spacing: 6) {
                     Text("BridgeLite")
                         .font(.largeTitle.bold())
-                    Text("SD カードの写真をセレクト")
+                    Text(String(localized: "welcome.subtitle", defaultValue: "Select photos from your SD card"))
                         .font(.subheadline)
                         .foregroundStyle(.secondary)
                 }
@@ -46,7 +46,7 @@ struct ContentView: View {
                 Button {
                     showFolderPicker = true
                 } label: {
-                    Label("SD カードを開く", systemImage: "folder.badge.plus")
+                    Label(String(localized: "welcome.open_folder", defaultValue: "Open SD Card"), systemImage: "folder.badge.plus")
                         .font(.headline)
                         .padding(.horizontal, 28)
                         .padding(.vertical, 14)
