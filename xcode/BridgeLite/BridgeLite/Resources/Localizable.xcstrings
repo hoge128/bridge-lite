@@ -4793,6 +4793,22 @@
         }
       }
     },
+    "settings.render.auto_detail" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Auto-render in Detail view"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "詳細ビューで自動レンダリング"
+          }
+        }
+      }
+    },
     "settings.render.auto_sidebar" : {
       "localizations" : {
         "en" : {

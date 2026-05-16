@@ -39,6 +39,15 @@ struct SettingsSheetView: View {
                     .disabled(scanStore.jpgWriteMode != .embed || !JpgMetadataDefaults.hasShownJpgEmbedWarning())
                 }
 
+                Section(String(localized: "settings.render.section", defaultValue: "RAW Rendering")) {
+                    Toggle(isOn: $scanStore.autoRenderRawDetail) {
+                        Label(
+                            String(localized: "settings.render.auto_detail", defaultValue: "Auto-render in Detail view"),
+                            systemImage: "camera.aperture"
+                        )
+                    }
+                }
+
                 Section(String(localized: "settings.propagation.section", defaultValue: "Rating Propagation")) {
                     propagationGrid
                         .frame(maxWidth: .infinity)

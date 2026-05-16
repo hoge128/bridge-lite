@@ -5,7 +5,13 @@ struct ThumbnailGridView: View {
     @State var scanStore: ScanStore
     @State var ratingStore: RatingStore
     @State private var selectedGroup: ShotGroup?
-    @State private var preferRendered = false
+    @State private var preferRendered: Bool
+
+    init(scanStore: ScanStore, ratingStore: RatingStore) {
+        self._scanStore = State(initialValue: scanStore)
+        self._ratingStore = State(initialValue: ratingStore)
+        self._preferRendered = State(initialValue: scanStore.autoRenderRawDetail)
+    }
     @State private var selectedFilterCategory: FilterCategory?
     @State private var showFolderPicker = false
     @State private var showSettings = false

@@ -274,6 +274,9 @@ final class ScanStore: ReindexedGroupSink {
     var jpgWriteMode: JpgWriteMode = JpgMetadataDefaults.readJpgWriteMode() {
         didSet { UserDefaults.standard.set(jpgWriteMode.rawValue, forKey: JpgMetadataDefaults.jpgWriteModeKey) }
     }
+    var autoRenderRawDetail: Bool = ScanStore.boolPref("ios.autoRenderRawDetail", default: true) {
+        didSet { UserDefaults.standard.set(autoRenderRawDetail, forKey: "ios.autoRenderRawDetail") }
+    }
 
     // MARK: - Propagation settings (same UserDefaults keys as macOS)
 
