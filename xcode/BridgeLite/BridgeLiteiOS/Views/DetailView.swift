@@ -483,16 +483,16 @@ struct DetailView: View {
                     let opts = [kCGImageSourceShouldCache: false] as CFDictionary
                     guard let src = CGImageSourceCreateWithData(data as CFData, opts),
                           let cgImg = CGImageSourceCreateImageAtIndex(src, 0, opts) else { return nil }
-                    return UIImage(cgImage: cgImg)
+                    let orient = ThumbnailService.readRawOrientation(url: url)
+                    let uiOrient = ThumbnailService.uiImageOrientation(from: orient)
+                    return UIImage(cgImage: cgImg, scale: 1.0, orientation: uiOrient)
                 }.value
             }
         }
         return try? await fullResLimiter.run {
             await Task.detached(priority: .userInitiated) {
-                let opts = [kCGImageSourceShouldCache: false] as CFDictionary
-                guard let src = CGImageSourceCreateWithURL(url as CFURL, opts),
-                      let cgImg = CGImageSourceCreateImageAtIndex(src, 0, opts) else { return nil }
-                return UIImage(cgImage: cgImg)
+                guard let data = try? Data(contentsOf: url) else { return nil }
+                return UIImage(data: data)
             }.value
         }
     }
