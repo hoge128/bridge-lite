@@ -137,6 +137,7 @@ targets:
       base:
         SWIFT_VERSION: 6.0
         IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        TARGETED_DEVICE_FAMILY: "1"
         PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite.ios
         PRODUCT_NAME: BridgeLite
         DEVELOPMENT_TEAM: KTQ8JQW28L
