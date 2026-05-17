@@ -4,7 +4,7 @@ import SwiftUI
 import UniformTypeIdentifiers
 
 @Observable @MainActor
-final class LibraryStore {
+final class LibraryStore: ReindexedGroupSink {
     // エントリ一覧
     private(set) var entries: [UInt64: PhotoEntry] = [:]
     private(set) var orderedIDs: [UInt64] = []
@@ -80,6 +80,7 @@ final class LibraryStore {
     private var pendingXmp: [UInt64: XmpData] = [:]
     private var metaFlushTask: Task<Void, Never>?
     private var pendingRecomputeTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingAggregatesTask: Task<Void, Never>?
 
     // Pipeline stage cache — @ObservationIgnored で UI 観測を回避
     @ObservationIgnored private var dirty = PipelineDirty()
@@ -966,6 +967,25 @@ final class LibraryStore {
 
     func triggerRating(_ stars: Int) {
         guard !selectedIDs.isEmpty else { return }
+        if settings.jpgWriteMode == .embed && !settings.hasShownJpgEmbedWarning {
+            let hasJpg = selectedIDs.contains { id in
+                guard let entry = entries[id] else { return false }
+                let ext = entry.url.pathExtension.lowercased()
+                return ext == "jpg" || ext == "jpeg"
+            }
+            if hasJpg {
+                let alert = NSAlert()
+                alert.messageText = String(localized: "alert.jpg_embed_first.title",
+                                           defaultValue: "Write Metadata into JPEG?")
+                alert.informativeText = String(localized: "alert.jpg_embed_first.message",
+                                               defaultValue: "Rating will be written directly into the JPEG file. The original file will be modified. You can switch to Sidecar mode in Settings.")
+                alert.addButton(withTitle: String(localized: "Yes"))
+                alert.addButton(withTitle: String(localized: "No"))
+                let resp = alert.runModal()
+                if resp != .alertFirstButtonReturn { return }
+                settings.hasShownJpgEmbedWarning = true
+            }
+        }
         if selectedIDs.count > 1 && settings.confirmBulkRating {
             let ratingLabel = stars == 0
                 ? String(localized: "No Rating")
@@ -1245,7 +1265,7 @@ final class LibraryStore {
     }
 
     // dirty なステージだけを順に実行する中央ディスパッチャ。
-    // 現時点では同期実行。後続 PR で aggregates を非同期化する。
+    // S1〜S4 は同期実行、S5 (aggregates) は Task.detached でバックグラウンド計算。
     private func runDirtyStages() {
         runStageReps()
         runStageFiltered()
@@ -1324,11 +1344,72 @@ final class LibraryStore {
         dirty.daily = false
     }
 
-    // S5: ヒストグラムバケットと集計値を更新する。
+    // S5: Availability (カメラ/レンズ/拡張子一覧) を同期更新し、ヒストグラムはバックグラウンドで計算する。
     private func runStageAggregates() {
         guard dirty.aggregates else { return }
-        recomputeAggregates(reps: cachedRepsOrdered, fast: scanPhase == .loading)
         dirty.aggregates = false
+        pendingAggregatesTask?.cancel()
+
+        // Availability は常に同期（全エントリを1パス、軽量）
+        let newExt = Array(Set(entries.values.map { $0.url.pathExtension.lowercased() }).filter { !$0.isEmpty }).sorted()
+        if newExt != availableExtensions { availableExtensions = newExt }
+        let newCam = Array(Set(exifData.values.compactMap { $0.cameraName })).sorted()
+        if newCam != availableCameras { availableCameras = newCam }
+        let newLens = Array(Set(exifData.values.compactMap { $0.lensName })).sorted()
+        if newLens != availableLenses { availableLenses = newLens }
+        let newArt = Array(Set(exifData.values.compactMap { $0.artist })).sorted()
+        if newArt != availableArtists { availableArtists = newArt }
+
+        // スキャン中はヒストグラムをスキップ（スキャン完了後に一括計算）
+        if scanPhase == .loading { return }
+
+        // バリュー型スナップショットを MainActor 上で取得してからバックグラウンドへ渡す
+        let reps       = cachedRepsOrdered
+        let filterSnap = filter
+        let exifSnap   = exifData
+        let xmpSnap    = xmpData
+        let lumSnap    = luminanceScores
+        let entrySnap  = entries
+        let allIDs     = orderedIDs
+
+        // DateFormatter はスレッドセーフではないため、日付を MainActor 上で先に解決する
+        var precomputedDates: [UInt64: Date] = Dictionary(minimumCapacity: reps.count + allIDs.count)
+        for id in reps    { precomputedDates[id] = photoDate(for: id) }
+        for id in allIDs  { if precomputedDates[id] == nil { precomputedDates[id] = photoDate(for: id) } }
+
+        let gen = scanGeneration
+        pendingAggregatesTask = Task.detached(priority: .utility) { [weak self] in
+            guard !Task.isCancelled else { return }
+
+            func filtered(_ axis: HistogramAxis) -> [UInt64] {
+                LibraryStore.filteredIDsExcluding(axis, from: reps, filter: filterSnap,
+                                                  entries: entrySnap, exifData: exifSnap,
+                                                  xmpData: xmpSnap, luminanceScores: lumSnap)
+            }
+
+            let iso      = LibraryStore.buildISOBuckets(ids: filtered(.iso), exifData: exifSnap)
+            let focal    = LibraryStore.buildFocalBuckets(ids: filtered(.focal), exifData: exifSnap)
+            let shutter  = LibraryStore.buildShutterBuckets(ids: filtered(.shutter), exifData: exifSnap)
+            let aperture = LibraryStore.buildApertureBuckets(ids: filtered(.aperture), exifData: exifSnap)
+            let date     = LibraryStore.buildDateBuckets(ids: filtered(.date), precomputedDates: precomputedDates)
+            let lum      = LibraryStore.buildLuminanceBuckets(ids: filtered(.luminance), luminanceScores: lumSnap)
+            let (ppd, di) = LibraryStore.buildCalendarData(filteredIDs: filtered(.date), allIDs: allIDs,
+                                                           precomputedDates: precomputedDates, entries: entrySnap)
+
+            guard !Task.isCancelled else { return }
+
+            await MainActor.run { [weak self] in
+                guard let self, gen == self.scanGeneration else { return }
+                self.isoBuckets      = iso
+                self.focalBuckets    = focal
+                self.shutterBuckets  = shutter
+                self.apertureBuckets = aperture
+                self.dateBuckets     = date
+                self.luminanceBuckets = lum
+                if ppd != self.photosPerDay { self.photosPerDay = ppd }
+                if di != self.datasetInterval { self.datasetInterval = di }
+            }
+        }
     }
 
     // フィルタ変更の種別。将来の PR でステージスキップや coalesce に利用する。
@@ -1511,14 +1592,14 @@ final class LibraryStore {
         return f
     }()
 
-    private static let isoDateFormatter: DateFormatter = {
+    private nonisolated(unsafe) static let isoDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
         return f
     }()
 
-    private static let monthLabelFormatter: DateFormatter = {
+    private nonisolated(unsafe) static let monthLabelFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "MMM"
@@ -1529,7 +1610,15 @@ final class LibraryStore {
 
     private enum HistogramAxis { case iso, focal, shutter, aperture, date, luminance }
 
-    private func filteredIDsExcluding(_ axis: HistogramAxis, from reps: [UInt64]) -> [UInt64] {
+    private nonisolated static func filteredIDsExcluding(
+        _ axis: HistogramAxis,
+        from reps: [UInt64],
+        filter: FilterCriteria,
+        entries: [UInt64: PhotoEntry],
+        exifData: [UInt64: ExifData],
+        xmpData: [UInt64: XmpData],
+        luminanceScores: [UInt64: Int]
+    ) -> [UInt64] {
         var f = filter
         switch axis {
         case .iso:       f.isoMin = "";       f.isoMax = ""
@@ -1546,44 +1635,24 @@ final class LibraryStore {
         }
     }
 
-    private func recomputeAggregates(reps: [UInt64], fast: Bool = false) {
-        // 値が変わっていない場合は代入をスキップして @Observable invalidation を防ぐ
-        let newExt = Array(Set(entries.values.map { $0.url.pathExtension.lowercased() }).filter { !$0.isEmpty }).sorted()
-        if newExt != availableExtensions { availableExtensions = newExt }
-        let newCam = Array(Set(exifData.values.compactMap { $0.cameraName })).sorted()
-        if newCam != availableCameras { availableCameras = newCam }
-        let newLens = Array(Set(exifData.values.compactMap { $0.lensName })).sorted()
-        if newLens != availableLenses { availableLenses = newLens }
-        let newArt = Array(Set(exifData.values.compactMap { $0.artist })).sorted()
-        if newArt != availableArtists { availableArtists = newArt }
-        // スキャン中はヒストグラムバケット計算をスキップ（スキャン完了後に 1 回フル計算する）
-        if fast { return }
-        isoBuckets = buildISOBuckets(ids: filteredIDsExcluding(.iso, from: reps))
-        focalBuckets = buildFocalBuckets(ids: filteredIDsExcluding(.focal, from: reps))
-        shutterBuckets = buildShutterBuckets(ids: filteredIDsExcluding(.shutter, from: reps))
-        apertureBuckets = buildApertureBuckets(ids: filteredIDsExcluding(.aperture, from: reps))
-        dateBuckets = buildDateBuckets(ids: filteredIDsExcluding(.date, from: reps))
-        luminanceBuckets = buildLuminanceBuckets(ids: filteredIDsExcluding(.luminance, from: reps))
-        let (newPhotosPerDay, newDatasetInterval) = buildCalendarData(
-            filteredIDs: filteredIDsExcluding(.date, from: reps),
-            allIDs: orderedIDs
-        )
-        if newPhotosPerDay != photosPerDay { photosPerDay = newPhotosPerDay }
-        if newDatasetInterval != datasetInterval { datasetInterval = newDatasetInterval }
-    }
 
-    private func buildCalendarData(filteredIDs: [UInt64], allIDs: [UInt64]) -> ([Date: Int], DateInterval?) {
+    private nonisolated static func buildCalendarData(
+        filteredIDs: [UInt64],
+        allIDs: [UInt64],
+        precomputedDates: [UInt64: Date],
+        entries: [UInt64: PhotoEntry]
+    ) -> ([Date: Int], DateInterval?) {
         let cal = Calendar.current
         var perDay: [Date: Int] = [:]
         for id in filteredIDs {
-            let d = photoDate(for: id)
+            let d = precomputedDates[id] ?? entries[id]?.createdDate ?? .distantPast
             guard d != .distantPast else { continue }
             perDay[cal.startOfDay(for: d), default: 0] += 1
         }
         var minDate: Date? = nil
         var maxDate: Date? = nil
         for id in allIDs {
-            let d = photoDate(for: id)
+            let d = precomputedDates[id] ?? entries[id]?.createdDate ?? .distantPast
             guard d != .distantPast else { continue }
             if minDate == nil || d < minDate! { minDate = d }
             if maxDate == nil || d > maxDate! { maxDate = d }
@@ -1594,7 +1663,7 @@ final class LibraryStore {
         return (perDay, interval)
     }
 
-    private func buildISOBuckets(ids: [UInt64]) -> [ExifBucket] {
+    private nonisolated static func buildISOBuckets(ids: [UInt64], exifData: [UInt64: ExifData]) -> [ExifBucket] {
         typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
         let specs: [Spec] = [
             ("≤100",   100,      "",     "100"),
@@ -1618,7 +1687,7 @@ final class LibraryStore {
         }
     }
 
-    private func buildFocalBuckets(ids: [UInt64]) -> [ExifBucket] {
+    private nonisolated static func buildFocalBuckets(ids: [UInt64], exifData: [UInt64: ExifData]) -> [ExifBucket] {
         typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
         let specs: [Spec] = [
             ("≤24",   24,       "",    "24"),
@@ -1640,7 +1709,7 @@ final class LibraryStore {
         }
     }
 
-    private func buildShutterBuckets(ids: [UInt64]) -> [ExifBucket] {
+    private nonisolated static func buildShutterBuckets(ids: [UInt64], exifData: [UInt64: ExifData]) -> [ExifBucket] {
         typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
         let specs: [Spec] = [
             ("≥2k",  1.0 / 2000, "",       "1/2000"),
@@ -1662,7 +1731,7 @@ final class LibraryStore {
         }
     }
 
-    private func buildApertureBuckets(ids: [UInt64]) -> [ExifBucket] {
+    private nonisolated static func buildApertureBuckets(ids: [UInt64], exifData: [UInt64: ExifData]) -> [ExifBucket] {
         typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
         let specs: [Spec] = [
             ("≤1.8",  1.8,      "",    "1.8"),
@@ -1684,10 +1753,10 @@ final class LibraryStore {
         }
     }
 
-    private func buildDateBuckets(ids: [UInt64]) -> [ExifBucket] {
+    private nonisolated static func buildDateBuckets(ids: [UInt64], precomputedDates: [UInt64: Date]) -> [ExifBucket] {
         let cal = Calendar.current
         let dates = ids.compactMap { id -> Date? in
-            let d = photoDate(for: id)
+            let d = precomputedDates[id] ?? .distantPast
             return d == .distantPast ? nil : d
         }
         guard let minDate = dates.min(), let maxDate = dates.max() else { return [] }
@@ -1697,7 +1766,7 @@ final class LibraryStore {
             : buildMonthlyDateBuckets(dates: dates, from: minDate, to: maxDate)
     }
 
-    private func buildMonthlyDateBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
+    private nonisolated static func buildMonthlyDateBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
         let cal = Calendar.current
         let isoFmt = Self.isoDateFormatter
         let lblFmt = Self.monthLabelFormatter
@@ -1726,7 +1795,7 @@ final class LibraryStore {
         return buckets
     }
 
-    private func buildDailyDateBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
+    private nonisolated static func buildDailyDateBuckets(dates: [Date], from minDate: Date, to maxDate: Date) -> [ExifBucket] {
         let cal = Calendar.current
         let isoFmt = Self.isoDateFormatter
         var buckets: [ExifBucket] = []
@@ -1748,7 +1817,7 @@ final class LibraryStore {
         return buckets
     }
 
-    private func buildLuminanceBuckets(ids: [UInt64]) -> [ExifBucket] {
+    private nonisolated static func buildLuminanceBuckets(ids: [UInt64], luminanceScores: [UInt64: Int]) -> [ExifBucket] {
         typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
         let specs: [Spec] = [
             ("0",   31,        "",    "31"),
@@ -1995,6 +2064,8 @@ final class LibraryStore {
         metaFlushTask = nil
         pendingRecomputeTask?.cancel()
         pendingRecomputeTask = nil
+        pendingAggregatesTask?.cancel()
+        pendingAggregatesTask = nil
         exifLoadTask?.cancel()
         exifLoadTask = nil
         thumbnailLoadTask?.cancel()

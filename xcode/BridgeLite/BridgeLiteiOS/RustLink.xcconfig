@@ -1,0 +1,4 @@
+// Conditional library search paths: device vs simulator
+// Used by BridgeLiteiOS target via configFiles in project.yml
+LIBRARY_SEARCH_PATHS[sdk=iphoneos*] = $(PROJECT_DIR)/Generated/lib-ios $(inherited)
+LIBRARY_SEARCH_PATHS[sdk=iphonesimulator*] = $(PROJECT_DIR)/Generated/lib-ios-sim $(inherited)

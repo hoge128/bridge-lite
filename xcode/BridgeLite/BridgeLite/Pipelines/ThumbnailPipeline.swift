@@ -27,7 +27,7 @@ enum ThumbnailPipeline {
         await PHashPipeline.applyBurstMode()
 
         // Pre-fetch all thumbnails in one SQLite connection to avoid per-entry connection overhead.
-        let prefetched: [URL: Data]
+        let prefetched: [URL: BridgeCore.CachedThumbEntry]
         if let list = imageList {
             prefetched = await BridgeCore.fetchCachedThumbnailBatch(list: list, db: db)
         } else {
@@ -40,7 +40,7 @@ enum ThumbnailPipeline {
                 group.addTask {
                     await loadOne(entry: entry, store: store, db: db,
                                   phashPipeline: phashPipeline, generation: generation,
-                                  prefetchedJpeg: cached)
+                                  prefetchedEntry: cached)
                 }
             }
         }
@@ -64,7 +64,7 @@ enum ThumbnailPipeline {
         db: BridgeCoreDatabase,
         phashPipeline: PHashPipeline,
         generation: Int,
-        prefetchedJpeg: Data? = nil
+        prefetchedEntry: BridgeCore.CachedThumbEntry? = nil
     ) async {
         // stale 世代は limiter slot を奪わずに即 exit（新世代の loadAll を妨げない）
         let isStale = await MainActor.run { store.scanGeneration != generation }
@@ -73,33 +73,43 @@ enum ThumbnailPipeline {
             // slot 取得後にも再チェック（待機中に reset() が走ることがある）
             let stale = await MainActor.run { store.scanGeneration != generation }
             guard !stale else { return }
-            // 1. SQLite thumbnail cache — use pre-fetched data or fall back to individual fetch
-            // Note: ?? cannot be used with await (autoclosure limitation), so use explicit if-else.
-            let cachedJpeg: Data?
-            if let pre = prefetchedJpeg {
-                cachedJpeg = pre
+
+            // 1. SQLite thumbnail cache — use pre-fetched entry or fall back to individual fetch
+            let cachedEntry: BridgeCore.CachedThumbEntry?
+            if let pre = prefetchedEntry {
+                cachedEntry = pre
             } else {
-                cachedJpeg = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db)
+                cachedEntry = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db)
             }
-            if let jpeg = cachedJpeg {
-                let cached = CGImage.fromJPEGData(jpeg)
+            if let ce = cachedEntry {
+                let cached = CGImage.fromJPEGData(ce.jpeg)
                 let isAdequate = cached.map { max($0.width, $0.height) >= minCachePixels } ?? false
-                // カメラ固有の黒帯入り EXIF サムネがキャッシュされている場合は再生成する
-                let hasBadAspect: Bool = {
-                    guard isAdequate,
-                          let img = cached,
-                          let src = CGImageSourceCreateWithURL(entry.url as CFURL, nil),
-                          let masterAspect = inspectMasterAspect(src), masterAspect > 0 else { return false }
-                    let cacheAspect = CGFloat(img.width) / CGFloat(img.height)
-                    return abs(cacheAspect - masterAspect) / masterAspect > 0.02
-                }()
+                // aspect_ok=true のキャッシュは書き込み時に既に検証済み → ファイル再オープン不要
+                let hasBadAspect: Bool
+                if ce.aspectOk {
+                    hasBadAspect = false
+                } else {
+                    hasBadAspect = {
+                        guard isAdequate,
+                              let img = cached,
+                              let src = CGImageSourceCreateWithURL(entry.url as CFURL, nil),
+                              let masterAspect = inspectMasterAspect(src), masterAspect > 0 else { return false }
+                        let cacheAspect = CGFloat(img.width) / CGFloat(img.height)
+                        return abs(cacheAspect - masterAspect) / masterAspect > 0.02
+                    }()
+                }
                 if isAdequate && !hasBadAspect {
-                    await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
+                    await store.setThumbnail(id: entry.id, jpeg: ce.jpeg, generation: generation)
                     if entry.isRaw {
-                        let url = entry.url
-                        let orient = await Task.detached(priority: .utility) {
-                            readRawOrientation(url)
-                        }.value
+                        // raw_orientation > 0 なら DB キャッシュから復元 — ファイル再オープン不要
+                        let orient: Image.Orientation
+                        if ce.rawOrientation > 0,
+                           let cgOrient = CGImagePropertyOrientation(rawValue: UInt32(ce.rawOrientation)) {
+                            orient = Image.Orientation(cgOrient)
+                        } else {
+                            let url = entry.url
+                            orient = await Task.detached(priority: .utility) { readRawOrientation(url) }.value
+                        }
                         await store.setThumbnailOrientation(id: entry.id, orientation: orient, generation: generation)
                     }
                     return
@@ -111,25 +121,31 @@ enum ThumbnailPipeline {
             if let img = await generateWithImageIO(url: entry.url, maxPixels: targetPixels),
                let jpeg = img.jpegData(compressionQuality: 0.85) {
                 await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
-                await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
+                await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, aspectOk: true, db: db)
                 await phashPipeline.enqueue(entry: entry, source: img, db: db)
                 return
             }
 
             // 3. RAW: extract preview JPEG from IFD, scale to targetPixels, re-encode for cache.
             //    Use .preview (mid-size IFD JPEG) instead of .thumbnail to ensure Retina sharpness.
+            //    向きとプレビュー抽出を同一 Task で実行してファイルオープンを 1 回に削減する。
             if entry.isRaw,
                let rawJpeg = await BridgeCore.extractRawJpeg(url: entry.url, quality: .preview),
                let rawImg = CGImage.fromJPEGData(rawJpeg) {
                 let url = entry.url
-                let orient = await Task.detached(priority: .utility) {
-                    readRawOrientation(url)
+                let (orient, cgOrientRaw) = await Task.detached(priority: BridgeQoS.thumbnail) {
+                    guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+                        return (Image.Orientation.up, UInt8(0))
+                    }
+                    let cgOrient = readOrientation(src)
+                    return (Image.Orientation(cgOrient), UInt8(cgOrient.rawValue))
                 }.value
                 let scaled = rawImg.scaledToFit(maxPixels: targetPixels) ?? rawImg
                 guard let jpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
                 await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
                 await store.setThumbnailOrientation(id: entry.id, orientation: orient, generation: generation)
-                await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db)
+                await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg,
+                                                       aspectOk: true, rawOrientation: cgOrientRaw, db: db)
                 await phashPipeline.enqueue(entry: entry, source: scaled, db: db)
             }
         }

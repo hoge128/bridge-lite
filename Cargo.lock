@@ -31,6 +31,7 @@ dependencies = [
  "rusqlite",
  "serde",
  "serde_json",
+ "tempfile",
  "tokio",
  "walkdir",
  "xmp_toolkit",

@@ -96,6 +96,36 @@ struct SettingsView: View {
                 Text("Group Scope")
             }
             Section {
+                Picker(String(localized: "settings.metadata.jpg_write_mode", defaultValue: "JPEG Metadata"),
+                       selection: $settings.jpgWriteMode) {
+                    ForEach(JpgWriteMode.allCases) { mode in
+                        Text(mode.localizedName).tag(mode)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                mdCaption("settings.metadata.jpg_write_mode.description",
+                          defaultValue: "**Embed**: writes XMP directly into the JPEG file.\n**Sidecar**: creates a separate .xmp file and leaves the JPEG unchanged.")
+                if settings.jpgWriteMode == .sidecar {
+                    Picker(String(localized: "settings.metadata.conflict_policy", defaultValue: "When embedded XMP exists"),
+                           selection: $settings.jpgSidecarConflictPolicy) {
+                        ForEach(JpgSidecarConflictPolicy.allCases) { policy in
+                            Text(policy.localizedName).tag(policy)
+                        }
+                    }
+                    .pickerStyle(.radioGroup)
+                    mdCaption("settings.metadata.conflict_policy.description",
+                              defaultValue: "Controls what happens when a JPEG already has ratings or labels embedded directly and you rate it in Sidecar mode.\n**Ask each time**: shows a confirmation listing the affected filenames.\n**Always propagate**: silently updates both sidecar and embedded.\n**Never propagate**: writes only to the sidecar.")
+                }
+                if settings.jpgWriteMode == .embed && settings.hasShownJpgEmbedWarning {
+                    Button(String(localized: "settings.reset_embed_warning", defaultValue: "Reset Write Warning")) {
+                        settings.hasShownJpgEmbedWarning = false
+                    }
+                    .foregroundStyle(.red)
+                }
+            } header: {
+                Text(String(localized: "settings.metadata.section", defaultValue: "Metadata"))
+            }
+            Section {
                 propagationGrid
                 Text("Row: source kind  ·  Column: kinds that receive the same rating/label.")
                     .font(.caption2)
@@ -119,30 +149,6 @@ struct SettingsView: View {
                 }
             } header: {
                 Text("Filter Panel")
-            }
-            Section {
-                Picker(String(localized: "settings.metadata.jpg_write_mode", defaultValue: "JPEG Metadata"),
-                       selection: $settings.jpgWriteMode) {
-                    ForEach(JpgWriteMode.allCases) { mode in
-                        Text(mode.localizedName).tag(mode)
-                    }
-                }
-                .pickerStyle(.radioGroup)
-                mdCaption("settings.metadata.jpg_write_mode.description",
-                          defaultValue: "**Embed**: writes XMP directly into the JPEG file.\n**Sidecar**: creates a separate .xmp file and leaves the JPEG unchanged.")
-                if settings.jpgWriteMode == .sidecar {
-                    Picker(String(localized: "settings.metadata.conflict_policy", defaultValue: "When embedded XMP exists"),
-                           selection: $settings.jpgSidecarConflictPolicy) {
-                        ForEach(JpgSidecarConflictPolicy.allCases) { policy in
-                            Text(policy.localizedName).tag(policy)
-                        }
-                    }
-                    .pickerStyle(.radioGroup)
-                    mdCaption("settings.metadata.conflict_policy.description",
-                              defaultValue: "Controls what happens when a JPEG already has ratings or labels embedded directly and you rate it in Sidecar mode.\n**Ask each time**: shows a confirmation listing the affected filenames.\n**Always propagate**: silently updates both sidecar and embedded.\n**Never propagate**: writes only to the sidecar.")
-                }
-            } header: {
-                Text(String(localized: "settings.metadata.section", defaultValue: "Metadata"))
             }
             Section {
                 Toggle(String(localized: "settings.folder_watch.toggle",
@@ -423,12 +429,20 @@ struct SettingsView: View {
             GridRow {
                 Text(soocLabel).font(.caption)
                 lockedCell
-                Toggle("", isOn: $s.soocToRaw).labelsHidden()
+                if settings.jpgWriteMode == .sidecar {
+                    lockedCell
+                } else {
+                    Toggle("", isOn: $s.soocToRaw).labelsHidden()
+                }
                 Toggle("", isOn: $s.soocToDeveloped).labelsHidden()
             }
             GridRow {
                 Text("RAW").font(.caption)
-                Toggle("", isOn: $s.rawToSooc).labelsHidden()
+                if settings.jpgWriteMode == .sidecar {
+                    lockedCell
+                } else {
+                    Toggle("", isOn: $s.rawToSooc).labelsHidden()
+                }
                 lockedCell
                 Toggle("", isOn: $s.rawToDeveloped).labelsHidden()
             }

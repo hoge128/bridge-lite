@@ -333,6 +333,9 @@ final class SettingsStore {
     var confirmBulkRating: Bool = bool("confirmBulkRating", default: true) {
         didSet { UserDefaults.standard.set(confirmBulkRating, forKey: "confirmBulkRating") }
     }
+    var hasShownJpgEmbedWarning: Bool = bool("hasShownJpgEmbedWarning", default: false) {
+        didSet { UserDefaults.standard.set(hasShownJpgEmbedWarning, forKey: "hasShownJpgEmbedWarning") }
+    }
     var warnSlowStorage: Bool = bool("warnSlowStorage", default: true) {
         didSet { UserDefaults.standard.set(warnSlowStorage, forKey: "warnSlowStorage") }
     }
@@ -343,7 +346,13 @@ final class SettingsStore {
     // MARK: - メタデータ書き込み
     var jpgWriteMode: JpgWriteMode = (UserDefaults.standard.string(forKey: "jpgWriteMode")
                                        .flatMap(JpgWriteMode.init(rawValue:))) ?? .embed {
-        didSet { UserDefaults.standard.set(jpgWriteMode.rawValue, forKey: "jpgWriteMode") }
+        didSet {
+            UserDefaults.standard.set(jpgWriteMode.rawValue, forKey: "jpgWriteMode")
+            if jpgWriteMode == .sidecar {
+                soocToRaw = true
+                rawToSooc = true
+            }
+        }
     }
     var jpgSidecarConflictPolicy: JpgSidecarConflictPolicy = (UserDefaults.standard.string(forKey: "jpgSidecarConflictPolicy")
                                                                .flatMap(JpgSidecarConflictPolicy.init(rawValue:))) ?? .ask {

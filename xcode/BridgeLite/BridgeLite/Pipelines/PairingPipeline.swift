@@ -1,5 +1,10 @@
 import Foundation
 
+@MainActor
+protocol ReindexedGroupSink: AnyObject, Sendable {
+    func applyReindexedGroups(_ groups: [UInt64: [UInt64]], generation: Int)
+}
+
 actor PairingPipeline {
     private var exifReady = false
     private var phashReady = false
@@ -7,21 +12,21 @@ actor PairingPipeline {
     private var splitThresholdSecs: Int64 = 2
     private var phashHammingThreshold: UInt32 = 15
 
-    func noteExifReady(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: LibraryStore, splitThresholdSecs: Int64, phashHammingThreshold: UInt32, generation: Int) async {
+    func noteExifReady(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: any ReindexedGroupSink, splitThresholdSecs: Int64, phashHammingThreshold: UInt32, generation: Int) async {
         self.splitThresholdSecs = splitThresholdSecs
         self.phashHammingThreshold = phashHammingThreshold
         exifReady = true
         await maybeReindex(list: list, db: db, store: store, generation: generation)
     }
 
-    func notePhashReady(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: LibraryStore, splitThresholdSecs: Int64, phashHammingThreshold: UInt32, generation: Int) async {
+    func notePhashReady(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: any ReindexedGroupSink, splitThresholdSecs: Int64, phashHammingThreshold: UInt32, generation: Int) async {
         self.splitThresholdSecs = splitThresholdSecs
         self.phashHammingThreshold = phashHammingThreshold
         phashReady = true
         await maybeReindex(list: list, db: db, store: store, generation: generation)
     }
 
-    private func maybeReindex(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: LibraryStore, generation: Int) async {
+    private func maybeReindex(list: BridgeCoreImageList?, db: BridgeCoreDatabase, store: any ReindexedGroupSink, generation: Int) async {
         // Reindex once both EXIF and pHash batches are complete.
         guard exifReady && phashReady else { return }
         guard !reindexed else { return }

@@ -14,11 +14,11 @@ use std::path::{Path, PathBuf};
 use std::sync::OnceLock;
 use std::time::SystemTime;
 
-use bridge_core::error::{CoreError, CoreErrorId};
-use bridge_core::scanner::{ImageEntry as CoreImageEntry, SUPPORTED_EXTENSIONS, RAW_EXTENSIONS};
-use bridge_core::metadata::ExifData as CoreExifData;
-use bridge_core::xmp::{XmpData as CoreXmpData, Label as CoreLabel, Flag as CoreFlag};
 use bridge_core::developed::DEVELOPED_SOFTWARE_KEYWORDS;
+use bridge_core::error::{CoreError, CoreErrorId};
+use bridge_core::metadata::ExifData as CoreExifData;
+use bridge_core::scanner::{ImageEntry as CoreImageEntry, RAW_EXTENSIONS, SUPPORTED_EXTENSIONS};
+use bridge_core::xmp::{Flag as CoreFlag, Label as CoreLabel, XmpData as CoreXmpData};
 
 // ── Tokio runtime singleton ────────────────────────────────────────────────
 
@@ -92,23 +92,24 @@ pub struct FfiImageEntry {
 
 impl FfiImageEntry {
     fn from_core(e: &CoreImageEntry) -> Self {
-        let to_unix = |t: Option<SystemTime>| -> i64 {
-            t.and_then(|st| st.duration_since(SystemTime::UNIX_EPOCH).ok())
-                .map(|d| d.as_secs() as i64)
-                .unwrap_or(-1)
-        };
         FfiImageEntry {
             id: e.id as u64,
             path: e.path.to_string_lossy().into_owned(),
             filename: e.filename.clone(),
             is_raw: e.is_raw,
             file_size: e.file_size,
-            modified_unix: to_unix(e.modified),
-            created_unix: to_unix(e.created),
+            modified_unix: system_time_to_unix(e.modified),
+            created_unix: system_time_to_unix(e.created),
             has_jpg_partner: e.has_jpg_partner,
             shot_id: e.shot_id,
         }
     }
+}
+
+fn system_time_to_unix(t: Option<SystemTime>) -> i64 {
+    t.and_then(|st| st.duration_since(SystemTime::UNIX_EPOCH).ok())
+        .map(|d| d.as_secs() as i64)
+        .unwrap_or(-1)
 }
 
 /// EXIF result (found flag + fields).
@@ -221,18 +222,24 @@ impl FfiXmpResult {
     }
 
     fn from_core(d: &CoreXmpData) -> Self {
-        let label_u8 = d.label.map(|l| match l {
-            CoreLabel::Red    => 1u8,
-            CoreLabel::Yellow => 2,
-            CoreLabel::Green  => 3,
-            CoreLabel::Blue   => 4,
-            CoreLabel::Purple => 5,
-        }).unwrap_or(0);
+        let label_u8 = d
+            .label
+            .map(|l| match l {
+                CoreLabel::Red => 1u8,
+                CoreLabel::Yellow => 2,
+                CoreLabel::Green => 3,
+                CoreLabel::Blue => 4,
+                CoreLabel::Purple => 5,
+            })
+            .unwrap_or(0);
 
-        let flag_u8 = d.flag.map(|f| match f {
-            CoreFlag::Pick   => 1u8,
-            CoreFlag::Reject => 2,
-        }).unwrap_or(0);
+        let flag_u8 = d
+            .flag
+            .map(|f| match f {
+                CoreFlag::Pick => 1u8,
+                CoreFlag::Reject => 2,
+            })
+            .unwrap_or(0);
 
         FfiXmpResult {
             found: true,
@@ -250,14 +257,34 @@ impl FfiXmpResult {
 pub struct FfiOptionalBytes {
     pub found: bool,
     pub data: Vec<u8>,
+    pub aspect_ok: bool,
+    pub raw_orientation: u8,
 }
 
 impl FfiOptionalBytes {
     fn none() -> Self {
-        FfiOptionalBytes { found: false, data: Vec::new() }
+        FfiOptionalBytes {
+            found: false,
+            data: Vec::new(),
+            aspect_ok: false,
+            raw_orientation: 0,
+        }
     }
-    fn some(data: Vec<u8>) -> Self {
-        FfiOptionalBytes { found: true, data }
+    fn some(val: (Vec<u8>, bool, u8)) -> Self {
+        FfiOptionalBytes {
+            found: true,
+            data: val.0,
+            aspect_ok: val.1,
+            raw_orientation: val.2,
+        }
+    }
+    fn some_data(data: Vec<u8>) -> Self {
+        FfiOptionalBytes {
+            found: true,
+            data,
+            aspect_ok: false,
+            raw_orientation: 0,
+        }
     }
 }
 
@@ -332,7 +359,10 @@ mod ffi {
         // EXIF API
         fn bridge_fetch_exif(db: &BridgeDatabase, path: &str) -> FfiExifResult;
         // Batch EXIF fetch — 1 SQLite connection, index-aligned with entries list
-        fn bridge_fetch_exif_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) -> FfiExifBatch;
+        fn bridge_fetch_exif_for_entries(
+            db: &BridgeDatabase,
+            entries: &ImageEntryList,
+        ) -> FfiExifBatch;
         fn ffi_exif_batch_count(r: &FfiExifBatch) -> usize;
         fn ffi_exif_batch_exif_at(r: &FfiExifBatch, idx: usize) -> FfiExifResult;
         fn ffi_exif_found(r: &FfiExifResult) -> bool;
@@ -364,7 +394,16 @@ mod ffi {
         fn ffi_xmp_flag(r: &FfiXmpResult) -> u8;
         fn ffi_xmp_developed(r: &FfiXmpResult) -> bool;
         fn ffi_xmp_caption(r: &FfiXmpResult) -> String;
-        fn bridge_write_xmp(db: &BridgeDatabase, path: &str, rating: i32, label: u8, flag: u8, caption: &str, caption_present: bool, jpg_use_sidecar: bool) -> bool;
+        fn bridge_write_xmp(
+            db: &BridgeDatabase,
+            path: &str,
+            rating: i32,
+            label: u8,
+            flag: u8,
+            caption: &str,
+            caption_present: bool,
+            jpg_use_sidecar: bool,
+        ) -> bool;
         fn bridge_jpg_has_rated_embedded_xmp(path: &str) -> bool;
 
         // pHash API
@@ -376,15 +415,37 @@ mod ffi {
         fn bridge_fetch_cached_thumbnail(db: &BridgeDatabase, path: &str) -> FfiOptionalBytes;
         fn ffi_optional_bytes_found(r: &FfiOptionalBytes) -> bool;
         fn ffi_optional_bytes_data(r: &FfiOptionalBytes) -> Vec<u8>;
-        fn bridge_store_cached_thumbnail(db: &BridgeDatabase, path: &str, jpeg: &[u8]);
+        fn ffi_optional_bytes_aspect_ok(r: &FfiOptionalBytes) -> bool;
+        fn ffi_optional_bytes_raw_orientation(r: &FfiOptionalBytes) -> u8;
+        fn bridge_store_cached_thumbnail(
+            db: &BridgeDatabase,
+            path: &str,
+            jpeg: &[u8],
+            aspect_ok: bool,
+            raw_orientation: u8,
+        );
         // Batch thumbnail fetch — 1 SQLite connection, index-aligned with entries list
-        fn bridge_fetch_cached_thumbnails_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) -> FfiThumbBatch;
+        fn bridge_fetch_cached_thumbnails_for_entries(
+            db: &BridgeDatabase,
+            entries: &ImageEntryList,
+        ) -> FfiThumbBatch;
         fn ffi_thumb_batch_count(r: &FfiThumbBatch) -> usize;
         fn ffi_thumb_batch_jpeg_at(r: &FfiThumbBatch, idx: usize) -> FfiOptionalBytes;
 
         // Rendered thumbnail cache API
-        fn bridge_fetch_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32) -> FfiOptionalBytes;
-        fn bridge_store_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32, jpeg: &[u8]);
+        fn bridge_fetch_cached_rendered(
+            db: &BridgeDatabase,
+            path: &str,
+            engine: &str,
+            width: u32,
+        ) -> FfiOptionalBytes;
+        fn bridge_store_cached_rendered(
+            db: &BridgeDatabase,
+            path: &str,
+            engine: &str,
+            width: u32,
+            jpeg: &[u8],
+        );
         fn bridge_clear_rendered_cache(db: &BridgeDatabase);
         fn bridge_prune_cache(db: &BridgeDatabase, max_age_days: u32);
 
@@ -392,7 +453,12 @@ mod ffi {
         fn bridge_extract_raw_jpeg(path: &str, quality: u8) -> FfiOptionalBytes;
 
         // Shot grouping API
-        fn bridge_reindex_shot_groups(db: &BridgeDatabase, entries: &ImageEntryList, split_threshold_secs: i64, phash_hamming_threshold: u32) -> ShotGroupsMap;
+        fn bridge_reindex_shot_groups(
+            db: &BridgeDatabase,
+            entries: &ImageEntryList,
+            split_threshold_secs: i64,
+            phash_hamming_threshold: u32,
+        ) -> ShotGroupsMap;
         fn shot_groups_map_count(m: &ShotGroupsMap) -> usize;
         fn shot_groups_map_shot_id_at(m: &ShotGroupsMap, idx: usize) -> u64;
         fn shot_groups_map_members_for(m: &ShotGroupsMap, shot_id: u64) -> Vec<u64>;
@@ -430,23 +496,47 @@ fn bridge_scan_directory(db: &BridgeDatabase, path: &str) -> ImageEntryList {
     }
 }
 
-fn image_entry_list_count(list: &ImageEntryList) -> usize { list.entries.len() }
-fn image_entry_list_total_files(list: &ImageEntryList) -> usize { list.total_files }
-fn image_entry_list_image_files(list: &ImageEntryList) -> usize { list.image_files }
+fn image_entry_list_count(list: &ImageEntryList) -> usize {
+    list.entries.len()
+}
+fn image_entry_list_total_files(list: &ImageEntryList) -> usize {
+    list.total_files
+}
+fn image_entry_list_image_files(list: &ImageEntryList) -> usize {
+    list.image_files
+}
 
 fn image_entry_list_get(list: &ImageEntryList, idx: usize) -> FfiImageEntry {
     FfiImageEntry::from_core(&list.entries[idx])
 }
 
-fn ffi_image_entry_id(entry: &FfiImageEntry) -> u64 { entry.id }
-fn ffi_image_entry_path(entry: &FfiImageEntry) -> String { entry.path.clone() }
-fn ffi_image_entry_filename(entry: &FfiImageEntry) -> String { entry.filename.clone() }
-fn ffi_image_entry_is_raw(entry: &FfiImageEntry) -> bool { entry.is_raw }
-fn ffi_image_entry_file_size(entry: &FfiImageEntry) -> u64 { entry.file_size }
-fn ffi_image_entry_modified_unix(entry: &FfiImageEntry) -> i64 { entry.modified_unix }
-fn ffi_image_entry_created_unix(entry: &FfiImageEntry) -> i64 { entry.created_unix }
-fn ffi_image_entry_has_jpg_partner(entry: &FfiImageEntry) -> bool { entry.has_jpg_partner }
-fn ffi_image_entry_shot_id(entry: &FfiImageEntry) -> u64 { entry.shot_id }
+fn ffi_image_entry_id(entry: &FfiImageEntry) -> u64 {
+    entry.id
+}
+fn ffi_image_entry_path(entry: &FfiImageEntry) -> String {
+    entry.path.clone()
+}
+fn ffi_image_entry_filename(entry: &FfiImageEntry) -> String {
+    entry.filename.clone()
+}
+fn ffi_image_entry_is_raw(entry: &FfiImageEntry) -> bool {
+    entry.is_raw
+}
+fn ffi_image_entry_file_size(entry: &FfiImageEntry) -> u64 {
+    entry.file_size
+}
+fn ffi_image_entry_modified_unix(entry: &FfiImageEntry) -> i64 {
+    entry.modified_unix
+}
+fn ffi_image_entry_created_unix(entry: &FfiImageEntry) -> i64 {
+    entry.created_unix
+}
+fn ffi_image_entry_has_jpg_partner(entry: &FfiImageEntry) -> bool {
+    entry.has_jpg_partner
+}
+fn ffi_image_entry_shot_id(entry: &FfiImageEntry) -> u64 {
+    entry.shot_id
+}
 
 // ── EXIF API impl ──────────────────────────────────────────────────────────
 
@@ -458,31 +548,76 @@ fn bridge_fetch_exif(db: &BridgeDatabase, path: &str) -> FfiExifResult {
         .unwrap_or_else(FfiExifResult::not_found)
 }
 
-fn ffi_exif_found(r: &FfiExifResult) -> bool { r.found }
-fn ffi_exif_make(r: &FfiExifResult) -> String { r.make.clone() }
-fn ffi_exif_model(r: &FfiExifResult) -> String { r.model.clone() }
-fn ffi_exif_datetime(r: &FfiExifResult) -> String { r.datetime.clone() }
-fn ffi_exif_subsec(r: &FfiExifResult) -> String { r.subsec.clone() }
-fn ffi_exif_exposure(r: &FfiExifResult) -> String { r.exposure.clone() }
-fn ffi_exif_fnumber(r: &FfiExifResult) -> String { r.fnumber.clone() }
-fn ffi_exif_iso(r: &FfiExifResult) -> i32 { r.iso }
-fn ffi_exif_focal_length(r: &FfiExifResult) -> String { r.focal_length.clone() }
-fn ffi_exif_focal_length_35mm(r: &FfiExifResult) -> i32 { r.focal_length_35mm }
-fn ffi_exif_lens_model(r: &FfiExifResult) -> String { r.lens_model.clone() }
-fn ffi_exif_width(r: &FfiExifResult) -> i32 { r.width }
-fn ffi_exif_height(r: &FfiExifResult) -> i32 { r.height }
-fn ffi_exif_software(r: &FfiExifResult) -> String { r.software.clone() }
-fn ffi_exif_artist(r: &FfiExifResult) -> String { r.artist.clone() }
-fn ffi_exif_exposure_bias(r: &FfiExifResult) -> String { r.exposure_bias.clone() }
-fn ffi_exif_flash(r: &FfiExifResult) -> String { r.flash.clone() }
-fn ffi_exif_white_balance(r: &FfiExifResult) -> String { r.white_balance.clone() }
-fn ffi_exif_image_description(r: &FfiExifResult) -> String { r.image_description.clone() }
-fn ffi_exif_user_comment(r: &FfiExifResult) -> String { r.user_comment.clone() }
+fn ffi_exif_found(r: &FfiExifResult) -> bool {
+    r.found
+}
+fn ffi_exif_make(r: &FfiExifResult) -> String {
+    r.make.clone()
+}
+fn ffi_exif_model(r: &FfiExifResult) -> String {
+    r.model.clone()
+}
+fn ffi_exif_datetime(r: &FfiExifResult) -> String {
+    r.datetime.clone()
+}
+fn ffi_exif_subsec(r: &FfiExifResult) -> String {
+    r.subsec.clone()
+}
+fn ffi_exif_exposure(r: &FfiExifResult) -> String {
+    r.exposure.clone()
+}
+fn ffi_exif_fnumber(r: &FfiExifResult) -> String {
+    r.fnumber.clone()
+}
+fn ffi_exif_iso(r: &FfiExifResult) -> i32 {
+    r.iso
+}
+fn ffi_exif_focal_length(r: &FfiExifResult) -> String {
+    r.focal_length.clone()
+}
+fn ffi_exif_focal_length_35mm(r: &FfiExifResult) -> i32 {
+    r.focal_length_35mm
+}
+fn ffi_exif_lens_model(r: &FfiExifResult) -> String {
+    r.lens_model.clone()
+}
+fn ffi_exif_width(r: &FfiExifResult) -> i32 {
+    r.width
+}
+fn ffi_exif_height(r: &FfiExifResult) -> i32 {
+    r.height
+}
+fn ffi_exif_software(r: &FfiExifResult) -> String {
+    r.software.clone()
+}
+fn ffi_exif_artist(r: &FfiExifResult) -> String {
+    r.artist.clone()
+}
+fn ffi_exif_exposure_bias(r: &FfiExifResult) -> String {
+    r.exposure_bias.clone()
+}
+fn ffi_exif_flash(r: &FfiExifResult) -> String {
+    r.flash.clone()
+}
+fn ffi_exif_white_balance(r: &FfiExifResult) -> String {
+    r.white_balance.clone()
+}
+fn ffi_exif_image_description(r: &FfiExifResult) -> String {
+    r.image_description.clone()
+}
+fn ffi_exif_user_comment(r: &FfiExifResult) -> String {
+    r.user_comment.clone()
+}
 
 fn bridge_fetch_exif_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) -> FfiExifBatch {
-    let paths: Vec<PathBuf> = entries.entries.iter().map(|e| e.path.clone()).collect();
-    let mut map = bridge_core::db::fetch_exif_batch(&paths, &db.db_path);
-    let results = paths
+    let path_mtimes: Vec<(PathBuf, i64)> = entries
+        .entries
+        .iter()
+        .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
+        .collect();
+    let paths_only: Vec<PathBuf> = path_mtimes.iter().map(|(p, _)| p.clone()).collect();
+    let mut map = bridge_core::db::fetch_exif_batch(&path_mtimes, &db.db_path);
+    let results = paths_only
         .into_iter()
         .map(|p| {
             map.remove(&p)
@@ -493,8 +628,12 @@ fn bridge_fetch_exif_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) 
     FfiExifBatch { results }
 }
 
-fn ffi_exif_batch_count(r: &FfiExifBatch) -> usize { r.results.len() }
-fn ffi_exif_batch_exif_at(r: &FfiExifBatch, idx: usize) -> FfiExifResult { r.results[idx].clone() }
+fn ffi_exif_batch_count(r: &FfiExifBatch) -> usize {
+    r.results.len()
+}
+fn ffi_exif_batch_exif_at(r: &FfiExifBatch, idx: usize) -> FfiExifResult {
+    r.results[idx].clone()
+}
 
 // ── XMP API impl ───────────────────────────────────────────────────────────
 
@@ -510,12 +649,24 @@ fn bridge_jpg_has_rated_embedded_xmp(path: &str) -> bool {
     bridge_core::xmp::jpg_has_rated_embedded_xmp(Path::new(path))
 }
 
-fn ffi_xmp_found(r: &FfiXmpResult) -> bool { r.found }
-fn ffi_xmp_rating(r: &FfiXmpResult) -> i32 { r.rating }
-fn ffi_xmp_label(r: &FfiXmpResult) -> u8 { r.label }
-fn ffi_xmp_flag(r: &FfiXmpResult) -> u8 { r.flag }
-fn ffi_xmp_developed(r: &FfiXmpResult) -> bool { r.developed }
-fn ffi_xmp_caption(r: &FfiXmpResult) -> String { r.caption.clone() }
+fn ffi_xmp_found(r: &FfiXmpResult) -> bool {
+    r.found
+}
+fn ffi_xmp_rating(r: &FfiXmpResult) -> i32 {
+    r.rating
+}
+fn ffi_xmp_label(r: &FfiXmpResult) -> u8 {
+    r.label
+}
+fn ffi_xmp_flag(r: &FfiXmpResult) -> u8 {
+    r.flag
+}
+fn ffi_xmp_developed(r: &FfiXmpResult) -> bool {
+    r.developed
+}
+fn ffi_xmp_caption(r: &FfiXmpResult) -> String {
+    r.caption.clone()
+}
 
 fn bridge_write_xmp(
     db: &BridgeDatabase,
@@ -535,11 +686,14 @@ fn bridge_write_xmp(
         Some(caption.to_string())
     } else {
         // Preserve whatever is already in the XMP (None means don't touch)
-        bridge_core::xmp::read_metadata(p, jpg_use_sidecar)
-            .and_then(|d| d.caption)
+        bridge_core::xmp::read_metadata(p, jpg_use_sidecar).and_then(|d| d.caption)
     };
     let data = CoreXmpData {
-        rating: if rating >= 0 { Some(rating.clamp(0, 5) as u8) } else { None },
+        rating: if rating >= 0 {
+            Some(rating.clamp(0, 5) as u8)
+        } else {
+            None
+        },
         label: label_from_u8(label),
         flag: flag_from_u8(flag),
         developed: false,
@@ -583,18 +737,44 @@ fn bridge_fetch_cached_thumbnail(db: &BridgeDatabase, path: &str) -> FfiOptional
         .unwrap_or_else(FfiOptionalBytes::none)
 }
 
-fn ffi_optional_bytes_found(r: &FfiOptionalBytes) -> bool { r.found }
-fn ffi_optional_bytes_data(r: &FfiOptionalBytes) -> Vec<u8> { r.data.clone() }
-
-fn bridge_store_cached_thumbnail(db: &BridgeDatabase, path: &str, jpeg: &[u8]) {
-    let p = Path::new(path);
-    bridge_core::db::store_thumb(p, &db.db_path, jpeg);
+fn ffi_optional_bytes_found(r: &FfiOptionalBytes) -> bool {
+    r.found
+}
+fn ffi_optional_bytes_data(r: &FfiOptionalBytes) -> Vec<u8> {
+    r.data.clone()
+}
+#[allow(dead_code)]
+fn ffi_optional_bytes_aspect_ok(r: &FfiOptionalBytes) -> bool {
+    r.aspect_ok
+}
+#[allow(dead_code)]
+fn ffi_optional_bytes_raw_orientation(r: &FfiOptionalBytes) -> u8 {
+    r.raw_orientation
 }
 
-fn bridge_fetch_cached_thumbnails_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) -> FfiThumbBatch {
-    let paths: Vec<PathBuf> = entries.entries.iter().map(|e| e.path.clone()).collect();
-    let mut map = bridge_core::db::fetch_thumb_batch(&paths, &db.db_path);
-    let results = paths
+fn bridge_store_cached_thumbnail(
+    db: &BridgeDatabase,
+    path: &str,
+    jpeg: &[u8],
+    aspect_ok: bool,
+    raw_orientation: u8,
+) {
+    let p = Path::new(path);
+    bridge_core::db::store_thumb(p, &db.db_path, jpeg, aspect_ok, raw_orientation);
+}
+
+fn bridge_fetch_cached_thumbnails_for_entries(
+    db: &BridgeDatabase,
+    entries: &ImageEntryList,
+) -> FfiThumbBatch {
+    let path_mtimes: Vec<(PathBuf, i64)> = entries
+        .entries
+        .iter()
+        .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
+        .collect();
+    let paths_only: Vec<PathBuf> = path_mtimes.iter().map(|(p, _)| p.clone()).collect();
+    let mut map = bridge_core::db::fetch_thumb_batch(&path_mtimes, &db.db_path);
+    let results = paths_only
         .into_iter()
         .map(|p| {
             map.remove(&p)
@@ -605,19 +785,34 @@ fn bridge_fetch_cached_thumbnails_for_entries(db: &BridgeDatabase, entries: &Ima
     FfiThumbBatch { results }
 }
 
-fn ffi_thumb_batch_count(r: &FfiThumbBatch) -> usize { r.results.len() }
-fn ffi_thumb_batch_jpeg_at(r: &FfiThumbBatch, idx: usize) -> FfiOptionalBytes { r.results[idx].clone() }
+fn ffi_thumb_batch_count(r: &FfiThumbBatch) -> usize {
+    r.results.len()
+}
+fn ffi_thumb_batch_jpeg_at(r: &FfiThumbBatch, idx: usize) -> FfiOptionalBytes {
+    r.results[idx].clone()
+}
 
 // ── Rendered thumbnail cache API impl ─────────────────────────────────────
 
-fn bridge_fetch_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32) -> FfiOptionalBytes {
+fn bridge_fetch_cached_rendered(
+    db: &BridgeDatabase,
+    path: &str,
+    engine: &str,
+    width: u32,
+) -> FfiOptionalBytes {
     let p = Path::new(path);
     bridge_core::db::fetch_rendered(p, &db.db_path, engine, width)
-        .map(FfiOptionalBytes::some)
+        .map(FfiOptionalBytes::some_data)
         .unwrap_or_else(FfiOptionalBytes::none)
 }
 
-fn bridge_store_cached_rendered(db: &BridgeDatabase, path: &str, engine: &str, width: u32, jpeg: &[u8]) {
+fn bridge_store_cached_rendered(
+    db: &BridgeDatabase,
+    path: &str,
+    engine: &str,
+    width: u32,
+    jpeg: &[u8],
+) {
     let p = Path::new(path);
     bridge_core::db::store_rendered(p, &db.db_path, engine, width, jpeg);
 }
@@ -640,7 +835,7 @@ fn bridge_extract_raw_jpeg(path: &str, quality: u8) -> FfiOptionalBytes {
         _ => Quality::Full,
     };
     bridge_core::raw_thumb::extract(Path::new(path), q)
-        .map(FfiOptionalBytes::some)
+        .map(FfiOptionalBytes::some_data)
         .unwrap_or_else(FfiOptionalBytes::none)
 }
 
@@ -654,14 +849,17 @@ fn bridge_reindex_shot_groups(
 ) -> ShotGroupsMap {
     let mut images: Vec<CoreImageEntry> = entries.entries.clone();
 
-    let paths: Vec<PathBuf> = images.iter().map(|e| e.path.clone()).collect();
-    let exif_by_path = bridge_core::db::fetch_exif_batch(&paths, &db.db_path);
+    let path_mtimes: Vec<(PathBuf, i64)> = images
+        .iter()
+        .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
+        .collect();
+    let exif_by_path = bridge_core::db::fetch_exif_batch(&path_mtimes, &db.db_path);
     let exif_by_id: HashMap<usize, CoreExifData> = images
         .iter()
         .filter_map(|e| exif_by_path.get(&e.path).map(|ex| (e.id, ex.clone())))
         .collect();
 
-    let phash_by_path = bridge_core::db::fetch_phash_batch(&paths, &db.db_path);
+    let phash_by_path = bridge_core::db::fetch_phash_batch(&path_mtimes, &db.db_path);
     let phash_by_id: HashMap<usize, u64> = images
         .iter()
         .filter_map(|e| phash_by_path.get(&e.path).map(|&h| (e.id, h)))
@@ -683,7 +881,10 @@ fn bridge_reindex_shot_groups(
         .map(|(sid, members)| (sid, members.into_iter().map(|id| id as u64).collect()))
         .collect();
 
-    ShotGroupsMap { shot_ids, groups: converted }
+    ShotGroupsMap {
+        shot_ids,
+        groups: converted,
+    }
 }
 
 fn shot_groups_map_count(m: &ShotGroupsMap) -> usize {

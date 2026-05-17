@@ -79,7 +79,19 @@ pub fn fetch_phash_batch(
     paths: &[PathBuf],
     db_path: &std::path::Path,
 ) -> std::collections::HashMap<PathBuf, u64> {
-    crate::db::fetch_phash_batch(paths, db_path)
+    let path_mtimes: Vec<(PathBuf, i64)> = paths
+        .iter()
+        .map(|p| {
+            let mtime = std::fs::metadata(p)
+                .ok()
+                .and_then(|m| m.modified().ok())
+                .and_then(|t| t.duration_since(std::time::UNIX_EPOCH).ok())
+                .map(|d| d.as_secs() as i64)
+                .unwrap_or(0);
+            (p.clone(), mtime)
+        })
+        .collect();
+    crate::db::fetch_phash_batch(&path_mtimes, db_path)
 }
 
 /// Persist a pHash for the given file path.

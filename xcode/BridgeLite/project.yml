@@ -9,6 +9,7 @@ options:
   bundleIdPrefix: io.github.bridge-lite
   deploymentTarget:
     macOS: "14.0"
+    iOS: "18.0"
   xcodeVersion: "16.3"
   generateEmptyDirectories: true
 
@@ -17,6 +18,20 @@ schemes:
     build:
       targets:
         BridgeLite: all
+    run:
+      config: Debug
+    test:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
+  BridgeLiteiOS:
+    build:
+      targets:
+        BridgeLiteiOS: all
     run:
       config: Debug
     test:
@@ -37,6 +52,9 @@ targets:
       - path: BridgeLite
       - path: Generated
         optional: true
+        excludes:
+          - "lib-ios/**"
+          - "lib-ios-sim/**"
     settings:
       base:
         SWIFT_VERSION: 6.0
@@ -74,8 +92,70 @@ targets:
         SUEnableAutomaticChecks: true
         SUScheduledCheckInterval: 86400
         SUAllowsAutomaticUpdates: true
+        LSApplicationCategoryType: "public.app-category.photography"
         CFBundleDocumentTypes:
           - CFBundleTypeName: Folder
             LSHandlerRank: Alternate
             LSItemContentTypes:
               - public.folder
+
+  BridgeLiteiOS:
+    type: application
+    platform: iOS
+    deploymentTarget: "18.0"
+    sources:
+      - path: BridgeLiteiOS
+      - path: Generated
+        optional: true
+        excludes:
+          - "lib/**"
+          - "lib-ios/**"
+          - "lib-ios-sim/**"
+      # Cross-platform Swift files shared with macOS target
+      - path: BridgeLite/Pipelines/ConcurrencyLimiter.swift
+      - path: BridgeLite/Pipelines/PHashPipeline.swift
+      - path: BridgeLite/Pipelines/PairingPipeline.swift
+      - path: BridgeLite/Pipelines/RAWRenderPipeline.swift
+      - path: BridgeLite/Models/PhotoEntry.swift
+      - path: BridgeLite/Models/ExifData.swift
+      - path: BridgeLite/Models/XmpData.swift
+      - path: BridgeLite/Models/ShotGroup.swift
+      - path: BridgeLite/Models/ExifBucket.swift
+      - path: BridgeLite/Views/ExifHistogramView.swift
+      - path: BridgeLite/Models/PhotoKind.swift
+      - path: BridgeLite/Bridging/BridgeCore.swift
+      - path: BridgeLite/Bridging/ImageEntry+Convert.swift
+      - path: BridgeLite/Bridging/CoreError+LocalizedError.swift
+      - path: BridgeLite/Resources/Localizable.xcstrings
+        buildPhase: resources
+    entitlements:
+      path: BridgeLiteiOS/BridgeLiteiOS.entitlements
+    configFiles:
+      Debug: BridgeLiteiOS/RustLink.xcconfig
+      Release: BridgeLiteiOS/RustLink.xcconfig
+    settings:
+      base:
+        SWIFT_VERSION: 6.0
+        IPHONEOS_DEPLOYMENT_TARGET: "18.0"
+        TARGETED_DEVICE_FAMILY: "1"
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite.ios
+        PRODUCT_NAME: BridgeLite
+        DEVELOPMENT_TEAM: KTQ8JQW28L
+        CODE_SIGN_STYLE: Automatic
+        SWIFT_EMIT_LOC_STRINGS: YES
+        # Rust static library (path selected per-SDK in RustLink.xcconfig)
+        OTHER_LDFLAGS: $(inherited) -lbridge_ffi -lc++
+        # swift-bridge C headers via bridging header
+        HEADER_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/include
+        SWIFT_OBJC_BRIDGING_HEADER: BridgeLiteiOS/BridgeLiteiOS-Bridging-Header.h
+    info:
+      path: BridgeLiteiOS/Resources/Info.plist
+      properties:
+        CFBundleName: BridgeLite
+        CFBundleDisplayName: BridgeLite
+        CFBundleIdentifier: io.github.bridge-lite.ios
+        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.1.0"
+        NSHumanReadableDescription: "Lightweight RAW+JPG image viewer for iPhone"
+        UILaunchScreen: {}
+        NSPhotoLibraryAddUsageDescription: "Used to save exported photos to your Photo Library."

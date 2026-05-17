@@ -55,20 +55,33 @@ enum BridgeCore {
 
     // MARK: Thumbnail batch cache
 
+    /// Cached thumbnail entry returned from SQLite — includes validation flags to avoid redundant file I/O.
+    struct CachedThumbEntry {
+        let jpeg: Data
+        /// True when the stored thumbnail passed the aspect-ratio check at write time.
+        let aspectOk: Bool
+        /// CGImagePropertyOrientation raw value (1–8) for RAW files; 0 = not stored / not RAW.
+        let rawOrientation: UInt8
+    }
+
     /// Fetch cached thumbnails for all entries in a single SQLite connection.
     /// Returns a dictionary keyed by file URL for O(1) lookup in ThumbnailPipeline.
-    static func fetchCachedThumbnailBatch(list: BridgeCoreImageList, db: BridgeCoreDatabase) async -> [URL: Data] {
+    static func fetchCachedThumbnailBatch(list: BridgeCoreImageList, db: BridgeCoreDatabase) async -> [URL: CachedThumbEntry] {
         return await Task.detached(priority: .utility) {
             let batch = bridge_fetch_cached_thumbnails_for_entries(db.inner, list.inner)
             let count = Int(ffi_thumb_batch_count(batch))
-            var result: [URL: Data] = [:]
+            var result: [URL: CachedThumbEntry] = [:]
             result.reserveCapacity(count)
             for i in 0..<count {
                 let r = ffi_thumb_batch_jpeg_at(batch, UInt(i))
                 guard ffi_optional_bytes_found(r) else { continue }
                 let entry = image_entry_list_get(list.inner, UInt(i))
                 let path = ffi_image_entry_path(entry).toString()
-                result[URL(fileURLWithPath: path)] = Data(rustVec: ffi_optional_bytes_data(r))
+                result[URL(fileURLWithPath: path)] = CachedThumbEntry(
+                    jpeg:           Data(rustVec: ffi_optional_bytes_data(r)),
+                    aspectOk:       ffi_optional_bytes_aspect_ok(r),
+                    rawOrientation: ffi_optional_bytes_raw_orientation(r)
+                )
             }
             return result
         }.value
@@ -219,18 +232,26 @@ enum BridgeCore {
 
     // MARK: Thumbnail cache
 
-    static func fetchCachedThumbnail(url: URL, db: BridgeCoreDatabase) async -> Data? {
+    static func fetchCachedThumbnail(url: URL, db: BridgeCoreDatabase) async -> CachedThumbEntry? {
         return await Task.detached(priority: .utility) {
             let r = bridge_fetch_cached_thumbnail(db.inner, url.path)
             guard ffi_optional_bytes_found(r) else { return nil }
-            return Data(rustVec: ffi_optional_bytes_data(r))
+            return CachedThumbEntry(
+                jpeg:           Data(rustVec: ffi_optional_bytes_data(r)),
+                aspectOk:       ffi_optional_bytes_aspect_ok(r),
+                rawOrientation: ffi_optional_bytes_raw_orientation(r)
+            )
         }.value
     }
 
-    static func storeCachedThumbnail(url: URL, data: Data, db: BridgeCoreDatabase) async {
+    static func storeCachedThumbnail(
+        url: URL, data: Data,
+        aspectOk: Bool = true, rawOrientation: UInt8 = 0,
+        db: BridgeCoreDatabase
+    ) async {
         await Task.detached(priority: .utility) {
             data.withUnsafeBytes { raw in
-                bridge_store_cached_thumbnail(db.inner, url.path, raw.bindMemory(to: UInt8.self))
+                bridge_store_cached_thumbnail(db.inner, url.path, raw.bindMemory(to: UInt8.self), aspectOk, rawOrientation)
             }
         }.value
     }

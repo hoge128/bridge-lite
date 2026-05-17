@@ -183,9 +183,15 @@ public func ffi_optional_bytes_found(_ r: FfiOptionalBytesRef) -> Bool {
 public func ffi_optional_bytes_data(_ r: FfiOptionalBytesRef) -> RustVec<UInt8> {
     RustVec(ptr: __swift_bridge__$ffi_optional_bytes_data(r.ptr))
 }
-public func bridge_store_cached_thumbnail<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ jpeg: UnsafeBufferPointer<UInt8>) {
+public func ffi_optional_bytes_aspect_ok(_ r: FfiOptionalBytesRef) -> Bool {
+    __swift_bridge__$ffi_optional_bytes_aspect_ok(r.ptr)
+}
+public func ffi_optional_bytes_raw_orientation(_ r: FfiOptionalBytesRef) -> UInt8 {
+    __swift_bridge__$ffi_optional_bytes_raw_orientation(r.ptr)
+}
+public func bridge_store_cached_thumbnail<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ jpeg: UnsafeBufferPointer<UInt8>, _ aspect_ok: Bool, _ raw_orientation: UInt8) {
     path.toRustStr({ pathAsRustStr in
-        __swift_bridge__$bridge_store_cached_thumbnail(db.ptr, pathAsRustStr, jpeg.toFfiSlice())
+        __swift_bridge__$bridge_store_cached_thumbnail(db.ptr, pathAsRustStr, jpeg.toFfiSlice(), aspect_ok, raw_orientation)
     })
 }
 public func bridge_fetch_cached_thumbnails_for_entries(_ db: BridgeDatabaseRef, _ entries: ImageEntryListRef) -> FfiThumbBatch {

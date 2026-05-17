@@ -1,3 +1,4 @@
+import CoreGraphics
 import CoreImage
 import ImageIO
 import SwiftUI
@@ -66,7 +67,7 @@ actor RAWRenderPipeline {
                     filter.isGamutMappingEnabled = true
                     guard let output = filter.outputImage,
                           let cg = ctx.createCGImage(output, from: output.extent) else { return nil }
-                    return cg.jpegData(compressionQuality: 0.85)
+                    return Self.jpegData(from: cg)
                 }.value
                 // Release filter-chain IOSurfaces from the shared CIContext cache after each render.
                 ctx.clearCaches()
@@ -75,6 +76,15 @@ actor RAWRenderPipeline {
         } catch {
             return nil
         }
+    }
+
+    // ImageIO ベースの JPEG エンコード — CGImage.jpegData が iOS に存在しないため共通実装。
+    private static func jpegData(from image: CGImage, quality: CGFloat = 0.85) -> Data? {
+        let buf = NSMutableData()
+        guard let dest = CGImageDestinationCreateWithData(buf, "public.jpeg" as CFString, 1, nil) else { return nil }
+        CGImageDestinationAddImage(dest, image, [kCGImageDestinationLossyCompressionQuality: quality] as CFDictionary)
+        guard CGImageDestinationFinalize(dest) else { return nil }
+        return buf as Data
     }
 
     private func decode(jpeg: Data) -> (CGImage, Image.Orientation)? {
