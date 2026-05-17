@@ -4999,6 +4999,22 @@
         }
       }
     },
+    "settings.metadata.help.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**Embed** — Rating is written directly into the JPEG file. The file is self-contained and portable, but the original is modified.\n\n**Sidecar** — Rating is saved as a separate `.xmp` file next to the image. The original is never modified, but you must copy the `.xmp` alongside the image when transferring to other software (Lightroom, Capture One, etc.).\n\nRAW files always use a sidecar regardless of this setting.\n\n**Note:** In Sidecar mode, a JPEG and its paired RAW share the same `.xmp` file (e.g. `IMG_0001.xmp`). Rating one automatically updates the other."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**埋め込み** — 評価を JPEG ファイルに直接書き込みます。ファイル単体で持ち運べますが、元ファイルが変更されます。\n\n**サイドカー** — 評価を隣に `.xmp` ファイルとして保存します。元ファイルは変更されませんが、Lightroom・Capture One 等へ持ち出す際は `.xmp` も一緒にコピーする必要があります。\n\nRAW ファイルはこの設定に関わらず常にサイドカーが使われます。\n\n**注意:** サイドカーモードでは、JPEG と同名の RAW は同じ `.xmp` ファイルを共有します（例: `IMG_0001.xmp`）。一方を評価するともう一方にも自動的に反映されます。"
+          }
+        }
+      }
+    },
     "settings.prevent_viewer_delete" : {
       "localizations" : {
         "en" : {

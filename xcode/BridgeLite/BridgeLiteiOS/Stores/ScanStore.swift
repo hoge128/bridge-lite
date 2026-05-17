@@ -284,7 +284,13 @@ final class ScanStore: ReindexedGroupSink {
         }
     }
     var jpgWriteMode: JpgWriteMode = JpgMetadataDefaults.readJpgWriteMode() {
-        didSet { UserDefaults.standard.set(jpgWriteMode.rawValue, forKey: JpgMetadataDefaults.jpgWriteModeKey) }
+        didSet {
+            UserDefaults.standard.set(jpgWriteMode.rawValue, forKey: JpgMetadataDefaults.jpgWriteModeKey)
+            if jpgWriteMode == .sidecar {
+                soocToRaw = true
+                rawToSooc = true
+            }
+        }
     }
     var autoRenderRawDetail: Bool = ScanStore.boolPref("ios.autoRenderRawDetail", default: true) {
         didSet { UserDefaults.standard.set(autoRenderRawDetail, forKey: "ios.autoRenderRawDetail") }

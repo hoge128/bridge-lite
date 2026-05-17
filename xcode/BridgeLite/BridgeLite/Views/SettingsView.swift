@@ -96,31 +96,6 @@ struct SettingsView: View {
                 Text("Group Scope")
             }
             Section {
-                propagationGrid
-                Text("Row: source kind  ·  Column: kinds that receive the same rating/label.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            } header: {
-                Text("Rating Propagation")
-            }
-            Section {
-                filterOrderList
-                Text("Drag rows to reorder filter sections in the sidebar.")
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-                Stepper(value: $settings.calendarMaxMonths, in: 1...24, step: 1) {
-                    LabeledContent(
-                        String(localized: "settings.calendar.max_months",
-                               defaultValue: "Calendar Month Limit")
-                    ) {
-                        Text("\(settings.calendarMaxMonths)")
-                            .foregroundStyle(.secondary)
-                    }
-                }
-            } header: {
-                Text("Filter Panel")
-            }
-            Section {
                 Picker(String(localized: "settings.metadata.jpg_write_mode", defaultValue: "JPEG Metadata"),
                        selection: $settings.jpgWriteMode) {
                     ForEach(JpgWriteMode.allCases) { mode in
@@ -149,6 +124,31 @@ struct SettingsView: View {
                 }
             } header: {
                 Text(String(localized: "settings.metadata.section", defaultValue: "Metadata"))
+            }
+            Section {
+                propagationGrid
+                Text("Row: source kind  ·  Column: kinds that receive the same rating/label.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Rating Propagation")
+            }
+            Section {
+                filterOrderList
+                Text("Drag rows to reorder filter sections in the sidebar.")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                Stepper(value: $settings.calendarMaxMonths, in: 1...24, step: 1) {
+                    LabeledContent(
+                        String(localized: "settings.calendar.max_months",
+                               defaultValue: "Calendar Month Limit")
+                    ) {
+                        Text("\(settings.calendarMaxMonths)")
+                            .foregroundStyle(.secondary)
+                    }
+                }
+            } header: {
+                Text("Filter Panel")
             }
             Section {
                 Toggle(String(localized: "settings.folder_watch.toggle",
@@ -429,12 +429,20 @@ struct SettingsView: View {
             GridRow {
                 Text(soocLabel).font(.caption)
                 lockedCell
-                Toggle("", isOn: $s.soocToRaw).labelsHidden()
+                if settings.jpgWriteMode == .sidecar {
+                    lockedCell
+                } else {
+                    Toggle("", isOn: $s.soocToRaw).labelsHidden()
+                }
                 Toggle("", isOn: $s.soocToDeveloped).labelsHidden()
             }
             GridRow {
                 Text("RAW").font(.caption)
-                Toggle("", isOn: $s.rawToSooc).labelsHidden()
+                if settings.jpgWriteMode == .sidecar {
+                    lockedCell
+                } else {
+                    Toggle("", isOn: $s.rawToSooc).labelsHidden()
+                }
                 lockedCell
                 Toggle("", isOn: $s.rawToDeveloped).labelsHidden()
             }

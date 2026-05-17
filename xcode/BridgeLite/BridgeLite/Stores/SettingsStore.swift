@@ -346,7 +346,13 @@ final class SettingsStore {
     // MARK: - メタデータ書き込み
     var jpgWriteMode: JpgWriteMode = (UserDefaults.standard.string(forKey: "jpgWriteMode")
                                        .flatMap(JpgWriteMode.init(rawValue:))) ?? .embed {
-        didSet { UserDefaults.standard.set(jpgWriteMode.rawValue, forKey: "jpgWriteMode") }
+        didSet {
+            UserDefaults.standard.set(jpgWriteMode.rawValue, forKey: "jpgWriteMode")
+            if jpgWriteMode == .sidecar {
+                soocToRaw = true
+                rawToSooc = true
+            }
+        }
     }
     var jpgSidecarConflictPolicy: JpgSidecarConflictPolicy = (UserDefaults.standard.string(forKey: "jpgSidecarConflictPolicy")
                                                                .flatMap(JpgSidecarConflictPolicy.init(rawValue:))) ?? .ask {

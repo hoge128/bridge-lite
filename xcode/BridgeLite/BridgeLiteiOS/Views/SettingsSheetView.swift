@@ -4,6 +4,7 @@ struct SettingsSheetView: View {
     @Bindable var scanStore: ScanStore
     @State private var showCacheClearConfirm = false
     @State private var showPropagationHelp = false
+    @State private var showMetadataHelp = false
     @State private var cacheSizeBytes: Int64 = 0
     var onDismiss: () -> Void
 
@@ -25,7 +26,7 @@ struct SettingsSheetView: View {
                     Toggle(String(localized: "Ascending"), isOn: $scanStore.sortAscending)
                 }
 
-                Section(String(localized: "settings.metadata.section", defaultValue: "Metadata")) {
+                Section {
                     Picker(String(localized: "settings.metadata.jpg_write_mode", defaultValue: "JPEG Metadata"),
                            selection: $scanStore.jpgWriteMode) {
                         ForEach(JpgWriteMode.allCases) { mode in
@@ -38,6 +39,21 @@ struct SettingsSheetView: View {
                         Label(String(localized: "settings.reset_embed_warning", defaultValue: "Reset Write Warning"), systemImage: "arrow.counterclockwise")
                     }
                     .disabled(scanStore.jpgWriteMode != .embed || !JpgMetadataDefaults.hasShownJpgEmbedWarning())
+                } header: {
+                    HStack {
+                        Text(String(localized: "settings.metadata.section", defaultValue: "Metadata"))
+                        Spacer()
+                        Button {
+                            showMetadataHelp = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
+                        .popover(isPresented: $showMetadataHelp, arrowEdge: .top) {
+                            metadataHelpPopover
+                        }
+                    }
                 }
 
                 Section(String(localized: "settings.render.section", defaultValue: "RAW Rendering")) {
@@ -121,6 +137,24 @@ struct SettingsSheetView: View {
         }
     }
 
+    // MARK: - Metadata help popover
+
+    private var metadataHelpPopover: some View {
+        let raw = String(localized: "settings.metadata.help.body",
+                         defaultValue: "**Embed** — Rating is written directly into the JPEG file. The file is self-contained and portable, but the original is modified.\n\n**Sidecar** — Rating is saved as a separate `.xmp` file next to the image. The original is never modified, but you must copy the `.xmp` alongside the image when transferring to other software (Lightroom, Capture One, etc.).\n\nRAW files always use a sidecar regardless of this setting.\n\n**Note:** In Sidecar mode, a JPEG and its paired RAW share the same `.xmp` file (e.g. `IMG_0001.xmp`). Rating one automatically updates the other.")
+        let attr = (try? AttributedString(
+            markdown: raw,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(raw)
+        return ScrollView {
+            Text(attr)
+                .font(.callout)
+                .padding()
+                .frame(maxWidth: 320, alignment: .leading)
+        }
+        .presentationCompactAdaptation(.popover)
+    }
+
     // MARK: - Propagation help popover
 
     private var propagationHelpPopover: some View {
@@ -158,12 +192,20 @@ struct SettingsSheetView: View {
             GridRow {
                 Text(soocLabel).font(.caption)
                 propagationLockedCell
-                Toggle("", isOn: $store.soocToRaw).labelsHidden()
+                if scanStore.jpgWriteMode == .sidecar {
+                    propagationLockedCell
+                } else {
+                    Toggle("", isOn: $store.soocToRaw).labelsHidden()
+                }
                 Toggle("", isOn: $store.soocToDeveloped).labelsHidden()
             }
             GridRow {
                 Text("RAW").font(.caption)
-                Toggle("", isOn: $store.rawToSooc).labelsHidden()
+                if scanStore.jpgWriteMode == .sidecar {
+                    propagationLockedCell
+                } else {
+                    Toggle("", isOn: $store.rawToSooc).labelsHidden()
+                }
                 propagationLockedCell
                 Toggle("", isOn: $store.rawToDeveloped).labelsHidden()
             }
