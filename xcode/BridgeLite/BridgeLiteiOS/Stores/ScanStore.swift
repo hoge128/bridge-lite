@@ -295,6 +295,14 @@ final class ScanStore: ReindexedGroupSink {
     var autoRenderRawDetail: Bool = ScanStore.boolPref("ios.autoRenderRawDetail", default: true) {
         didSet { UserDefaults.standard.set(autoRenderRawDetail, forKey: "ios.autoRenderRawDetail") }
     }
+    static let thumbnailQualityModeKey = "ios.thumbnailQualityMode"
+    var thumbnailQualityMode: ThumbnailQualityMode = {
+        if let raw = UserDefaults.standard.string(forKey: "ios.thumbnailQualityMode"),
+           let m = ThumbnailQualityMode(rawValue: raw) { return m }
+        return .quality
+    }() {
+        didSet { UserDefaults.standard.set(thumbnailQualityMode.rawValue, forKey: Self.thumbnailQualityModeKey) }
+    }
 
     // MARK: - Propagation settings (same UserDefaults keys as macOS)
 
@@ -378,7 +386,7 @@ final class ScanStore: ReindexedGroupSink {
         scanTask?.cancel()
         scanGeneration &+= 1
         let gen = scanGeneration
-        scanTask = Task { await performScan(url: url, gen: gen) }
+        scanTask = Task(priority: .userInitiated) { await performScan(url: url, gen: gen) }
         startFolderMonitor(url: url)
     }
 
@@ -570,9 +578,10 @@ final class ScanStore: ReindexedGroupSink {
         db: BridgeCoreDatabase
     ) async {
         await PHashPipeline.applyBurstMode()
-        let prefetched = await BridgeCore.fetchCachedThumbnailBatch(list: imageList, db: db)
-        let limiter = ConcurrencyLimiter(maxConcurrent: 2)
+        let prefetched = await BridgeCore.fetchCachedThumbnailBatch(list: imageList, db: db, priority: .userInitiated)
+        let limiter = ConcurrencyLimiter(maxConcurrent: 4)
         let pipeline = phashPipeline
+        let mode = thumbnailQualityMode
 
         await withTaskGroup(of: (UInt64, Data?).self) { group in
             for entry in entries {
@@ -580,7 +589,7 @@ final class ScanStore: ReindexedGroupSink {
                 group.addTask {
                     let jpeg = try? await limiter.run {
                         if let c = cached { return c }
-                        return await ThumbnailService.generate(for: entry, db: db, phashPipeline: pipeline)
+                        return await ThumbnailService.generate(for: entry, db: db, phashPipeline: pipeline, mode: mode)
                     }
                     return (entry.id, jpeg)
                 }

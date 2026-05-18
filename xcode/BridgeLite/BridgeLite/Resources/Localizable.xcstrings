@@ -4950,6 +4950,22 @@
         }
       }
     },
+    "settings.metadata.help.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**Embed** — Rating is written directly into the JPEG file. The file is self-contained and portable, but the original is modified.\n\n**Sidecar** — Rating is saved as a separate `.xmp` file next to the image. The original is never modified, but you must copy the `.xmp` alongside the image when transferring to other software (Lightroom, Capture One, etc.).\n\nRAW files always use a sidecar regardless of this setting.\n\n**Note:** In Sidecar mode, a JPEG and its paired RAW share the same `.xmp` file (e.g. `IMG_0001.xmp`). Rating one automatically updates the other."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**埋め込み** — 評価を JPEG ファイルに直接書き込みます。ファイル単体で持ち運べますが、元ファイルが変更されます。\n\n**サイドカー** — 評価を隣に `.xmp` ファイルとして保存します。元ファイルは変更されませんが、Lightroom・Capture One 等へ持ち出す際は `.xmp` も一緒にコピーする必要があります。\n\nRAW ファイルはこの設定に関わらず常にサイドカーが使われます。\n\n**注意:** サイドカーモードでは、JPEG と同名の RAW は同じ `.xmp` ファイルを共有します（例: `IMG_0001.xmp`）。一方を評価するともう一方にも自動的に反映されます。"
+          }
+        }
+      }
+    },
     "settings.metadata.jpg_write_mode" : {
       "localizations" : {
         "en" : {
@@ -4995,22 +5011,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "メタデータ"
-          }
-        }
-      }
-    },
-    "settings.metadata.help.body" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "**Embed** — Rating is written directly into the JPEG file. The file is self-contained and portable, but the original is modified.\n\n**Sidecar** — Rating is saved as a separate `.xmp` file next to the image. The original is never modified, but you must copy the `.xmp` alongside the image when transferring to other software (Lightroom, Capture One, etc.).\n\nRAW files always use a sidecar regardless of this setting.\n\n**Note:** In Sidecar mode, a JPEG and its paired RAW share the same `.xmp` file (e.g. `IMG_0001.xmp`). Rating one automatically updates the other."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "**埋め込み** — 評価を JPEG ファイルに直接書き込みます。ファイル単体で持ち運べますが、元ファイルが変更されます。\n\n**サイドカー** — 評価を隣に `.xmp` ファイルとして保存します。元ファイルは変更されませんが、Lightroom・Capture One 等へ持ち出す際は `.xmp` も一緒にコピーする必要があります。\n\nRAW ファイルはこの設定に関わらず常にサイドカーが使われます。\n\n**注意:** サイドカーモードでは、JPEG と同名の RAW は同じ `.xmp` ファイルを共有します（例: `IMG_0001.xmp`）。一方を評価するともう一方にも自動的に反映されます。"
           }
         }
       }
@@ -5350,6 +5350,70 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "詳細設定"
+          }
+        }
+      }
+    },
+    "settings.thumb_quality.help.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**Quality** — Falls back to decoding the full image when no embedded thumbnail exists or when the embedded one is too small. Best visual quality but slower for HEIF and DNG.\n\n**Speed** — Reads only the embedded thumbnail. If no embedded thumbnail exists, the slot is left blank until you scroll past it. Fastest; never decodes full pixel data before full-screen view."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "**品質優先** — 埋め込みサムネイルが存在しない・極小の場合に画像本体をデコードしてサムネイルを生成します。表示品質は良好ですが、HEIF や DNG では処理に時間がかかります。\n\n**速度優先** — 埋め込みサムネイルのみを読み取ります。埋め込みがない場合、そのスロットは空白のままです。フル画面表示前に全画素データを一切デコードしないため最速です。"
+          }
+        }
+      }
+    },
+    "settings.thumb_quality.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After switching, tap Clear Cache below to regenerate thumbnails."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "モードを切り替えた後は、下の「キャッシュをクリア」をタップしてサムネイルを再生成してください。"
+          }
+        }
+      }
+    },
+    "settings.thumb_quality.section" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thumbnails"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サムネイル"
+          }
+        }
+      }
+    },
+    "settings.thumb_quality.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thumbnail Quality"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サムネイル品質"
           }
         }
       }
@@ -5793,6 +5857,38 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SS"
+          }
+        }
+      }
+    },
+    "thumb_quality.quality" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Quality"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "品質優先"
+          }
+        }
+      }
+    },
+    "thumb_quality.speed" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Speed"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "速度優先"
           }
         }
       }
@@ -6268,6 +6364,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "SD カードを開く"
+          }
+        }
+      }
+    },
+    "welcome.open_settings" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Settings"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "設定"
           }
         }
       }

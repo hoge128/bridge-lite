@@ -66,8 +66,8 @@ enum BridgeCore {
 
     /// Fetch cached thumbnails for all entries in a single SQLite connection.
     /// Returns a dictionary keyed by file URL for O(1) lookup in ThumbnailPipeline.
-    static func fetchCachedThumbnailBatch(list: BridgeCoreImageList, db: BridgeCoreDatabase) async -> [URL: CachedThumbEntry] {
-        return await Task.detached(priority: .utility) {
+    static func fetchCachedThumbnailBatch(list: BridgeCoreImageList, db: BridgeCoreDatabase, priority: TaskPriority = .utility) async -> [URL: CachedThumbEntry] {
+        return await Task.detached(priority: priority) {
             let batch = bridge_fetch_cached_thumbnails_for_entries(db.inner, list.inner)
             let count = Int(ffi_thumb_batch_count(batch))
             var result: [URL: CachedThumbEntry] = [:]

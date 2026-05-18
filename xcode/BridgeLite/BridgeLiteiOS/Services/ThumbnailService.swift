@@ -7,10 +7,10 @@ enum ThumbnailService {
     private static let targetPixels = 480
     private static let minCachePixels = 280
 
-    static func generate(for entry: PhotoEntry, db: BridgeCoreDatabase, phashPipeline: PHashPipeline? = nil) async -> Data? {
-        return await Task.detached(priority: .utility) {
+    static func generate(for entry: PhotoEntry, db: BridgeCoreDatabase, phashPipeline: PHashPipeline? = nil, mode: ThumbnailQualityMode = .quality) async -> Data? {
+        return await Task.detached(priority: .userInitiated) {
             // 1. ImageIO (JPEG/HEIF/DNG/TIFF) — proprietary RAW はスキップ
-            if let img = generateWithImageIO(url: entry.url, maxPixels: targetPixels),
+            if let img = generateWithImageIO(url: entry.url, maxPixels: targetPixels, mode: mode),
                let jpeg = img.toJpeg() {
                 Task { await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db) }
                 if let pipeline = phashPipeline {
@@ -37,12 +37,25 @@ enum ThumbnailService {
         }.value
     }
 
-    private static func generateWithImageIO(url: URL, maxPixels: Int) -> CGImage? {
+    private static func generateWithImageIO(url: URL, maxPixels: Int, mode: ThumbnailQualityMode = .quality) -> CGImage? {
         let ext = url.pathExtension.lowercased()
         let proprietaryRaw = Set(["arw","cr2","cr3","nef","nrw","rw2","orf","pef","raf"])
         if proprietaryRaw.contains(ext) { return nil }
 
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
+
+        if mode == .speed {
+            // 埋め込みサムネイルのみ読む。存在しなければ nil を返しフル画像デコードを行わない
+            let opts: [CFString: Any] = [
+                kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+                kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
+                kCGImageSourceCreateThumbnailWithTransform: true,
+                kCGImageSourceShouldCache: false,
+            ]
+            return CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
+        }
+
+        // quality モード: 埋め込み無し・極小の場合はフル画像からフォールバック（現状動作）
         let options: [CFString: Any] = [
             kCGImageSourceThumbnailMaxPixelSize: maxPixels,
             kCGImageSourceCreateThumbnailFromImageIfAbsent: true,
