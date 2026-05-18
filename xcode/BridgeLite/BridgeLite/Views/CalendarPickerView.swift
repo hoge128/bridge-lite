@@ -43,10 +43,7 @@ private extension Calendar {
 // MARK: - CalendarPickerView
 
 struct CalendarPickerView: View {
-    enum Scale { case compact, expanded }
-
     @Environment(LibraryStore.self) private var store
-    let scale: Scale
 
     @State private var months: [Date] = []
     @State private var daysPerMonth: [Date: [Date]] = [:]
@@ -54,7 +51,7 @@ struct CalendarPickerView: View {
     @State private var selectedYear: Int? = nil
     @State private var drillDownMonth: Date? = nil
 
-    private var compact: Bool { scale == .compact }
+    private let compact = true
     private var cellSpacing: CGFloat { compact ? 1 : 3 }
     private var maxCount: Int { store.photosPerDay.values.max() ?? 1 }
 

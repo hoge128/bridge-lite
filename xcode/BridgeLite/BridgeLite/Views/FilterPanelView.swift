@@ -420,7 +420,7 @@ struct FilterPanelView: View {
         case .date:
             GroupBox {
                 DisclosureGroup(isExpanded: $dateExpanded) {
-                    CalendarPickerView(scale: .compact)
+                    CalendarPickerView()
                         .padding(.top, 4)
                 } label: {
                     Button { dateExpanded.toggle() } label: {
