@@ -12,7 +12,7 @@
             <sparkle:shortVersionString>0.4.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/hoge128/bridge-lite/releases/download/v0.4.1/BridgeLite-0.4.1.dmg" length="37009610" type="application/octet-stream" sparkle:edSignature="cXhQVHphSdz63vbQRyd0Ofzloa/NJzTx3dSwa67+7LNUu6hOsGCQHJo3UyanmiAl5jbWwZM/FhMV0ur5ljj6AA=="/>
+            <enclosure url="https://github.com/hoge128/bridge-lite/releases/download/mac%2Fv0.4.1/BridgeLite-0.4.1.dmg" length="37009610" type="application/octet-stream" sparkle:edSignature="cXhQVHphSdz63vbQRyd0Ofzloa/NJzTx3dSwa67+7LNUu6hOsGCQHJo3UyanmiAl5jbWwZM/FhMV0ur5ljj6AA=="/>
         </item>
         <item>
             <title>0.4.0</title>
