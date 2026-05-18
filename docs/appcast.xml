@@ -3,6 +3,17 @@
     <channel>
         <title>BridgeLite</title>
         <item>
+            <title>0.4.1</title>
+            <pubDate>Tue, 19 May 2026 02:00:44 +0900</pubDate>
+            <link>https://hoge128.github.io/bridge-lite/</link>
+            <sparkle:fullReleaseNotesLink>https://hoge128.github.io/bridge-lite/releases/0.4.1.html</sparkle:fullReleaseNotesLink>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.4.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/hoge128/bridge-lite/releases/download/v0.4.1/BridgeLite-0.4.1.dmg" length="37009610" type="application/octet-stream" sparkle:edSignature="cXhQVHphSdz63vbQRyd0Ofzloa/NJzTx3dSwa67+7LNUu6hOsGCQHJo3UyanmiAl5jbWwZM/FhMV0ur5ljj6AA=="/>
+        </item>
+        <item>
             <title>0.4.0</title>
             <pubDate>Wed, 13 May 2026 14:12:13 +0900</pubDate>
             <link>https://hoge128.github.io/bridge-lite/</link>
