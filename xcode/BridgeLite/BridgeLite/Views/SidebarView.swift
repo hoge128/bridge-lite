@@ -167,8 +167,8 @@ struct SidebarView: View {
                         }
                         XmpSectionView(entryID: entry.id)
                     }
+                    .padding(.trailing, 12)
                 }
-                .contentMargins(.trailing, 12)
                 .task(id: entry.id) {
                     highResPreview = nil
                     rgbHistogram = .empty
