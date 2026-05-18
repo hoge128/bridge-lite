@@ -203,6 +203,17 @@ public func ffi_thumb_batch_count(_ r: FfiThumbBatchRef) -> UInt {
 public func ffi_thumb_batch_jpeg_at(_ r: FfiThumbBatchRef, _ idx: UInt) -> FfiOptionalBytes {
     FfiOptionalBytes(ptr: __swift_bridge__$ffi_thumb_batch_jpeg_at(r.ptr, idx))
 }
+public func bridge_thumb_batch_new(_ db: BridgeDatabaseRef) -> ThumbBatchBuilder {
+    ThumbBatchBuilder(ptr: __swift_bridge__$bridge_thumb_batch_new(db.ptr))
+}
+public func bridge_thumb_batch_push<GenericToRustStr: ToRustStr>(_ builder: ThumbBatchBuilderRef, _ path: GenericToRustStr, _ jpeg: UnsafeBufferPointer<UInt8>, _ aspect_ok: Bool, _ raw_orientation: UInt8) {
+    path.toRustStr({ pathAsRustStr in
+        __swift_bridge__$bridge_thumb_batch_push(builder.ptr, pathAsRustStr, jpeg.toFfiSlice(), aspect_ok, raw_orientation)
+    })
+}
+public func bridge_thumb_batch_flush(_ builder: ThumbBatchBuilderRef) {
+    __swift_bridge__$bridge_thumb_batch_flush(builder.ptr)
+}
 public func bridge_fetch_cached_rendered<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ engine: GenericToRustStr, _ width: UInt32) -> FfiOptionalBytes {
     return engine.toRustStr({ engineAsRustStr in
         return path.toRustStr({ pathAsRustStr in
@@ -253,6 +264,81 @@ public func bridge_has_images_beyond_scan_depth<GenericToRustStr: ToRustStr>(_ p
         __swift_bridge__$bridge_has_images_beyond_scan_depth(pathAsRustStr)
     })
 }
+
+public class ThumbBatchBuilder: ThumbBatchBuilderRefMut {
+    var isOwned: Bool = true
+
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+
+    deinit {
+        if isOwned {
+            __swift_bridge__$ThumbBatchBuilder$_free(ptr)
+        }
+    }
+}
+public class ThumbBatchBuilderRefMut: ThumbBatchBuilderRef {
+    public override init(ptr: UnsafeMutableRawPointer) {
+        super.init(ptr: ptr)
+    }
+}
+public class ThumbBatchBuilderRef {
+    var ptr: UnsafeMutableRawPointer
+
+    public init(ptr: UnsafeMutableRawPointer) {
+        self.ptr = ptr
+    }
+}
+extension ThumbBatchBuilder: Vectorizable {
+    public static func vecOfSelfNew() -> UnsafeMutableRawPointer {
+        __swift_bridge__$Vec_ThumbBatchBuilder$new()
+    }
+
+    public static func vecOfSelfFree(vecPtr: UnsafeMutableRawPointer) {
+        __swift_bridge__$Vec_ThumbBatchBuilder$drop(vecPtr)
+    }
+
+    public static func vecOfSelfPush(vecPtr: UnsafeMutableRawPointer, value: ThumbBatchBuilder) {
+        __swift_bridge__$Vec_ThumbBatchBuilder$push(vecPtr, {value.isOwned = false; return value.ptr;}())
+    }
+
+    public static func vecOfSelfPop(vecPtr: UnsafeMutableRawPointer) -> Optional<Self> {
+        let pointer = __swift_bridge__$Vec_ThumbBatchBuilder$pop(vecPtr)
+        if pointer == nil {
+            return nil
+        } else {
+            return (ThumbBatchBuilder(ptr: pointer!) as! Self)
+        }
+    }
+
+    public static func vecOfSelfGet(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<ThumbBatchBuilderRef> {
+        let pointer = __swift_bridge__$Vec_ThumbBatchBuilder$get(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return ThumbBatchBuilderRef(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfGetMut(vecPtr: UnsafeMutableRawPointer, index: UInt) -> Optional<ThumbBatchBuilderRefMut> {
+        let pointer = __swift_bridge__$Vec_ThumbBatchBuilder$get_mut(vecPtr, index)
+        if pointer == nil {
+            return nil
+        } else {
+            return ThumbBatchBuilderRefMut(ptr: pointer!)
+        }
+    }
+
+    public static func vecOfSelfAsPtr(vecPtr: UnsafeMutableRawPointer) -> UnsafePointer<ThumbBatchBuilderRef> {
+        UnsafePointer<ThumbBatchBuilderRef>(OpaquePointer(__swift_bridge__$Vec_ThumbBatchBuilder$as_ptr(vecPtr)))
+    }
+
+    public static func vecOfSelfLen(vecPtr: UnsafeMutableRawPointer) -> UInt {
+        __swift_bridge__$Vec_ThumbBatchBuilder$len(vecPtr)
+    }
+}
+
 
 public class ShotGroupsMap: ShotGroupsMapRefMut {
     var isOwned: Bool = true

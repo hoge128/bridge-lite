@@ -28,6 +28,15 @@ final class BridgeCoreImageList: @unchecked Sendable {
     init(_ inner: ImageEntryList) { self.inner = inner }
 }
 
+// MARK: - BridgeCoreThumbBuilder
+
+/// Wraps the Rust ThumbBatchBuilder opaque handle used by ThumbnailWriteBuffer.
+/// The Rust type uses an internal Mutex so concurrent push/flush via shared reference is safe.
+final class BridgeCoreThumbBuilder: @unchecked Sendable {
+    let inner: ThumbBatchBuilder
+    init(_ inner: ThumbBatchBuilder) { self.inner = inner }
+}
+
 // MARK: - BridgeCore
 
 enum BridgeCore {

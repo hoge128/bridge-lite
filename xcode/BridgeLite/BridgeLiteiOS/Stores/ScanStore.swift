@@ -582,6 +582,7 @@ final class ScanStore: ReindexedGroupSink {
         let limiter = ConcurrencyLimiter(maxConcurrent: 4)
         let pipeline = phashPipeline
         let mode = thumbnailQualityMode
+        let writeBuffer = ThumbnailWriteBuffer(db: db)
 
         await withTaskGroup(of: (UInt64, Data?).self) { group in
             for entry in entries {
@@ -589,7 +590,7 @@ final class ScanStore: ReindexedGroupSink {
                 group.addTask {
                     let jpeg = try? await limiter.run {
                         if let c = cached { return c }
-                        return await ThumbnailService.generate(for: entry, db: db, phashPipeline: pipeline, mode: mode)
+                        return await ThumbnailService.generate(for: entry, db: db, phashPipeline: pipeline, mode: mode, writeBuffer: writeBuffer)
                     }
                     return (entry.id, jpeg)
                 }
@@ -600,6 +601,7 @@ final class ScanStore: ReindexedGroupSink {
                 thumbnails[id] = jpeg
             }
         }
+        await writeBuffer.drain()
         await phashPipeline.waitForAllPending()
     }
 

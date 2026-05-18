@@ -7,12 +7,12 @@ enum ThumbnailService {
     private static let targetPixels = 480
     private static let minCachePixels = 280
 
-    static func generate(for entry: PhotoEntry, db: BridgeCoreDatabase, phashPipeline: PHashPipeline? = nil, mode: ThumbnailQualityMode = .quality) async -> Data? {
+    static func generate(for entry: PhotoEntry, db: BridgeCoreDatabase, phashPipeline: PHashPipeline? = nil, mode: ThumbnailQualityMode = .quality, writeBuffer: ThumbnailWriteBuffer) async -> Data? {
         return await Task.detached(priority: .userInitiated) {
             // 1. ImageIO (JPEG/HEIF/DNG/TIFF) — proprietary RAW はスキップ
             if let img = generateWithImageIO(url: entry.url, maxPixels: targetPixels, mode: mode),
                let jpeg = img.toJpeg() {
-                Task { await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db) }
+                await writeBuffer.enqueue(url: entry.url, data: jpeg)
                 if let pipeline = phashPipeline {
                     await pipeline.enqueue(entry: entry, source: img, db: db)
                 }
@@ -27,7 +27,7 @@ enum ThumbnailService {
                 let orient = readRawOrientation(url: entry.url)
                 let oriented = orientedCGImage(rawImg, orientation: orient) ?? rawImg
                 guard let jpeg = oriented.toJpeg() else { return nil }
-                Task { await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, db: db) }
+                await writeBuffer.enqueue(url: entry.url, data: jpeg)
                 if let pipeline = phashPipeline {
                     await pipeline.enqueue(entry: entry, source: oriented, db: db)
                 }

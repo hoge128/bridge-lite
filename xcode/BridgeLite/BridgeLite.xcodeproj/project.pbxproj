@@ -68,6 +68,8 @@
 		9BF8C6AB43E6FF9A22E6B3F1 /* ManageApplicationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08267E9BB3F4272FE0BBD6B3 /* ManageApplicationsSheet.swift */; };
 		9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8959834812C243F4AB214555 /* ViewerView.swift */; };
 		9FE9F88FC4671DAF54FB52A3 /* ThumbnailDecodeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A25B9314CAA8624F7FEAE8 /* ThumbnailDecodeCache.swift */; };
+		AA11223344556677889900AB /* ThumbnailWriteBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB22334455667788990011CD /* ThumbnailWriteBuffer.swift */; };
+		CC33445566778899001122EF /* ThumbnailWriteBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = BB22334455667788990011CD /* ThumbnailWriteBuffer.swift */; };
 		A017CA3928F5411EB8A668A1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B123E21AF2DA71784C11365 /* SettingsStore.swift */; };
 		A25971232D7E0AD8FC6C0E12 /* ThumbnailService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940DD5D430F25636C785B60A /* ThumbnailService.swift */; };
 		A5C7AF7B756C4E14095476E7 /* RatingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29F4F691391FA55169693EC /* RatingStore.swift */; };
@@ -187,6 +189,7 @@
 		F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithService.swift; sourceTree = "<group>"; };
 		F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BridgeLiteiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
+		BB22334455667788990011CD /* ThumbnailWriteBuffer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailWriteBuffer.swift; sourceTree = "<group>"; };
 		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
 		F9F1394BA720F5BB1FAC74FB /* TabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabManager.swift; sourceTree = "<group>"; };
 		FE2F5F0FC1CBE2DFCB5E024F /* ThumbnailCellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCellView.swift; sourceTree = "<group>"; };
@@ -253,6 +256,7 @@
 				829D014EC927B51D64289330 /* ScanPipeline.swift */,
 				34A25B9314CAA8624F7FEAE8 /* ThumbnailDecodeCache.swift */,
 				5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */,
+				BB22334455667788990011CD /* ThumbnailWriteBuffer.swift */,
 			);
 			path = Pipelines;
 			sourceTree = "<group>";
@@ -585,6 +589,7 @@
 				37B766B17BB5740BA7505661 /* ThumbnailCellView.swift in Sources */,
 				7E3DB46D71165F7E199F8D9A /* ThumbnailGridView.swift in Sources */,
 				A25971232D7E0AD8FC6C0E12 /* ThumbnailService.swift in Sources */,
+				AA11223344556677889900AB /* ThumbnailWriteBuffer.swift in Sources */,
 				909FBB7C62F31EDF0BFC3AEA /* XmpData.swift in Sources */,
 				321E9F5925168E01168CF59B /* bridge-ffi.swift in Sources */,
 			);
@@ -637,6 +642,7 @@
 				9FE9F88FC4671DAF54FB52A3 /* ThumbnailDecodeCache.swift in Sources */,
 				FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */,
 				5478CCDC6D2D1C6C2FEEBEFF /* ThumbnailPipeline.swift in Sources */,
+				CC33445566778899001122EF /* ThumbnailWriteBuffer.swift in Sources */,
 				740B6E0B825A83C207B42109 /* ToolbarView.swift in Sources */,
 				1E5E68B25E2EC686594106E6 /* UpdaterController.swift in Sources */,
 				9CD0499D9E03119D20290705 /* ViewerView.swift in Sources */,

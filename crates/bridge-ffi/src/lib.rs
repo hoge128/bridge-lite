@@ -294,6 +294,13 @@ pub struct ShotGroupsMap {
     pub groups: HashMap<u64, Vec<u64>>,
 }
 
+/// Accumulates thumbnail items for a single batched INSERT per flush.
+/// Interior Mutex allows push/flush via shared `&self` reference (required by swift-bridge).
+pub struct ThumbBatchBuilder {
+    items: std::sync::Mutex<Vec<(PathBuf, Vec<u8>, bool, u8)>>,
+    db_path: PathBuf,
+}
+
 // ── XMP write helper ───────────────────────────────────────────────────────
 
 fn label_from_u8(v: u8) -> Option<CoreLabel> {
@@ -431,6 +438,18 @@ mod ffi {
         ) -> FfiThumbBatch;
         fn ffi_thumb_batch_count(r: &FfiThumbBatch) -> usize;
         fn ffi_thumb_batch_jpeg_at(r: &FfiThumbBatch, idx: usize) -> FfiOptionalBytes;
+
+        // Batch thumbnail write — accumulate items then flush in a single transaction
+        type ThumbBatchBuilder;
+        fn bridge_thumb_batch_new(db: &BridgeDatabase) -> ThumbBatchBuilder;
+        fn bridge_thumb_batch_push(
+            builder: &ThumbBatchBuilder,
+            path: &str,
+            jpeg: &[u8],
+            aspect_ok: bool,
+            raw_orientation: u8,
+        );
+        fn bridge_thumb_batch_flush(builder: &ThumbBatchBuilder);
 
         // Rendered thumbnail cache API
         fn bridge_fetch_cached_rendered(
@@ -761,6 +780,34 @@ fn bridge_store_cached_thumbnail(
 ) {
     let p = Path::new(path);
     bridge_core::db::store_thumb(p, &db.db_path, jpeg, aspect_ok, raw_orientation);
+}
+
+fn bridge_thumb_batch_new(db: &BridgeDatabase) -> ThumbBatchBuilder {
+    ThumbBatchBuilder {
+        items: std::sync::Mutex::new(Vec::new()),
+        db_path: db.db_path.clone(),
+    }
+}
+
+fn bridge_thumb_batch_push(
+    builder: &ThumbBatchBuilder,
+    path: &str,
+    jpeg: &[u8],
+    aspect_ok: bool,
+    raw_orientation: u8,
+) {
+    let mut guard = builder.items.lock().unwrap_or_else(|e| e.into_inner());
+    guard.push((PathBuf::from(path), jpeg.to_vec(), aspect_ok, raw_orientation));
+}
+
+fn bridge_thumb_batch_flush(builder: &ThumbBatchBuilder) {
+    let items: Vec<_> = {
+        let mut guard = builder.items.lock().unwrap_or_else(|e| e.into_inner());
+        std::mem::take(&mut *guard)
+    };
+    if !items.is_empty() {
+        bridge_core::db::store_thumb_batch(&items, &builder.db_path);
+    }
 }
 
 fn bridge_fetch_cached_thumbnails_for_entries(

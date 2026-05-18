@@ -34,16 +34,18 @@ enum ThumbnailPipeline {
             prefetched = [:]
         }
 
+        let writeBuffer = ThumbnailWriteBuffer(db: db)
         await withTaskGroup(of: Void.self) { group in
             for entry in entries {
                 let cached = prefetched[entry.url]
                 group.addTask {
                     await loadOne(entry: entry, store: store, db: db,
                                   phashPipeline: phashPipeline, generation: generation,
-                                  prefetchedEntry: cached)
+                                  prefetchedEntry: cached, writeBuffer: writeBuffer)
                 }
             }
         }
+        await writeBuffer.drain()
     }
 
     // Thumbnail target size: 480px。
@@ -64,7 +66,8 @@ enum ThumbnailPipeline {
         db: BridgeCoreDatabase,
         phashPipeline: PHashPipeline,
         generation: Int,
-        prefetchedEntry: BridgeCore.CachedThumbEntry? = nil
+        prefetchedEntry: BridgeCore.CachedThumbEntry? = nil,
+        writeBuffer: ThumbnailWriteBuffer
     ) async {
         // stale 世代は limiter slot を奪わずに即 exit（新世代の loadAll を妨げない）
         let isStale = await MainActor.run { store.scanGeneration != generation }
@@ -121,7 +124,7 @@ enum ThumbnailPipeline {
             if let img = await generateWithImageIO(url: entry.url, maxPixels: targetPixels),
                let jpeg = img.jpegData(compressionQuality: 0.85) {
                 await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
-                await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg, aspectOk: true, db: db)
+                await writeBuffer.enqueue(url: entry.url, data: jpeg)
                 await phashPipeline.enqueue(entry: entry, source: img, db: db)
                 return
             }
@@ -144,8 +147,7 @@ enum ThumbnailPipeline {
                 guard let jpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
                 await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
                 await store.setThumbnailOrientation(id: entry.id, orientation: orient, generation: generation)
-                await BridgeCore.storeCachedThumbnail(url: entry.url, data: jpeg,
-                                                       aspectOk: true, rawOrientation: cgOrientRaw, db: db)
+                await writeBuffer.enqueue(url: entry.url, data: jpeg, rawOrientation: cgOrientRaw)
                 await phashPipeline.enqueue(entry: entry, source: scaled, db: db)
             }
         }
