@@ -1919,22 +1919,6 @@
         }
       }
     },
-    "Expand calendar" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Expand calendar"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "カレンダー拡大"
-          }
-        }
-      }
-    },
     "export.guide.continue" : {
       "extractionState" : "stale",
       "localizations" : {
