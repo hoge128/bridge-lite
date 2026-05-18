@@ -43,6 +43,19 @@ struct FilterCriteria: Sendable, Equatable {
         !nameSearch.isEmpty
     }
 
+    var isFileTypeActive: Bool { !filterKinds.isEmpty || cameraOnly || !excludedExtensions.isEmpty }
+    var isCameraActive: Bool   { !excludedCameras.isEmpty }
+    var isArtistActive: Bool   { !excludedArtists.isEmpty }
+    var isLensActive: Bool     { !excludedLenses.isEmpty }
+    var isRatingActive: Bool   { !filterRatings.isEmpty }
+    var isLabelActive: Bool    { !filterLabels.isEmpty }
+    var isISOActive: Bool      { !isoMin.isEmpty || !isoMax.isEmpty }
+    var isFocalActive: Bool    { !focalMin.isEmpty || !focalMax.isEmpty }
+    var isShutterActive: Bool  { !shutterMin.isEmpty || !shutterMax.isEmpty }
+    var isApertureActive: Bool { !apertureMin.isEmpty || !apertureMax.isEmpty }
+    var isDateActive: Bool     { !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty }
+    var isLuminanceActive: Bool { !luminanceMin.isEmpty || !luminanceMax.isEmpty }
+
     func matches(entry: PhotoEntry, exif: ExifData?, xmp: XmpData?, luminance: Int? = nil) -> Bool {
         // Filename / caption search filter (OR match)
         if !nameSearch.isEmpty {
@@ -129,9 +142,20 @@ struct FilterCriteria: Sendable, Equatable {
         return true
     }
 
-    mutating func reset() {
-        self = FilterCriteria()
-    }
+    mutating func reset() { self = FilterCriteria() }
+
+    mutating func clearFileType()  { filterKinds = []; cameraOnly = false; excludedExtensions = [] }
+    mutating func clearCamera()    { excludedCameras = [] }
+    mutating func clearArtist()    { excludedArtists = [] }
+    mutating func clearLens()      { excludedLenses = [] }
+    mutating func clearRating()    { filterRatings = [] }
+    mutating func clearLabel()     { filterLabels = [] }
+    mutating func clearISO()       { isoMin = ""; isoMax = "" }
+    mutating func clearFocal()     { focalMin = ""; focalMax = "" }
+    mutating func clearShutter()   { shutterMin = ""; shutterMax = "" }
+    mutating func clearAperture()  { apertureMin = ""; apertureMax = "" }
+    mutating func clearDate()      { dateMin = ""; dateMax = ""; dateAllowList = []; dateMode = .range }
+    mutating func clearLuminance() { luminanceMin = ""; luminanceMax = "" }
 
     // MARK: - Private helpers
 

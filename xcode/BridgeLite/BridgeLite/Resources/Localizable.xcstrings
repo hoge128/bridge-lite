@@ -1420,6 +1420,7 @@
       }
     },
     "Click to filter by label color. Multiple selection supported" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2206,6 +2207,7 @@
       }
     },
     "Filter by aperture (F-number). Click bars to select range" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2221,10 +2223,8 @@
         }
       }
     },
-    "Filter by average luminance (0 = dark, 255 = bright)" : {
-
-    },
     "Filter by focal length (35mm equiv). Click bars to select range" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2241,6 +2241,7 @@
       }
     },
     "Filter by ISO sensitivity. Click bars to select range or type values directly" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -2255,9 +2256,6 @@
           }
         }
       }
-    },
-    "Filter by shooting date. Click presets or tap calendar days to select a range or individual dates." : {
-
     },
     "Filter by shooting date. Within 14 days = daily buckets, otherwise monthly" : {
       "extractionState" : "stale",
@@ -2277,6 +2275,7 @@
       }
     },
     "Filter by shutter speed. 1/2000s shown as '2k', 1/60s as '60'" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5615,6 +5614,7 @@
 
     },
     "Show only photos with checked ratings. Nothing checked = show all ratings" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5945,6 +5945,7 @@
       }
     },
     "Uncheck cameras to exclude them from results" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5977,6 +5978,7 @@
       }
     },
     "Uncheck lenses to exclude them from results" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {
@@ -5993,6 +5995,7 @@
       }
     },
     "Uncheck photographers to exclude them (read from EXIF Artist field)" : {
+      "extractionState" : "stale",
       "localizations" : {
         "en" : {
           "stringUnit" : {

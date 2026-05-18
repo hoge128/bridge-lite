@@ -37,13 +37,13 @@ struct FilterPanelView: View {
                             .font(.caption2)
                             .fontWeight(.medium)
                     }
-                    .foregroundStyle(isResetHovered ? .white : .accentColor)
+                    .foregroundStyle(isResetHovered ? .white : .red)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
                     .background(
                         isResetHovered
-                            ? Color.accentColor
-                            : Color.accentColor.opacity(0.15),
+                            ? Color.red
+                            : Color.red.opacity(0.15),
                         in: Capsule()
                     )
                 }
@@ -88,83 +88,120 @@ struct FilterPanelView: View {
         .background(.ultraThinMaterial)
     }
 
+    // MARK: - Helpers
+
+    @ViewBuilder
+    private func sectionLabel(
+        _ title: String,
+        isExpanded: Binding<Bool>,
+        help: String,
+        isActive: Bool,
+        onClear: @escaping () -> Void
+    ) -> some View {
+        HStack {
+            Button { isExpanded.wrappedValue.toggle() } label: {
+                Text(title)
+                    .font(.caption2).kerning(1.2)
+                    .foregroundStyle(.secondary).textCase(.uppercase)
+            }
+            .buttonStyle(.plain)
+            .help(help)
+            Spacer()
+            if isActive {
+                Button(String(localized: "filter.clear", defaultValue: "Clear"), action: onClear)
+                    .buttonStyle(.plain)
+                    .font(.caption2)
+                    .foregroundStyle(.red)
+            }
+        }
+    }
+
     // MARK: - Section views
 
     @ViewBuilder
     private func filterSectionView(for section: FilterSection, filter: Binding<FilterCriteria>) -> some View {
         switch section {
         case .fileType:
-            SectionBox("File Type", isExpanded: $fileTypeExpanded) {
-                VStack(alignment: .leading, spacing: 4) {
-                    if filter.wrappedValue.flatten {
-                        ForEach(store.availableExtensions, id: \.self) { ext in
+            GroupBox {
+                DisclosureGroup(isExpanded: $fileTypeExpanded) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        if filter.wrappedValue.flatten {
+                            ForEach(store.availableExtensions, id: \.self) { ext in
+                                Toggle(isOn: Binding(
+                                    get: { !filter.wrappedValue.excludedExtensions.contains(ext) },
+                                    set: { on in
+                                        var f = filter.wrappedValue
+                                        if on { f.excludedExtensions.remove(ext) }
+                                        else  { f.excludedExtensions.insert(ext) }
+                                        filter.wrappedValue = f
+                                    }
+                                )) { Text(".\(ext.uppercased())").font(.caption).monospaced() }
+                                .toggleStyle(.checkbox)
+                                .help("Uncheck extensions to exclude them from results")
+                            }
+                        } else {
                             Toggle(isOn: Binding(
-                                get: { !filter.wrappedValue.excludedExtensions.contains(ext) },
+                                get: { filter.wrappedValue.filterKinds.contains(.raw) },
                                 set: { on in
                                     var f = filter.wrappedValue
-                                    if on { f.excludedExtensions.remove(ext) }
-                                    else  { f.excludedExtensions.insert(ext) }
+                                    if on { f.filterKinds.insert(.raw) } else { f.filterKinds.remove(.raw) }
                                     filter.wrappedValue = f
                                 }
-                            )) { Text(".\(ext.uppercased())").font(.caption).monospaced() }
+                            )) { Text("RAW").font(.caption) }
                             .toggleStyle(.checkbox)
-                            .help("Uncheck extensions to exclude them from results")
+                            .help("Use RAW as the representative thumbnail per group (groups without RAW are hidden)")
+
+                            Toggle(isOn: Binding(
+                                get: { filter.wrappedValue.filterKinds.contains(.sooc) },
+                                set: { on in
+                                    var f = filter.wrappedValue
+                                    if on { f.filterKinds.insert(.sooc) } else { f.filterKinds.remove(.sooc) }
+                                    filter.wrappedValue = f
+                                }
+                            )) { Text(PhotoKind.sooc.localizedName).font(.caption) }
+                            .toggleStyle(.checkbox)
+                            .help("Use camera JPEG as the representative thumbnail per group (groups without JPEG are hidden)")
+
+                            Toggle(isOn: Binding(
+                                get: { filter.wrappedValue.filterKinds.contains(.developed) },
+                                set: { on in
+                                    var f = filter.wrappedValue
+                                    if on { f.filterKinds.insert(.developed) } else { f.filterKinds.remove(.developed) }
+                                    filter.wrappedValue = f
+                                }
+                            )) { Text(PhotoKind.developed.localizedName).font(.caption) }
+                            .toggleStyle(.checkbox)
+                            .help("Use developed JPEG as the representative thumbnail per group (groups without developed JPEG are hidden)")
+
+                            Toggle(isOn: Binding(
+                                get: { filter.wrappedValue.filterKinds.contains(.indeterminate) },
+                                set: { on in
+                                    var f = filter.wrappedValue
+                                    if on { f.filterKinds.insert(.indeterminate) } else { f.filterKinds.remove(.indeterminate) }
+                                    filter.wrappedValue = f
+                                }
+                            )) { Text(PhotoKind.indeterminate.localizedName).font(.caption) }
+                            .toggleStyle(.checkbox)
+                            .help("Show only images where origin cannot be determined (no camera EXIF metadata)")
                         }
-                    } else {
-                        Toggle(isOn: Binding(
-                            get: { filter.wrappedValue.filterKinds.contains(.raw) },
-                            set: { on in
-                                var f = filter.wrappedValue
-                                if on { f.filterKinds.insert(.raw) } else { f.filterKinds.remove(.raw) }
-                                filter.wrappedValue = f
-                            }
-                        )) { Text("RAW").font(.caption) }
-                        .toggleStyle(.checkbox)
-                        .help("Use RAW as the representative thumbnail per group (groups without RAW are hidden)")
 
-                        Toggle(isOn: Binding(
-                            get: { filter.wrappedValue.filterKinds.contains(.sooc) },
-                            set: { on in
-                                var f = filter.wrappedValue
-                                if on { f.filterKinds.insert(.sooc) } else { f.filterKinds.remove(.sooc) }
-                                filter.wrappedValue = f
-                            }
-                        )) { Text(PhotoKind.sooc.localizedName).font(.caption) }
-                        .toggleStyle(.checkbox)
-                        .help("Use camera JPEG as the representative thumbnail per group (groups without JPEG are hidden)")
+                        Divider()
 
-                        Toggle(isOn: Binding(
-                            get: { filter.wrappedValue.filterKinds.contains(.developed) },
-                            set: { on in
-                                var f = filter.wrappedValue
-                                if on { f.filterKinds.insert(.developed) } else { f.filterKinds.remove(.developed) }
-                                filter.wrappedValue = f
-                            }
-                        )) { Text(PhotoKind.developed.localizedName).font(.caption) }
+                        Toggle(isOn: filter.cameraOnly) {
+                            Text("Camera shots only").font(.caption)
+                        }
                         .toggleStyle(.checkbox)
-                        .help("Use developed JPEG as the representative thumbnail per group (groups without developed JPEG are hidden)")
-
-                        Toggle(isOn: Binding(
-                            get: { filter.wrappedValue.filterKinds.contains(.indeterminate) },
-                            set: { on in
-                                var f = filter.wrappedValue
-                                if on { f.filterKinds.insert(.indeterminate) } else { f.filterKinds.remove(.indeterminate) }
-                                filter.wrappedValue = f
-                            }
-                        )) { Text(PhotoKind.indeterminate.localizedName).font(.caption) }
-                        .toggleStyle(.checkbox)
-                        .help("Show only images where origin cannot be determined (no camera EXIF metadata)")
+                        .help("Exclude images without camera Make/Model EXIF (screenshots, web images, etc.)")
                     }
-
-                    Divider()
-
-                    Toggle(isOn: filter.cameraOnly) {
-                        Text("Camera shots only").font(.caption)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+                } label: {
+                    sectionLabel("File Type", isExpanded: $fileTypeExpanded,
+                                 help: "Filter by file type and camera origin",
+                                 isActive: filter.wrappedValue.isFileTypeActive) {
+                        var f = filter.wrappedValue; f.clearFileType(); filter.wrappedValue = f
                     }
-                    .toggleStyle(.checkbox)
-                    .help("Exclude images without camera Make/Model EXIF (screenshots, web images, etc.)")
                 }
-                .frame(maxWidth: .infinity, alignment: .leading)
             }
 
         case .camera:
@@ -189,13 +226,11 @@ struct FilterPanelView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 4)
                     } label: {
-                        Button { cameraExpanded.toggle() } label: {
-                            Text("Camera")
-                                .font(.caption2).kerning(1.2)
-                                .foregroundStyle(.secondary).textCase(.uppercase)
+                        sectionLabel("Camera", isExpanded: $cameraExpanded,
+                                     help: "Uncheck cameras to exclude them from results",
+                                     isActive: filter.wrappedValue.isCameraActive) {
+                            var f = filter.wrappedValue; f.clearCamera(); filter.wrappedValue = f
                         }
-                        .buttonStyle(.plain)
-                        .help("Uncheck cameras to exclude them from results")
                     }
                 }
             }
@@ -222,13 +257,11 @@ struct FilterPanelView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 4)
                     } label: {
-                        Button { artistExpanded.toggle() } label: {
-                            Text("Photographer")
-                                .font(.caption2).kerning(1.2)
-                                .foregroundStyle(.secondary).textCase(.uppercase)
+                        sectionLabel("Photographer", isExpanded: $artistExpanded,
+                                     help: "Uncheck photographers to exclude them (read from EXIF Artist field)",
+                                     isActive: filter.wrappedValue.isArtistActive) {
+                            var f = filter.wrappedValue; f.clearArtist(); filter.wrappedValue = f
                         }
-                        .buttonStyle(.plain)
-                        .help("Uncheck photographers to exclude them (read from EXIF Artist field)")
                     }
                 }
             }
@@ -255,13 +288,11 @@ struct FilterPanelView: View {
                         .frame(maxWidth: .infinity, alignment: .leading)
                         .padding(.top, 4)
                     } label: {
-                        Button { lensExpanded.toggle() } label: {
-                            Text("Lens")
-                                .font(.caption2).kerning(1.2)
-                                .foregroundStyle(.secondary).textCase(.uppercase)
+                        sectionLabel("Lens", isExpanded: $lensExpanded,
+                                     help: "Uncheck lenses to exclude them from results",
+                                     isActive: filter.wrappedValue.isLensActive) {
+                            var f = filter.wrappedValue; f.clearLens(); filter.wrappedValue = f
                         }
-                        .buttonStyle(.plain)
-                        .help("Uncheck lenses to exclude them from results")
                     }
                 }
             }
@@ -311,13 +342,11 @@ struct FilterPanelView: View {
                     .frame(maxWidth: .infinity, alignment: .leading)
                     .padding(.top, 4)
                 } label: {
-                    Button { ratingExpanded.toggle() } label: {
-                        Text("Rating")
-                            .font(.caption2).kerning(1.2)
-                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    sectionLabel("Rating", isExpanded: $ratingExpanded,
+                                 help: "Show only photos with checked ratings. Nothing checked = show all ratings",
+                                 isActive: filter.wrappedValue.isRatingActive) {
+                        var f = filter.wrappedValue; f.clearRating(); filter.wrappedValue = f
                     }
-                    .buttonStyle(.plain)
-                    .help("Show only photos with checked ratings. Nothing checked = show all ratings")
                 }
             }
 
@@ -347,13 +376,11 @@ struct FilterPanelView: View {
                     }
                     .padding(.top, 4)
                 } label: {
-                    Button { labelExpanded.toggle() } label: {
-                        Text("Label")
-                            .font(.caption2).kerning(1.2)
-                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    sectionLabel("Label", isExpanded: $labelExpanded,
+                                 help: "Click to filter by label color. Multiple selection supported",
+                                 isActive: filter.wrappedValue.isLabelActive) {
+                        var f = filter.wrappedValue; f.clearLabel(); filter.wrappedValue = f
                     }
-                    .buttonStyle(.plain)
-                    .help("Click to filter by label color. Multiple selection supported")
                 }
             }
 
@@ -362,13 +389,11 @@ struct FilterPanelView: View {
                 DisclosureGroup(isExpanded: $isoExpanded) {
                     ExifHistogramView(bars: store.isoBuckets, minText: filter.isoMin, maxText: filter.isoMax)
                 } label: {
-                    Button { isoExpanded.toggle() } label: {
-                        Text("ISO")
-                            .font(.caption2).kerning(1.2)
-                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    sectionLabel("ISO", isExpanded: $isoExpanded,
+                                 help: "Filter by ISO sensitivity. Click bars to select range or type values directly",
+                                 isActive: filter.wrappedValue.isISOActive) {
+                        var f = filter.wrappedValue; f.clearISO(); filter.wrappedValue = f
                     }
-                    .buttonStyle(.plain)
-                    .help("Filter by ISO sensitivity. Click bars to select range or type values directly")
                 }
             }
 
@@ -377,13 +402,11 @@ struct FilterPanelView: View {
                 DisclosureGroup(isExpanded: $focalExpanded) {
                     ExifHistogramView(bars: store.focalBuckets, minText: filter.focalMin, maxText: filter.focalMax)
                 } label: {
-                    Button { focalExpanded.toggle() } label: {
-                        Text("Focal Length")
-                            .font(.caption2).kerning(1.2)
-                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    sectionLabel("Focal Length", isExpanded: $focalExpanded,
+                                 help: "Filter by focal length (35mm equiv). Click bars to select range",
+                                 isActive: filter.wrappedValue.isFocalActive) {
+                        var f = filter.wrappedValue; f.clearFocal(); filter.wrappedValue = f
                     }
-                    .buttonStyle(.plain)
-                    .help("Filter by focal length (35mm equiv). Click bars to select range")
                 }
             }
 
@@ -392,13 +415,11 @@ struct FilterPanelView: View {
                 DisclosureGroup(isExpanded: $shutterExpanded) {
                     ExifHistogramView(bars: store.shutterBuckets, minText: filter.shutterMin, maxText: filter.shutterMax)
                 } label: {
-                    Button { shutterExpanded.toggle() } label: {
-                        Text("Shutter")
-                            .font(.caption2).kerning(1.2)
-                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    sectionLabel("Shutter", isExpanded: $shutterExpanded,
+                                 help: "Filter by shutter speed. 1/2000s shown as '2k', 1/60s as '60'",
+                                 isActive: filter.wrappedValue.isShutterActive) {
+                        var f = filter.wrappedValue; f.clearShutter(); filter.wrappedValue = f
                     }
-                    .buttonStyle(.plain)
-                    .help("Filter by shutter speed. 1/2000s shown as '2k', 1/60s as '60'")
                 }
             }
 
@@ -407,13 +428,11 @@ struct FilterPanelView: View {
                 DisclosureGroup(isExpanded: $apertureExpanded) {
                     ExifHistogramView(bars: store.apertureBuckets, minText: filter.apertureMin, maxText: filter.apertureMax)
                 } label: {
-                    Button { apertureExpanded.toggle() } label: {
-                        Text("Aperture")
-                            .font(.caption2).kerning(1.2)
-                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    sectionLabel("Aperture", isExpanded: $apertureExpanded,
+                                 help: "Filter by aperture (F-number). Click bars to select range",
+                                 isActive: filter.wrappedValue.isApertureActive) {
+                        var f = filter.wrappedValue; f.clearAperture(); filter.wrappedValue = f
                     }
-                    .buttonStyle(.plain)
-                    .help("Filter by aperture (F-number). Click bars to select range")
                 }
             }
 
@@ -423,13 +442,11 @@ struct FilterPanelView: View {
                     CalendarPickerView()
                         .padding(.top, 4)
                 } label: {
-                    Button { dateExpanded.toggle() } label: {
-                        Text("Date")
-                            .font(.caption2).kerning(1.2)
-                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    sectionLabel("Date", isExpanded: $dateExpanded,
+                                 help: "Filter by shooting date. Click presets or tap calendar days to select a range or individual dates.",
+                                 isActive: filter.wrappedValue.isDateActive) {
+                        var f = filter.wrappedValue; f.clearDate(); filter.wrappedValue = f
                     }
-                    .buttonStyle(.plain)
-                    .help("Filter by shooting date. Click presets or tap calendar days to select a range or individual dates.")
                 }
             }
 
@@ -438,16 +455,13 @@ struct FilterPanelView: View {
                 DisclosureGroup(isExpanded: $luminanceExpanded) {
                     ExifHistogramView(bars: store.luminanceBuckets, minText: filter.luminanceMin, maxText: filter.luminanceMax)
                 } label: {
-                    Button { luminanceExpanded.toggle() } label: {
-                        Text("Luminance")
-                            .font(.caption2).kerning(1.2)
-                            .foregroundStyle(.secondary).textCase(.uppercase)
+                    sectionLabel("Luminance", isExpanded: $luminanceExpanded,
+                                 help: "Filter by average luminance (0 = dark, 255 = bright)",
+                                 isActive: filter.wrappedValue.isLuminanceActive) {
+                        var f = filter.wrappedValue; f.clearLuminance(); filter.wrappedValue = f
                     }
-                    .buttonStyle(.plain)
-                    .help("Filter by average luminance (0 = dark, 255 = bright)")
                 }
             }
         }
     }
 }
-
