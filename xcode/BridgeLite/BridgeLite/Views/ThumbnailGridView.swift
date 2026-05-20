@@ -6,6 +6,8 @@ struct ThumbnailGridView: View {
     @Environment(LibraryStore.self) private var store
     @State private var isDropTargeted = false
     @State private var lastTap: (id: UInt64, time: Date)?
+    @State private var rubberBandStart: CGPoint? = nil
+    @State private var rubberBandEnd: CGPoint? = nil
     private var cellSize: CGFloat { store.settings.thumbnailSize }
 
     private func handleTap(id: UInt64) {
@@ -197,16 +199,49 @@ struct ThumbnailGridView: View {
             let columns = Array(repeating: GridItem(.fixed(cellSize), spacing: 8), count: cols)
             ScrollViewReader { proxy in
                 ScrollView {
-                    LazyVGrid(columns: columns, spacing: 8) {
-                        ForEach(store.visibleIDs, id: \.self) { id in
-                            if let entry = store.entries[id] {
-                                ThumbnailCellView(entry: entry)
-                                    .onTapGesture { handleTap(id: id) }
-                                    .id(id)
+                    ZStack(alignment: .topLeading) {
+                        LazyVGrid(columns: columns, spacing: 8) {
+                            ForEach(store.visibleIDs, id: \.self) { id in
+                                if let entry = store.entries[id] {
+                                    ThumbnailCellView(entry: entry)
+                                        .onTapGesture { handleTap(id: id) }
+                                        .id(id)
+                                }
                             }
                         }
+                        .padding(8)
+
+                        if let start = rubberBandStart, let end = rubberBandEnd {
+                            let rect = rubberBandRect(from: start, to: end)
+                            Rectangle()
+                                .fill(Color.accentColor.opacity(0.12))
+                                .overlay(Rectangle().stroke(Color.accentColor.opacity(0.5), lineWidth: 1))
+                                .frame(width: max(1, rect.width), height: max(1, rect.height))
+                                .offset(x: rect.minX, y: rect.minY)
+                                .allowsHitTesting(false)
+                        }
                     }
-                    .padding(8)
+                    .clipped()
+                    .contentShape(Rectangle())
+                    .onTapGesture { store.deselectAll() }
+                    .gesture(
+                        DragGesture(minimumDistance: 4, coordinateSpace: .local)
+                            .onChanged { value in
+                                if rubberBandStart == nil {
+                                    if !NSEvent.modifierFlags.contains(.shift),
+                                       !NSEvent.modifierFlags.contains(.command) {
+                                        store.deselectAll()
+                                    }
+                                    rubberBandStart = value.startLocation
+                                }
+                                rubberBandEnd = value.location
+                                updateRubberBandSelection(cols: cols)
+                            }
+                            .onEnded { _ in
+                                rubberBandStart = nil
+                                rubberBandEnd = nil
+                            }
+                    )
                 }
                 .onAppear { store.gridColumnCount = cols }
                 .onChange(of: cols) { _, newCols in store.gridColumnCount = newCols }
@@ -262,6 +297,31 @@ struct ThumbnailGridView: View {
             }
         }
         .id(store.scanGeneration)
+    }
+
+    private func rubberBandRect(from start: CGPoint, to end: CGPoint) -> CGRect {
+        CGRect(x: min(start.x, end.x), y: min(start.y, end.y),
+               width: abs(end.x - start.x), height: abs(end.y - start.y))
+    }
+
+    private func updateRubberBandSelection(cols: Int) {
+        guard let start = rubberBandStart, let end = rubberBandEnd else { return }
+        let rect = rubberBandRect(from: start, to: end)
+        let pad: CGFloat = 8
+        let sp: CGFloat = 8
+        var hits: Set<UInt64> = []
+        for (i, id) in store.visibleIDs.enumerated() {
+            let col = CGFloat(i % cols)
+            let row = CGFloat(i / cols)
+            let thumbRect = CGRect(
+                x: pad + col * (cellSize + sp),
+                y: pad + row * (cellSize + sp),
+                width: cellSize,
+                height: cellSize
+            )
+            if rect.intersects(thumbRect) { hits.insert(id) }
+        }
+        store.rubberBandSelect(hits)
     }
 
     private func scrollToPrimary(_ proxy: ScrollViewProxy) {

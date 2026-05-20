@@ -31,41 +31,60 @@ struct ThumbnailCellView: View {
         strictBody
     }
 
-    // MARK: - Strict mode (square tile sized by slider, filename + rating below)
+    // MARK: - Strict mode (square tile, info strip inside frame)
+    // サムネイル上部 + 情報ストリップ下部をすべて cellSize×cellSize の丸枠内に収める
+
+    private static let infoStripHeight: CGFloat = 30
+
+    // ファイル名・評価ストリップ（カラーラベルはサムネイル直下に別配置）
+    private var infoStrip: some View {
+        VStack(alignment: .leading, spacing: 1) {
+            Text(entry.filename)
+                .font(.caption2)
+                .lineLimit(1)
+                .truncationMode(.middle)
+                .frame(maxWidth: .infinity, alignment: .leading)
+            if let rating = xmp?.rating, rating > 0 {
+                Text(String(repeating: "★", count: rating))
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.yellow.opacity(0.75))
+            } else {
+                Color.clear.frame(height: 11)
+            }
+        }
+        .padding(.horizontal, 5)
+        .padding(.vertical, 2)
+        .frame(width: cellSize, height: Self.infoStripHeight - 4, alignment: .topLeading)
+        .background(.ultraThinMaterial)
+    }
 
     private var strictBody: some View {
-        VStack(spacing: 4) {
-            ZStack {
-                // scaledToFit でアスペクト比が合わない場合に生じるレターボックス部分の地色
-                Color.secondary.opacity(0.08)
+        ZStack {
+            Color.secondary.opacity(0.08)
+            VStack(spacing: 0) {
                 ThumbnailImageView(cgImage: thumbnail, orientation: thumbnailOrientation)
-                    .frame(width: cellSize, height: cellSize)
-                colorLabelStrip
-            }
-            .frame(width: cellSize, height: cellSize)
-            .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(alignment: .topTrailing) {
-                identifierBadge
-                    .padding(4)
-                    .opacity(store.filter.flatten ? 0 : (photoKind == .sooc ? (isHovered ? 1 : 0) : 1))
-                    .animation(.easeInOut(duration: 0.15), value: isHovered)
-            }
-            .overlay { selectionStroke(cornerRadius: 6) }
-
-            HStack(spacing: 3) {
-                if let rating = xmp?.rating, rating > 0 {
-                    Text(String(repeating: "★", count: rating))
-                        .font(.system(size: 9, weight: .bold))
-                        .foregroundStyle(.yellow.opacity(0.75))
+                    .frame(width: cellSize, height: cellSize - Self.infoStripHeight)
+                // カラーラベル帯：サムネイル画像の直下
+                Group {
+                    if let label = xmp?.label {
+                        label.color.opacity(0.85)
+                    } else {
+                        Color.clear
+                    }
                 }
-                Text(entry.filename)
-                    .font(.caption2)
-                    .lineLimit(1)
-                    .truncationMode(.middle)
-                    .frame(maxWidth: .infinity, alignment: .leading)
+                .frame(width: cellSize, height: 4)
+                infoStrip
             }
-            .frame(width: cellSize)
         }
+        .frame(width: cellSize, height: cellSize)
+        .clipShape(RoundedRectangle(cornerRadius: 6))
+        .overlay(alignment: .topTrailing) {
+            identifierBadge
+                .padding(4)
+                .opacity(store.filter.flatten ? 0 : (photoKind == .sooc ? (isHovered ? 1 : 0) : 1))
+                .animation(.easeInOut(duration: 0.15), value: isHovered)
+        }
+        .overlay { selectionStroke(cornerRadius: 6) }
         .onAppear { loadCell() }
         .onReceive(store.thumbnailDidUpdate.filter { $0 == self.entry.id }) { _ in
             let id = entry.id

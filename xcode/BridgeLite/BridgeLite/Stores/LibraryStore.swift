@@ -475,6 +475,12 @@ final class LibraryStore: ReindexedGroupSink {
         anchorID = nil
     }
 
+    func rubberBandSelect(_ ids: Set<UInt64>) {
+        selectedIDs = ids
+        primaryID = ids.isEmpty ? nil : visibleIDs.first(where: { ids.contains($0) })
+        anchorID = primaryID
+    }
+
     func navigateNext() {
         guard let id = primaryID else {
             if let first = visibleIDs.first { selectEntry(first) }; return
