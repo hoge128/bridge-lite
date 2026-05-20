@@ -508,7 +508,7 @@ fn bridge_ffi_error_message(e: &BridgeFfiError) -> String {
 
 // ── Scan API impl ──────────────────────────────────────────────────────────
 
-fn bridge_scan_directory(db: &BridgeDatabase, path: &str) -> ImageEntryList {
+fn bridge_scan_directory(_db: &BridgeDatabase, path: &str) -> ImageEntryList {
     let result = bridge_core::scanner::scan_directory(PathBuf::from(path));
     ImageEntryList {
         entries: result.entries,
