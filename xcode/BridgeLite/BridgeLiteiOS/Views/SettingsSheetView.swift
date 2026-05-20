@@ -58,6 +58,27 @@ struct SettingsSheetView: View {
                 }
 
                 Section {
+                    propagationGrid
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 4)
+                } header: {
+                    HStack {
+                        Text(String(localized: "settings.propagation.section", defaultValue: "Rating Propagation"))
+                        Spacer()
+                        Button {
+                            showPropagationHelp = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
+                        .popover(isPresented: $showPropagationHelp, arrowEdge: .top) {
+                            propagationHelpPopover
+                        }
+                    }
+                }
+
+                Section {
                     Picker(String(localized: "settings.thumb_quality.title", defaultValue: "Thumbnail Quality"),
                            selection: $scanStore.thumbnailQualityMode) {
                         ForEach(ThumbnailQualityMode.allCases) { mode in
@@ -91,27 +112,6 @@ struct SettingsSheetView: View {
                             String(localized: "settings.render.auto_detail", defaultValue: "Auto-render in Detail view"),
                             systemImage: "camera.aperture"
                         )
-                    }
-                }
-
-                Section {
-                    propagationGrid
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 4)
-                } header: {
-                    HStack {
-                        Text(String(localized: "settings.propagation.section", defaultValue: "Rating Propagation"))
-                        Spacer()
-                        Button {
-                            showPropagationHelp = true
-                        } label: {
-                            Image(systemName: "info.circle")
-                        }
-                        .buttonStyle(.plain)
-                        .foregroundStyle(.tint)
-                        .popover(isPresented: $showPropagationHelp, arrowEdge: .top) {
-                            propagationHelpPopover
-                        }
                     }
                 }
 

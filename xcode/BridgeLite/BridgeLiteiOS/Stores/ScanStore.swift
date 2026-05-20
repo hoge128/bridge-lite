@@ -299,7 +299,7 @@ final class ScanStore: ReindexedGroupSink {
     var thumbnailQualityMode: ThumbnailQualityMode = {
         if let raw = UserDefaults.standard.string(forKey: "ios.thumbnailQualityMode"),
            let m = ThumbnailQualityMode(rawValue: raw) { return m }
-        return .quality
+        return .speed
     }() {
         didSet { UserDefaults.standard.set(thumbnailQualityMode.rawValue, forKey: Self.thumbnailQualityModeKey) }
     }
