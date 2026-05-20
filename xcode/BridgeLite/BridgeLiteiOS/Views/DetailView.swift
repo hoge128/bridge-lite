@@ -30,6 +30,7 @@ struct DetailView: View {
     @State private var showRatingPopup = false
     @State private var showEmbedWarning = false
     @State private var pendingWriteEntry: (id: UInt64, url: URL, xmp: XmpData, previousXmp: XmpData?, targetIDs: [UInt64])?
+    @State private var ratingWriteTask: Task<Void, Never>?
 
     // フルサイズキャッシュ（最大3枚 FIFO: prev / current / next）
     @State private var fullResCache: [FullResEntry] = []
@@ -216,7 +217,6 @@ struct DetailView: View {
                     UserDefaults.standard.set(true, forKey: JpgMetadataDefaults.hasShownJpgEmbedWarningKey)
                     if let pending = pendingWriteEntry, let db {
                         pendingWriteEntry = nil
-                        let prevXmp = pending.previousXmp
                         let newXmp = pending.xmp
                         let targetIDs = pending.targetIDs
                         Task {
@@ -226,8 +226,8 @@ struct DetailView: View {
                             for targetID in targetIDs where targetID != pending.id {
                                 guard let te = scanStore.entries[targetID] else { continue }
                                 var tXmp = ratings[targetID] ?? XmpData()
-                                if prevXmp?.rating != newXmp.rating { tXmp.rating = newXmp.rating }
-                                if prevXmp?.label != newXmp.label { tXmp.label = newXmp.label }
+                                tXmp.rating = newXmp.rating
+                                tXmp.label = newXmp.label
                                 ratings[targetID] = tXmp
                                 _ = await BridgeCore.writeXmp(url: te.url, xmp: tXmp, db: db,
                                                               jpgWriteMode: .embed,
@@ -433,15 +433,17 @@ struct DetailView: View {
                                         previousXmp: prevXmp, targetIDs: targetIDs)
                     showEmbedWarning = true
                 } else {
-                    Task {
+                    ratingWriteTask?.cancel()
+                    ratingWriteTask = Task {
                         _ = await BridgeCore.writeXmp(url: url, xmp: newXmp, db: db,
                                                       jpgWriteMode: jpgWriteMode,
                                                       captionPresent: false)
+                        guard !Task.isCancelled else { return }
                         for targetID in targetIDs where targetID != entry.id {
                             guard let te = scanStore.entries[targetID] else { continue }
                             var tXmp = ratings[targetID] ?? XmpData()
-                            if prevXmp?.rating != newXmp.rating { tXmp.rating = newXmp.rating }
-                            if prevXmp?.label != newXmp.label { tXmp.label = newXmp.label }
+                            tXmp.rating = newXmp.rating
+                            tXmp.label = newXmp.label
                             ratings[targetID] = tXmp
                             _ = await BridgeCore.writeXmp(url: te.url, xmp: tXmp, db: db,
                                                           jpgWriteMode: jpgWriteMode,

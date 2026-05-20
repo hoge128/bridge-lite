@@ -11,6 +11,9 @@ public func bridge_scan_directory<GenericToRustStr: ToRustStr>(_ db: BridgeDatab
         ImageEntryList(ptr: __swift_bridge__$bridge_scan_directory(db.ptr, pathAsRustStr))
     })
 }
+public func bridge_index_new_entries(_ db: BridgeDatabaseRef, _ entries: ImageEntryListRef) {
+    __swift_bridge__$bridge_index_new_entries(db.ptr, entries.ptr)
+}
 public func image_entry_list_count(_ list: ImageEntryListRef) -> UInt {
     __swift_bridge__$image_entry_list_count(list.ptr)
 }

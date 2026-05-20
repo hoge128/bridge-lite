@@ -136,6 +136,7 @@ void* __swift_bridge__$Vec_BridgeDatabase$as_ptr(void* vec_ptr);
 struct __private__ResultPtrAndPtr __swift_bridge__$bridge_open_database(struct RustStr db_path);
 void* __swift_bridge__$bridge_ffi_error_message(void* e);
 void* __swift_bridge__$bridge_scan_directory(void* db, struct RustStr path);
+void __swift_bridge__$bridge_index_new_entries(void* db, void* entries);
 uintptr_t __swift_bridge__$image_entry_list_count(void* list);
 uintptr_t __swift_bridge__$image_entry_list_total_files(void* list);
 uintptr_t __swift_bridge__$image_entry_list_image_files(void* list);
