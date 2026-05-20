@@ -463,6 +463,7 @@ final class ScanStore: ReindexedGroupSink {
             let db = try BridgeCoreDatabase.open(path: Self.cacheDBURL())
             self.db = db
 
+            // ディレクトリ走査のみ（EXIF 索引を含まないため高速）
             let (scannedEntries, imageList, _, _) = try await BridgeCore.scanDirectory(url: url, db: db)
             guard gen == scanGeneration else { return }
 
@@ -470,6 +471,7 @@ final class ScanStore: ReindexedGroupSink {
             self.entries = entryDict
             scanTotalCount = scannedEntries.count
 
+            // 初期グルーピング（EXIF 未索引のためステム名ベース。カメラ直出し RAW+JPEG には十分）
             let shotMap = await BridgeCore.reindexShotGroups(list: imageList, db: db)
             guard gen == scanGeneration else { return }
             self.groups = buildGroups(from: shotMap, entries: entryDict)
@@ -477,7 +479,15 @@ final class ScanStore: ReindexedGroupSink {
 
             let capturedList = imageList
             let capturedPairing = pairingPipeline
+
+            // EXIF 索引をバックグラウンドで開始（サムネイル読み込みと並行実行）
+            let indexTask = Task.detached(priority: .utility) {
+                await BridgeCore.indexNewEntries(list: capturedList, db: db)
+            }
+
+            // EXIF 取得・グルーピング再計算: 索引完了後に実行
             let exifTask = Task { [weak self] in
+                await indexTask.value
                 guard let self, gen == self.scanGeneration else { return }
 
                 let map = await BridgeCore.fetchExifBatch(list: capturedList, db: db)
@@ -488,6 +498,7 @@ final class ScanStore: ReindexedGroupSink {
                 guard gen == self.scanGeneration else { return }
             }
 
+            // サムネイル読み込みを即座に開始（EXIF 索引を待たない）
             await loadThumbnails(entries: scannedEntries, imageList: imageList, db: db)
             guard gen == scanGeneration else { return }
 

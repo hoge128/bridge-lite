@@ -62,6 +62,12 @@ enum BridgeCore {
         }.value
     }
 
+    static func indexNewEntries(list: BridgeCoreImageList, db: BridgeCoreDatabase) async {
+        await Task.detached(priority: .utility) {
+            bridge_index_new_entries(db.inner, list.inner)
+        }.value
+    }
+
     // MARK: Thumbnail batch cache
 
     /// Cached thumbnail entry returned from SQLite — includes validation flags to avoid redundant file I/O.

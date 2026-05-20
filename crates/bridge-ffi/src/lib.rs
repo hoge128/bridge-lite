@@ -353,6 +353,7 @@ mod ffi {
 
         // Scan API
         fn bridge_scan_directory(db: &BridgeDatabase, path: &str) -> ImageEntryList;
+        fn bridge_index_new_entries(db: &BridgeDatabase, entries: &ImageEntryList);
         fn image_entry_list_count(list: &ImageEntryList) -> usize;
         fn image_entry_list_total_files(list: &ImageEntryList) -> usize;
         fn image_entry_list_image_files(list: &ImageEntryList) -> usize;
@@ -509,16 +510,17 @@ fn bridge_ffi_error_message(e: &BridgeFfiError) -> String {
 
 fn bridge_scan_directory(db: &BridgeDatabase, path: &str) -> ImageEntryList {
     let result = bridge_core::scanner::scan_directory(PathBuf::from(path));
-    // Persist EXIF to DB for newly scanned entries in parallel (cache hits via
-    // one IN-clause query, misses parsed with rayon, written in one transaction).
-    let paths: Vec<PathBuf> = result.entries.iter().map(|e| e.path.clone()).collect();
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
-    bridge_core::db::index_new_entries(&paths, &conn);
     ImageEntryList {
         entries: result.entries,
         total_files: result.total_files,
         image_files: result.image_files,
     }
+}
+
+fn bridge_index_new_entries(db: &BridgeDatabase, entries: &ImageEntryList) {
+    let paths: Vec<PathBuf> = entries.entries.iter().map(|e| e.path.clone()).collect();
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::index_new_entries(&paths, &conn);
 }
 
 fn image_entry_list_count(list: &ImageEntryList) -> usize {
