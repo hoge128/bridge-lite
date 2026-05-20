@@ -47,6 +47,7 @@ fn main() {
     }
 
     let out_dir = PathBuf::from(std::env::var("OUT_DIR").expect("OUT_DIR not defined"));
+    ensure_xmp_build_info(&out_dir);
 
     // C vs C++ compilation approach adapted from
     // https://github.com/rust-lang/rust/blob/7510b0ca45d1204f8f0e9dc1bb2dc7d95b279c9a/library/unwind/build.rs.
@@ -377,6 +378,25 @@ fn main() {
         .file("src/ffi.cpp")
         .file("external/xmp_toolkit/third-party/zuid/interfaces/MD5.cpp")
         .compile("xmp");
+}
+
+fn ensure_xmp_build_info(out_dir: &std::path::Path) {
+    let build_dir = out_dir.join("external/xmp_toolkit/build");
+    fs::create_dir_all(&build_dir).unwrap();
+    fs::write(
+        build_dir.join("XMP_BuildInfo.h"),
+        r#"#ifndef __XMP_BuildInfo_h__
+#define __XMP_BuildInfo_h__ 1
+
+#define kXMP_Copyright "Copyright 2020 Adobe. All rights reserved."
+#define kXMP_CopyrightStr "Copyright 2020 Adobe. All rights reserved."
+#define kXMP_BuildDate "unknown"
+#define kXMP_BuildTime "unknown"
+
+#endif
+"#,
+    )
+    .unwrap();
 }
 
 fn copy_external_to_third_party(from_path: &str, to_path: &str) {

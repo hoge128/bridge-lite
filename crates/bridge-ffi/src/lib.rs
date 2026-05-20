@@ -11,7 +11,7 @@
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::OnceLock;
+use std::sync::{Arc, Mutex, OnceLock};
 use std::time::SystemTime;
 
 use bridge_core::developed::DEVELOPED_SOFTWARE_KEYWORDS;
@@ -42,11 +42,10 @@ fn runtime() -> &'static tokio::runtime::Runtime {
 
 // ── Internal helper types ──────────────────────────────────────────────────
 
-/// Wrapper around a DB path.
-/// bridge-core functions open and close connections internally (WAL mode),
-/// so we only need to hold the path here.
 pub struct BridgeDatabase {
+    #[allow(dead_code)]
     db_path: PathBuf,
+    conn: Arc<Mutex<rusqlite::Connection>>,
 }
 
 impl BridgeDatabase {
@@ -58,7 +57,14 @@ impl BridgeDatabase {
                 message: format!("Failed to open/init DB at: {}", db_path_str),
             });
         }
-        Ok(BridgeDatabase { db_path: path })
+        let conn = bridge_core::db::open_connection(&path).map_err(|e| BridgeFfiError {
+            code: CoreErrorId::Db as u32,
+            message: e.to_string(),
+        })?;
+        Ok(BridgeDatabase {
+            db_path: path,
+            conn: Arc::new(Mutex::new(conn)),
+        })
     }
 }
 
@@ -297,8 +303,8 @@ pub struct ShotGroupsMap {
 /// Accumulates thumbnail items for a single batched INSERT per flush.
 /// Interior Mutex allows push/flush via shared `&self` reference (required by swift-bridge).
 pub struct ThumbBatchBuilder {
-    items: std::sync::Mutex<Vec<(PathBuf, Vec<u8>, bool, u8)>>,
-    db_path: PathBuf,
+    items: Mutex<Vec<(PathBuf, Vec<u8>, bool, u8)>>,
+    conn: Arc<Mutex<rusqlite::Connection>>,
 }
 
 // ── XMP write helper ───────────────────────────────────────────────────────
@@ -505,9 +511,9 @@ fn bridge_scan_directory(db: &BridgeDatabase, path: &str) -> ImageEntryList {
     let result = bridge_core::scanner::scan_directory(PathBuf::from(path));
     // Persist EXIF to DB for newly scanned entries in parallel (cache hits via
     // one IN-clause query, misses parsed with rayon, written in one transaction).
-    let db_path = db.db_path.clone();
     let paths: Vec<PathBuf> = result.entries.iter().map(|e| e.path.clone()).collect();
-    bridge_core::db::index_new_entries(&paths, &db_path);
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::index_new_entries(&paths, &conn);
     ImageEntryList {
         entries: result.entries,
         total_files: result.total_files,
@@ -561,7 +567,8 @@ fn ffi_image_entry_shot_id(entry: &FfiImageEntry) -> u64 {
 
 fn bridge_fetch_exif(db: &BridgeDatabase, path: &str) -> FfiExifResult {
     let p = Path::new(path);
-    bridge_core::db::fetch_or_index(p, &db.db_path)
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::fetch_or_index(p, &conn)
         .as_ref()
         .map(FfiExifResult::from_core)
         .unwrap_or_else(FfiExifResult::not_found)
@@ -635,7 +642,8 @@ fn bridge_fetch_exif_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) 
         .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
         .collect();
     let paths_only: Vec<PathBuf> = path_mtimes.iter().map(|(p, _)| p.clone()).collect();
-    let mut map = bridge_core::db::fetch_exif_batch(&path_mtimes, &db.db_path);
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    let mut map = bridge_core::db::fetch_exif_batch(&path_mtimes, &conn);
     let results = paths_only
         .into_iter()
         .map(|p| {
@@ -720,7 +728,8 @@ fn bridge_write_xmp(
     };
     let ok = bridge_core::xmp::write_metadata(p, &data, jpg_use_sidecar).is_ok();
     if ok {
-        bridge_core::db::update_xmp(p, &db.db_path, &data);
+        let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+        bridge_core::db::update_xmp(p, &conn, &data);
     }
     ok
 }
@@ -737,21 +746,24 @@ fn bridge_compute_phash_from_luma(pixels: &[u8]) -> u64 {
 
 fn bridge_fetch_phash(db: &BridgeDatabase, path: &str) -> i64 {
     let p = Path::new(path);
-    bridge_core::db::fetch_phash(p, &db.db_path)
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::fetch_phash(p, &conn)
         .map(|v| v as i64)
         .unwrap_or(-1)
 }
 
 fn bridge_store_phash(db: &BridgeDatabase, path: &str, phash: u64) {
     let p = Path::new(path);
-    bridge_core::db::store_phash(p, &db.db_path, phash);
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::store_phash(p, &conn, phash);
 }
 
 // ── Thumbnail cache API impl ───────────────────────────────────────────────
 
 fn bridge_fetch_cached_thumbnail(db: &BridgeDatabase, path: &str) -> FfiOptionalBytes {
     let p = Path::new(path);
-    bridge_core::db::fetch_thumb(p, &db.db_path)
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::fetch_thumb(p, &conn)
         .map(FfiOptionalBytes::some)
         .unwrap_or_else(FfiOptionalBytes::none)
 }
@@ -779,13 +791,14 @@ fn bridge_store_cached_thumbnail(
     raw_orientation: u8,
 ) {
     let p = Path::new(path);
-    bridge_core::db::store_thumb(p, &db.db_path, jpeg, aspect_ok, raw_orientation);
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::store_thumb(p, &conn, jpeg, aspect_ok, raw_orientation);
 }
 
 fn bridge_thumb_batch_new(db: &BridgeDatabase) -> ThumbBatchBuilder {
     ThumbBatchBuilder {
-        items: std::sync::Mutex::new(Vec::new()),
-        db_path: db.db_path.clone(),
+        items: Mutex::new(Vec::new()),
+        conn: Arc::clone(&db.conn),
     }
 }
 
@@ -797,7 +810,12 @@ fn bridge_thumb_batch_push(
     raw_orientation: u8,
 ) {
     let mut guard = builder.items.lock().unwrap_or_else(|e| e.into_inner());
-    guard.push((PathBuf::from(path), jpeg.to_vec(), aspect_ok, raw_orientation));
+    guard.push((
+        PathBuf::from(path),
+        jpeg.to_vec(),
+        aspect_ok,
+        raw_orientation,
+    ));
 }
 
 fn bridge_thumb_batch_flush(builder: &ThumbBatchBuilder) {
@@ -806,7 +824,8 @@ fn bridge_thumb_batch_flush(builder: &ThumbBatchBuilder) {
         std::mem::take(&mut *guard)
     };
     if !items.is_empty() {
-        bridge_core::db::store_thumb_batch(&items, &builder.db_path);
+        let conn = builder.conn.lock().unwrap_or_else(|e| e.into_inner());
+        bridge_core::db::store_thumb_batch(&items, &conn);
     }
 }
 
@@ -820,7 +839,8 @@ fn bridge_fetch_cached_thumbnails_for_entries(
         .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
         .collect();
     let paths_only: Vec<PathBuf> = path_mtimes.iter().map(|(p, _)| p.clone()).collect();
-    let mut map = bridge_core::db::fetch_thumb_batch(&path_mtimes, &db.db_path);
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    let mut map = bridge_core::db::fetch_thumb_batch(&path_mtimes, &conn);
     let results = paths_only
         .into_iter()
         .map(|p| {
@@ -848,7 +868,8 @@ fn bridge_fetch_cached_rendered(
     width: u32,
 ) -> FfiOptionalBytes {
     let p = Path::new(path);
-    bridge_core::db::fetch_rendered(p, &db.db_path, engine, width)
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::fetch_rendered(p, &conn, engine, width)
         .map(FfiOptionalBytes::some_data)
         .unwrap_or_else(FfiOptionalBytes::none)
 }
@@ -861,15 +882,18 @@ fn bridge_store_cached_rendered(
     jpeg: &[u8],
 ) {
     let p = Path::new(path);
-    bridge_core::db::store_rendered(p, &db.db_path, engine, width, jpeg);
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::store_rendered(p, &conn, engine, width, jpeg);
 }
 
 fn bridge_clear_rendered_cache(db: &BridgeDatabase) {
-    bridge_core::db::clear_rendered(&db.db_path);
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::clear_rendered(&conn);
 }
 
 fn bridge_prune_cache(db: &BridgeDatabase, max_age_days: u32) {
-    bridge_core::db::prune_cache(&db.db_path, max_age_days);
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    bridge_core::db::prune_cache(&conn, max_age_days);
 }
 
 // ── RAW embedded JPEG API impl ─────────────────────────────────────────────
@@ -900,13 +924,14 @@ fn bridge_reindex_shot_groups(
         .iter()
         .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
         .collect();
-    let exif_by_path = bridge_core::db::fetch_exif_batch(&path_mtimes, &db.db_path);
+    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    let exif_by_path = bridge_core::db::fetch_exif_batch(&path_mtimes, &conn);
     let exif_by_id: HashMap<usize, CoreExifData> = images
         .iter()
         .filter_map(|e| exif_by_path.get(&e.path).map(|ex| (e.id, ex.clone())))
         .collect();
 
-    let phash_by_path = bridge_core::db::fetch_phash_batch(&path_mtimes, &db.db_path);
+    let phash_by_path = bridge_core::db::fetch_phash_batch(&path_mtimes, &conn);
     let phash_by_id: HashMap<usize, u64> = images
         .iter()
         .filter_map(|e| phash_by_path.get(&e.path).map(|&h| (e.id, h)))

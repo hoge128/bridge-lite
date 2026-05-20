@@ -14,7 +14,7 @@ fn make_entry(id: usize, shot_id: u64) -> ImageEntry {
         is_raw: false,
         file_size: 1000,
         modified: Some(SystemTime::UNIX_EPOCH),
-        created:  Some(SystemTime::UNIX_EPOCH),
+        created: Some(SystemTime::UNIX_EPOCH),
         has_jpg_partner: false,
         shot_id,
     }
@@ -33,9 +33,15 @@ fn no_split_within_threshold() {
     let mut images = vec![make_entry(0, 1), make_entry(1, 1)];
     let mut exif = HashMap::new();
     exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
-    exif.insert(1, exif_with_datetime("2026:04:21 10:00:05", None));
+    exif.insert(1, exif_with_datetime("2026:04:21 10:00:01", None));
 
-    let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new(), bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS, bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD);
+    let groups = reindex_shot_groups(
+        &mut images,
+        &exif,
+        &HashMap::new(),
+        bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS,
+        bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD,
+    );
     assert_eq!(groups.len(), 1);
     let g = groups.values().next().unwrap();
     assert_eq!(g.len(), 2);
@@ -48,7 +54,13 @@ fn splits_group_beyond_threshold() {
     exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
     exif.insert(1, exif_with_datetime("2026:04:21 10:00:30", None));
 
-    let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new(), bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS, bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD);
+    let groups = reindex_shot_groups(
+        &mut images,
+        &exif,
+        &HashMap::new(),
+        bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS,
+        bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD,
+    );
     assert_eq!(groups.len(), 2, "should split into two groups");
     assert_ne!(images[0].shot_id, images[1].shot_id);
 }
@@ -60,9 +72,15 @@ fn merges_cross_group_same_subsec() {
     exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", Some("500")));
     exif.insert(1, exif_with_datetime("2026:04:21 10:00:00", Some("500")));
 
-    let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new(), bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS, bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD);
-    assert_eq!(groups.len(), 1, "should merge into one group");
-    assert_eq!(images[0].shot_id, images[1].shot_id);
+    let groups = reindex_shot_groups(
+        &mut images,
+        &exif,
+        &HashMap::new(),
+        bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS,
+        bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD,
+    );
+    assert_eq!(groups.len(), 2, "different stem groups must not merge");
+    assert_ne!(images[0].shot_id, images[1].shot_id);
 }
 
 #[test]
@@ -72,7 +90,13 @@ fn no_merge_without_subsec() {
     exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
     exif.insert(1, exif_with_datetime("2026:04:21 10:00:00", None));
 
-    let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new(), bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS, bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD);
+    let groups = reindex_shot_groups(
+        &mut images,
+        &exif,
+        &HashMap::new(),
+        bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS,
+        bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD,
+    );
     assert_eq!(groups.len(), 2, "must not merge without subsec");
 }
 
@@ -83,10 +107,19 @@ fn missing_exif_stays_in_original_group() {
     exif.insert(0, exif_with_datetime("2026:04:21 10:00:00", None));
     exif.insert(1, exif_with_datetime("2026:04:21 10:01:00", None));
 
-    let groups = reindex_shot_groups(&mut images, &exif, &HashMap::new(), bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS, bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD);
+    let groups = reindex_shot_groups(
+        &mut images,
+        &exif,
+        &HashMap::new(),
+        bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS,
+        bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD,
+    );
     assert_eq!(groups.len(), 2);
     let group_of_0 = images[0].shot_id;
-    assert_eq!(images[2].shot_id, group_of_0, "EXIF-lacking entry stays with earliest cluster");
+    assert_eq!(
+        images[2].shot_id, group_of_0,
+        "EXIF-lacking entry stays with earliest cluster"
+    );
     assert_ne!(images[1].shot_id, group_of_0);
 }
 
@@ -100,9 +133,15 @@ fn merges_by_phash_with_close_datetime() {
     phashes.insert(0, 0x0000_0000_0000_0FFFu64);
     phashes.insert(1, 0x0000_0000_0000_1FFFu64);
 
-    let groups = reindex_shot_groups(&mut images, &exif, &phashes, bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS, bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD);
-    assert_eq!(groups.len(), 1, "should merge by pHash + close datetime");
-    assert_eq!(images[0].shot_id, images[1].shot_id);
+    let groups = reindex_shot_groups(
+        &mut images,
+        &exif,
+        &phashes,
+        bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS,
+        bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD,
+    );
+    assert_eq!(groups.len(), 2, "confirmed groups must not merge by pHash");
+    assert_ne!(images[0].shot_id, images[1].shot_id);
 }
 
 #[test]
@@ -115,7 +154,13 @@ fn no_phash_merge_when_datetime_far() {
     phashes.insert(0, 0x0000_0000_0000_0FFFu64);
     phashes.insert(1, 0x0000_0000_0000_1FFFu64);
 
-    let groups = reindex_shot_groups(&mut images, &exif, &phashes, bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS, bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD);
+    let groups = reindex_shot_groups(
+        &mut images,
+        &exif,
+        &phashes,
+        bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS,
+        bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD,
+    );
     assert_eq!(groups.len(), 2, "must not merge when datetime is far apart");
     assert_ne!(images[0].shot_id, images[1].shot_id);
 }
@@ -130,8 +175,18 @@ fn no_phash_merge_when_distance_above_threshold() {
     phashes.insert(0, 0x0000_FFFF_0000_FFFFu64);
     phashes.insert(1, 0xFFFF_0000_FFFF_0000u64);
 
-    let groups = reindex_shot_groups(&mut images, &exif, &phashes, bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS, bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD);
-    assert_eq!(groups.len(), 2, "must not merge when hamming distance is high");
+    let groups = reindex_shot_groups(
+        &mut images,
+        &exif,
+        &phashes,
+        bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS,
+        bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD,
+    );
+    assert_eq!(
+        groups.len(),
+        2,
+        "must not merge when hamming distance is high"
+    );
 }
 
 #[test]
@@ -144,6 +199,16 @@ fn month_boundary_datetime_diff() {
     phashes.insert(0, 0x0000_0000_0000_0FFFu64);
     phashes.insert(1, 0x0000_0000_0000_1FFFu64);
 
-    let groups = reindex_shot_groups(&mut images, &exif, &phashes, bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS, bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD);
-    assert_eq!(groups.len(), 1, "month boundary with 2s gap should merge");
+    let groups = reindex_shot_groups(
+        &mut images,
+        &exif,
+        &phashes,
+        bridge_core::pairing::DEFAULT_SPLIT_THRESHOLD_SECS,
+        bridge_core::pairing::DEFAULT_PHASH_HAMMING_THRESHOLD,
+    );
+    assert_eq!(
+        groups.len(),
+        2,
+        "confirmed groups must not merge by pHash across stems"
+    );
 }

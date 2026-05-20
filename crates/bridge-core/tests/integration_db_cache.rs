@@ -1,6 +1,6 @@
+use bridge_core::db::{ensure_schema, fetch_exif_batch, open_connection, update_xmp};
+use bridge_core::xmp::{Flag, Label, XmpData};
 use std::path::{Path, PathBuf};
-use bridge_core::db::{ensure_schema, fetch_exif_batch, update_xmp};
-use bridge_core::xmp::{XmpData, Label, Flag};
 
 fn setup(tag: &str) -> (PathBuf, PathBuf) {
     let dir = std::env::temp_dir().join(format!("bridge_db_{tag}"));
@@ -28,7 +28,7 @@ fn current_mtime(path: &Path) -> i64 {
 }
 
 fn insert_row(db: &Path, img: &Path, mtime: Option<i64>, make: &str) {
-    use rusqlite::{Connection, params};
+    use rusqlite::{params, Connection};
     let conn = Connection::open(db).unwrap();
     conn.execute(
         "INSERT OR REPLACE INTO images (path, filename, make, mtime) VALUES (?1,?2,?3,?4)",
@@ -38,7 +38,12 @@ fn insert_row(db: &Path, img: &Path, mtime: Option<i64>, make: &str) {
             make,
             mtime,
         ],
-    ).unwrap();
+    )
+    .unwrap();
+}
+
+fn path_mtime(path: &Path) -> (PathBuf, i64) {
+    (path.to_path_buf(), current_mtime(path))
 }
 
 // ── mtime 検証テスト ──────────────────────────────────────────────────────────
@@ -51,8 +56,12 @@ fn cache_hit_with_matching_mtime() {
 
     insert_row(&db, &img, Some(mtime), "Sony");
 
-    let result = fetch_exif_batch(&[img.clone()], &db);
-    assert!(result.contains_key(&img), "matching mtime must return cached row");
+    let conn = open_connection(&db).unwrap();
+    let result = fetch_exif_batch(&[path_mtime(&img)], &conn);
+    assert!(
+        result.contains_key(&img),
+        "matching mtime must return cached row"
+    );
     assert_eq!(result[&img].make.as_deref(), Some("Sony"));
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -66,7 +75,8 @@ fn cache_miss_with_stale_mtime() {
     // Insert with obviously wrong mtime
     insert_row(&db, &img, Some(9999), "Nikon");
 
-    let result = fetch_exif_batch(&[img.clone()], &db);
+    let conn = open_connection(&db).unwrap();
+    let result = fetch_exif_batch(&[path_mtime(&img)], &conn);
     assert!(result.is_empty(), "stale mtime row must not be returned");
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -80,8 +90,12 @@ fn cache_miss_with_null_mtime_legacy_row() {
     // Simulate a pre-migration row with NULL mtime
     insert_row(&db, &img, None, "Leica");
 
-    let result = fetch_exif_batch(&[img.clone()], &db);
-    assert!(result.is_empty(), "NULL mtime (legacy) row must be treated as stale");
+    let conn = open_connection(&db).unwrap();
+    let result = fetch_exif_batch(&[path_mtime(&img)], &conn);
+    assert!(
+        result.is_empty(),
+        "NULL mtime (legacy) row must be treated as stale"
+    );
 
     let _ = std::fs::remove_dir_all(&dir);
 }
@@ -95,7 +109,8 @@ fn batch_filters_stale_among_multiple() {
     insert_row(&db, &fresh, Some(current_mtime(&fresh)), "Canon");
     insert_row(&db, &stale, Some(9999), "Fuji");
 
-    let result = fetch_exif_batch(&[fresh.clone(), stale.clone()], &db);
+    let conn = open_connection(&db).unwrap();
+    let result = fetch_exif_batch(&[path_mtime(&fresh), path_mtime(&stale)], &conn);
     assert!(result.contains_key(&fresh), "fresh entry must be included");
     assert!(!result.contains_key(&stale), "stale entry must be excluded");
 
@@ -110,13 +125,14 @@ fn migration_preserves_xmp_columns() {
 
     // Insert a row with XMP data (simulating an existing user DB)
     {
-        use rusqlite::{Connection, params};
+        use rusqlite::{params, Connection};
         let conn = Connection::open(&db).unwrap();
         conn.execute(
             "INSERT INTO images (path, filename, make, rating, xmp_label)
              VALUES (?1,'photo.arw','Olympus',4,'Red')",
             params!["/test/photo.arw"],
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     // Re-running ensure_schema (migration) must preserve existing data
@@ -125,13 +141,19 @@ fn migration_preserves_xmp_columns() {
     {
         use rusqlite::Connection;
         let conn = Connection::open(&db).unwrap();
-        let (rating, label): (Option<i64>, Option<String>) = conn.query_row(
-            "SELECT rating, xmp_label FROM images WHERE path = '/test/photo.arw'",
-            [],
-            |r| Ok((r.get(0)?, r.get(1)?)),
-        ).unwrap();
+        let (rating, label): (Option<i64>, Option<String>) = conn
+            .query_row(
+                "SELECT rating, xmp_label FROM images WHERE path = '/test/photo.arw'",
+                [],
+                |r| Ok((r.get(0)?, r.get(1)?)),
+            )
+            .unwrap();
         assert_eq!(rating, Some(4), "rating must survive migration");
-        assert_eq!(label.as_deref(), Some("Red"), "xmp_label must survive migration");
+        assert_eq!(
+            label.as_deref(),
+            Some("Red"),
+            "xmp_label must survive migration"
+        );
     }
 
     let _ = std::fs::remove_dir_all(&dir);
@@ -152,17 +174,19 @@ fn update_xmp_syncs_rating_label_flag() {
         flag: Some(Flag::Pick),
         ..Default::default()
     };
-    update_xmp(&img, &db, &xmp);
+    let conn = open_connection(&db).unwrap();
+    update_xmp(&img, &conn, &xmp);
 
     {
         use rusqlite::Connection;
         let conn = Connection::open(&db).unwrap();
-        let (rating, label, flag): (Option<i64>, Option<String>, Option<String>) =
-            conn.query_row(
+        let (rating, label, flag): (Option<i64>, Option<String>, Option<String>) = conn
+            .query_row(
                 "SELECT rating, xmp_label, xmp_flag FROM images WHERE path = ?1",
                 [img.to_string_lossy().as_ref()],
                 |r| Ok((r.get(0)?, r.get(1)?, r.get(2)?)),
-            ).unwrap();
+            )
+            .unwrap();
         assert_eq!(rating, Some(3));
         assert_eq!(label.as_deref(), Some("Green"));
         assert_eq!(flag.as_deref(), Some("Pick"));
@@ -178,28 +202,33 @@ fn update_xmp_clears_fields_when_none() {
 
     // Seed with a rating
     {
-        use rusqlite::{Connection, params};
+        use rusqlite::{params, Connection};
         let conn = Connection::open(&db).unwrap();
         conn.execute(
             "INSERT INTO images (path, filename, make, mtime, rating, xmp_label)
              VALUES (?1,'shot.arw','Sony',?2,5,'Red')",
             params![img.to_string_lossy().as_ref(), current_mtime(&img)],
-        ).unwrap();
+        )
+        .unwrap();
     }
 
     // Clear everything
-    let xmp = XmpData { ..Default::default() };
-    update_xmp(&img, &db, &xmp);
+    let xmp = XmpData {
+        ..Default::default()
+    };
+    let conn = open_connection(&db).unwrap();
+    update_xmp(&img, &conn, &xmp);
 
     {
         use rusqlite::Connection;
         let conn = Connection::open(&db).unwrap();
-        let (rating, label): (Option<i64>, Option<String>) =
-            conn.query_row(
+        let (rating, label): (Option<i64>, Option<String>) = conn
+            .query_row(
                 "SELECT rating, xmp_label FROM images WHERE path = ?1",
                 [img.to_string_lossy().as_ref()],
                 |r| Ok((r.get(0)?, r.get(1)?)),
-            ).unwrap();
+            )
+            .unwrap();
         assert!(rating.is_none(), "rating must be cleared");
         assert!(label.is_none(), "xmp_label must be cleared");
     }
@@ -215,8 +244,12 @@ fn update_xmp_no_panic_without_images_row() {
     // so the row is never inserted. The subsequent UPDATE silently affects
     // 0 rows. This must not panic.
     let img = make_fake_image(&dir, "new.arw");
-    let xmp = XmpData { rating: Some(2), ..Default::default() };
-    update_xmp(&img, &db, &xmp); // must not panic
+    let xmp = XmpData {
+        rating: Some(2),
+        ..Default::default()
+    };
+    let conn = open_connection(&db).unwrap();
+    update_xmp(&img, &conn, &xmp); // must not panic
 
     let _ = std::fs::remove_dir_all(&dir);
 }

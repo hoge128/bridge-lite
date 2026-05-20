@@ -91,12 +91,17 @@ pub fn fetch_phash_batch(
             (p.clone(), mtime)
         })
         .collect();
-    crate::db::fetch_phash_batch(&path_mtimes, db_path)
+    let Ok(conn) = crate::db::open_connection(db_path) else {
+        return std::collections::HashMap::new();
+    };
+    crate::db::fetch_phash_batch(&path_mtimes, &conn)
 }
 
 /// Persist a pHash for the given file path.
 pub fn store_phash(path: &std::path::Path, db_path: &std::path::Path, phash: u64) {
-    crate::db::store_phash(path, db_path, phash);
+    if let Ok(conn) = crate::db::open_connection(db_path) {
+        crate::db::store_phash(path, &conn, phash);
+    }
 }
 
 #[cfg(test)]

@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use rusqlite::{Connection, Result, params};
+use rusqlite::{params, Connection, Result};
 
 use crate::metadata::ExifData;
 use crate::xmp::XmpData;
@@ -137,6 +137,11 @@ pub fn ensure_schema(db_path: &Path) -> bool {
         .is_ok()
 }
 
+/// Create a persistent, pragma-configured connection for the given DB path.
+pub fn open_connection(path: &Path) -> rusqlite::Result<Connection> {
+    open_with_pragmas(path)
+}
+
 /// Add new nullable columns to the images table on existing DBs.
 /// ALTER TABLE fails silently when the column already exists, making this safe
 /// to call on every startup regardless of the current schema state.
@@ -171,30 +176,16 @@ fn migrate_image_columns(conn: &Connection) {
 }
 
 /// Check DB for cached EXIF. On miss (or mtime mismatch), read from file and cache.
-pub fn fetch_or_index(path: &Path, db_path: &Path) -> Option<ExifData> {
-    let conn = open_with_pragmas(db_path).ok()?;
+pub fn fetch_or_index(path: &Path, conn: &Connection) -> Option<ExifData> {
     let mtime = file_mtime(path);
 
-    if let Some(exif) = query_exif(&conn, path, mtime) {
+    if let Some(exif) = query_exif(conn, path, mtime) {
         return Some(exif);
     }
 
     let exif = crate::metadata::read_exif_sync(path)?;
-    let _ = upsert(&conn, path, &exif, mtime);
+    let _ = upsert(conn, path, &exif, mtime);
     Some(exif)
-}
-
-/// Async wrapper that runs `fetch_or_index` on the blocking thread pool.
-pub async fn fetch_or_index_async(
-    id: usize,
-    path: PathBuf,
-    db_path: PathBuf,
-) -> (usize, Option<ExifData>) {
-    let result = tokio::task::spawn_blocking(move || fetch_or_index(&path, &db_path))
-        .await
-        .ok()
-        .flatten();
-    (id, result)
 }
 
 /// Fetch all already-cached EXIF rows for the given paths in a single connection.
@@ -203,13 +194,10 @@ pub async fn fetch_or_index_async(
 /// by comparing the returned keys against the full path list.
 pub fn fetch_exif_batch(
     path_mtimes: &[(PathBuf, i64)],
-    db_path: &Path,
+    conn: &Connection,
 ) -> std::collections::HashMap<PathBuf, ExifData> {
     let mut out = std::collections::HashMap::new();
     let mtime_map: std::collections::HashMap<PathBuf, i64> = path_mtimes.iter().cloned().collect();
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return out;
-    };
     // SQLite IN-clause limit is 999; chunk to stay well below it.
     for chunk in path_mtimes.chunks(500) {
         let placeholders = std::iter::repeat("?")
@@ -270,35 +258,16 @@ pub fn fetch_exif_batch(
     out
 }
 
-/// Async wrapper for `fetch_exif_batch`.
-pub async fn fetch_exif_batch_async(
-    paths: Vec<PathBuf>,
-    db_path: PathBuf,
-) -> std::collections::HashMap<PathBuf, ExifData> {
-    tokio::task::spawn_blocking(move || {
-        let path_mtimes: Vec<(PathBuf, i64)> = paths
-            .into_iter()
-            .map(|p| {
-                let mtime = file_mtime(&p);
-                (p, mtime)
-            })
-            .collect();
-        fetch_exif_batch(&path_mtimes, &db_path)
-    })
-    .await
-    .unwrap_or_default()
-}
-
 /// Index newly discovered files in parallel.
 ///
 /// Strategy A: read cache hits with one IN-clause query (fast), then parse
 /// EXIF for misses in parallel via rayon, finally write all new rows in one
 /// BEGIN/COMMIT transaction (one SQLite writer, no contention).
-pub fn index_new_entries(paths: &[PathBuf], db_path: &Path) {
+pub fn index_new_entries(paths: &[PathBuf], conn: &Connection) {
     use rayon::prelude::*;
     let path_mtimes: Vec<(PathBuf, i64)> =
         paths.iter().map(|p| (p.clone(), file_mtime(p))).collect();
-    let cached = fetch_exif_batch(&path_mtimes, db_path);
+    let cached = fetch_exif_batch(&path_mtimes, conn);
     let misses: Vec<&PathBuf> = paths.iter().filter(|p| !cached.contains_key(*p)).collect();
     if misses.is_empty() {
         return;
@@ -313,12 +282,9 @@ pub fn index_new_entries(paths: &[PathBuf], db_path: &Path) {
             })
             .collect()
     });
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return;
-    };
     let _ = conn.execute_batch("BEGIN");
     for (path, mtime, exif) in &new_data {
-        let _ = upsert(&conn, path, exif, *mtime);
+        let _ = upsert(conn, path, exif, *mtime);
     }
     let _ = conn.execute_batch("COMMIT");
 }
@@ -335,8 +301,7 @@ fn file_mtime(path: &Path) -> i64 {
 }
 
 /// Return cached thumbnail JPEG bytes if the file's mtime still matches.
-pub fn fetch_thumb(path: &Path, db_path: &Path) -> Option<(Vec<u8>, bool, u8)> {
-    let conn = open_with_pragmas(db_path).ok()?;
+pub fn fetch_thumb(path: &Path, conn: &Connection) -> Option<(Vec<u8>, bool, u8)> {
     let mtime = file_mtime(path);
     conn.query_row(
         "SELECT jpeg, aspect_ok, raw_orientation FROM thumbnails WHERE path = ?1 AND mtime = ?2",
@@ -352,10 +317,13 @@ pub fn fetch_thumb(path: &Path, db_path: &Path) -> Option<(Vec<u8>, bool, u8)> {
 }
 
 /// Persist a thumbnail JPEG blob for the given file path.
-pub fn store_thumb(path: &Path, db_path: &Path, jpeg: &[u8], aspect_ok: bool, raw_orientation: u8) {
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return;
-    };
+pub fn store_thumb(
+    path: &Path,
+    conn: &Connection,
+    jpeg: &[u8],
+    aspect_ok: bool,
+    raw_orientation: u8,
+) {
     let mtime = file_mtime(path);
     let _ = conn.execute(
         "INSERT OR REPLACE INTO thumbnails (path, mtime, jpeg, cached_at, aspect_ok, raw_orientation)
@@ -374,8 +342,7 @@ pub fn store_thumb(path: &Path, db_path: &Path, jpeg: &[u8], aspect_ok: bool, ra
 
 /// Return a rendered JPEG if the cached entry matches both the file's current mtime
 /// and the given engine/width combination.
-pub fn fetch_rendered(path: &Path, db_path: &Path, engine: &str, width: u32) -> Option<Vec<u8>> {
-    let conn = open_with_pragmas(db_path).ok()?;
+pub fn fetch_rendered(path: &Path, conn: &Connection, engine: &str, width: u32) -> Option<Vec<u8>> {
     let mtime = file_mtime(path);
     conn.query_row(
         "SELECT jpeg FROM rendered_thumbnails WHERE path = ?1 AND mtime = ?2 AND engine = ?3 AND width = ?4",
@@ -387,10 +354,7 @@ pub fn fetch_rendered(path: &Path, db_path: &Path, engine: &str, width: u32) -> 
 
 /// Persist a rendered JPEG blob.  Overwrites any prior entry with the same
 /// (path, engine, width) key.
-pub fn store_rendered(path: &Path, db_path: &Path, engine: &str, width: u32, jpeg: &[u8]) {
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return;
-    };
+pub fn store_rendered(path: &Path, conn: &Connection, engine: &str, width: u32, jpeg: &[u8]) {
     let mtime = file_mtime(path);
     let _ = conn.execute(
         "INSERT OR REPLACE INTO rendered_thumbnails (path, mtime, engine, width, jpeg) VALUES (?1, ?2, ?3, ?4, ?5)",
@@ -399,10 +363,7 @@ pub fn store_rendered(path: &Path, db_path: &Path, engine: &str, width: u32, jpe
 }
 
 /// Delete all rows from rendered_thumbnails.
-pub fn clear_rendered(db_path: &Path) {
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return;
-    };
+pub fn clear_rendered(conn: &Connection) {
     let _ = conn.execute("DELETE FROM rendered_thumbnails", []);
 }
 
@@ -446,14 +407,11 @@ fn query_exif(conn: &Connection, path: &Path, mtime: i64) -> Option<ExifData> {
     .ok()
 }
 
-pub fn update_xmp(path: &Path, db_path: &Path, data: &XmpData) {
+pub fn update_xmp(path: &Path, conn: &Connection, data: &XmpData) {
     // Guarantee the images row exists before updating XMP columns.
     // fetch_or_index is a fast no-op when EXIF is already cached with a valid mtime.
-    let _ = fetch_or_index(path, db_path);
+    let _ = fetch_or_index(path, conn);
 
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return;
-    };
     let path_str = path.to_string_lossy();
     let label = data.label.map(|l| l.as_str().to_string());
     let flag = data.flag.map(|f| f.as_str().to_string());
@@ -472,8 +430,7 @@ pub fn update_xmp(path: &Path, db_path: &Path, data: &XmpData) {
 // ── pHash cache ───────────────────────────────────────────────────────────
 
 /// Return cached pHash if the file's mtime still matches.
-pub fn fetch_phash(path: &Path, db_path: &Path) -> Option<u64> {
-    let conn = open_with_pragmas(db_path).ok()?;
+pub fn fetch_phash(path: &Path, conn: &Connection) -> Option<u64> {
     let mtime = file_mtime(path);
     conn.query_row(
         "SELECT phash FROM phashes WHERE path = ?1 AND mtime = ?2",
@@ -485,10 +442,7 @@ pub fn fetch_phash(path: &Path, db_path: &Path) -> Option<u64> {
 }
 
 /// Persist a pHash for the given file path.
-pub fn store_phash(path: &Path, db_path: &Path, phash: u64) {
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return;
-    };
+pub fn store_phash(path: &Path, conn: &Connection, phash: u64) {
     let mtime = file_mtime(path);
     let _ = conn.execute(
         "INSERT OR REPLACE INTO phashes (path, mtime, phash, cached_at)
@@ -501,13 +455,10 @@ pub fn store_phash(path: &Path, db_path: &Path, phash: u64) {
 /// Only entries whose mtime still matches the current file mtime are returned.
 pub fn fetch_phash_batch(
     path_mtimes: &[(PathBuf, i64)],
-    db_path: &Path,
+    conn: &Connection,
 ) -> std::collections::HashMap<PathBuf, u64> {
     let mut out = std::collections::HashMap::new();
     let mtime_map: std::collections::HashMap<PathBuf, i64> = path_mtimes.iter().cloned().collect();
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return out;
-    };
     for chunk in path_mtimes.chunks(500) {
         let placeholders = std::iter::repeat("?")
             .take(chunk.len())
@@ -538,36 +489,14 @@ pub fn fetch_phash_batch(
     out
 }
 
-/// Async wrapper for `fetch_phash_batch`.
-pub async fn fetch_phash_batch_async(
-    paths: Vec<PathBuf>,
-    db_path: PathBuf,
-) -> std::collections::HashMap<PathBuf, u64> {
-    tokio::task::spawn_blocking(move || {
-        let path_mtimes: Vec<(PathBuf, i64)> = paths
-            .into_iter()
-            .map(|p| {
-                let mtime = file_mtime(&p);
-                (p, mtime)
-            })
-            .collect();
-        fetch_phash_batch(&path_mtimes, &db_path)
-    })
-    .await
-    .unwrap_or_default()
-}
-
 /// Fetch cached thumbnail JPEGs for all given paths in a single connection.
 /// Only entries whose mtime still matches the current file mtime are returned.
 pub fn fetch_thumb_batch(
     path_mtimes: &[(PathBuf, i64)],
-    db_path: &Path,
+    conn: &Connection,
 ) -> std::collections::HashMap<PathBuf, (Vec<u8>, bool, u8)> {
     let mut out = std::collections::HashMap::new();
     let mtime_map: std::collections::HashMap<PathBuf, i64> = path_mtimes.iter().cloned().collect();
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return out;
-    };
     for chunk in path_mtimes.chunks(500) {
         let placeholders = std::iter::repeat("?")
             .take(chunk.len())
@@ -609,10 +538,7 @@ pub fn fetch_thumb_batch(
 }
 
 /// Persist multiple thumbnail JPEG blobs in a single transaction.
-pub fn store_thumb_batch(items: &[(PathBuf, Vec<u8>, bool, u8)], db_path: &Path) {
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return;
-    };
+pub fn store_thumb_batch(items: &[(PathBuf, Vec<u8>, bool, u8)], conn: &Connection) {
     let _ = conn.execute_batch("BEGIN");
     for (path, jpeg, aspect_ok, raw_orientation) in items {
         let mtime = file_mtime(path);
@@ -639,10 +565,7 @@ pub fn store_thumb_batch(items: &[(PathBuf, Vec<u8>, bool, u8)], db_path: &Path)
 /// VACUUM is intentionally omitted: in WAL mode SQLite reclaims pages
 /// incrementally, and running VACUUM here would briefly hold an exclusive lock
 /// that blocks concurrent thumbnail generation during startup.
-pub fn prune_cache(db_path: &Path, max_age_days: u32) {
-    let Ok(conn) = open_with_pragmas(db_path) else {
-        return;
-    };
+pub fn prune_cache(conn: &Connection, max_age_days: u32) {
     let cutoff = std::time::SystemTime::now()
         .duration_since(std::time::UNIX_EPOCH)
         .unwrap_or_default()

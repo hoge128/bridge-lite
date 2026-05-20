@@ -9,6 +9,7 @@ crate-type = ["staticlib", "cdylib"]
 
 [dependencies]
 bridge-core = { path = "../bridge-core" }
+rusqlite = { version = "0.39.0", features = ["bundled"] }
 swift-bridge = "0.1"
 tokio = { version = "1.50.0", features = ["full"] }
 
