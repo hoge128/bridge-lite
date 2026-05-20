@@ -303,6 +303,9 @@ final class ScanStore: ReindexedGroupSink {
     }() {
         didSet { UserDefaults.standard.set(thumbnailQualityMode.rawValue, forKey: Self.thumbnailQualityModeKey) }
     }
+    var enablePhashGrouping: Bool = UserDefaults.standard.bool(forKey: "ios.enablePhashGrouping") {
+        didSet { UserDefaults.standard.set(enablePhashGrouping, forKey: "ios.enablePhashGrouping") }
+    }
 
     // MARK: - Propagation settings (same UserDefaults keys as macOS)
 
@@ -580,7 +583,7 @@ final class ScanStore: ReindexedGroupSink {
         await PHashPipeline.applyBurstMode()
         let prefetched = await BridgeCore.fetchCachedThumbnailBatch(list: imageList, db: db, priority: .userInitiated)
         let limiter = ConcurrencyLimiter(maxConcurrent: 4)
-        let pipeline = phashPipeline
+        let pipeline: PHashPipeline? = enablePhashGrouping ? phashPipeline : nil
         let mode = thumbnailQualityMode
         let writeBuffer = ThumbnailWriteBuffer(db: db)
 

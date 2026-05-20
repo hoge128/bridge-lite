@@ -6,6 +6,7 @@ struct SettingsSheetView: View {
     @State private var showPropagationHelp = false
     @State private var showMetadataHelp = false
     @State private var showThumbQualityHelp = false
+    @State private var showPhashHelp = false
     @State private var cacheSizeBytes: Int64 = 0
     var onDismiss: () -> Void
 
@@ -89,6 +90,20 @@ struct SettingsSheetView: View {
                                 defaultValue: "After switching, tap Clear Cache below to regenerate thumbnails."))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    HStack {
+                        Toggle(String(localized: "settings.phash.title", defaultValue: "Pixel-level Grouping"),
+                               isOn: $scanStore.enablePhashGrouping)
+                        Button {
+                            showPhashHelp = true
+                        } label: {
+                            Image(systemName: "info.circle")
+                        }
+                        .buttonStyle(.plain)
+                        .foregroundStyle(.tint)
+                        .popover(isPresented: $showPhashHelp, arrowEdge: .top) {
+                            phashHelpPopover
+                        }
+                    }
                 } header: {
                     HStack {
                         Text(String(localized: "settings.thumb_quality.section", defaultValue: "Thumbnails"))
@@ -189,6 +204,24 @@ struct SettingsSheetView: View {
     private var thumbQualityHelpPopover: some View {
         let raw = String(localized: "settings.thumb_quality.help.body",
                          defaultValue: "**Quality** — Falls back to decoding the full image when no embedded thumbnail exists or when the embedded one is too small. Best visual quality but slower for HEIF and DNG.\n\n**Speed** — Reads only the embedded thumbnail. If no embedded thumbnail exists, the slot is left blank until you scroll past it. Fastest; never decodes full pixel data before full-screen view.")
+        let attr = (try? AttributedString(
+            markdown: raw,
+            options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)
+        )) ?? AttributedString(raw)
+        return ScrollView {
+            Text(attr)
+                .font(.callout)
+                .padding()
+                .frame(maxWidth: 320, alignment: .leading)
+        }
+        .presentationCompactAdaptation(.popover)
+    }
+
+    // MARK: - Pixel-level grouping help popover
+
+    private var phashHelpPopover: some View {
+        let raw = String(localized: "settings.phash.help.body",
+                         defaultValue: "Computes a visual fingerprint (pHash) for each image so that developed exports — such as a Lightroom JPEG with a different filename or no EXIF timestamp — are automatically placed in the same shot group as the source RAW.\n\n**When to enable:** You store developed exports (JPEG, HEIF, etc.) alongside your RAW files and want them grouped together.\n\n**Leave off (default):** Camera-native RAW+JPEG pairs are grouped by filename and require no visual matching. Keeping this off makes the first scan faster.")
         let attr = (try? AttributedString(
             markdown: raw,
             options: .init(interpretedSyntax: .inlineOnlyPreservingWhitespace)

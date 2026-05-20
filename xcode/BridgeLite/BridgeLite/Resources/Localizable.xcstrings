@@ -5337,6 +5337,38 @@
         }
       }
     },
+    "settings.phash.help.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Computes a visual fingerprint (pHash) for each image so that developed exports — such as a Lightroom JPEG with a different filename or no EXIF timestamp — are automatically placed in the same shot group as the source RAW.\n\n**When to enable:** You store developed exports (JPEG, HEIF, etc.) alongside your RAW files and want them grouped together.\n\n**Leave off (default):** Camera-native RAW+JPEG pairs are grouped by filename and require no visual matching. Keeping this off makes the first scan faster."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画像ごとに視覚的な指紋（pHash）を計算します。これにより、Lightroom などで書き出した JPEG がファイル名や EXIF タイムスタンプが異なる場合でも、元の RAW と同じグループに自動でまとめられます。\n\n**有効にするべき場合:** 現像済みの書き出しファイル（JPEG・HEIF など）を RAW と同じフォルダで管理していて、同じグループにまとめたい場合。\n\n**OFF のまま（デフォルト）:** カメラ直出しの RAW+JPEG はファイル名で自動グルーピングされるため不要です。OFF にすると初回スキャン時の処理が速くなります。"
+          }
+        }
+      }
+    },
+    "settings.phash.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pixel-level Grouping"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ピクセルレベルグルーピング"
+          }
+        }
+      }
+    },
     "settings.thumb_quality.help.body" : {
       "localizations" : {
         "en" : {
