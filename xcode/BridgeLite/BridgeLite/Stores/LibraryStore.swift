@@ -312,6 +312,19 @@ final class LibraryStore: ReindexedGroupSink {
             }
             try Task.checkCancellation()
             ingest(scanned)
+
+            // 初期グルーピング: ステム名ベース。EXIF 未索引でも RAW+JPG ペアを即時に束ねる。
+            // iOS ScanStore.performScan L475 と等価。
+            if let imageList = lastImageList {
+                let initialGroups = await BridgeCore.reindexShotGroups(
+                    list: imageList, db: db,
+                    splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs),
+                    phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold)
+                )
+                guard gen == scanGeneration else { return }
+                applyReindexedGroups(initialGroups, generation: gen)
+            }
+
             if primaryID == nil, let firstID = visibleIDs.first {
                 selectEntry(firstID)
             }
@@ -328,8 +341,18 @@ final class LibraryStore: ReindexedGroupSink {
             exifLoadTask = Task { [weak self] in
                 guard let self, gen == self.scanGeneration else { return }
 
+                // EXIF 索引をバックグラウンドで起動（XMP/サムネイル/pHash と並行）
+                // iOS ScanStore.performScan L484-486 と等価。
+                let indexTask: Task<Void, Never>? = capturedList.map { list in
+                    Task.detached(priority: .utility) {
+                        await BridgeCore.indexNewEntries(list: list, db: db)
+                    }
+                }
+
                 // EXIF: 全件を 1 SQLite 接続で取得（fetch_exif_batch が 500 件チャンク IN 句を使用）
                 if let imageList = capturedList {
+                    await indexTask?.value
+                    guard gen == self.scanGeneration else { return }
                     let exifMap = await BridgeCore.fetchExifBatch(list: imageList, db: db)
                     guard gen == self.scanGeneration else { return }
                     self.mergeExifBatch(exifMap, generation: gen)
