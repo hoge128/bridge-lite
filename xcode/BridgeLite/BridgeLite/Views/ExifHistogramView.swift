@@ -31,6 +31,31 @@ struct ExifHistogramView: View {
         max(0, min(bars.count - 1, Int(x / width * CGFloat(bars.count))))
     }
 
+    // ピン型ハンドルの定数
+    private let pinW: CGFloat = 18
+    private let pinRectH: CGFloat = 12
+    private let pinTriH: CGFloat = 8
+    private var pinTotalH: CGFloat { pinRectH + pinTriH }
+    private let pinCornerR: CGFloat = 4
+
+    private func pinPath(cx: CGFloat) -> Path {
+        let halfW = pinW / 2
+        let r = pinCornerR
+        var p = Path()
+        p.move(to: CGPoint(x: cx - halfW + r, y: 0))
+        p.addLine(to: CGPoint(x: cx + halfW - r, y: 0))
+        p.addArc(center: CGPoint(x: cx + halfW - r, y: r),
+                 radius: r, startAngle: .degrees(-90), endAngle: .degrees(0), clockwise: false)
+        p.addLine(to: CGPoint(x: cx + halfW, y: pinRectH))
+        p.addLine(to: CGPoint(x: cx, y: pinTotalH))
+        p.addLine(to: CGPoint(x: cx - halfW, y: pinRectH))
+        p.addLine(to: CGPoint(x: cx - halfW, y: r))
+        p.addArc(center: CGPoint(x: cx - halfW + r, y: r),
+                 radius: r, startAngle: .degrees(180), endAngle: .degrees(270), clockwise: false)
+        p.closeSubpath()
+        return p
+    }
+
     var body: some View {
         VStack(spacing: 0) {
             GeometryReader { geo in
@@ -44,7 +69,7 @@ struct ExifHistogramView: View {
                         let lx = CGFloat(lIdx) * barW
                         let rx = CGFloat(rIdx + 1) * barW
 
-                        let topPad: CGFloat = 4
+                        let topPad = pinTotalH + 4
                         let usableH = size.height - topPad
                         let pts: [CGPoint] = bars.enumerated().map { i, bar in
                             CGPoint(
@@ -88,20 +113,16 @@ struct ExifHistogramView: View {
                             }
                         }
 
-                        // ハンドル: クリップ外で最前面に描く
-                        // 端では円の中心を内側にクランプして切れないようにする
-                        let tabSize: CGFloat = 7
-                        let half = tabSize / 2
-                        for dx in [max(half, lx), min(size.width - half, rx)] {
+                        // ハンドル: クリップ外で最前面に描く（ピン型 □+▽）
+                        let halfW = pinW / 2
+                        for dx in [max(halfW, lx), min(size.width - halfW, rx)] {
+                            // ピン先端から底辺への縦線
                             var line = Path()
-                            line.move(to: CGPoint(x: dx, y: tabSize))
+                            line.move(to: CGPoint(x: dx, y: pinTotalH))
                             line.addLine(to: CGPoint(x: dx, y: size.height))
                             ctx.stroke(line, with: .color(.accentColor), lineWidth: 2)
-                            ctx.fill(
-                                Path(ellipseIn: CGRect(x: dx - half, y: 0,
-                                                       width: tabSize, height: tabSize)),
-                                with: .color(.accentColor)
-                            )
+                            // ピン本体
+                            ctx.fill(pinPath(cx: dx), with: .color(.accentColor))
                         }
                     }
                     .gesture(
@@ -116,7 +137,7 @@ struct ExifHistogramView: View {
                                     let rIdx = rightIndex
                                     let lx = CGFloat(lIdx) * barW
                                     let rx = CGFloat(rIdx + 1) * barW
-                                    let handleZone = max(barW * 0.5, 22)
+                                    let handleZone = max(barW * 0.5, 28)
 
                                     if abs(x - lx) < handleZone {
                                         activeHandle = .left
@@ -156,7 +177,7 @@ struct ExifHistogramView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .frame(height: 44)
+            .frame(height: 84)
 
             // ラベル行: 選択範囲外は tertiary で薄く
             HStack(spacing: 0) {

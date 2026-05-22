@@ -59,7 +59,7 @@ struct FilterBarView: View {
                 }
             }
         }
-        .frame(height: 52)
+        .frame(height: 68)
     }
 
     // iOS 26: GlassEffectContainer で隣接カプセルを1枚の glass blob に連結
@@ -105,13 +105,13 @@ struct FilterBarView: View {
         } label: {
             HStack(spacing: 4) {
                 Image(systemName: "xmark")
-                    .font(.system(size: 11, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                 Text(String(localized: "filter.reset_all", defaultValue: "Reset"))
-                    .font(.system(size: 13, weight: .semibold))
+                    .font(.system(size: 14, weight: .semibold))
                     .lineLimit(1)
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 9)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .foregroundStyle(Color.red)
         }
         .buttonStyle(GlassChipButtonStyle(isSelected: true, isActive: false, tintColor: .red))
@@ -131,13 +131,13 @@ private struct GlassFilterChip: View {
         Button(action: action) {
             HStack(spacing: 5) {
                 Image(systemName: category.icon)
-                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 15, weight: isSelected ? .semibold : .regular))
                 Text(category.title)
-                    .font(.system(size: 13, weight: isSelected ? .semibold : .regular))
+                    .font(.system(size: 14, weight: isSelected ? .semibold : .regular))
                     .lineLimit(1)
             }
-            .padding(.horizontal, 13)
-            .padding(.vertical, 9)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 12)
             .foregroundStyle(isSelected ? Color.accentColor : Color.primary)
             .overlay(alignment: .topTrailing) {
                 if isActive {
@@ -153,7 +153,7 @@ private struct GlassFilterChip: View {
     }
 }
 
-private struct GlassChipButtonStyle: ButtonStyle {
+struct GlassChipButtonStyle: ButtonStyle {
     var isSelected: Bool
     var isActive: Bool
     var tintColor: Color = .accentColor
@@ -224,27 +224,35 @@ struct FilterOptionsPanelView: View {
     let ratings: [UInt64: XmpData]
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
+        VStack(alignment: .leading, spacing: 12) {
             HStack {
                 Text(category.title)
-                    .font(.subheadline.weight(.semibold))
+                    .font(.headline.weight(.semibold))
                 Spacer()
                 if scanStore.isFilterActive(for: category) {
-                    Button(String(localized: "filter.clear", defaultValue: "Clear")) {
+                    Button {
                         scanStore.clearFilter(category)
+                    } label: {
+                        Label(String(localized: "filter.clear", defaultValue: "Clear"),
+                              systemImage: "xmark.circle.fill")
+                            .font(.subheadline.weight(.semibold))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .foregroundStyle(Color.accentColor)
                     }
-                    .font(.caption)
+                    .buttonStyle(GlassChipButtonStyle(isSelected: true, isActive: true))
+                    .contentShape(Capsule())
                 }
             }
             .padding(.horizontal, 16)
 
             FilterCategoryContent(category: category, scanStore: scanStore, ratings: ratings)
                 .padding(.horizontal, 16)
-                .padding(.bottom, 8)
+                .padding(.bottom, 12)
         }
-        .padding(.top, 14)
-        .adaptiveGlass(cornerRadius: 20)
-        .padding(.horizontal, 16)
+        .padding(.top, 16)
+        .adaptiveGlass(cornerRadius: 22)
+        .padding(.horizontal, 12)
         .padding(.bottom, 8)
     }
 }
@@ -288,101 +296,120 @@ struct FilterCategoryContent: View {
         ExifHistogramView(bars: scanStore.isoBuckets,
                           minText: $scanStore.isoMin,
                           maxText: $scanStore.isoMax)
-            .frame(height: 56)
+            .frame(height: 100)
     }
 
     private var focalHistogram: some View {
         ExifHistogramView(bars: scanStore.focalBuckets,
                           minText: $scanStore.focalMin,
                           maxText: $scanStore.focalMax)
-            .frame(height: 56)
+            .frame(height: 100)
     }
 
     private var shutterHistogram: some View {
         ExifHistogramView(bars: scanStore.shutterBuckets,
                           minText: $scanStore.shutterMin,
                           maxText: $scanStore.shutterMax)
-            .frame(height: 56)
+            .frame(height: 100)
     }
 
     private var apertureHistogram: some View {
         ExifHistogramView(bars: scanStore.apertureBuckets,
                           minText: $scanStore.apertureMin,
                           maxText: $scanStore.apertureMax)
-            .frame(height: 56)
+            .frame(height: 100)
     }
 
     private var ratingRow: some View {
         let counts = scanStore.ratingCounts(from: ratings)
-        return ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 8) {
-                ratingChip(star: 0, label: String(localized: "No Rating"),
-                           count: counts[0] ?? 0)
-                ForEach(1...5, id: \.self) { star in
-                    ratingChip(star: star,
-                               label: String(repeating: "★", count: star),
-                               count: counts[star] ?? 0)
-                }
+        return LazyVGrid(
+            columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
+            spacing: 8
+        ) {
+            ratingChip(star: 0, label: String(localized: "No Rating"), count: counts[0] ?? 0)
+            ForEach(1...5, id: \.self) { star in
+                ratingChip(star: star, label: String(repeating: "★", count: star), count: counts[star] ?? 0)
             }
-            .padding(.vertical, 2)
         }
     }
 
     private func ratingChip(star: Int, label: String, count: Int) -> some View {
-        Button { scanStore.toggleRating(star) } label: {
-            HStack(spacing: 3) {
+        let isActive = scanStore.filterRatings.contains(star)
+        return Button { scanStore.toggleRating(star) } label: {
+            HStack(spacing: 4) {
                 Text(label)
-                    .font(.caption)
+                    .font(.subheadline.weight(isActive ? .semibold : .regular))
+                Spacer()
                 Text("(\(count))")
-                    .font(.caption2)
+                    .font(.callout)
                     .foregroundStyle(.secondary)
                     .monospacedDigit()
             }
+            .padding(.horizontal, 14)
+            .padding(.vertical, 10)
+            .frame(maxWidth: .infinity)
+            .foregroundStyle(isActive ? Color.accentColor : Color.primary)
         }
-        .buttonStyle(.adaptiveGlass(isActive: scanStore.filterRatings.contains(star)))
+        .buttonStyle(GlassChipButtonStyle(isSelected: isActive, isActive: isActive))
     }
 
     private var labelRow: some View {
-        ScrollView(.horizontal, showsIndicators: false) {
-            HStack(spacing: 14) {
+        HStack {
+            Spacer()
+            HStack(spacing: 20) {
                 ForEach(XmpLabel.allCases, id: \.self) { label in
                     let active = scanStore.filterLabels.contains(label)
                     Button { scanStore.toggleLabel(label) } label: {
-                        Circle()
-                            .fill(label.color)
-                            .frame(width: 28, height: 28)
-                            .overlay(Circle().stroke(active ? Color.accentColor : Color.clear, lineWidth: 2.5))
+                        ZStack {
+                            Circle()
+                                .fill(label.color)
+                                .frame(width: 44, height: 44)
+                            if active {
+                                Image(systemName: "checkmark")
+                                    .font(.system(size: 18, weight: .bold))
+                                    .foregroundStyle(.white)
+                            }
+                        }
                     }
                     .buttonStyle(.plain)
                 }
             }
-            .padding(.vertical, 2)
+            Spacer()
         }
+        .padding(.vertical, 4)
     }
 
     private var kindRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            ScrollView(.horizontal, showsIndicators: false) {
-                HStack(spacing: 8) {
-                    ForEach([PhotoKind.raw, .sooc, .developed, .indeterminate], id: \.self) { kind in
-                        Button(kind.localizedName) {
-                            scanStore.toggleKind(kind)
-                        }
-                        .buttonStyle(.adaptiveGlass(isActive: scanStore.filterKinds.contains(kind)))
-                        .font(.caption)
+            LazyVGrid(
+                columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
+                spacing: 8
+            ) {
+                ForEach([PhotoKind.raw, .sooc, .developed, .indeterminate], id: \.self) { kind in
+                    let isActive = scanStore.filterKinds.contains(kind)
+                    Button {
+                        scanStore.toggleKind(kind)
+                    } label: {
+                        Text(kind.localizedName)
+                            .font(.subheadline.weight(isActive ? .semibold : .regular))
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity)
+                            .foregroundStyle(isActive ? Color.accentColor : Color.primary)
                     }
+                    .buttonStyle(GlassChipButtonStyle(isSelected: isActive, isActive: isActive))
                 }
-                .padding(.vertical, 2)
             }
 
             Button {
                 scanStore.filterCameraOnly.toggle()
             } label: {
-                HStack(spacing: 6) {
+                HStack(spacing: 8) {
                     Image(systemName: scanStore.filterCameraOnly ? "checkmark.circle.fill" : "circle")
                         .foregroundStyle(scanStore.filterCameraOnly ? Color.accentColor : Color.secondary)
+                        .font(.system(size: 18))
                     Text(String(localized: "filter.kind.camera_only", defaultValue: "Camera shots only"))
-                        .font(.caption)
+                        .font(.subheadline)
                         .foregroundStyle(scanStore.filterCameraOnly ? Color.primary : Color.secondary)
                 }
             }
@@ -398,21 +425,96 @@ struct FilterCategoryContent: View {
         Group {
             if values.isEmpty {
                 Text(String(localized: "filter.no_data", defaultValue: "No data"))
-                    .font(.caption)
+                    .font(.subheadline)
                     .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 4)
             } else {
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack(spacing: 8) {
-                        ForEach(values, id: \.self) { v in
-                            Button(v) { toggle(v) }
-                                .buttonStyle(.adaptiveGlass(isActive: isActive(v)))
-                                .font(.caption)
+                FlowLayout(spacing: 8, lineSpacing: 8) {
+                    ForEach(values, id: \.self) { v in
+                        let active = isActive(v)
+                        Button {
+                            toggle(v)
+                        } label: {
+                            Text(v)
+                                .font(.subheadline.weight(active ? .semibold : .regular))
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 10)
+                                .foregroundStyle(active ? Color.accentColor : Color.primary)
                         }
+                        .buttonStyle(GlassChipButtonStyle(isSelected: active, isActive: active))
+                        .contentShape(Capsule())
                     }
-                    .padding(.vertical, 2)
                 }
             }
         }
+    }
+}
+
+// MARK: - FlowLayout
+
+struct FlowLayout: Layout {
+    var spacing: CGFloat = 8
+    var lineSpacing: CGFloat = 8
+
+    struct Cache {
+        var lines: [Range<Int>] = []
+        var lineHeights: [CGFloat] = []
+    }
+
+    func makeCache(subviews: Subviews) -> Cache { Cache() }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) -> CGSize {
+        buildLines(subviews: subviews, maxWidth: proposal.width ?? 0, cache: &cache)
+        let height = cache.lineHeights.enumerated().reduce(0.0) { acc, pair in
+            acc + pair.element + (pair.offset > 0 ? lineSpacing : 0)
+        }
+        return CGSize(width: proposal.width ?? 0, height: max(0, height))
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout Cache) {
+        buildLines(subviews: subviews, maxWidth: bounds.width, cache: &cache)
+        var y = bounds.minY
+        for (lineIdx, lineRange) in cache.lines.enumerated() {
+            let lineH = cache.lineHeights[lineIdx]
+            var x = bounds.minX
+            for idx in lineRange {
+                let size = subviews[idx].sizeThatFits(.unspecified)
+                subviews[idx].place(
+                    at: CGPoint(x: x, y: y + (lineH - size.height) / 2),
+                    anchor: .topLeading,
+                    proposal: ProposedViewSize(size)
+                )
+                x += size.width + spacing
+            }
+            y += lineH + (lineIdx < cache.lines.count - 1 ? lineSpacing : 0)
+        }
+    }
+
+    private func buildLines(subviews: Subviews, maxWidth: CGFloat, cache: inout Cache) {
+        var lines: [Range<Int>] = []
+        var lineHeights: [CGFloat] = []
+        var lineStart = 0
+        var lineWidth: CGFloat = 0
+        var lineHeight: CGFloat = 0
+        for (i, view) in subviews.enumerated() {
+            let size = view.sizeThatFits(.unspecified)
+            if lineWidth > 0 && lineWidth + spacing + size.width > maxWidth {
+                lines.append(lineStart..<i)
+                lineHeights.append(lineHeight)
+                lineStart = i
+                lineWidth = size.width
+                lineHeight = size.height
+            } else {
+                lineWidth += (lineWidth > 0 ? spacing : 0) + size.width
+                lineHeight = max(lineHeight, size.height)
+            }
+        }
+        if lineStart < subviews.count {
+            lines.append(lineStart..<subviews.count)
+            lineHeights.append(lineHeight)
+        }
+        cache.lines = lines
+        cache.lineHeights = lineHeights
     }
 }

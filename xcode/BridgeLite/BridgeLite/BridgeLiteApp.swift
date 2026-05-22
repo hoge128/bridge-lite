@@ -36,6 +36,7 @@ extension NSNotification.Name {
     static let bridgeLiteOpenURL = NSNotification.Name("BridgeLiteOpenURL")
     static let bridgeLiteRegroup = NSNotification.Name("BridgeLiteRegroup")
     static let bridgeLiteFocusSearch = NSNotification.Name("BridgeLiteFocusSearch")
+    static let bridgeLiteCacheCleared = NSNotification.Name("BridgeLiteCacheCleared")
 }
 
 // MARK: - Window state monitor

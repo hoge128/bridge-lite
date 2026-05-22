@@ -192,8 +192,6 @@ struct ThumbnailGridView: View {
 
     @ViewBuilder
     private var filterBottomBar: some View {
-        // Keep this container background-free; material in a safeAreaInset can fill
-        // the bottom safe area. Glass/material belongs on the shaped child views.
         VStack(spacing: 0) {
             if let category = selectedFilterCategory {
                 FilterOptionsPanelView(
@@ -207,6 +205,8 @@ struct ThumbnailGridView: View {
                 .padding(.horizontal, 16)
                 .padding(.vertical, 8)
         }
+        // タッチを遮断するため不可視な背景を置く（glass が壊れないよう opacity を最小化）
+        .background(Color(UIColor.systemBackground).opacity(0.001))
         .animation(.easeInOut(duration: 0.2), value: selectedFilterCategory)
     }
 }

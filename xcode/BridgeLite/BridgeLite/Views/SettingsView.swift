@@ -532,6 +532,7 @@ struct SettingsView: View {
             try? fm.removeItem(atPath: path)
         }
         cacheSize = 0
+        NotificationCenter.default.post(name: .bridgeLiteCacheCleared, object: nil)
     }
 
     private func relaunchApp() {

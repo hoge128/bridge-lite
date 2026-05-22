@@ -86,21 +86,11 @@ struct IOSCalendarView: View {
     @ViewBuilder
     private var rangeSummary: some View {
         if !rangeSummaryText.isEmpty {
-            HStack(spacing: 8) {
-                Text(rangeSummaryText)
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-                    .lineLimit(1)
-
-                Spacer(minLength: 8)
-
-                Button(String(localized: "filter.clear", defaultValue: "Clear")) {
-                    scanStore.clearFilter(.date)
-                    rangeAnchor = nil
-                }
-                .font(.caption)
-                .buttonStyle(.adaptiveGlass(isActive: true))
-            }
+            Text(rangeSummaryText)
+                .font(.subheadline.weight(.semibold))
+                .foregroundStyle(.primary)
+                .multilineTextAlignment(.center)
+                .frame(maxWidth: .infinity)
         }
     }
 
@@ -177,7 +167,7 @@ struct IOSCalendarView: View {
             }
             .padding(.vertical, 2)
         }
-        .frame(maxHeight: 360)
+        .frame(maxHeight: 250)
     }
 
     private var weekdayHeader: some View {

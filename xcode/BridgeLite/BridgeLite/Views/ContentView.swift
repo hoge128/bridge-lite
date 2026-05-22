@@ -86,6 +86,9 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
                 store.suspend()
             }
+            .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteCacheCleared)) { _ in
+                store.cancelLoading()
+            }
             .sheet(isPresented: $showingManageApplicationsSheet) {
                 ManageApplicationsSheet()
                     .environment(SettingsStore.shared)
