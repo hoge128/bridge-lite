@@ -8,6 +8,8 @@
 
 /* Begin PBXBuildFile section */
 		01D99717EFC9132583EC925A /* FolderPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */; };
+		C836B5B204194838883C16F5 /* exp-images in Resources */ = {isa = PBXBuildFile; fileRef = 401401015EE249DAADA63F88 /* exp-images */; };
+		436FA514F7214310B9A946C5 /* OnboardingGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08FCDE2A02D243E3A9CC7FEE /* OnboardingGuideView.swift */; };
 		023C9DB516FC5F3EC66D2009 /* IOSCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB8F4DD6E72DE0A539806AD /* IOSCalendarView.swift */; };
 		05ECD571285BD5D65864592F /* FilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */; };
 		080BCFEFED5119F429F6EF37 /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
@@ -133,6 +135,8 @@
 		449E124463D6E6D28958EBE9 /* FilterPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterPanelView.swift; sourceTree = "<group>"; };
 		49A54E1E164617C20BDC0BE8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderPickerView.swift; sourceTree = "<group>"; };
+		401401015EE249DAADA63F88 /* exp-images */ = {isa = PBXFileReference; lastKnownFileType = folder; path = "exp-images"; sourceTree = "<group>"; };
+		08FCDE2A02D243E3A9CC7FEE /* OnboardingGuideView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OnboardingGuideView.swift; sourceTree = "<group>"; };
 		4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingBarView.swift; sourceTree = "<group>"; };
 		4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarView.swift; sourceTree = "<group>"; };
 		4D049A57268958B6678D2C20 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
@@ -233,6 +237,7 @@
 			children = (
 				BA0EA6AE78D3DC167B7D59E5 /* BridgeLiteiOS-Bridging-Header.h */,
 				75FDBA41BF6AE4904E4BEF2F /* BridgeLiteiOS.entitlements */,
+				401401015EE249DAADA63F88 /* exp-images */,
 				17DEFE7CAC099009D687EF89 /* BridgeLiteiOSApp.swift */,
 				3086AA6CCBB10934498DD210 /* ContentView.swift */,
 				8B691B7F084D124BC8711440 /* RustLink.xcconfig */,
@@ -382,6 +387,7 @@
 				2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */,
 				4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */,
 				0AB8F4DD6E72DE0A539806AD /* IOSCalendarView.swift */,
+				08FCDE2A02D243E3A9CC7FEE /* OnboardingGuideView.swift */,
 				4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */,
 				B0AAC7F0B8C0E9D8E625EAE1 /* SettingsSheetView.swift */,
 				FE2F5F0FC1CBE2DFCB5E024F /* ThumbnailCellView.swift */,
@@ -534,6 +540,7 @@
 				54EC15B9A343E7437C1D1606 /* Assets.xcassets in Resources */,
 				0E65648D56216F575D4DFE73 /* Localizable.xcstrings in Resources */,
 				6B3EDFEBE636886E1F758C6B /* PrivacyInfo.xcprivacy in Resources */,
+				C836B5B204194838883C16F5 /* exp-images in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -570,6 +577,7 @@
 				584A95D26699F228799AFA44 /* FilterBarView.swift in Sources */,
 				05ECD571285BD5D65864592F /* FilterSheetView.swift in Sources */,
 				01D99717EFC9132583EC925A /* FolderPickerView.swift in Sources */,
+				436FA514F7214310B9A946C5 /* OnboardingGuideView.swift in Sources */,
 				BBAC36178F92008A8F84A15B /* GlassHelper.swift in Sources */,
 				023C9DB516FC5F3EC66D2009 /* IOSCalendarView.swift in Sources */,
 				936EAB6141C91B2B1E4A54E2 /* ImageEntry+Convert.swift in Sources */,

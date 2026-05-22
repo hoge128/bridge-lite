@@ -5,7 +5,9 @@ struct ContentView: View {
     @State private var ratingStore = RatingStore()
     @State private var showFolderPicker = false
     @State private var showSettings = false
+    @State private var showGuide = false
     @State private var welcomeAppeared = false
+    @AppStorage("ios.hasOpenedFolderBefore") private var hasOpenedFolderBefore = false
     @Environment(\.scenePhase) private var scenePhase
 
     var body: some View {
@@ -39,32 +41,44 @@ struct ContentView: View {
                 )
                 .ignoresSafeArea()
 
-                VStack(spacing: 28) {
-                    Image(systemName: "sdcard")
-                        .font(.system(size: 72))
-                        .foregroundStyle(.secondary)
-
-                    VStack(spacing: 6) {
-                        Text("BridgeLite")
-                            .font(.largeTitle.bold())
-                        Text(String(localized: "welcome.subtitle", defaultValue: "Select photos from your SD card"))
-                            .font(.subheadline)
+                VStack(spacing: 20) {
+                    VStack(spacing: 28) {
+                        Image(systemName: "sdcard")
+                            .font(.system(size: 72))
                             .foregroundStyle(.secondary)
+
+                        VStack(spacing: 6) {
+                            Text("BridgeLite")
+                                .font(.largeTitle.bold())
+                            Text(String(localized: "welcome.subtitle", defaultValue: "Select photos from your SD card"))
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Button {
+                            showFolderPicker = true
+                        } label: {
+                            Label(String(localized: "welcome.open_folder", defaultValue: "Open SD Card"), systemImage: "folder.badge.plus")
+                                .font(.headline)
+                                .padding(.horizontal, 28)
+                                .padding(.vertical, 14)
+                        }
+                        .prominentGlassButton()
                     }
+                    .padding(40)
+                    .adaptiveGlass(cornerRadius: 28)
+                    .padding(.horizontal, 28)
 
                     Button {
-                        showFolderPicker = true
+                        showGuide = true
                     } label: {
-                        Label(String(localized: "welcome.open_folder", defaultValue: "Open SD Card"), systemImage: "folder.badge.plus")
-                            .font(.headline)
-                            .padding(.horizontal, 28)
-                            .padding(.vertical, 14)
+                        Text("guide.link", tableName: nil)
+                            .font(.footnote)
+                            .foregroundStyle(.secondary)
+                            .underline()
                     }
-                    .prominentGlassButton()
+                    .buttonStyle(.plain)
                 }
-                .padding(40)
-                .adaptiveGlass(cornerRadius: 28)
-                .padding(.horizontal, 28)
             }
             .navigationBarTitleDisplayMode(.inline)
             .glassNavigationBar()
@@ -77,12 +91,18 @@ struct ContentView: View {
             }
             .sheet(isPresented: $showFolderPicker) {
                 FolderPickerView { url in
+                    hasOpenedFolderBefore = true
                     showFolderPicker = false
                     scanStore.scan(url: url)
                 }
             }
             .sheet(isPresented: $showSettings) {
                 SettingsSheetView(scanStore: scanStore) { showSettings = false }
+            }
+            .sheet(isPresented: $showGuide) {
+                OnboardingGuideView()
+                    .presentationDetents([.large])
+                    .presentationDragIndicator(.visible)
             }
         }
     }

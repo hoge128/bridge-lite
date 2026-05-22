@@ -2805,6 +2805,166 @@
         }
       }
     },
+    "guide.step0.desc" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the button to open the Files dialog."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ボタンをタップして Files ダイアログを開きます。"
+          }
+        }
+      }
+    },
+    "guide.step0.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap \"Open SD Card\""
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「SD カードを開く」をタップ"
+          }
+        }
+      }
+    },
+    "guide.step1.desc" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap the Browse tab at the bottom of the Files dialog."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Files ダイアログが開いたら、下の「ブラウズ」タブをタップします。"
+          }
+        }
+      }
+    },
+    "guide.step1.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap \"Browse\""
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「ブラウズ」をタップ"
+          }
+        }
+      }
+    },
+    "guide.step2.desc" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "In Locations, tap your SD card or USB card reader. The name of the media varies depending on your camera."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「場所」の一覧から SD カードや USB カードリーダーをタップします。メディアの名前はお使いのカメラによって異なります。"
+          }
+        }
+      }
+    },
+    "guide.step2.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap Card Reader"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カードリーダーをタップ"
+          }
+        }
+      }
+    },
+    "guide.step3.desc" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "For SD card media, you should now see the root folder of the entire SD card. You can also drill down to a specific subfolder to use as the scan target. If so, navigate to that folder and tap \"Open\" when the target is visible.\n\nDue to how the Files app works, if the previously opened folder still exists, this screen may open directly. If an unintended folder is shown, please start over from the Tap \"Browse\" step."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SD カードメディアの場合、この時点で SD 全体を見られるルートフォルダが表示されているはずです。さらに掘り下げて特定のフォルダをスキャン対象にすることも可能です。その際は、そこまで移動してスキャン対象が見えている状態で「開く」をタップしてください。\n\nFiles アプリの仕様により、前回開いたフォルダが存在する場合はこの画面が直接開きます。意図しないフォルダが表示された場合は、ブラウズをタップの処理からやり直してください。"
+          }
+        }
+      }
+    },
+    "guide.step3.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Tap \"Open\""
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "「開く」をタップ"
+          }
+        }
+      }
+    },
+    "guide.link" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How to open your SD card"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SD カードの読み込み方"
+          }
+        }
+      }
+    },
+    "guide.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "How to open your SD card"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "SD カードの読み込み方"
+          }
+        }
+      }
+    },
     "Help" : {
       "localizations" : {
         "en" : {
@@ -4998,6 +5158,38 @@
         }
       }
     },
+    "settings.phash.help.body" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Computes a visual fingerprint (pHash) for each image so that developed exports — such as a Lightroom JPEG with a different filename or no EXIF timestamp — are automatically placed in the same shot group as the source RAW.\n\n**When to enable:** You store developed exports (JPEG, HEIF, etc.) alongside your RAW files and want them grouped together.\n\n**Leave off (default):** Camera-native RAW+JPEG pairs are grouped by filename and require no visual matching. Keeping this off makes the first scan faster."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "画像ごとに視覚的な指紋（pHash）を計算します。これにより、Lightroom などで書き出した JPEG がファイル名や EXIF タイムスタンプが異なる場合でも、元の RAW と同じグループに自動でまとめられます。\n\n**有効にするべき場合:** 現像済みの書き出しファイル（JPEG・HEIF など）を RAW と同じフォルダで管理していて、同じグループにまとめたい場合。\n\n**OFF のまま（デフォルト）:** カメラ直出しの RAW+JPEG はファイル名で自動グルーピングされるため不要です。OFF にすると初回スキャン時の処理が速くなります。"
+          }
+        }
+      }
+    },
+    "settings.phash.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pixel-level Grouping"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ピクセルレベルグルーピング"
+          }
+        }
+      }
+    },
     "settings.prevent_viewer_delete" : {
       "localizations" : {
         "en" : {
@@ -5333,38 +5525,6 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "詳細設定"
-          }
-        }
-      }
-    },
-    "settings.phash.help.body" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Computes a visual fingerprint (pHash) for each image so that developed exports — such as a Lightroom JPEG with a different filename or no EXIF timestamp — are automatically placed in the same shot group as the source RAW.\n\n**When to enable:** You store developed exports (JPEG, HEIF, etc.) alongside your RAW files and want them grouped together.\n\n**Leave off (default):** Camera-native RAW+JPEG pairs are grouped by filename and require no visual matching. Keeping this off makes the first scan faster."
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "画像ごとに視覚的な指紋（pHash）を計算します。これにより、Lightroom などで書き出した JPEG がファイル名や EXIF タイムスタンプが異なる場合でも、元の RAW と同じグループに自動でまとめられます。\n\n**有効にするべき場合:** 現像済みの書き出しファイル（JPEG・HEIF など）を RAW と同じフォルダで管理していて、同じグループにまとめたい場合。\n\n**OFF のまま（デフォルト）:** カメラ直出しの RAW+JPEG はファイル名で自動グルーピングされるため不要です。OFF にすると初回スキャン時の処理が速くなります。"
-          }
-        }
-      }
-    },
-    "settings.phash.title" : {
-      "localizations" : {
-        "en" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Pixel-level Grouping"
-          }
-        },
-        "ja" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "ピクセルレベルグルーピング"
           }
         }
       }
@@ -6367,6 +6527,23 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "情報を表示 (M)"
+          }
+        }
+      }
+    },
+    "welcome.hint" : {
+      "extractionState" : "stale",
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Connect your card reader or USB drive, tap \"Open SD Card\", then go to Browse → Locations in the Files dialog."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "カードリーダーや USB ドライブを接続し、「SD カードを開く」をタップ。Files の「ブラウズ」→「場所」からドライブを選択してください。"
           }
         }
       }
