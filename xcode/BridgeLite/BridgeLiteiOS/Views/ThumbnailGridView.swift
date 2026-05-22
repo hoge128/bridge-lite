@@ -26,24 +26,24 @@ struct ThumbnailGridView: View {
     var body: some View {
         NavigationStack {
             ZStack {
-                if scanStore.isScanning {
+                if scanStore.groups.isEmpty && scanStore.isScanning {
                     VStack(spacing: 8) {
                         ProgressView()
-                        if scanStore.scanTotalCount > 0 {
-                            Text("\(scanStore.scanLoadedCount) / \(scanStore.scanTotalCount)")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        } else {
-                            Text("Scanning…")
-                                .font(.caption)
-                                .foregroundStyle(.secondary)
-                        }
+                        Text(String(localized: "Scanning…"))
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else if scanStore.groups.isEmpty {
                     emptyState
                 } else {
-                    grid
+                    VStack(spacing: 0) {
+                        if scanStore.isScanning {
+                            scanProgressBanner
+                        }
+                        grid
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: scanStore.isScanning)
                 }
 
                 if selectedFilterCategory != nil {
@@ -122,6 +122,28 @@ struct ThumbnailGridView: View {
                 .padding(gridSpacing)
             }
         }
+    }
+
+    private var scanProgressBanner: some View {
+        HStack(spacing: 8) {
+            ProgressView().controlSize(.mini)
+            if scanStore.scanTotalCount > 0 {
+                Text(String(format: String(localized: "Loading %d / %d"),
+                            scanStore.scanLoadedCount, scanStore.scanTotalCount))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            } else {
+                Text(String(localized: "Scanning…"))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(Color(.secondarySystemBackground))
+        .overlay(alignment: .bottom) { Divider() }
+        .transition(.move(edge: .top).combined(with: .opacity))
     }
 
     private var emptyState: some View {
