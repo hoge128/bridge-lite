@@ -264,6 +264,15 @@ struct FilterCategoryContent: View {
     @Bindable var scanStore: ScanStore
     var ratings: [UInt64: XmpData] = [:]
 
+    private var isExifLoading: Bool { scanStore.isScanning && !scanStore.isExifReady }
+
+    private var exifLoadingPlaceholder: some View {
+        RoundedRectangle(cornerRadius: 8)
+            .fill(Color.primary.opacity(0.07))
+            .frame(height: 90)
+            .shimmer()
+    }
+
     var body: some View {
         Group {
             switch category {
@@ -273,21 +282,34 @@ struct FilterCategoryContent: View {
             case .date:
                 IOSCalendarView(scanStore: scanStore, ratings: ratings)
             case .camera:
-                chipRow(values: scanStore.availableCameras,
-                        isActive: { scanStore.filterCameras.contains($0) },
-                        toggle:   { scanStore.toggleCamera($0) })
+                if isExifLoading { exifLoadingPlaceholder }
+                else {
+                    chipRow(values: scanStore.availableCameras,
+                            isActive: { scanStore.filterCameras.contains($0) },
+                            toggle:   { scanStore.toggleCamera($0) })
+                }
             case .lens:
-                chipRow(values: scanStore.availableLenses,
-                        isActive: { scanStore.filterLenses.contains($0) },
-                        toggle:   { scanStore.toggleLens($0) })
+                if isExifLoading { exifLoadingPlaceholder }
+                else {
+                    chipRow(values: scanStore.availableLenses,
+                            isActive: { scanStore.filterLenses.contains($0) },
+                            toggle:   { scanStore.toggleLens($0) })
+                }
             case .artist:
-                chipRow(values: scanStore.availableArtists,
-                        isActive: { scanStore.filterArtists.contains($0) },
-                        toggle:   { scanStore.toggleArtist($0) })
-            case .iso:      isoHistogram
-            case .focal:    focalHistogram
-            case .shutter:  shutterHistogram
-            case .aperture: apertureHistogram
+                if isExifLoading { exifLoadingPlaceholder }
+                else {
+                    chipRow(values: scanStore.availableArtists,
+                            isActive: { scanStore.filterArtists.contains($0) },
+                            toggle:   { scanStore.toggleArtist($0) })
+                }
+            case .iso:
+                if isExifLoading { exifLoadingPlaceholder } else { isoHistogram }
+            case .focal:
+                if isExifLoading { exifLoadingPlaceholder } else { focalHistogram }
+            case .shutter:
+                if isExifLoading { exifLoadingPlaceholder } else { shutterHistogram }
+            case .aperture:
+                if isExifLoading { exifLoadingPlaceholder } else { apertureHistogram }
             }
         }
     }

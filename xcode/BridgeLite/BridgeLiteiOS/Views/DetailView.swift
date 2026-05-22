@@ -140,7 +140,8 @@ struct DetailView: View {
                                 entry: entry,
                                 exif: exifs[entry.id],
                                 xmp: ratings[entry.id],
-                                thumbnailData: thumbnails[entry.id]
+                                thumbnailData: thumbnails[entry.id],
+                                isLoading: scanStore.isScanning && !scanStore.isExifReady
                             )
                             .padding(.horizontal, 16)
                             .padding(.top, 8)
@@ -151,6 +152,8 @@ struct DetailView: View {
                     if !isFullscreen {
                         floatingRatingButton(entry: entry)
                             .padding(.bottom, 20)
+                            .disabled(scanStore.isScanning && !scanStore.isExifReady)
+                            .opacity(scanStore.isScanning && !scanStore.isExifReady ? 0.35 : 1.0)
                     }
                 }
             }
@@ -546,6 +549,7 @@ private struct PhotoInfoCard: View {
     let exif: ExifData?
     let xmp: XmpData?
     let thumbnailData: Data?
+    var isLoading: Bool = false
 
     @State private var histogram: RGBHistogram = .empty
 
@@ -593,10 +597,17 @@ private struct PhotoInfoCard: View {
 
             VStack(spacing: 0) {
                 HStack {
-                    Text(exif?.cameraName ?? "—")
-                        .font(.subheadline.weight(.semibold))
-                        .foregroundStyle(.white)
-                        .lineLimit(1)
+                    if isLoading && exif == nil {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.white.opacity(0.15))
+                            .frame(width: 130, height: 14)
+                            .shimmer()
+                    } else {
+                        Text(exif?.cameraName ?? "—")
+                            .font(.subheadline.weight(.semibold))
+                            .foregroundStyle(.white)
+                            .lineLimit(1)
+                    }
                     Spacer()
                     Text(entry.fileExtension.uppercased())
                         .font(.caption2.weight(.semibold))
@@ -623,6 +634,17 @@ private struct PhotoInfoCard: View {
                     .padding(.horizontal, 14)
                     .padding(.top, 4)
                     .padding(.bottom, 10)
+                } else if isLoading {
+                    HStack {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.white.opacity(0.12))
+                            .frame(width: 190, height: 11)
+                            .shimmer()
+                        Spacer()
+                    }
+                    .padding(.horizontal, 14)
+                    .padding(.top, 4)
+                    .padding(.bottom, 10)
                 } else {
                     Spacer().frame(height: 10)
                 }
@@ -632,6 +654,10 @@ private struct PhotoInfoCard: View {
                 Group {
                     if !entry.isRaw && !histogram.isEmpty {
                         RGBHistogramView(histogram: histogram)
+                    } else if isLoading {
+                        RoundedRectangle(cornerRadius: 4)
+                            .fill(Color.white.opacity(0.1))
+                            .shimmer()
                     } else {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(Color.white.opacity(0.06))
@@ -687,11 +713,24 @@ private struct PhotoInfoCard: View {
     private func exifCell(_ value: String?) -> some View {
         HStack(spacing: 0) {
             Spacer(minLength: 0)
-            Text(value ?? "—")
-                .font(Self.exifFont)
-                .foregroundStyle(.white.opacity(value != nil ? 0.92 : 0.35))
-                .lineLimit(1)
-                .minimumScaleFactor(0.6)
+            if let value {
+                Text(value)
+                    .font(Self.exifFont)
+                    .foregroundStyle(.white.opacity(0.92))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            } else if isLoading {
+                RoundedRectangle(cornerRadius: 3)
+                    .fill(Color.white.opacity(0.12))
+                    .frame(width: 44, height: 11)
+                    .shimmer()
+            } else {
+                Text("—")
+                    .font(Self.exifFont)
+                    .foregroundStyle(.white.opacity(0.35))
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.6)
+            }
             Spacer(minLength: 0)
         }
     }

@@ -60,6 +60,7 @@ final class ScanStore: ReindexedGroupSink {
     var thumbnails: [UInt64: Data] = [:]
     var exifs: [UInt64: ExifData] = [:]
     var isScanning = false
+    var isExifReady = false
     var scanError: String?
     private(set) var scanTotalCount: Int = 0
     private(set) var scanLoadedCount: Int = 0
@@ -435,6 +436,7 @@ final class ScanStore: ReindexedGroupSink {
         scanTask = nil
         scanGeneration &+= 1
         isScanning = false
+        isExifReady = false
         scanError = nil
         entries = [:]
         groups = []
@@ -451,6 +453,7 @@ final class ScanStore: ReindexedGroupSink {
         phashPipeline = PHashPipeline()
         pairingPipeline = PairingPipeline()
         isScanning = true
+        isExifReady = false
         scanError = nil
         entries = [:]
         groups = []
@@ -494,6 +497,7 @@ final class ScanStore: ReindexedGroupSink {
                 let map = await BridgeCore.fetchExifBatch(list: capturedList, db: db)
                 guard gen == self.scanGeneration else { return }
                 self.exifs = map
+                self.isExifReady = true
 
                 await capturedPairing.noteExifReady(list: capturedList, db: db, store: self, splitThresholdSecs: 2, phashHammingThreshold: 15, generation: gen)
                 guard gen == self.scanGeneration else { return }

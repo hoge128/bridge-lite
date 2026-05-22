@@ -142,6 +142,7 @@ struct ThumbnailGridView: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 6)
         .background(Color(.secondarySystemBackground))
+        .shimmer()
         .overlay(alignment: .bottom) { Divider() }
         .transition(.move(edge: .top).combined(with: .opacity))
     }
