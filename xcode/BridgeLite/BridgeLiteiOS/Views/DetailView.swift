@@ -549,7 +549,7 @@ private struct PhotoInfoCard: View {
 
     @State private var histogram: RGBHistogram = .empty
 
-    private static let exifFont: Font = .system(.caption2, design: .monospaced)
+    private static let exifFont: Font = .system(size: 14, weight: .medium, design: .monospaced)
 
     // EXIF datetime は "yyyy:MM:dd HH:mm:ss" 固定フォーマット
     private static let exifDateParser: DateFormatter = {
@@ -691,7 +691,7 @@ private struct PhotoInfoCard: View {
                 .font(Self.exifFont)
                 .foregroundStyle(.white.opacity(value != nil ? 0.92 : 0.35))
                 .lineLimit(1)
-                .minimumScaleFactor(0.7)
+                .minimumScaleFactor(0.6)
             Spacer(minLength: 0)
         }
     }
