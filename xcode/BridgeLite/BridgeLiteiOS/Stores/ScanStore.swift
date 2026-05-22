@@ -462,6 +462,7 @@ final class ScanStore: ReindexedGroupSink {
         do {
             let db = try BridgeCoreDatabase.open(path: Self.cacheDBURL())
             self.db = db
+            await BridgeCore.pruneCache(dbPath: Self.cacheDBURL(), maxAgeDays: 90)
 
             // ディレクトリ走査のみ（EXIF 索引を含まないため高速）
             let (scannedEntries, imageList, _, _) = try await BridgeCore.scanDirectory(url: url, db: db)
