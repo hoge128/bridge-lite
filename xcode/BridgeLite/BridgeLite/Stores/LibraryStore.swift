@@ -2044,10 +2044,20 @@ final class LibraryStore: ReindexedGroupSink {
 
     func suspend() {
         stopFolderWatch()
-        let urlsToEvict = orderedIDs.compactMap { entries[$0]?.url }
-        thumbnailBlobs = [:]
-        thumbnailOrientations = [:]
-        luminanceScores = [:]
+        // 選択中エントリとそのグループメンバーはサイドバーに表示中なので保持する。
+        // luminanceScores は [UInt64: Int] で軽量なため常に保持する。
+        var pinnedIDs = selectedIDs
+        for id in selectedIDs {
+            if let shotId = entries[id]?.shotId,
+               let members = shotGroups[shotId] {
+                pinnedIDs.formUnion(members)
+            }
+        }
+        let urlsToEvict = orderedIDs
+            .filter { !pinnedIDs.contains($0) }
+            .compactMap { entries[$0]?.url }
+        thumbnailBlobs = thumbnailBlobs.filter { pinnedIDs.contains($0.key) }
+        thumbnailOrientations = thumbnailOrientations.filter { pinnedIDs.contains($0.key) }
         ThumbnailDecodeCache.shared.evict(urls: urlsToEvict)
     }
 
