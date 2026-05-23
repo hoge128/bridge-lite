@@ -2063,7 +2063,7 @@ final class LibraryStore: ReindexedGroupSink {
 
     private func reset() {
         scanGeneration &+= 1
-        filter.nameSearch = ""
+        filter.reset()
         preSearchFlatten = nil
         watcher?.stop()
         watcher = nil
@@ -2118,6 +2118,19 @@ final class LibraryStore: ReindexedGroupSink {
         cachedRepsOrdered = []
         cachedFiltered = []
         exifDateCache = [:]
+        availableExtensions = []
+        availableCameras    = []
+        availableLenses     = []
+        availableArtists    = []
+        isoBuckets          = []
+        focalBuckets        = []
+        shutterBuckets      = []
+        apertureBuckets     = []
+        dateBuckets         = []
+        luminanceBuckets    = []
+        photosPerDay        = [:]
+        datasetInterval     = nil
+        ratingCounts        = [0:0, 1:0, 2:0, 3:0, 4:0, 5:0]
         dirty = PipelineDirty()
     }
 
