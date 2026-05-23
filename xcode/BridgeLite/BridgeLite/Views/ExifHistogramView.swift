@@ -32,11 +32,11 @@ struct ExifHistogramView: View {
     }
 
     // ピン型ハンドルの定数
-    private let pinW: CGFloat = 18
-    private let pinRectH: CGFloat = 12
-    private let pinTriH: CGFloat = 8
+    private let pinW: CGFloat = 14
+    private let pinRectH: CGFloat = 9
+    private let pinTriH: CGFloat = 6
     private var pinTotalH: CGFloat { pinRectH + pinTriH }
-    private let pinCornerR: CGFloat = 4
+    private let pinCornerR: CGFloat = 3
 
     private func pinPath(cx: CGFloat) -> Path {
         let halfW = pinW / 2
@@ -177,7 +177,7 @@ struct ExifHistogramView: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                 }
             }
-            .frame(height: 84)
+            .frame(height: 60)
 
             // ラベル行: 選択範囲外は tertiary で薄く
             HStack(spacing: 0) {
