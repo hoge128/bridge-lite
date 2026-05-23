@@ -81,8 +81,8 @@ targets:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite
-        CFBundleVersion: "14"
-        CFBundleShortVersionString: "0.4.2"
+        CFBundleVersion: "15"
+        CFBundleShortVersionString: "0.4.3"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"
         # Finder の右クリック「このアプリケーションで開く」と Dock ドラッグで
         # フォルダを開けるようにするための公開ドキュメントタイプ宣言。
