@@ -405,6 +405,106 @@
 
     .manual-link a:hover { opacity: 0.75; }
 
+    .appstore-badge {
+      display: none;
+      align-items: center;
+      height: 40px;
+      transition: opacity 0.15s;
+    }
+
+    .lang-ja .appstore-badge[data-lang="ja"],
+    .lang-en .appstore-badge[data-lang="en"] {
+      display: inline-flex;
+    }
+
+    .appstore-badge img {
+      height: 40px;
+      width: auto;
+    }
+
+    .appstore-badge:hover { opacity: 0.75; }
+
+    /* ── Platform grid ── */
+    .platform-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 20px;
+      margin: 48px 0 0;
+      text-align: left;
+    }
+
+    .platform-card {
+      background: var(--bg2);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 28px;
+    }
+
+    .platform-os {
+      font-size: 13px;
+      font-weight: 400;
+      color: var(--accent);
+      margin-bottom: 10px;
+    }
+
+    .platform-req {
+      font-size: 13px;
+      color: var(--muted);
+      line-height: 1.5;
+      margin-bottom: 24px;
+      min-height: 3em;
+    }
+
+    .platform-actions {
+      display: flex;
+      flex-direction: column;
+      align-items: flex-start;
+      gap: 10px;
+    }
+
+    .platform-soon { opacity: 0.45; }
+
+    .soon-label {
+      font-size: 13px;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 8px 16px;
+    }
+
+    .appstore-badge-soon {
+      display: none;
+      position: relative;
+      align-items: center;
+      height: 40px;
+      opacity: 0.35;
+      cursor: default;
+      pointer-events: none;
+    }
+
+    .lang-ja .appstore-badge-soon[data-lang="ja"],
+    .lang-en .appstore-badge-soon[data-lang="en"] {
+      display: inline-flex;
+    }
+
+    .appstore-badge-soon img {
+      height: 40px;
+      width: auto;
+    }
+
+    .badge-soon-tag {
+      position: absolute;
+      top: -8px;
+      right: -4px;
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      background: var(--accent);
+      color: #fff;
+      border-radius: 3px;
+      padding: 2px 6px;
+      white-space: nowrap;
+    }
 
     /* ── Footer ── */
     footer {
@@ -493,6 +593,7 @@
       .feature-section.reverse { direction: ltr; }
       .specs-grid { grid-template-columns: 1fr; }
       .download-section { padding: 0 20px 100px; }
+      .platform-grid { grid-template-columns: 1fr; }
       footer { padding: 28px 20px; }
     }
   </style>
@@ -636,19 +737,61 @@
   <h2 data-lang="en">Get started today</h2>
   <p data-lang="ja">無料でダウンロード。インストールするだけで使える。</p>
   <p data-lang="en">Free to download. No account required.</p>
-  <div class="download-cta">
-    <a href="https://github.com/hoge128/bridge-lite/releases/latest" class="btn-fill" data-lang="ja">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      DMG をダウンロード
-    </a>
-    <a href="https://github.com/hoge128/bridge-lite/releases/latest" class="btn-fill" data-lang="en">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
-      Download DMG
-    </a>
-    <a href="https://github.com/hoge128/bridge-lite" class="btn-outline">
-      <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
-      GitHub
-    </a>
+  <div class="platform-grid">
+    <!-- macOS -->
+    <div class="platform-card">
+      <p class="platform-os">macOS</p>
+      <p class="platform-req" data-lang="ja">macOS 14 Sonoma 以降 · Apple Silicon (M1〜)</p>
+      <p class="platform-req" data-lang="en">macOS 14 Sonoma or later · Apple Silicon (M1+)</p>
+      <div class="platform-actions">
+        <a href="https://github.com/hoge128/bridge-lite/releases/latest" class="btn-fill" data-lang="ja">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          DMG をダウンロード
+        </a>
+        <a href="https://github.com/hoge128/bridge-lite/releases/latest" class="btn-fill" data-lang="en">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          Download DMG
+        </a>
+        <a href="https://github.com/hoge128/bridge-lite" class="btn-outline">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
+          GitHub
+        </a>
+        <span class="appstore-badge-soon" data-lang="ja">
+          <img src="src/Download_on_the_Mac_App_Store_JP.svg" alt="Download on the Mac App Store">
+          <span class="badge-soon-tag">近日公開</span>
+        </span>
+        <span class="appstore-badge-soon" data-lang="en">
+          <img src="src/Download_on_the_Mac_App_Store_EN.svg" alt="Download on the Mac App Store">
+          <span class="badge-soon-tag">Coming soon</span>
+        </span>
+      </div>
+    </div>
+
+    <!-- iPhone -->
+    <div class="platform-card">
+      <p class="platform-os">iPhone</p>
+      <p class="platform-req" data-lang="ja">iPhone 向け · 無料</p>
+      <p class="platform-req" data-lang="en">For iPhone · Free</p>
+      <div class="platform-actions">
+        <a href="https://apps.apple.com/jp/app/bridgelite/id6770079643" class="appstore-badge" data-lang="ja" target="_blank" rel="noopener">
+          <img src="src/Download_on_the_App_Store_JP.svg" alt="Download on the App Store">
+        </a>
+        <a href="https://apps.apple.com/jp/app/bridgelite/id6770079643" class="appstore-badge" data-lang="en" target="_blank" rel="noopener">
+          <img src="src/Download_on_the_App_Store_EN.svg" alt="Download on the App Store">
+        </a>
+      </div>
+    </div>
+
+    <!-- Windows -->
+    <div class="platform-card platform-soon">
+      <p class="platform-os">Windows</p>
+      <p class="platform-req" data-lang="ja">Windows 版は今後検討予定です。</p>
+      <p class="platform-req" data-lang="en">A Windows version is under consideration.</p>
+      <div class="platform-actions">
+        <p class="soon-label" data-lang="ja">近日公開予定</p>
+        <p class="soon-label" data-lang="en">Coming soon</p>
+      </div>
+    </div>
   </div>
   <p class="manual-link" data-lang="ja">詳しい使い方は<a href="manual/ja/">ドキュメント</a>をご覧ください。</p>
   <p class="manual-link" data-lang="en">For detailed instructions, see the <a href="manual/en/">Manual</a>.</p>
@@ -662,9 +805,9 @@
     <ul class="roadmap-list">
       <li>機能追加を積極的に進めていく予定です。ぜひご要望をお聞かせください。</li>
       <li>対応言語は現在、日本語・英語のみです。他言語への対応は今後検討します。</li>
-      <li>Windows 版については、要望が集まれば開発を検討します。</li>
+      <li>JPG と RAW の両方をコスト効率よく管理できるウェブサービスも開発予定です。</li>
       <li>ソースコードの公開は現在検討中です。</li>
-      <li>機能追加のご要望・不具合の報告は、<a href="https://forms.gle/DMtmbtKrtfc7xMu96" target="_blank" rel="noopener">お問い合わせフォーム</a>よりお気軽にどうぞ。</li>
+      <li>機能追加のご要望・不具合の報告は、<a href="mailto:itotsum128lab@gmail.com">itotsum128lab@gmail.com</a> までお気軽にどうぞ。</li>
     </ul>
     <p class="roadmap-note">BridgeLite は開発者個人のプロジェクトです。開発者自身が Mac を日常的に使っているため、まず macOS 版からのリリースとなりました。最高のパフォーマンスを実現するためには、Mac では SwiftUI、Windows では WinUI 3 といったプラットフォーム固有の UI フレームワークが必要と考えています。一方、コア機能は Rust で開発しているため、UI より下の処理については将来的に共通化できる見込みです。</p>
   </div>
@@ -673,9 +816,9 @@
     <ul class="roadmap-list">
       <li>New features are actively planned. We'd love to hear what you need.</li>
       <li>Currently available in Japanese and English only. Additional languages may be considered in the future.</li>
-      <li>A Windows version is under consideration if there is sufficient demand.</li>
+      <li>A web service for cost-efficient management of both JPG and RAW files is also in development.</li>
       <li>Open-sourcing the code is currently being considered.</li>
-      <li>Feature requests and bug reports are welcome via the <a href="https://forms.gle/DMtmbtKrtfc7xMu96" target="_blank" rel="noopener">contact form</a>.</li>
+      <li>Feature requests and bug reports are welcome at <a href="mailto:itotsum128lab@gmail.com">itotsum128lab@gmail.com</a>.</li>
     </ul>
     <p class="roadmap-note">BridgeLite is a personal project. It launched on macOS first because the developer uses Mac day-to-day. Delivering the best experience requires platform-native UI frameworks — SwiftUI on Mac, WinUI 3 on Windows. That said, the core functionality is built in Rust, so the underlying logic could be shared across platforms in the future.</p>
   </div>
@@ -689,11 +832,11 @@
     &ensp;·&ensp;
     MIT License
     &ensp;·&ensp;
-    <a href="/bridge-lite/privacy-policy" data-lang="ja">プライバシーポリシー</a>
-    <a href="/bridge-lite/privacy-policy" data-lang="en">Privacy Policy</a>
+    <a href="/bridge-lite/privacy-policy" class="inline" data-lang="ja">プライバシーポリシー</a>
+    <a href="/bridge-lite/privacy-policy" class="inline" data-lang="en">Privacy Policy</a>
     &ensp;·&ensp;
-    <a href="https://forms.gle/DMtmbtKrtfc7xMu96" target="_blank" rel="noopener" data-lang="ja">お問い合わせ</a>
-    <a href="https://forms.gle/DMtmbtKrtfc7xMu96" target="_blank" rel="noopener" data-lang="en">Contact</a>
+    <a href="mailto:itotsum128lab@gmail.com" class="inline" data-lang="ja">お問い合わせ</a>
+    <a href="mailto:itotsum128lab@gmail.com" class="inline" data-lang="en">Contact</a>
   </span>
 </footer>
 
