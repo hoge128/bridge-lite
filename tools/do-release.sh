@@ -122,13 +122,13 @@ else
         NOTES_BODY="BridgeLite v${VERSION}"
     fi
 
-    gh release create "v${VERSION}" \
+    gh release create "mac/v${VERSION}" \
         "$DMG_PATH" \
         "$SHA_PATH" \
         --repo hoge128/bridge-lite \
-        --title "BridgeLite v${VERSION}" \
+        --title "BridgeLite ${VERSION}" \
         --notes "$NOTES_BODY"
-    ok "GitHub Releases に v${VERSION} を公開しました"
+    ok "GitHub Releases に mac/v${VERSION} を公開しました"
 fi
 
 # ─── master ブランチに commit & push ─────────────────────────
@@ -139,18 +139,20 @@ git -C "$REPO_ROOT" add \
     docs/appcast.xml \
     "docs/releases/${VERSION}.html" 2>/dev/null || true
 
-git -C "$REPO_ROOT" commit -m "release: v${VERSION}" || true
+git -C "$REPO_ROOT" commit -m "release: mac/v${VERSION}" || true
 git -C "$REPO_ROOT" push origin master
 git -C "$REPO_ROOT" push public master
-ok "master ブランチを push しました"
+git -C "$REPO_ROOT" push origin "mac/v${VERSION}"
+git -C "$REPO_ROOT" push public "mac/v${VERSION}"
+ok "master ブランチと mac/v${VERSION} タグを push しました"
 
 # ─── 完了 ────────────────────────────────────────────────────
 echo ""
 echo -e "${GREEN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
-echo -e "${GREEN}${BOLD}  🎉 BridgeLite v${VERSION} リリース完了！${NC}"
+echo -e "${GREEN}${BOLD}  🎉 BridgeLite ${VERSION} リリース完了！${NC}"
 echo -e "${GREEN}${BOLD}━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━${NC}"
 echo ""
-echo "  GitHub Releases : https://github.com/hoge128/bridge-lite/releases/tag/v${VERSION}"
+echo "  GitHub Releases : https://github.com/hoge128/bridge-lite/releases/tag/mac%2Fv${VERSION}"
 echo "  appcast URL     : https://hoge128.github.io/bridge-lite/appcast.xml"
 echo ""
 echo "  既存ユーザーは次回起動時または 24 時間以内にアップデート通知を受け取ります。"
