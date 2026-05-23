@@ -57,17 +57,44 @@ echo -e "\n${BOLD}BridgeLite v${VERSION} リリースを開始します${NC}"
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ─── STEP 1: バージョン更新 ───────────────────────────────────
-step "STEP 1/5: バージョン更新 (bump-version.sh)"
+step "STEP 1/6: バージョン更新 (bump-version.sh)"
 "$TOOLS/bump-version.sh" "$VERSION"
 ok "project.yml + Info.plist を v${VERSION} に更新しました"
 
-# ─── STEP 2: Xcode ビルド確認 ─────────────────────────────────
-step "STEP 2/5: Xcode ビルド確認（手動）"
+# ─── リリースノート確認 ───────────────────────────────────────
+RELEASE_NOTES="$REPO_ROOT/docs/releases/${VERSION}.html"
+RELEASE_NOTES_MD="$REPO_ROOT/docs/releases/${VERSION}.md"
+if [[ ! -f "$RELEASE_NOTES" ]]; then
+    pause "  リリースノートが見つかりません。
+
+  以下の ${BOLD}2 ファイル${NC}${YELLOW} を作成してから Enter を押してください:
+
+    ${BOLD}docs/releases/${VERSION}.html${NC}${YELLOW}  ← Sparkle アップデートダイアログ用（HTML）
+    ${BOLD}docs/releases/${VERSION}.md${NC}${YELLOW}    ← GitHub Release 用（Markdown）
+
+  参考: docs/releases/0.4.2.html / 0.4.2.md（前バージョンのフォーマット）"
+    if [[ ! -f "$RELEASE_NOTES" ]]; then
+        echo -e "${RED}ERROR: docs/releases/${VERSION}.html が作成されていません。${NC}"
+        exit 1
+    fi
+fi
+if [[ ! -f "$RELEASE_NOTES_MD" ]]; then
+    warn "docs/releases/${VERSION}.md がありません。GitHub Release には URL リンクのみ掲載されます。"
+fi
+ok "リリースノートを確認: docs/releases/${VERSION}.html"
+
+# ─── STEP 2: Rust ライブラリビルド ────────────────────────────
+step "STEP 2/6: Rust ライブラリビルド (build-rust-xcframework.sh --release)"
+"$TOOLS/build-rust-xcframework.sh" --release
+ok "libbridge_ffi.a を release ビルドしました"
+
+# ─── STEP 3: Xcode ビルド確認 ─────────────────────────────────
+step "STEP 3/6: Xcode ビルド確認（手動）"
 pause "  Xcode で ${BOLD}⌘B${NC}${YELLOW} を押してビルドが通ることを確認してください。
   エラーがあれば修正してから Enter を押してください。"
 
-# ─── STEP 3: Xcode Archive ────────────────────────────────────
-step "STEP 3/5: Xcode Archive（手動）"
+# ─── STEP 4: Xcode Archive ────────────────────────────────────
+step "STEP 4/6: Xcode Archive（手動）"
 pause "  Xcode で以下の手順を実行してください:
 
   ${BOLD}Product → Archive${NC}${YELLOW}
@@ -79,28 +106,35 @@ pause "  Xcode で以下の手順を実行してください:
   archive/ 配下に BridgeLite.app が出力されたことを確認してください。"
 
 # archive/ に .app があるか確認
-APP_PATH=$(find "$REPO_ROOT/archive" -maxdepth 2 -name "BridgeLite.app" -type d 2>/dev/null | sort | tail -1)
+EXPECTED_APP_PATH="$REPO_ROOT/archive/$VERSION/BridgeLite.app"
+if [[ -d "$EXPECTED_APP_PATH" ]]; then
+    APP_PATH="$EXPECTED_APP_PATH"
+else
+    APP_PATH=$(find "$REPO_ROOT/archive" -maxdepth 2 -name "BridgeLite.app" -type d -exec stat -f "%m %N" {} \; 2>/dev/null | sort -rn | head -1 | cut -d' ' -f2-)
+fi
 if [[ -z "$APP_PATH" ]]; then
     echo -e "${RED}ERROR: archive/ 配下に BridgeLite.app が見つかりません。${NC}"
     echo "Xcode の Export が完了してから再実行してください。"
     exit 1
 fi
+APP_PLIST="$APP_PATH/Contents/Info.plist"
+APP_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PLIST")
+if [[ "$APP_VERSION" != "$VERSION" ]]; then
+    echo -e "${RED}ERROR: 選択した BridgeLite.app のバージョンが一致しません。${NC}"
+    echo "  expected: $VERSION"
+    echo "  actual:   $APP_VERSION"
+    echo "  app:      $APP_PATH"
+    exit 1
+fi
 ok "BridgeLite.app を確認: $APP_PATH"
 
-# ─── STEP 4: DMG 作成・署名・Notarization ────────────────────
-step "STEP 4/5: DMG 作成・Notarization（自動・数分かかります）"
+# ─── STEP 5: DMG 作成・署名・Notarization ────────────────────
+step "STEP 5/6: DMG 作成・Notarization（自動・数分かかります）"
 "$TOOLS/release-notarized.sh" "$VERSION"
 ok "dmgs/BridgeLite-${VERSION}.dmg の作成・Notarization 完了"
 
-# ─── STEP 5: appcast.xml 更新 ─────────────────────────────────
-step "STEP 5/5: appcast.xml 生成・GitHub Pages 反映（自動）"
-
-# リリースノートが未作成なら案内
-RELEASE_NOTES="$REPO_ROOT/docs/releases/${VERSION}.html"
-if [[ ! -f "$RELEASE_NOTES" ]]; then
-    warn "リリースノートがありません: docs/releases/${VERSION}.html"
-    warn "release-appcast.sh が空テンプレートを生成します。後で編集してください。"
-fi
+# ─── STEP 6: appcast.xml 更新 ─────────────────────────────────
+step "STEP 6/6: appcast.xml 生成・GitHub Pages 反映（自動）"
 
 "$TOOLS/release-appcast.sh" "$VERSION"
 ok "appcast.xml を更新・gh-pages に push しました"
@@ -115,11 +149,14 @@ if ! command -v gh &>/dev/null; then
     warn "gh コマンドが見つかりません。手動でアップロードしてください:"
     warn "  https://github.com/hoge128/bridge-lite/releases/new"
 else
+    # GitHub Release ノートは Markdown (.md) を使う
+    # .html は Sparkle アップデートダイアログ専用
+    RELEASE_NOTES_MD="$REPO_ROOT/docs/releases/${VERSION}.md"
     NOTES_BODY=""
-    if [[ -f "$RELEASE_NOTES" ]]; then
-        NOTES_BODY=$(cat "$RELEASE_NOTES")
+    if [[ -f "$RELEASE_NOTES_MD" ]]; then
+        NOTES_BODY=$(cat "$RELEASE_NOTES_MD")
     else
-        NOTES_BODY="BridgeLite v${VERSION}"
+        NOTES_BODY="See [release notes](https://hoge128.github.io/bridge-lite/releases/${VERSION}.html)"
     fi
 
     gh release create "mac/v${VERSION}" \
@@ -136,8 +173,12 @@ step "master ブランチに記録"
 git -C "$REPO_ROOT" add \
     xcode/BridgeLite/project.yml \
     xcode/BridgeLite/BridgeLite/Resources/Info.plist \
+    crates/bridge-core/Cargo.toml \
+    crates/bridge-ffi/Cargo.toml \
+    Cargo.lock \
     docs/appcast.xml \
-    "docs/releases/${VERSION}.html" 2>/dev/null || true
+    "docs/releases/${VERSION}.html" \
+    "docs/releases/${VERSION}.md" 2>/dev/null || true
 
 git -C "$REPO_ROOT" commit -m "release: mac/v${VERSION}" || true
 git -C "$REPO_ROOT" push origin master

@@ -30,7 +30,12 @@ echo "→ Version: $VERSION"
 
 # ─── .app を探す ─────────────────────────────────────────────
 ARCHIVE_DIR="$REPO_ROOT/archive"
-APP_PATH=$(find "$ARCHIVE_DIR" -maxdepth 2 -name "BridgeLite.app" -type d | sort | tail -1)
+EXPECTED_APP_PATH="$ARCHIVE_DIR/$VERSION/BridgeLite.app"
+if [[ -d "$EXPECTED_APP_PATH" ]]; then
+    APP_PATH="$EXPECTED_APP_PATH"
+else
+    APP_PATH=$(find "$ARCHIVE_DIR" -maxdepth 2 -name "BridgeLite.app" -type d -exec stat -f "%m %N" {} \; | sort -rn | head -1 | cut -d' ' -f2-)
+fi
 
 if [[ -z "$APP_PATH" ]]; then
     echo "ERROR: BridgeLite.app が $ARCHIVE_DIR 配下に見つかりません。"
@@ -38,6 +43,17 @@ if [[ -z "$APP_PATH" ]]; then
     exit 1
 fi
 echo "→ App: $APP_PATH"
+
+APP_PLIST="$APP_PATH/Contents/Info.plist"
+APP_VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP_PLIST")
+if [[ "$APP_VERSION" != "$VERSION" ]]; then
+    echo "ERROR: 選択した BridgeLite.app のバージョンが一致しません。"
+    echo "  expected: $VERSION"
+    echo "  actual:   $APP_VERSION"
+    echo "  app:      $APP_PATH"
+    exit 1
+fi
+echo "→ App version OK: $APP_VERSION"
 
 # ─── Developer ID 署名を確認 ─────────────────────────────────
 echo "→ 署名を確認中..."

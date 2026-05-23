@@ -8,6 +8,8 @@
 #   - xcode/BridgeLite/project.yml の CFBundleShortVersionString
 #   - xcode/BridgeLite/project.yml の CFBundleVersion（自動インクリメント）
 #   - xcodegen generate → Info.plist に反映
+#   - crates/bridge-core/Cargo.toml の version
+#   - crates/bridge-ffi/Cargo.toml の version
 #
 # 規則:
 #   - CFBundleShortVersionString = マーケティングバージョン (例: 0.4.0)
@@ -18,6 +20,8 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROJECT_YML="$REPO_ROOT/xcode/BridgeLite/project.yml"
+CARGO_CORE="$REPO_ROOT/crates/bridge-core/Cargo.toml"
+CARGO_FFI="$REPO_ROOT/crates/bridge-ffi/Cargo.toml"
 
 # ─── 引数確認 ─────────────────────────────────────────────────
 if [[ $# -ne 1 ]]; then
@@ -53,6 +57,15 @@ sed -i '' \
     "$PROJECT_YML"
 
 echo "✓ project.yml を更新しました"
+
+# ─── Cargo.toml を更新 ───────────────────────────────────────
+sed -i '' \
+    "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"$NEW_VERSION\"/" \
+    "$CARGO_CORE"
+sed -i '' \
+    "s/^version = \"[0-9]*\.[0-9]*\.[0-9]*\"/version = \"$NEW_VERSION\"/" \
+    "$CARGO_FFI"
+echo "✓ Cargo.toml を更新しました (bridge-core, bridge-ffi)"
 
 # ─── xcodegen で Info.plist を再生成 ─────────────────────────
 if ! command -v xcodegen &>/dev/null; then
