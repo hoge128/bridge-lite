@@ -1,43 +1,36 @@
 #!/usr/bin/env bash
-# appcast.xml 生成スクリプト
+# appcast.xml 更新スクリプト
 #
-# Usage: ./tools/release-appcast.sh [version]
+# Usage: ./tools/release-appcast.sh <version>
+# Example: ./tools/release-appcast.sh 0.4.2
 #
-# 前提:
-#   - tools/sparkle/generate_appcast が存在すること
-#     (Sparkle 公式 zip: https://github.com/sparkle-project/Sparkle/releases から
-#      bin/generate_appcast を tools/sparkle/ にコピー)
-#   - EdDSA 秘密鍵が macOS Keychain に登録済みであること
-#     (generate_keys で生成したもの。generate_appcast が自動的に使用する)
-#   - リリースノート HTML を docs/releases/<version>.html に用意すること
-#     (例: docs/releases/0.4.0.html)
-#
-# 実行後:
-#   git add docs/appcast.xml docs/releases/ && git commit && git push
-#   → GitHub Pages が自動デプロイ
+# 動作:
+#   1. dmgs/BridgeLite-<version>.dmg の EdDSA 署名と length を sign_update で取得
+#   2. docs/appcast.xml の先頭に新しい <item> を追記（既存エントリは保持）
+#   3. gh-pages ブランチに appcast.xml と releases/<version>.html を反映
 
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-GENERATE_APPCAST="$REPO_ROOT/tools/sparkle/generate_appcast"
+SIGN_UPDATE="$REPO_ROOT/tools/sparkle/sign_update"
 
 # ─── 前提確認 ─────────────────────────────────────────────────
-if [[ ! -x "$GENERATE_APPCAST" ]]; then
-    echo "ERROR: $GENERATE_APPCAST が見つかりません。"
-    echo "Sparkle 公式 zip (https://github.com/sparkle-project/Sparkle/releases) から"
-    echo "bin/generate_appcast を tools/sparkle/ にコピーして chmod +x してください。"
+if [[ ! -x "$SIGN_UPDATE" ]]; then
+    echo "ERROR: $SIGN_UPDATE が見つかりません。"
     exit 1
 fi
 
-# ─── バージョン ───────────────────────────────────────────────
-VERSION="${1:-}"
-if [[ -z "$VERSION" ]]; then
-    PLIST="$REPO_ROOT/xcode/BridgeLite/BridgeLite/Resources/Info.plist"
-    VERSION=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$PLIST")
+# ─── 引数確認 ─────────────────────────────────────────────────
+if [[ $# -ne 1 ]]; then
+    echo "Usage: $0 <version>"
+    echo "Example: $0 0.4.2"
+    exit 1
 fi
+
+VERSION="$1"
 echo "→ Version: $VERSION"
 
-# ─── DMG を確認 ──────────────────────────────────────────────
+# ─── DMG 確認 ─────────────────────────────────────────────────
 DMG_PATH="$REPO_ROOT/dmgs/BridgeLite-${VERSION}.dmg"
 if [[ ! -f "$DMG_PATH" ]]; then
     echo "ERROR: $DMG_PATH が見つかりません。"
@@ -45,20 +38,28 @@ if [[ ! -f "$DMG_PATH" ]]; then
     exit 1
 fi
 
-# ─── docs/releases/ を準備 ───────────────────────────────────
-RELEASES_DIR="$REPO_ROOT/docs/releases"
-mkdir -p "$RELEASES_DIR"
+# ─── sign_update で署名・length を取得 ────────────────────────
+echo "→ EdDSA 署名を取得中..."
+SIGN_OUTPUT=$("$SIGN_UPDATE" "$DMG_PATH")
+ED_SIG=$(echo "$SIGN_OUTPUT" | grep -o 'sparkle:edSignature="[^"]*"' | cut -d'"' -f2)
+LENGTH=$(echo "$SIGN_OUTPUT"  | grep -o 'length="[^"]*"'             | cut -d'"' -f2)
+echo "  edSignature: ${ED_SIG:0:20}..."
+echo "  length: $LENGTH"
 
-# DMG を releases/ に一時コピー（generate_appcast のスキャン対象にするため）
-TEMP_DMG="$RELEASES_DIR/BridgeLite-${VERSION}.dmg"
-cp "$DMG_PATH" "$TEMP_DMG"
-echo "→ DMG を releases/ にコピーしました（一時）"
+# ─── build number を Info.plist から取得 ──────────────────────
+PLIST="$REPO_ROOT/xcode/BridgeLite/BridgeLite/Resources/Info.plist"
+BUILD=$(/usr/libexec/PlistBuddy -c "Print :CFBundleVersion" "$PLIST")
+echo "→ Build: $BUILD"
+
+# ─── 公開日時（RFC 822）────────────────────────────────────────
+PUB_DATE=$(date -R)
 
 # ─── リリースノート確認 ───────────────────────────────────────
+RELEASES_DIR="$REPO_ROOT/docs/releases"
 RELEASE_NOTES="$RELEASES_DIR/${VERSION}.html"
 if [[ ! -f "$RELEASE_NOTES" ]]; then
-    echo "WARNING: $RELEASE_NOTES が見つかりません。"
-    echo "  リリースノートを生成します（空のテンプレート）"
+    echo "WARNING: $RELEASE_NOTES が見つかりません。空テンプレートを生成します。"
+    mkdir -p "$RELEASES_DIR"
     cat > "$RELEASE_NOTES" << HTML
 <!DOCTYPE html>
 <html>
@@ -71,55 +72,66 @@ if [[ ! -f "$RELEASE_NOTES" ]]; then
 </body>
 </html>
 HTML
-    echo "  → $RELEASE_NOTES を作成しました。内容を編集してから git push してください。"
+    echo "  → $RELEASE_NOTES を作成しました。後で編集してください。"
 fi
 
-# ─── appcast.xml 生成 ─────────────────────────────────────────
-echo "→ appcast.xml を生成中..."
-"$GENERATE_APPCAST" \
-    --download-url-prefix "https://github.com/hoge128/bridge-lite/releases/download/v${VERSION}/" \
-    --link "https://hoge128.github.io/bridge-lite/" \
-    --full-release-notes-url "https://hoge128.github.io/bridge-lite/releases/${VERSION}.html" \
-    "$RELEASES_DIR"
+# ─── appcast.xml に先頭エントリを追記 ────────────────────────
+APPCAST="$REPO_ROOT/docs/appcast.xml"
+echo "→ appcast.xml を更新中..."
 
-# appcast.xml を docs/ 直下に移動（master ブランチの記録用）
-mv "$RELEASES_DIR/appcast.xml" "$REPO_ROOT/docs/appcast.xml"
+NEW_ITEM="        <item>
+            <title>${VERSION}</title>
+            <pubDate>${PUB_DATE}</pubDate>
+            <link>https://hoge128.github.io/bridge-lite/</link>
+            <sparkle:releaseNotesLink>https://hoge128.github.io/bridge-lite/releases/${VERSION}.html</sparkle:releaseNotesLink>
+            <sparkle:fullReleaseNotesLink>https://hoge128.github.io/bridge-lite/releases/${VERSION}.html</sparkle:fullReleaseNotesLink>
+            <sparkle:version>${BUILD}</sparkle:version>
+            <sparkle:shortVersionString>${VERSION}</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url=\"https://github.com/hoge128/bridge-lite/releases/download/mac%2Fv${VERSION}/BridgeLite-${VERSION}.dmg\" length=\"${LENGTH}\" type=\"application/octet-stream\" sparkle:edSignature=\"${ED_SIG}\"/>
+        </item>"
+
+python3 - "$APPCAST" "$NEW_ITEM" << 'PYEOF'
+import sys, re
+
+appcast_path = sys.argv[1]
+new_item = sys.argv[2]
+
+with open(appcast_path, 'r') as f:
+    content = f.read()
+
+# <channel> の直後、最初の <item> の前に挿入
+content = re.sub(
+    r'(<channel>\s*<title>[^<]*</title>\s*)',
+    r'\1' + new_item + '\n',
+    content,
+    count=1
+)
+
+with open(appcast_path, 'w') as f:
+    f.write(content)
+PYEOF
+
 echo "→ docs/appcast.xml を更新しました"
 
-# 一時コピーした DMG を削除（DMG は GitHub Releases からダウンロードさせる）
-rm "$TEMP_DMG"
-echo "→ 一時 DMG を削除しました"
-
-# ─── gh-pages ブランチに appcast.xml を反映 ───────────────────
-# GitHub Pages は gh-pages ブランチ root から配信されているため
-echo "→ gh-pages ブランチに appcast.xml を反映中..."
+# ─── gh-pages ブランチに反映 ──────────────────────────────────
+echo "→ gh-pages ブランチに反映中..."
 GH_PAGES_WORKTREE="/tmp/bridge-lite-gh-pages-$$"
-git -C "$REPO_ROOT" fetch public gh-pages
+git -C "$REPO_ROOT" fetch public gh-pages 2>/dev/null || true
 git -C "$REPO_ROOT" worktree add "$GH_PAGES_WORKTREE" public/gh-pages
 
 cp "$REPO_ROOT/docs/appcast.xml" "$GH_PAGES_WORKTREE/appcast.xml"
 
-# releases/ フォルダも同期
-if [[ -d "$REPO_ROOT/docs/releases" ]]; then
-    mkdir -p "$GH_PAGES_WORKTREE/releases"
-    rsync -a --exclude="*.dmg" "$REPO_ROOT/docs/releases/" "$GH_PAGES_WORKTREE/releases/"
-fi
+mkdir -p "$GH_PAGES_WORKTREE/releases"
+rsync -a --exclude="*.dmg" "$RELEASES_DIR/" "$GH_PAGES_WORKTREE/releases/"
 
 git -C "$GH_PAGES_WORKTREE" add appcast.xml releases/ 2>/dev/null || true
-git -C "$GH_PAGES_WORKTREE" commit -m "release: appcast for v${VERSION}"
+git -C "$GH_PAGES_WORKTREE" commit -m "release: appcast for mac/v${VERSION}" || echo "  (変更なし)"
 git -C "$GH_PAGES_WORKTREE" push public HEAD:gh-pages
 git -C "$REPO_ROOT" worktree remove "$GH_PAGES_WORKTREE"
 echo "→ gh-pages に push しました（GitHub Pages が数分で更新されます）"
 
 echo ""
 echo "=== 完了 ==="
-echo "次のステップ:"
-echo "  1. docs/releases/${VERSION}.html のリリースノートを確認・編集"
-echo "  2. master ブランチに commit & push:"
-echo "     git add docs/appcast.xml docs/releases/${VERSION}.html"
-echo "     git commit -m 'release: appcast for v${VERSION}'"
-echo "     git push origin master && git push public master"
-echo "  3. GitHub Releases に DMG をアップロード:"
-echo "     gh release create mac/v${VERSION} \\"
-echo "       ./dmgs/BridgeLite-${VERSION}.dmg \\"
-echo "       ./dmgs/BridgeLite-${VERSION}.dmg.sha256"
+echo "  appcast URL: https://hoge128.github.io/bridge-lite/appcast.xml"

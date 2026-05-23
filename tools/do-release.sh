@@ -142,9 +142,9 @@ git -C "$REPO_ROOT" add \
 git -C "$REPO_ROOT" commit -m "release: mac/v${VERSION}" || true
 git -C "$REPO_ROOT" push origin master
 git -C "$REPO_ROOT" push public master
-git -C "$REPO_ROOT" push origin "mac/v${VERSION}"
-git -C "$REPO_ROOT" push public "mac/v${VERSION}"
-ok "master ブランチと mac/v${VERSION} タグを push しました"
+git -C "$REPO_ROOT" push origin "mac/v${VERSION}" 2>/dev/null || warn "タグ mac/v${VERSION} は origin に既に存在します（スキップ）"
+git -C "$REPO_ROOT" push public "mac/v${VERSION}" 2>/dev/null || warn "タグ mac/v${VERSION} は public に既に存在します（スキップ）"
+ok "master ブランチを push しました"
 
 # ─── 完了 ────────────────────────────────────────────────────
 echo ""
