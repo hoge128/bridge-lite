@@ -53,6 +53,7 @@ targets:
       - path: Generated
         optional: true
         excludes:
+          - "lib/**"
           - "lib-ios/**"
           - "lib-ios-sim/**"
     settings:
@@ -80,7 +81,7 @@ targets:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite
-        CFBundleVersion: "11"
+        CFBundleVersion: "14"
         CFBundleShortVersionString: "0.4.2"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"
         # Finder の右クリック「このアプリケーションで開く」と Dock ドラッグで
