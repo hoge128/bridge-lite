@@ -130,6 +130,10 @@ struct SidebarView: View {
                         Group {
                             if !entry.isRaw, !rgbHistogram.isEmpty {
                                 RGBHistogramView(histogram: rgbHistogram)
+                            } else if !entry.isRaw {
+                                RoundedRectangle(cornerRadius: 4)
+                                    .fill(Color.secondary.opacity(0.08))
+                                    .shimmer()
                             } else {
                                 RoundedRectangle(cornerRadius: 4)
                                     .fill(Color.secondary.opacity(0.08))
@@ -145,7 +149,7 @@ struct SidebarView: View {
                                 .padding(.top, 4)
                         }
 
-                        ExifQuickBar(exif: store.exifData[entry.id])
+                        ExifQuickBar(exif: store.exifData[entry.id], isExifReady: store.isExifReady)
 
                         if !store.filter.flatten,
                            let rawMembers = store.shotGroups[entry.shotId], rawMembers.count > 1 {
@@ -354,6 +358,7 @@ struct PreviewImageView: View {
                         .font(.largeTitle)
                         .foregroundStyle(.tertiary)
                 )
+                .shimmer()
         }
     }
 }
@@ -427,6 +432,7 @@ struct RGBHistogramView: View {
 
 struct ExifQuickBar: View {
     let exif: ExifData?
+    var isExifReady: Bool = true
 
     private var isoText: String { exif?.iso.map { "\($0)" } ?? "--" }
     private var ssText: String {
@@ -447,6 +453,7 @@ struct ExifQuickBar: View {
         .padding(.horizontal, 8)
         .padding(.top, 6)
         .padding(.bottom, 2)
+        .shimmer(when: exif == nil && !isExifReady)
     }
 
     private var separator: some View {
@@ -786,6 +793,12 @@ struct ExifSectionView: View {
                         MetaRow(key: "Comment", value: comment)
                     }
                 }
+            } else if !store.isExifReady {
+                RoundedRectangle(cornerRadius: 4)
+                    .fill(Color.secondary.opacity(0.08))
+                    .frame(maxWidth: .infinity)
+                    .frame(height: 60)
+                    .shimmer()
             } else {
                 Text("—").foregroundStyle(.secondary).font(.caption)
             }

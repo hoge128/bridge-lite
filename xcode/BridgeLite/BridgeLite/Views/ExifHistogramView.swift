@@ -2,6 +2,7 @@ import SwiftUI
 
 struct ExifHistogramView: View {
     let bars: [ExifBucket]
+    var isLoading: Bool = false
     @Binding var minText: String
     @Binding var maxText: String
 
@@ -175,6 +176,7 @@ struct ExifHistogramView: View {
                     RoundedRectangle(cornerRadius: 4)
                         .fill(Color.secondary.opacity(0.08))
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                        .shimmer(when: isLoading)
                 }
             }
             .frame(height: 60)

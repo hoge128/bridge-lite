@@ -56,6 +56,7 @@ final class LibraryStore: ReindexedGroupSink {
     private(set) var scanPhase: ScanPhase = .idle
     private(set) var preScanImageFiles: Int = 0
     private(set) var loadedThumbnailCount: Int = 0
+    private(set) var isExifReady: Bool = false
     @ObservationIgnored private var pendingLoadedCount: Int = 0
     @ObservationIgnored private var loadedCountFlushTask: Task<Void, Never>?
 
@@ -357,6 +358,7 @@ final class LibraryStore: ReindexedGroupSink {
                     guard gen == self.scanGeneration else { return }
                     self.mergeExifBatch(exifMap, generation: gen)
                 }
+                self.isExifReady = true
 
                 // XMP: 並列度は BridgeQoS.xmpConcurrency で制御（通常 3、Burst Mode 時 8）
                 let xmpLimiter = ConcurrencyLimiter(maxConcurrent: BridgeQoS.xmpConcurrency)
@@ -2101,6 +2103,7 @@ final class LibraryStore: ReindexedGroupSink {
         thumbnailLoadTask = nil
         // openDirTask は cancelLoading() 経由でキャンセルする（reset は openDirectory() 内から呼ばれるため自己キャンセル不可）
         loadedThumbnailCount = 0
+        isExifReady = false
         pendingLoadedCount = 0
         loadedCountFlushTask?.cancel()
         loadedCountFlushTask = nil

@@ -387,7 +387,7 @@ struct FilterPanelView: View {
         case .iso:
             GroupBox {
                 DisclosureGroup(isExpanded: $isoExpanded) {
-                    ExifHistogramView(bars: store.isoBuckets, minText: filter.isoMin, maxText: filter.isoMax)
+                    ExifHistogramView(bars: store.isoBuckets, isLoading: store.isLoading, minText: filter.isoMin, maxText: filter.isoMax)
                 } label: {
                     sectionLabel("ISO", isExpanded: $isoExpanded,
                                  help: "Filter by ISO sensitivity. Click bars to select range or type values directly",
@@ -400,7 +400,7 @@ struct FilterPanelView: View {
         case .focal:
             GroupBox {
                 DisclosureGroup(isExpanded: $focalExpanded) {
-                    ExifHistogramView(bars: store.focalBuckets, minText: filter.focalMin, maxText: filter.focalMax)
+                    ExifHistogramView(bars: store.focalBuckets, isLoading: store.isLoading, minText: filter.focalMin, maxText: filter.focalMax)
                 } label: {
                     sectionLabel("Focal Length", isExpanded: $focalExpanded,
                                  help: "Filter by focal length (35mm equiv). Click bars to select range",
@@ -413,7 +413,7 @@ struct FilterPanelView: View {
         case .shutter:
             GroupBox {
                 DisclosureGroup(isExpanded: $shutterExpanded) {
-                    ExifHistogramView(bars: store.shutterBuckets, minText: filter.shutterMin, maxText: filter.shutterMax)
+                    ExifHistogramView(bars: store.shutterBuckets, isLoading: store.isLoading, minText: filter.shutterMin, maxText: filter.shutterMax)
                 } label: {
                     sectionLabel("Shutter", isExpanded: $shutterExpanded,
                                  help: "Filter by shutter speed. 1/2000s shown as '2k', 1/60s as '60'",
@@ -426,7 +426,7 @@ struct FilterPanelView: View {
         case .aperture:
             GroupBox {
                 DisclosureGroup(isExpanded: $apertureExpanded) {
-                    ExifHistogramView(bars: store.apertureBuckets, minText: filter.apertureMin, maxText: filter.apertureMax)
+                    ExifHistogramView(bars: store.apertureBuckets, isLoading: store.isLoading, minText: filter.apertureMin, maxText: filter.apertureMax)
                 } label: {
                     sectionLabel("Aperture", isExpanded: $apertureExpanded,
                                  help: "Filter by aperture (F-number). Click bars to select range",
@@ -453,7 +453,7 @@ struct FilterPanelView: View {
         case .luminance:
             GroupBox {
                 DisclosureGroup(isExpanded: $luminanceExpanded) {
-                    ExifHistogramView(bars: store.luminanceBuckets, minText: filter.luminanceMin, maxText: filter.luminanceMax)
+                    ExifHistogramView(bars: store.luminanceBuckets, isLoading: store.isLoading, minText: filter.luminanceMin, maxText: filter.luminanceMax)
                 } label: {
                     sectionLabel("Luminance", isExpanded: $luminanceExpanded,
                                  help: "Filter by average luminance (0 = dark, 255 = bright)",

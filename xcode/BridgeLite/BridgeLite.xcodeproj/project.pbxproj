@@ -39,6 +39,7 @@
 		3D9618AA9A9F30F68301F355 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1C59E59994061A04481C6A6A /* Localizable.xcstrings */; };
 		3E440C342AD8D7EC85E9F37B /* ScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE75B59E9A9916005F01D79 /* ScanStore.swift */; };
 		3ECF458059E0E92F6318ABA0 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F0D4EF54B7033D13443243 /* SidebarView.swift */; };
+		D83CF2EB33CC4F79B353FE67 /* ShimmerModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 805382D6085F4DEF83F42FBA /* ShimmerModifier.swift */; };
 		42C21D5247C07C7E1B455749 /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */; };
 		46298ED8412E1E06AADF32B2 /* FilterCriteria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */; };
 		4779F287F1B4C86EE63CCFEB /* JpgWriteMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAE570D73DB707E72992F2C3 /* JpgWriteMode.swift */; };
@@ -156,6 +157,7 @@
 		829D014EC927B51D64289330 /* ScanPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanPipeline.swift; sourceTree = "<group>"; };
 		851B10EDFF439C8C3987E4B6 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		8897A02D7131985030D5B46D /* ExifHistogramView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExifHistogramView.swift; sourceTree = "<group>"; };
+		805382D6085F4DEF83F42FBA /* ShimmerModifier.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShimmerModifier.swift; sourceTree = "<group>"; };
 		8959834812C243F4AB214555 /* ViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerView.swift; sourceTree = "<group>"; };
 		8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSheet.swift; sourceTree = "<group>"; };
 		8B691B7F084D124BC8711440 /* RustLink.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = RustLink.xcconfig; sourceTree = "<group>"; };
@@ -424,6 +426,7 @@
 				CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */,
 				9A4260412EA9F57B97926BB9 /* SettingsView.swift */,
 				05F0D4EF54B7033D13443243 /* SidebarView.swift */,
+				805382D6085F4DEF83F42FBA /* ShimmerModifier.swift */,
 				4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */,
 				9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */,
 				2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */,
@@ -642,6 +645,7 @@
 				2B393FBA258B56A1BD277370 /* SettingsView.swift in Sources */,
 				CBD8D3D6954D40D54CF4655C /* ShotGroup.swift in Sources */,
 				3ECF458059E0E92F6318ABA0 /* SidebarView.swift in Sources */,
+				D83CF2EB33CC4F79B353FE67 /* ShimmerModifier.swift in Sources */,
 				D1EC203AA8C20B42769BD3ED /* StorageProbe.swift in Sources */,
 				080BCFEFED5119F429F6EF37 /* SwiftBridgeCore.swift in Sources */,
 				0B0BC12A398E84A26C01BBBC /* TabBarView.swift in Sources */,

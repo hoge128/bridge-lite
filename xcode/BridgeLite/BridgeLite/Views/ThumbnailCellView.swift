@@ -383,6 +383,7 @@ struct ThumbnailImageView: View {
                         .foregroundStyle(.secondary)
                         .font(.title2)
                 )
+                .shimmer()
         }
     }
 }
