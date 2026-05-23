@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BridgeLite 0.4.2 Release Notes</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; font-size: 13px; margin: 0; padding: 12px 16px; color: #1d1d1f; }
+    h2 { font-size: 15px; margin: 0 0 8px; }
+    h3 { font-size: 12px; font-weight: 600; margin: 12px 0 4px; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+    ul { margin: 0 0 4px; padding-left: 18px; }
+    li { margin: 2px 0; }
+    .lang-divider { border: none; border-top: 1px solid #e0e0e0; margin: 16px 0; }
+  </style>
+</head>
+<body>
+
+<!-- English -->
+<h2>BridgeLite 0.4.2</h2>
+
+<h3>New Features</h3>
+<ul>
+  <li>Rubber band selection — drag across the grid to select multiple photos; hold Shift or ⌘ to extend the selection</li>
+  <li>Shimmer animation during scanning — thumbnails, sidebar preview, EXIF panel, and filter histograms now display a loading skeleton instead of a static grey placeholder</li>
+</ul>
+
+<h3>Filter UI Improvements</h3>
+<ul>
+  <li>Filter histograms are now more compact — reduced height and smaller range handles</li>
+  <li>Fixed filter panel aggregate views (camera/lens lists, histograms, rating counts) not clearing when opening a new folder</li>
+</ul>
+
+<h3>Fixes</h3>
+<ul>
+  <li>Fixed EXIF not appearing in the metadata panel and RAW+JPG pairs not being grouped on the first scan of a folder</li>
+  <li>After deleting a photo, focus now moves to the next photo in the grid rather than the previous one (consistent with the item shifting up to fill the gap)</li>
+</ul>
+
+<hr class="lang-divider">
+
+<!-- 日本語 -->
+<h2>BridgeLite 0.4.2</h2>
+
+<h3>新機能</h3>
+<ul>
+  <li>ラバーバンド選択 — グリッドの空白部をドラッグして複数の写真を範囲選択できるようになった。Shift または ⌘ を押しながらドラッグすると既存の選択に追加</li>
+  <li>スキャン中のシマーアニメーション — サムネイル・サイドバープレビュー・EXIF パネル・フィルタヒストグラムが、ローディング中に静的なグレー矩形ではなく波打つスケルトン表示になった</li>
+</ul>
+
+<h3>フィルタ UI 改善</h3>
+<ul>
+  <li>フィルタヒストグラムをよりコンパクトに — 高さと範囲ハンドルのサイズを縮小</li>
+  <li>フォルダを開き直したときにフィルタパネルのカメラ/レンズ一覧・ヒストグラム・レーティング件数などが前のフォルダの状態のまま残る問題を修正</li>
+</ul>
+
+<h3>バグ修正</h3>
+<ul>
+  <li>フォルダの初回スキャン時に EXIF がメタデータパネルに表示されない・RAW+JPG がペアとしてまとめて表示されない問題を修正</li>
+  <li>写真を削除した後のフォーカスが前の写真ではなく後ろの写真（繰り上がり先）に移動するよう変更。最後の写真を削除した場合のみ前の写真に移動する</li>
+</ul>
+
+</body>
+</html>
