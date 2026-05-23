@@ -34,7 +34,7 @@ struct ThumbnailCellView: View {
     // MARK: - Strict mode (square tile, info strip inside frame)
     // サムネイル上部 + 情報ストリップ下部をすべて cellSize×cellSize の丸枠内に収める
 
-    private static let infoStripHeight: CGFloat = 30
+    private static let infoStripHeight: CGFloat = 38
 
     // ファイル名・評価ストリップ（カラーラベルはサムネイル直下に別配置）
     private var infoStrip: some View {
@@ -46,14 +46,15 @@ struct ThumbnailCellView: View {
                 .frame(maxWidth: .infinity, alignment: .leading)
             if let rating = xmp?.rating, rating > 0 {
                 Text(String(repeating: "★", count: rating))
-                    .font(.system(size: 9, weight: .bold))
+                    .font(.system(size: 12, weight: .bold))
                     .foregroundStyle(.yellow.opacity(0.75))
             } else {
                 Color.clear.frame(height: 11)
             }
         }
         .padding(.horizontal, 5)
-        .padding(.vertical, 2)
+        .padding(.top, 2)
+        .padding(.bottom, 6)
         .frame(width: cellSize, height: Self.infoStripHeight - 4, alignment: .topLeading)
         .background(.ultraThinMaterial)
     }
