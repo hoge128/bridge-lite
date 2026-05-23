@@ -688,16 +688,16 @@ final class LibraryStore: ReindexedGroupSink {
         }
     }
 
-    // 削除後に移るべきフォーカス先: 削除塊の直前から後方に遡り、なければ直後に進む
+    // 削除後に移るべきフォーカス先: 削除塊の直後から前方に進み、なければ直前に遡る
     private func focusTargetAfterDeletion(oldVisible: [UInt64], minDeletedIdx: Int) -> UInt64? {
         let surviving = Set(visibleIDs)
+        for i in minDeletedIdx..<oldVisible.count {
+            if surviving.contains(oldVisible[i]) { return oldVisible[i] }
+        }
         if minDeletedIdx > 0 {
             for i in stride(from: minDeletedIdx - 1, through: 0, by: -1) {
                 if surviving.contains(oldVisible[i]) { return oldVisible[i] }
             }
-        }
-        for i in minDeletedIdx..<oldVisible.count {
-            if surviving.contains(oldVisible[i]) { return oldVisible[i] }
         }
         return nil
     }
