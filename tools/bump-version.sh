@@ -35,8 +35,8 @@ if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
 fi
 
 # ─── 現在のバージョンを取得 ───────────────────────────────────
-CURRENT_VERSION=$(grep 'CFBundleShortVersionString' "$PROJECT_YML" | grep -o '"[^"]*"' | tr -d '"')
-CURRENT_BUILD=$(grep 'CFBundleVersion' "$PROJECT_YML" | grep -o '"[^"]*"' | tr -d '"')
+CURRENT_VERSION=$(grep -m 1 'CFBundleShortVersionString' "$PROJECT_YML" | grep -o '"[^"]*"' | tr -d '"')
+CURRENT_BUILD=$(grep -m 1 'CFBundleVersion' "$PROJECT_YML" | grep -o '"[^"]*"' | tr -d '"')
 NEW_BUILD=$((CURRENT_BUILD + 1))
 
 echo "現在: $CURRENT_VERSION (build $CURRENT_BUILD)"
