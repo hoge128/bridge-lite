@@ -744,11 +744,11 @@
       <p class="platform-req" data-lang="ja">macOS 14 Sonoma 以降 · Apple Silicon (M1〜)</p>
       <p class="platform-req" data-lang="en">macOS 14 Sonoma or later · Apple Silicon (M1+)</p>
       <div class="platform-actions">
-        <a href="https://github.com/hoge128/bridge-lite/releases/latest" class="btn-fill" data-lang="ja">
+        <a href="https://github.com/hoge128/bridge-lite/releases/latest" class="btn-fill dmg-download" data-lang="ja">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           DMG をダウンロード
         </a>
-        <a href="https://github.com/hoge128/bridge-lite/releases/latest" class="btn-fill" data-lang="en">
+        <a href="https://github.com/hoge128/bridge-lite/releases/latest" class="btn-fill dmg-download" data-lang="en">
           <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
           Download DMG
         </a>
@@ -858,6 +858,18 @@
     }
     setLang(lang);
   })();
+
+  fetch('https://api.github.com/repos/hoge128/bridge-lite/releases/latest')
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      var asset = data.assets && data.assets.find(function(a) { return a.name.endsWith('.dmg'); });
+      if (!asset) return;
+      document.querySelectorAll('.dmg-download').forEach(function(el) {
+        el.href = asset.browser_download_url;
+        el.setAttribute('download', asset.name);
+      });
+    })
+    .catch(function() {});
 </script>
 </body>
 </html>
