@@ -129,6 +129,13 @@ struct FolderView: View {
         return fr is NSTextView || fr is NSTextField
     }
 
+    private func updateToolbarVisibility() {
+        guard let window = windowRef.window else { return }
+        let shouldHide = store.viewerMode || store.compareMode
+        window.toolbar?.isVisible = !shouldHide
+        window.titlebarAppearsTransparent = shouldHide
+    }
+
     var body: some View {
         @Bindable var store = store
 
@@ -155,7 +162,6 @@ struct FolderView: View {
                 .toolbar {
                     ToolbarView()
                 }
-                .toolbar(store.viewerMode || store.compareMode ? .hidden : .visible, for: .windowToolbar)
                 .navigationTitle(store.currentDirectoryURL?.lastPathComponent ?? "BridgeLite")
                 .onKeyPress(keys: [.tab], phases: .down) { press in
                     if store.viewerMode || store.compareMode { return .ignored }
@@ -228,6 +234,8 @@ struct FolderView: View {
             get: { windowRef.window },
             set: { windowRef.window = $0 }
         )))
+        .onChange(of: store.viewerMode) { _, _ in updateToolbarVisibility() }
+        .onChange(of: store.compareMode) { _, _ in updateToolbarVisibility() }
         .onAppear {
             guard spaceKeyMonitor == nil else { return }
             let s = store
