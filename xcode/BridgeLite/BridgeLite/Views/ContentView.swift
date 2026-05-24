@@ -250,6 +250,9 @@ struct FolderView: View {
                    !s.viewerMode, !s.compareMode,
                    s.primaryID != nil {
                     s.viewerMode = true
+                    if SettingsStore.shared.viewerSpaceFullscreen {
+                        ref.window?.toggleFullScreen(nil)
+                    }
                     return nil
                 }
                 // 0-9 rating / label keys (works in all modes: grid, viewer, compare)

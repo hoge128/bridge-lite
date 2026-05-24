@@ -87,6 +87,14 @@ struct SettingsView: View {
                     Text(String(localized: "settings.prevent_viewer_delete",
                                 defaultValue: "Prevent deletion in viewer"))
                 }
+                Toggle(isOn: $settings.viewerSpaceFullscreen) {
+                    Text(String(localized: "settings.viewer_space_fullscreen",
+                                defaultValue: "Enter fullscreen automatically when opening viewer with Space"))
+                }
+                Text(String(localized: "settings.viewer_space_fullscreen.note",
+                            defaultValue: "Press **m** to toggle fullscreen at any time in the viewer — regardless of this setting."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } header: {
                 Text(String(localized: "settings.shortcut.section", defaultValue: "Keyboard Shortcuts"))
             }

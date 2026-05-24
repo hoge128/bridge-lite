@@ -221,6 +221,9 @@ final class SettingsStore {
     var preventViewerDelete: Bool = (UserDefaults.standard.object(forKey: "preventViewerDelete") as? Bool) ?? false {
         didSet { UserDefaults.standard.set(preventViewerDelete, forKey: "preventViewerDelete") }
     }
+    var viewerSpaceFullscreen: Bool = (UserDefaults.standard.object(forKey: "viewerSpaceFullscreen") as? Bool) ?? false {
+        didSet { UserDefaults.standard.set(viewerSpaceFullscreen, forKey: "viewerSpaceFullscreen") }
+    }
     var calendarMaxMonths: Int = {
         let v = UserDefaults.standard.integer(forKey: "calendarMaxMonths")
         return v > 0 ? v : 5

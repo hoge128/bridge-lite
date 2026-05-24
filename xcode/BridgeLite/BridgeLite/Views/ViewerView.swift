@@ -127,17 +127,34 @@ struct ViewerView: View {
             let ref = windowRef
             keyMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
                 guard event.window === ref.window else { return event }
-                if event.keyCode == 53 || event.keyCode == 49 { // Escape / Space
+                let mods = event.modifierFlags.intersection([.command, .control, .option, .shift])
+                guard mods.isEmpty else { return event }
+                switch event.keyCode {
+                case 53: // Escape
+                    if ref.window?.styleMask.contains(.fullScreen) == true {
+                        ref.window?.toggleFullScreen(nil)
+                        // Setting ON: auto-fullscreen on enter → Esc skips viewer and returns to previous state
+                        if SettingsStore.shared.viewerSpaceFullscreen {
+                            s.viewerMode = false
+                        }
+                    } else {
+                        s.viewerMode = false
+                    }
+                    return nil
+                case 49: // Space: exit viewer
                     s.viewerMode = false
                     return nil
-                }
-                let mods = event.modifierFlags.intersection([.command, .control, .option, .shift])
-                if event.keyCode == 34, mods.isEmpty { // i: toggle metadata overlay
+                case 46: // m: toggle fullscreen
+                    ref.window?.toggleFullScreen(nil)
+                    return nil
+                case 34: // i: toggle metadata overlay
                     s.viewerShowsMeta.toggle()
                     return nil
+                default:
+                    break
                 }
                 // Arrow keys: pan when zoomed, otherwise let Prev/Next shortcut handle them
-                if mods.isEmpty, z.scale > 1.0 {
+                if z.scale > 1.0 {
                     let step: CGFloat = 50
                     switch event.keyCode {
                     case 123: z.offset.width  -= step; z.clampOffset(); z.baseOffset = z.offset; return nil

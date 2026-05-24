@@ -77,6 +77,9 @@ struct GroupCompareView: View {
                     if store.primaryID != nil {
                         store.viewerCompareGroupMembers = groupMembers
                         store.viewerMode = true
+                        if SettingsStore.shared.viewerSpaceFullscreen {
+                            NSApplication.shared.mainWindow?.toggleFullScreen(nil)
+                        }
                     }
                 }
                 .keyboardShortcut(.space, modifiers: [])
@@ -256,6 +259,9 @@ struct GroupCompareView: View {
             store.selectEntry(memberID)
             store.viewerCompareGroupMembers = groupMembers
             store.viewerMode = true
+            if SettingsStore.shared.viewerSpaceFullscreen {
+                NSApplication.shared.mainWindow?.toggleFullScreen(nil)
+            }
             lastMemberTap = nil
             return
         }
@@ -411,6 +417,9 @@ private struct CompareMemberColumn: View {
                           defaultValue: "Move to Viewer")) {
                 store.selectEntry(memberID)
                 store.viewerMode = true
+                if SettingsStore.shared.viewerSpaceFullscreen {
+                    NSApplication.shared.mainWindow?.toggleFullScreen(nil)
+                }
             }
 
             Divider()
