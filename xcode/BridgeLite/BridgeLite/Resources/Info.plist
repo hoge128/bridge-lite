@@ -35,6 +35,8 @@
 	<string>15</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.photography</string>
+	<key>NSHumanReadableCopyright</key>
+	<string>© 2026 hoge128. All rights reserved.</string>
 	<key>NSHumanReadableDescription</key>
 	<string>Lightweight RAW+JPG image viewer</string>
 	<key>SUAllowsAutomaticUpdates</key>

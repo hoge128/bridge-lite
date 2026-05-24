@@ -3,6 +3,7 @@ import SwiftUI
 struct AboutView: View {
     private static let version: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
     private static let copyright: String = Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String ?? ""
+    private static let githubURL = URL(string: "https://github.com/hoge128/bridge-lite")!
 
     var body: some View {
         VStack(spacing: 12) {
@@ -19,8 +20,15 @@ struct AboutView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+            Link("GitHub", destination: Self.githubURL)
+                .font(.caption)
             Divider()
             Text(Self.copyright)
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+                .multilineTextAlignment(.center)
+                .fixedSize(horizontal: false, vertical: true)
+            Text(verbatim: "Sparkle 2.9.1 — © 2006–2022 Andy Matuschak,\nElgato Systems GmbH, Kornel Lesiński, Mayur Pawashe\nand contributors. MIT License.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
