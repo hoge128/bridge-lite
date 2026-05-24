@@ -2,7 +2,19 @@
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
         <title>BridgeLite</title>
-        <item>
+                <item>
+            <title>0.4.4</title>
+            <pubDate>Mon, 25 May 2026 02:24:27 +0900</pubDate>
+            <link>https://hoge128.github.io/bridge-lite/</link>
+            <sparkle:releaseNotesLink>https://hoge128.github.io/bridge-lite/releases/0.4.4.html</sparkle:releaseNotesLink>
+            <sparkle:fullReleaseNotesLink>https://hoge128.github.io/bridge-lite/releases/0.4.4.html</sparkle:fullReleaseNotesLink>
+            <sparkle:version>18</sparkle:version>
+            <sparkle:shortVersionString>0.4.4</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
+            <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
+            <enclosure url="https://github.com/hoge128/bridge-lite/releases/download/mac%2Fv0.4.4/BridgeLite-0.4.4.dmg" length="7355523" type="application/octet-stream" sparkle:edSignature="/fIzRvQXsCEw+H1+42RwSXpcyZfA2l4XgkXuoenJ8JzCy78FHv6bxk3N3rh4PoqzTaA22TZBDFsFuAdT9aiYCw=="/>
+        </item>
+<item>
             <title>0.4.3</title>
             <pubDate>Sat, 23 May 2026 21:58:11 +0900</pubDate>
             <link>https://hoge128.github.io/bridge-lite/</link>
