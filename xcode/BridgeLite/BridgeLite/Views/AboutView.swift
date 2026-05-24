@@ -4,6 +4,7 @@ struct AboutView: View {
     private static let version: String = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String ?? ""
     private static let copyright: String = Bundle.main.infoDictionary?["NSHumanReadableCopyright"] as? String ?? ""
     private static let githubURL = URL(string: "https://github.com/hoge128/bridge-lite")!
+    private static let privacyURL = URL(string: "https://hoge128.github.io/bridge-lite/privacy-policy")!
 
     var body: some View {
         VStack(spacing: 12) {
@@ -20,8 +21,12 @@ struct AboutView: View {
                 .foregroundStyle(.secondary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
-            Link("GitHub", destination: Self.githubURL)
-                .font(.caption)
+            HStack(spacing: 16) {
+                Link("GitHub", destination: Self.githubURL)
+                Link(String(localized: "settings.privacy_policy", defaultValue: "Privacy Policy"),
+                     destination: Self.privacyURL)
+            }
+            .font(.caption)
             Divider()
             Text(Self.copyright)
                 .font(.caption2)
