@@ -51,15 +51,30 @@ struct ContentView: View {
                 store.loadFolder(url)
             }
             .onChange(of: nsWindow) { _, newWindow in
-                // OpenFolderRegistry の照合に使うため store にウィンドウ参照を持たせる。
+                guard let newWindow else { return }
+                newWindow.identifier = NSUserInterfaceItemIdentifier("BridgeLiteMain")
+
+                // 防波堤: Finder "Open With" 等で重複ウィンドウが生成された場合、
+                // pendingOpenURL を既存ウィンドウに引き渡してから閉じる。
+                if let existing = NSApp.windows.first(where: {
+                    $0 !== newWindow && $0.identifier?.rawValue == "BridgeLiteMain"
+                }) {
+                    if let pending = (NSApp.delegate as? AppDelegate)?.pendingOpenURL {
+                        (NSApp.delegate as? AppDelegate)?.pendingOpenURL = nil
+                        existing.makeKeyAndOrderFront(nil)
+                        DispatchQueue.main.async {
+                            NotificationCenter.default.post(name: .bridgeLiteOpenURL, object: pending)
+                        }
+                    } else {
+                        existing.makeKeyAndOrderFront(nil)
+                    }
+                    newWindow.close()
+                    return
+                }
+
                 store.window = newWindow
-                // viewDidMoveToWindow 経由で nsWindow がセットされた直後に
-                // pendingOpenURL が残っていれば回収する（fresh launch の補完経路）。
                 consumePendingOpenURL()
-                // SwiftUI が外部 URL 起動時に作る新規ウィンドウは
-                // representedURL がデフォルトで効いて navigationTitle が上書きされる。
-                // representedURL を nil にしてタイトルバーがフォルダ名のみになるようにする。
-                newWindow?.representedURL = nil
+                newWindow.representedURL = nil
                 applyWindowTitle(newWindow)
             }
             .onReceive(NotificationCenter.default.publisher(for: NSWindow.willCloseNotification)) { notif in

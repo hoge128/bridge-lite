@@ -16,6 +16,15 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         return true
     }
 
+    func applicationShouldHandleReopen(_ sender: NSApplication, hasVisibleWindows flag: Bool) -> Bool {
+        if let mainWindow = NSApp.windows.first(where: { $0.identifier?.rawValue == "BridgeLiteMain" }) {
+            if mainWindow.isMiniaturized { mainWindow.deminiaturize(nil) }
+            mainWindow.makeKeyAndOrderFront(nil)
+            return false
+        }
+        return true
+    }
+
     func application(_ application: NSApplication, open urls: [URL]) {
         let target: URL
         if let folder = urls.first(where: { $0.hasDirectoryPath }) {
@@ -23,6 +32,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         } else if let file = urls.first {
             target = file.deletingLastPathComponent()
         } else { return }
+        // 既存のメインウィンドウを前面に出す。
+        // onReceive の win === front 判定と、onChange の防波堤で既存ウィンドウを正しく
+        // 選ばせるための前処理。
+        if let mainWindow = NSApp.windows.first(where: { $0.identifier?.rawValue == "BridgeLiteMain" }) {
+            if mainWindow.isMiniaturized { mainWindow.deminiaturize(nil) }
+            mainWindow.makeKeyAndOrderFront(nil)
+        }
         pendingOpenURL = target
         // 次の runloop サイクルで notification を発火させることで、
         // SwiftUI が WindowAccessor 経由で nsWindow をセットし終えるのを待つ。
@@ -95,7 +111,7 @@ struct BridgeLiteApp: App {
     }
 
     var body: some Scene {
-        WindowGroup(id: "main") {
+        Window("BridgeLite", id: "main") {
             ContentView()
                 .frame(minWidth: 900, minHeight: 600)
                 .focusedSceneObject(windowState)
