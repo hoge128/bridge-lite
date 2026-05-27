@@ -70,7 +70,6 @@ struct ThumbnailGridView: View {
                     initialGroup: group,
                     entries: scanStore.entries,
                     thumbnails: scanStore.thumbnails,
-                    exifs: scanStore.exifs,
                     ratings: Binding(
                         get: { ratingStore.ratings },
                         set: { ratingStore.ratings = $0 }
@@ -127,16 +126,32 @@ struct ThumbnailGridView: View {
     private var scanProgressBanner: some View {
         HStack(spacing: 8) {
             ProgressView().controlSize(.mini)
-            if scanStore.scanTotalCount > 0 {
-                Text(String(format: String(localized: "Loading %d / %d"),
-                            scanStore.scanLoadedCount, scanStore.scanTotalCount))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            } else {
-                Text(String(localized: "Scanning…"))
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
+            Group {
+                if scanStore.scanLoadedCount < scanStore.scanTotalCount || scanStore.exifIndexTotal == 0 {
+                    // サムネイル読み込みフェーズ
+                    if scanStore.scanTotalCount > 0 {
+                        Text(String(format: String(localized: "Loading %d / %d"),
+                                    scanStore.scanLoadedCount, scanStore.scanTotalCount))
+                    } else {
+                        Text(String(localized: "Scanning…"))
+                    }
+                } else {
+                    // EXIF 索引フェーズ（サムネイル 全件完了後）
+                    VStack(alignment: .leading, spacing: 1) {
+                        Text(String(format: String(localized: "scan.exif.progress %d %d",
+                                                   defaultValue: "Indexing EXIF %1$d / %2$d"),
+                                    scanStore.exifIndexProgress, scanStore.exifIndexTotal))
+                        if let secs = scanStore.exifIndexRemainingSeconds {
+                            Text(String(format: String(localized: "scan.exif.remaining %d",
+                                                       defaultValue: "Est. %d sec remaining"),
+                                        secs))
+                                .foregroundStyle(.tertiary)
+                        }
+                    }
+                }
             }
+            .font(.caption2)
+            .foregroundStyle(.secondary)
             Spacer()
         }
         .padding(.horizontal, 12)

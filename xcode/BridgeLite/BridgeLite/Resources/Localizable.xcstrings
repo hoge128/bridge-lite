@@ -3482,6 +3482,38 @@
         }
       }
     },
+    "scan.exif.progress %d %d" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indexing EXIF %1$d / %2$d"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EXIF索引中 %1$d / %2$d"
+          }
+        }
+      }
+    },
+    "scan.exif.remaining %d" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Est. %d sec remaining"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "残り約%d秒"
+          }
+        }
+      }
+    },
     "Loading thumbnails…" : {
       "extractionState" : "stale",
       "localizations" : {

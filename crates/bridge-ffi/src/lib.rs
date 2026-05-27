@@ -12,7 +12,12 @@
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::SystemTime;
+
+// EXIF 索引の進捗をポーリング可能にするグローバルカウンタ
+static EXIF_INDEX_PROGRESS: AtomicUsize = AtomicUsize::new(0);
+static EXIF_INDEX_TOTAL: AtomicUsize = AtomicUsize::new(0);
 
 use bridge_core::developed::DEVELOPED_SOFTWARE_KEYWORDS;
 use bridge_core::error::{CoreError, CoreErrorId};
@@ -493,6 +498,10 @@ mod ffi {
         fn bridge_is_raw(path: &str) -> bool;
         fn bridge_developed_keywords() -> Vec<String>;
         fn bridge_has_images_beyond_scan_depth(path: &str) -> bool;
+
+        // EXIF indexing progress (poll from Swift during scan)
+        fn bridge_exif_index_progress() -> usize;
+        fn bridge_exif_index_total() -> usize;
     }
 }
 
@@ -518,9 +527,56 @@ fn bridge_scan_directory(_db: &BridgeDatabase, path: &str) -> ImageEntryList {
 }
 
 fn bridge_index_new_entries(db: &BridgeDatabase, entries: &ImageEntryList) {
-    let paths: Vec<PathBuf> = entries.entries.iter().map(|e| e.path.clone()).collect();
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
-    bridge_core::db::index_new_entries(&paths, &conn);
+    // スキャン済みエントリの mtime をそのまま使う（stat 再呼び出しを排除）。
+    // SD カード経由の stat は 1 回 100-300ms かかることがあり、825 ファイル分を
+    // ミューテックス保持中に実行すると db.conn を数分間占有してサムネイル書き込みを
+    // 完全にブロックしてしまう。エントリ取得時に既に mtime を取得済みなので再読不要。
+    let path_mtimes: Vec<(PathBuf, i64)> = entries.entries.iter()
+        .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
+        .collect();
+
+    // Phase 1: キャッシュヒット確認（ロック短時間・SQL クエリのみ）
+    let misses: Vec<(PathBuf, i64)> = {
+        let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let cached = bridge_core::db::fetch_exif_batch(&path_mtimes, &conn);
+        path_mtimes.iter()
+            .filter(|(p, _)| !cached.contains_key(p))
+            .cloned()
+            .collect()
+    }; // ロック解放
+
+    if misses.is_empty() {
+        return;
+    }
+
+    // Phase 2: ファイルから EXIF 読み込み（ロック不要、純粋なファイル I/O）
+    // グローバルカウンタを初期化して Swift 側からポーリング可能にする
+    EXIF_INDEX_TOTAL.store(misses.len(), Ordering::Relaxed);
+    EXIF_INDEX_PROGRESS.store(0, Ordering::Relaxed);
+    let new_data = std::sync::Mutex::new(Vec::<(PathBuf, i64, CoreExifData)>::new());
+    bridge_core::runtime::background_pool().scope(|scope| {
+        for (path, mtime) in &misses {
+            scope.spawn(|_| {
+                let mtime = *mtime;
+                if let Some(exif) = bridge_core::metadata::read_exif_sync(path) {
+                    let mut data = new_data.lock().unwrap_or_else(|e| e.into_inner());
+                    data.push((path.clone(), mtime, exif));
+                }
+                EXIF_INDEX_PROGRESS.fetch_add(1, Ordering::Relaxed);
+            });
+        }
+    });
+    let new_data = new_data.into_inner().unwrap_or_else(|e| e.into_inner());
+
+    // Phase 3: SQLite に一括書き込み（ロック短時間）
+    if !new_data.is_empty() {
+        let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let _ = conn.execute_batch("BEGIN");
+        for (path, mtime, exif) in &new_data {
+            let _ = bridge_core::db::upsert(&conn, path, exif, *mtime);
+        }
+        let _ = conn.execute_batch("COMMIT");
+    }
 }
 
 fn image_entry_list_count(list: &ImageEntryList) -> usize {
@@ -991,4 +1047,12 @@ fn bridge_has_images_beyond_scan_depth(path: &str) -> bool {
         Path::new(path),
         bridge_core::scanner::SCAN_MAX_DEPTH,
     )
+}
+
+fn bridge_exif_index_progress() -> usize {
+    EXIF_INDEX_PROGRESS.load(Ordering::Relaxed)
+}
+
+fn bridge_exif_index_total() -> usize {
+    EXIF_INDEX_TOTAL.load(Ordering::Relaxed)
 }

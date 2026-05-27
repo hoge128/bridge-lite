@@ -64,6 +64,23 @@ final class ScanStore: ReindexedGroupSink {
     var scanError: String?
     private(set) var scanTotalCount: Int = 0
     private(set) var scanLoadedCount: Int = 0
+    /// EXIF 索引の進捗（0 = 未開始 / 全件キャッシュ済み）
+    private(set) var exifIndexProgress: Int = 0
+    private(set) var exifIndexTotal: Int = 0
+    /// EXIF 索引開始時刻（残り時間推定用）
+    private var exifIndexStartTime: Date?
+
+    /// 残り秒数の推定値（0.5 秒ポーリングで更新される）
+    var exifIndexRemainingSeconds: Int? {
+        guard exifIndexTotal > 0, exifIndexProgress > 0,
+              exifIndexProgress < exifIndexTotal,
+              let start = exifIndexStartTime else { return nil }
+        let elapsed = Date().timeIntervalSince(start)
+        guard elapsed > 0 else { return nil }
+        let rate = Double(exifIndexProgress) / elapsed
+        let remaining = Double(exifIndexTotal - exifIndexProgress) / rate
+        return remaining > 1 ? Int(remaining.rounded()) : nil
+    }
 
     // MARK: - Filter category order
 
@@ -461,6 +478,9 @@ final class ScanStore: ReindexedGroupSink {
         exifs = [:]
         scanTotalCount = 0
         scanLoadedCount = 0
+        exifIndexProgress = 0
+        exifIndexTotal = 0
+        exifIndexStartTime = nil
 
         do {
             let db = try BridgeCoreDatabase.open(path: Self.cacheDBURL())
@@ -488,6 +508,22 @@ final class ScanStore: ReindexedGroupSink {
             let indexTask = Task.detached(priority: .utility) {
                 await BridgeCore.indexNewEntries(list: capturedList, db: db)
             }
+
+            // EXIF 索引進捗ポーラー（300ms 間隔でアトミックカウンタを読んで UI 更新）
+            let progressPoller = Task { [weak self] in
+                while let self, gen == self.scanGeneration {
+                    let progress = BridgeCore.exifIndexProgress()
+                    let total = BridgeCore.exifIndexTotal()
+                    if exifIndexStartTime == nil && progress > 0 && total > 0 {
+                        exifIndexStartTime = Date()
+                    }
+                    exifIndexProgress = progress
+                    exifIndexTotal = total
+                    if total > 0 && progress >= total { break }
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                }
+            }
+            defer { progressPoller.cancel() }
 
             // EXIF 取得・グルーピング再計算: 索引完了後に実行
             let exifTask = Task { [weak self] in

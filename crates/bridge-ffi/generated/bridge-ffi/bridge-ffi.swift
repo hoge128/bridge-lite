@@ -267,6 +267,12 @@ public func bridge_has_images_beyond_scan_depth<GenericToRustStr: ToRustStr>(_ p
         __swift_bridge__$bridge_has_images_beyond_scan_depth(pathAsRustStr)
     })
 }
+public func bridge_exif_index_progress() -> UInt {
+    __swift_bridge__$bridge_exif_index_progress()
+}
+public func bridge_exif_index_total() -> UInt {
+    __swift_bridge__$bridge_exif_index_total()
+}
 
 public class ThumbBatchBuilder: ThumbBatchBuilderRefMut {
     var isOwned: Bool = true

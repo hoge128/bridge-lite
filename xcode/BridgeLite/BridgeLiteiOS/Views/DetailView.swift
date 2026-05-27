@@ -15,7 +15,6 @@ struct DetailView: View {
     let groups: [ShotGroup]
     let entries: [UInt64: PhotoEntry]
     let thumbnails: [UInt64: Data]
-    let exifs: [UInt64: ExifData]
     @Binding var ratings: [UInt64: XmpData]
     let db: BridgeCoreDatabase?
     let jpgWriteMode: JpgWriteMode
@@ -51,7 +50,6 @@ struct DetailView: View {
          initialGroup: ShotGroup,
          entries: [UInt64: PhotoEntry],
          thumbnails: [UInt64: Data],
-         exifs: [UInt64: ExifData],
          ratings: Binding<[UInt64: XmpData]>,
          db: BridgeCoreDatabase?,
          jpgWriteMode: JpgWriteMode = .embed,
@@ -60,7 +58,6 @@ struct DetailView: View {
         self.groups = groups
         self.entries = entries
         self.thumbnails = thumbnails
-        self.exifs = exifs
         self._ratings = ratings
         self.db = db
         self.jpgWriteMode = jpgWriteMode
@@ -138,7 +135,7 @@ struct DetailView: View {
 
                             PhotoInfoCard(
                                 entry: entry,
-                                exif: exifs[entry.id],
+                                exif: scanStore.exifs[entry.id],
                                 xmp: ratings[entry.id],
                                 thumbnailData: thumbnails[entry.id],
                                 isLoading: scanStore.isScanning && !scanStore.isExifReady

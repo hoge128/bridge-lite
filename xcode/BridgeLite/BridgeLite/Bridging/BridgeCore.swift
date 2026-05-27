@@ -222,6 +222,13 @@ enum BridgeCore {
         }.value
     }
 
+    // MARK: EXIF indexing progress
+
+    /// EXIF 索引の完了済みファイル数（ポーリング用アトミック読み取り、スレッドセーフ）
+    static func exifIndexProgress() -> Int { Int(bridge_exif_index_progress()) }
+    /// EXIF 索引の対象ファイル総数（0 = 索引フェーズ未開始 or 全件キャッシュ済み）
+    static func exifIndexTotal() -> Int { Int(bridge_exif_index_total()) }
+
     // MARK: pHash
 
     static func computePHash(luma: Data) async -> UInt64 {

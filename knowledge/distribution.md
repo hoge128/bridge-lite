@@ -87,3 +87,113 @@ xcrun stapler staple build/export/BridgeLite.app
 | App Store 公開 | App Store Distribution | $99/年 | App Store ユーザー全員 |
 
 App Store を目指す場合はサンドボックス対応（Security-Scoped Bookmark 実装）が追加で必要。直接配布のほうが実装コストは低い。
+
+---
+
+## MAS 版と DMG 版の2バリアント管理方針
+
+### 基本方針: 2ターゲット + xcconfig
+
+同一 `.xcodeproj` 内にターゲットを2つ作り、大半のソースファイルは共有参照する。
+
+```
+xcode/BridgeLite/
+├── BridgeLite.xcodeproj/
+├── Configurations/
+│   ├── Base.xcconfig          # 共通ビルド設定
+│   ├── DirectDMG.xcconfig     # Sparkle / Developer ID 固有
+│   └── MAS.xcconfig           # App Sandbox / Apple Distribution 固有
+├── BridgeLite/                # 共有ソース（大半）
+├── BridgeLite-DMG.entitlements
+├── BridgeLite-MAS.entitlements
+└── Frameworks/
+    └── Sparkle.xcframework    # DMG ターゲットのみリンク
+```
+
+### ターゲット設定の差分
+
+| 設定 | BridgeLite（DMG） | BridgeLiteMAS |
+|------|-----------------|---------------|
+| 署名証明書 | Developer ID Application | Apple Distribution |
+| Provisioning Profile | なし（自動） | Mac App Store |
+| App Sandbox | OFF | ON |
+| Sparkle リンク | あり | なし |
+| Entitlements | DMG 用 | MAS 用 |
+| `SWIFT_ACTIVE_COMPILATION_CONDITIONS` | `DIRECT_DMG` | `MAS_BUILD` |
+| Bundle ID | 既存のまま | 別 ID（例: `.mas` サフィックス）|
+
+Bundle ID を分ける理由: SQLite キャッシュ・UserDefaults がバージョン間で混在しないようにするため。
+
+### エンタイトルメントの差分
+
+**BridgeLite-DMG.entitlements** — Hardened Runtime のみ（現行と同じ）
+
+**BridgeLite-MAS.entitlements**
+```xml
+<key>com.apple.security.app-sandbox</key><true/>
+<key>com.apple.security.files.user-selected.read-write</key><true/>
+<key>com.apple.security.files.bookmarks.app-scope</key><true/>
+```
+
+### 条件コンパイルで分岐するコード
+
+```swift
+// Sparkle: DMG のみリンク・使用
+#if DIRECT_DMG
+import Sparkle
+class AppUpdater { ... }
+#endif
+
+// setattrlist (btime.rs): サンドボックスでは動作しない可能性があるため MAS では無効化
+func setCreationDate(_ url: URL, date: Date) {
+#if DIRECT_DMG
+    bridge_core_set_btime(...)
+#endif
+    // MAS では何もしない
+}
+
+// Security-Scoped Bookmark: MAS のみ必要
+#if MAS_BUILD
+class FolderBookmarkStore {
+    func save(_ url: URL) throws {
+        let data = try url.bookmarkData(
+            options: .withSecurityScope,
+            includingResourceValuesForKeys: nil,
+            relativeTo: nil
+        )
+        // UserDefaults などに保存
+    }
+    func restoreAll() -> [URL] {
+        // 起動時に bookmark を解決して startAccessingSecurityScopedResource()
+    }
+}
+#endif
+```
+
+### Privacy Manifest（MAS 提出に必須）
+
+`PrivacyInfo.xcprivacy` を MAS ターゲットに追加し、以下を申告する:
+- EXIF 経由で取得する位置情報・カメラ情報（収集はしないが API を使う場合は理由の記載が必要）
+- Required Reason API（`UserDefaults` など）の使用理由
+
+### リリースフロー
+
+```bash
+# DMG 版（現行）
+./tools/do-release.sh 0.x.y
+
+# MAS 版（将来）
+# → Xcode Organizer から BridgeLiteMAS スキームでアーカイブ → Distribute to App Store
+# do-release-mas.sh に相当するスクリプトを別途作成予定
+```
+
+MAS 版は Notarization・DMG 作成・appcast 更新が不要。代わりに App Store Connect へのアップロードが必要。
+
+### 実装作業の優先順位
+
+1. `BridgeLiteMAS` ターゲットを作成し、`SWIFT_ACTIVE_COMPILATION_CONDITIONS = MAS_BUILD` を設定
+2. MAS 用エンタイトルメントファイルを作成
+3. Sparkle・setattrlist を `#if DIRECT_DMG` で囲む
+4. `FolderBookmarkStore` を実装して `openDirectory` と統合
+5. `PrivacyInfo.xcprivacy` を追加
+6. App Store Connect にアプリ登録・スクリーンショット等を準備

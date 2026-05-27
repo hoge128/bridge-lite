@@ -291,7 +291,7 @@ pub fn index_new_entries(paths: &[PathBuf], conn: &Connection) {
 
 // ── Thumbnail blob cache ───────────────────────────────────────────────────
 
-fn file_mtime(path: &Path) -> i64 {
+pub fn file_mtime(path: &Path) -> i64 {
     std::fs::metadata(path)
         .ok()
         .and_then(|m| m.modified().ok())
@@ -578,7 +578,7 @@ pub fn prune_cache(conn: &Connection, max_age_days: u32) {
     ));
 }
 
-fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result<()> {
+pub fn upsert(conn: &Connection, path: &Path, exif: &ExifData, mtime: i64) -> Result<()> {
     let path_str = path.to_string_lossy();
     let filename = path
         .file_name()
