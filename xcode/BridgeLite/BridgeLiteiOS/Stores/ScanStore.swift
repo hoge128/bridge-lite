@@ -575,6 +575,21 @@ final class ScanStore: ReindexedGroupSink {
         folderURL = nil
     }
 
+    /// 指定エントリの EXIF をオンデマンドで取得しキャッシュに書き込む。
+    /// すでに exifs[id] が存在する場合は何もしない（冪等）。
+    /// バッチスキャン（indexNewEntries + fetchExifBatch）と同一の SQLite upsert を使うため
+    /// キャッシュの不整合は生じない。
+    func fetchExifOnDemand(id: UInt64, url: URL) async {
+        guard exifs[id] == nil, let db else { return }
+        if let exif = await BridgeCore.fetchExif(url: url, db: db) {
+            exifs[id] = exif
+        } else {
+            // EXIF を持たないファイル（PNG 等）も空レコードで記録し、
+            // batchと同様に indeterminate 判定が正しく動くようにする
+            exifs[id] = ExifData()
+        }
+    }
+
     private func sortedMemberIDs(_ memberIDs: [UInt64], entries: [UInt64: PhotoEntry]) -> [UInt64] {
         // suffix + exif ベースで developed を先頭に（xmps なしの簡易版）
         let devs = memberIDs.filter { id in

@@ -166,6 +166,8 @@ struct DetailView: View {
                 rawRendered = nil
                 showRendered = false
                 guard let entry = current else { return }
+                // バッチ索引完了前でも EXIF を表示できるようオンデマンド取得
+                await scanStore.fetchExifOnDemand(id: entry.id, url: entry.url)
                 await loadAndCache(entry: entry)
                 for sibling in members where sibling.id != entry.id {
                     Task(priority: .utility) { await loadAndCache(entry: sibling) }

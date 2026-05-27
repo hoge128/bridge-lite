@@ -20,7 +20,7 @@ struct OnboardingGuideView: View {
     private func loadImage(stepIndex: Int) -> UIImage? {
         guard let url = Bundle.main.url(
             forResource: "step\(stepIndex)",
-            withExtension: "PNG",
+            withExtension: "png",
             subdirectory: "exp-images/\(langCode)"
         ) else { return nil }
         return UIImage(contentsOfFile: url.path)

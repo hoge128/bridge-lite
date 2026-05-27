@@ -134,4 +134,9 @@ extension View {
     func shimmer() -> some View {
         modifier(ShimmerModifier())
     }
+
+    @ViewBuilder
+    func shimmer(when enabled: Bool) -> some View {
+        if enabled { modifier(ShimmerModifier()) } else { self }
+    }
 }
