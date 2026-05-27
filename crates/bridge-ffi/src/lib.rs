@@ -527,6 +527,11 @@ fn bridge_scan_directory(_db: &BridgeDatabase, path: &str) -> ImageEntryList {
 }
 
 fn bridge_index_new_entries(db: &BridgeDatabase, entries: &ImageEntryList) {
+    // 前回スキャンのカウンタが残っていると、ポーラーが即 break してしまうため先頭でリセット。
+    // Phase 1（キャッシュチェック）中は total=0 のままになり、UI はサムネイルフェーズを維持する。
+    EXIF_INDEX_TOTAL.store(0, Ordering::Relaxed);
+    EXIF_INDEX_PROGRESS.store(0, Ordering::Relaxed);
+
     // スキャン済みエントリの mtime をそのまま使う（stat 再呼び出しを排除）。
     // SD カード経由の stat は 1 回 100-300ms かかることがあり、825 ファイル分を
     // ミューテックス保持中に実行すると db.conn を数分間占有してサムネイル書き込みを
