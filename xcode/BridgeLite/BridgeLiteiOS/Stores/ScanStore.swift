@@ -546,6 +546,7 @@ final class ScanStore: ReindexedGroupSink {
 
                 await capturedPairing.noteExifReady(list: capturedList, db: db, store: self, splitThresholdSecs: 2, phashHammingThreshold: 15, generation: gen)
                 guard gen == self.scanGeneration else { return }
+                await self.onDemandWriteBuffer?.drain()
             }
 
             // キャッシュ済みサムネイルのみ即時表示（未キャッシュは各セルがオンデマンドで取得）
