@@ -1,5 +1,6 @@
 import Foundation
 import Observation
+import SQLite3
 
 // MARK: - PropagationMatrix
 
@@ -394,8 +395,24 @@ final class ScanStore: ReindexedGroupSink {
     // MARK: - DB path
 
     static func cacheSizeBytes() -> Int64 {
-        let attrs = try? FileManager.default.attributesOfItem(atPath: cacheDBURL().path)
-        return attrs?[.size] as? Int64 ?? 0
+        let base = cacheDBURL().path
+        let fm = FileManager.default
+        return [base, base + "-wal", base + "-shm"].reduce(Int64(0)) { total, path in
+            let size = (try? fm.attributesOfItem(atPath: path))?[.size] as? Int64 ?? 0
+            return total + size
+        }
+    }
+
+    static func cachedThumbnailCount() -> Int {
+        let path = cacheDBURL().path
+        var db: OpaquePointer?
+        guard sqlite3_open_v2(path, &db, SQLITE_OPEN_READONLY, nil) == SQLITE_OK else { return 0 }
+        defer { sqlite3_close(db) }
+        var stmt: OpaquePointer?
+        guard sqlite3_prepare_v2(db, "SELECT COUNT(*) FROM thumbnails", -1, &stmt, nil) == SQLITE_OK else { return 0 }
+        defer { sqlite3_finalize(stmt) }
+        guard sqlite3_step(stmt) == SQLITE_ROW else { return 0 }
+        return Int(sqlite3_column_int64(stmt, 0))
     }
 
     static func cacheDBURL() -> URL {

@@ -8,6 +8,7 @@ struct SettingsSheetView: View {
     @State private var showThumbQualityHelp = false
     @State private var showPhashHelp = false
     @State private var cacheSizeBytes: Int64 = 0
+    @State private var cachedImageCount: Int = 0
     var onDismiss: () -> Void
 
     private static let byteFormatter: ByteCountFormatter = {
@@ -141,6 +142,10 @@ struct SettingsSheetView: View {
                         Text(Self.byteFormatter.string(fromByteCount: cacheSizeBytes))
                             .foregroundStyle(.secondary)
                     }
+                    LabeledContent(String(localized: "Cached Images")) {
+                        Text(cachedImageCount.formatted())
+                            .foregroundStyle(.secondary)
+                    }
                     Button(role: .destructive) {
                         showCacheClearConfirm = true
                     } label: {
@@ -164,7 +169,10 @@ struct SettingsSheetView: View {
             }
         }
         .presentationDetents([.medium, .large])
-        .onAppear { cacheSizeBytes = ScanStore.cacheSizeBytes() }
+        .onAppear {
+            cacheSizeBytes = ScanStore.cacheSizeBytes()
+            cachedImageCount = ScanStore.cachedThumbnailCount()
+        }
         .interactiveDismissDisabled(false)
         .confirmationDialog(
             String(localized: "Clear Cache?"),
