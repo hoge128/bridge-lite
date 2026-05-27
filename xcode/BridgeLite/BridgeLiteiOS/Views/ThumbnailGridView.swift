@@ -223,6 +223,7 @@ struct ThumbnailGridView: View {
                     ratings: ratingStore.ratings
                 )
                 .transition(.move(edge: .bottom).combined(with: .opacity))
+                .onTapGesture { }
             }
             FilterBarView(selectedCategory: $selectedFilterCategory, scanStore: scanStore)
                 .padding(.horizontal, 16)

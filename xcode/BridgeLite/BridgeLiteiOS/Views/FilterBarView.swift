@@ -50,6 +50,7 @@ struct FilterBarView: View {
             ScrollView(.horizontal, showsIndicators: false) {
                 chipStrip
                     .padding(.vertical, 4)
+                    .background { ScrollViewDelayDisabler() }
             }
             .onChange(of: selectedCategory) { _, newVal in
                 if let cat = newVal {
@@ -62,24 +63,44 @@ struct FilterBarView: View {
         .frame(height: 68)
     }
 
-    // iOS 26: GlassEffectContainer で隣接カプセルを1枚の glass blob に連結
+    // iOS 26: resetChip は GlassEffectContainer の外に置き glass blob 再合成を回避する
     @ViewBuilder
     private var chipStrip: some View {
         if #available(iOS 26, *) {
-            GlassEffectContainer {
-                chipHStack
+            HStack(spacing: 8) {
+                if scanStore.isFilterActive {
+                    resetChip.id("reset")
+                }
+                GlassEffectContainer {
+                    categoryChipHStack
+                }
             }
         } else {
             chipHStack
         }
     }
 
+    // iOS 26 専用: GlassEffectContainer に入れるカテゴリチップのみ
+    private var categoryChipHStack: some View {
+        HStack(spacing: 8) {
+            ForEach(scanStore.filterCategoryOrder) { cat in
+                GlassFilterChip(
+                    category: cat,
+                    isSelected: selectedCategory == cat,
+                    isActive: scanStore.isFilterActive(for: cat)
+                ) {
+                    selectedCategory = selectedCategory == cat ? nil : cat
+                }
+                .id(cat)
+            }
+        }
+    }
+
+    // pre-iOS 26 フォールバック
     private var chipHStack: some View {
         HStack(spacing: 8) {
             if scanStore.isFilterActive {
-                resetChip
-                    .transition(.scale.combined(with: .opacity))
-                    .id("reset")
+                resetChip.id("reset")
             }
             ForEach(scanStore.filterCategoryOrder) { cat in
                 GlassFilterChip(
@@ -87,9 +108,7 @@ struct FilterBarView: View {
                     isSelected: selectedCategory == cat,
                     isActive: scanStore.isFilterActive(for: cat)
                 ) {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        selectedCategory = selectedCategory == cat ? nil : cat
-                    }
+                    selectedCategory = selectedCategory == cat ? nil : cat
                 }
                 .id(cat)
             }
@@ -173,8 +192,8 @@ struct GlassChipButtonStyle: ButtonStyle {
                 configuration.label
                     .glassEffect(
                         isActive
-                            ? .regular.interactive(true).tint(tintColor.opacity(0.22))
-                            : .regular.interactive(true).tint(isSelected ? tintColor.opacity(0.22) : Color.clear.opacity(0)),
+                            ? .regular.interactive(false).tint(tintColor.opacity(0.22))
+                            : .regular.interactive(false).tint(isSelected ? tintColor.opacity(0.22) : Color.clear.opacity(0)),
                         in: Capsule()
                     )
                     .overlay(
@@ -183,13 +202,13 @@ struct GlassChipButtonStyle: ButtonStyle {
                                 isSelected ? tintColor.opacity(0.55) : Color.clear,
                                 lineWidth: 1
                             )
+                            .allowsHitTesting(false)
                     )
                     .shadow(
                         color: isSelected ? tintColor.opacity(0.40) : .clear,
                         radius: 8, x: 0, y: 1
                     )
                     .opacity(configuration.isPressed ? 0.72 : 1)
-                    .scaleEffect(configuration.isPressed ? 0.96 : 1)
             } else {
                 configuration.label
                     .background(
@@ -210,7 +229,6 @@ struct GlassChipButtonStyle: ButtonStyle {
                         radius: 8, x: 0, y: 1
                     )
                     .opacity(configuration.isPressed ? 0.72 : 1)
-                    .scaleEffect(configuration.isPressed ? 0.96 : 1)
             }
         }
     }
@@ -344,13 +362,18 @@ struct FilterCategoryContent: View {
 
     private var ratingRow: some View {
         let counts = scanStore.ratingCounts(from: ratings)
-        return LazyVGrid(
-            columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
-            spacing: 8
-        ) {
-            ratingChip(star: 0, label: String(localized: "No Rating"), count: counts[0] ?? 0)
-            ForEach(1...5, id: \.self) { star in
-                ratingChip(star: star, label: String(repeating: "★", count: star), count: counts[star] ?? 0)
+        return VStack(spacing: 8) {
+            HStack(spacing: 8) {
+                ratingChip(star: 0, label: String(localized: "No Rating"), count: counts[0] ?? 0)
+                ratingChip(star: 1, label: "★", count: counts[1] ?? 0)
+            }
+            HStack(spacing: 8) {
+                ratingChip(star: 2, label: "★★", count: counts[2] ?? 0)
+                ratingChip(star: 3, label: "★★★", count: counts[3] ?? 0)
+            }
+            HStack(spacing: 8) {
+                ratingChip(star: 4, label: "★★★★", count: counts[4] ?? 0)
+                ratingChip(star: 5, label: "★★★★★", count: counts[5] ?? 0)
             }
         }
     }
@@ -371,8 +394,13 @@ struct FilterCategoryContent: View {
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity)
             .foregroundStyle(isActive ? Color.accentColor : Color.primary)
+            .background(RoundedRectangle(cornerRadius: 10)
+                .fill(isActive ? Color.accentColor.opacity(0.12) : Color(.systemFill)))
+            .overlay(RoundedRectangle(cornerRadius: 10)
+                .stroke(isActive ? Color.accentColor.opacity(0.45) : Color.clear, lineWidth: 1))
         }
-        .buttonStyle(GlassChipButtonStyle(isSelected: isActive, isActive: isActive))
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private var labelRow: some View {
@@ -403,23 +431,14 @@ struct FilterCategoryContent: View {
 
     private var kindRow: some View {
         VStack(alignment: .leading, spacing: 10) {
-            LazyVGrid(
-                columns: [GridItem(.flexible(), spacing: 8), GridItem(.flexible(), spacing: 8)],
-                spacing: 8
-            ) {
-                ForEach([PhotoKind.raw, .sooc, .developed, .indeterminate], id: \.self) { kind in
-                    let isActive = scanStore.filterKinds.contains(kind)
-                    Button {
-                        scanStore.toggleKind(kind)
-                    } label: {
-                        Text(kind.localizedName)
-                            .font(.subheadline.weight(isActive ? .semibold : .regular))
-                            .padding(.horizontal, 14)
-                            .padding(.vertical, 10)
-                            .frame(maxWidth: .infinity)
-                            .foregroundStyle(isActive ? Color.accentColor : Color.primary)
-                    }
-                    .buttonStyle(GlassChipButtonStyle(isSelected: isActive, isActive: isActive))
+            VStack(spacing: 8) {
+                HStack(spacing: 8) {
+                    kindChip(.raw)
+                    kindChip(.sooc)
+                }
+                HStack(spacing: 8) {
+                    kindChip(.developed)
+                    kindChip(.indeterminate)
                 }
             }
 
@@ -437,6 +456,24 @@ struct FilterCategoryContent: View {
             }
             .buttonStyle(.plain)
         }
+    }
+
+    private func kindChip(_ kind: PhotoKind) -> some View {
+        let isActive = scanStore.filterKinds.contains(kind)
+        return Button { scanStore.toggleKind(kind) } label: {
+            Text(kind.localizedName)
+                .font(.subheadline.weight(isActive ? .semibold : .regular))
+                .padding(.horizontal, 14)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity)
+                .foregroundStyle(isActive ? Color.accentColor : Color.primary)
+                .background(RoundedRectangle(cornerRadius: 10)
+                    .fill(isActive ? Color.accentColor.opacity(0.12) : Color(.systemFill)))
+                .overlay(RoundedRectangle(cornerRadius: 10)
+                    .stroke(isActive ? Color.accentColor.opacity(0.45) : Color.clear, lineWidth: 1))
+        }
+        .buttonStyle(.plain)
+        .contentShape(RoundedRectangle(cornerRadius: 10))
     }
 
     private func chipRow(
@@ -463,14 +500,39 @@ struct FilterCategoryContent: View {
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 10)
                                 .foregroundStyle(active ? Color.accentColor : Color.primary)
+                                .background(Capsule()
+                                    .fill(active ? Color.accentColor.opacity(0.12) : Color(.systemFill)))
+                                .overlay(Capsule()
+                                    .stroke(active ? Color.accentColor.opacity(0.45) : Color.clear, lineWidth: 1))
                         }
-                        .buttonStyle(GlassChipButtonStyle(isSelected: active, isActive: active))
+                        .buttonStyle(.plain)
                         .contentShape(Capsule())
                     }
                 }
             }
         }
     }
+}
+
+// MARK: - ScrollView touch delay disabler
+
+private struct ScrollViewDelayDisabler: UIViewRepresentable {
+    func makeUIView(context: Context) -> UIView {
+        let v = UIView()
+        v.isUserInteractionEnabled = false
+        DispatchQueue.main.async {
+            var cur: UIView? = v.superview
+            while let node = cur {
+                if let sv = node as? UIScrollView {
+                    sv.delaysContentTouches = false
+                    return
+                }
+                cur = node.superview
+            }
+        }
+        return v
+    }
+    func updateUIView(_ uiView: UIView, context: Context) {}
 }
 
 // MARK: - FlowLayout
