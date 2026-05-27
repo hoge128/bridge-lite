@@ -371,6 +371,13 @@ final class ScanStore: ReindexedGroupSink {
     private var lastImageList: BridgeCoreImageList?
     private var folderMonitor: (any DispatchSourceFileSystemObject)?
 
+    // MARK: - On-demand thumbnail generation
+
+    private let onDemandLimiter = ConcurrencyLimiter(maxConcurrent: 4)
+    private var onDemandWriteBuffer: ThumbnailWriteBuffer?
+    /// スキャン世代ごとにリセット。生成中のリクエストを重複排除する。
+    private var pendingThumbnailIDs: Set<UInt64> = []
+
     // MARK: - Init
 
     init() {
@@ -481,6 +488,8 @@ final class ScanStore: ReindexedGroupSink {
         exifIndexProgress = 0
         exifIndexTotal = 0
         exifIndexStartTime = nil
+        onDemandWriteBuffer = nil
+        pendingThumbnailIDs = []
 
         do {
             let db = try BridgeCoreDatabase.open(path: Self.cacheDBURL())
@@ -539,10 +548,12 @@ final class ScanStore: ReindexedGroupSink {
                 guard gen == self.scanGeneration else { return }
             }
 
-            // サムネイル読み込みを即座に開始（EXIF 索引を待たない）
-            await loadThumbnails(entries: scannedEntries, imageList: imageList, db: db)
+            // キャッシュ済みサムネイルのみ即時表示（未キャッシュは各セルがオンデマンドで取得）
+            await loadCachedThumbnails(entries: scannedEntries, imageList: imageList, db: db)
             guard gen == scanGeneration else { return }
 
+            // DB に保存済みの pHash を使ってショットグループを再計算する。
+            // 未キャッシュファイルの pHash はオンデマンド生成時に都度記録され、次回スキャン時に反映される。
             await capturedPairing.notePhashReady(list: capturedList, db: db, store: self, splitThresholdSecs: 2, phashHammingThreshold: 15, generation: gen)
             guard gen == scanGeneration else { return }
 
@@ -642,37 +653,44 @@ final class ScanStore: ReindexedGroupSink {
         return memberIDs
     }
 
-    private func loadThumbnails(
+    /// スキャン時: SQLite キャッシュヒット分のみ即時表示する。
+    /// 未キャッシュ分は requestThumbnail() でオンデマンド生成する。
+    private func loadCachedThumbnails(
         entries: [PhotoEntry],
         imageList: BridgeCoreImageList,
         db: BridgeCoreDatabase
     ) async {
         await PHashPipeline.applyBurstMode()
         let prefetched = await BridgeCore.fetchCachedThumbnailBatch(list: imageList, db: db, priority: .userInitiated)
-        let limiter = ConcurrencyLimiter(maxConcurrent: 4)
-        let pipeline: PHashPipeline? = enablePhashGrouping ? phashPipeline : nil
-        let mode = thumbnailQualityMode
-        let writeBuffer = ThumbnailWriteBuffer(db: db)
-
-        await withTaskGroup(of: (UInt64, Data?).self) { group in
-            for entry in entries {
-                let cached = prefetched[entry.url]?.jpeg
-                group.addTask {
-                    let jpeg = try? await limiter.run {
-                        if let c = cached { return c }
-                        return await ThumbnailService.generate(for: entry, db: db, phashPipeline: pipeline, mode: mode, writeBuffer: writeBuffer)
-                    }
-                    return (entry.id, jpeg)
-                }
-            }
-            for await (id, jpeg) in group {
-                scanLoadedCount += 1
-                guard let jpeg else { continue }
-                thumbnails[id] = jpeg
+        scanTotalCount = entries.count
+        for entry in entries {
+            if let jpeg = prefetched[entry.url]?.jpeg {
+                thumbnails[entry.id] = jpeg
             }
         }
-        await writeBuffer.drain()
-        await phashPipeline.waitForAllPending()
+        // サムネイルの読み込みカウントをスキャン済み総数に合わせ、
+        // 進捗バナーを EXIF フェーズに移行させる。
+        scanLoadedCount = entries.count
+        // オンデマンド書き込みバッファを初期化（初回 requestThumbnail 呼び出し前に用意）
+        onDemandWriteBuffer = ThumbnailWriteBuffer(db: db)
+    }
+
+    /// ThumbnailCellView が画面に現れたときに呼び出す。
+    /// すでにキャッシュ済み / 生成中のリクエストには何もしない（冪等）。
+    func requestThumbnail(for entry: PhotoEntry) async {
+        guard thumbnails[entry.id] == nil,
+              !pendingThumbnailIDs.contains(entry.id),
+              let db,
+              let writeBuffer = onDemandWriteBuffer else { return }
+        pendingThumbnailIDs.insert(entry.id)
+        defer { pendingThumbnailIDs.remove(entry.id) }
+        let mode = thumbnailQualityMode
+        let pipeline: PHashPipeline? = enablePhashGrouping ? phashPipeline : nil
+        if let jpeg = try? await onDemandLimiter.run({
+            await ThumbnailService.generate(for: entry, db: db, phashPipeline: pipeline, mode: mode, writeBuffer: writeBuffer)
+        }) {
+            thumbnails[entry.id] = jpeg
+        }
     }
 
     // MARK: - Kind 判定 (Mac LibraryStore と同等)

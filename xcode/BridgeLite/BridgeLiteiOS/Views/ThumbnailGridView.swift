@@ -116,6 +116,12 @@ struct ThumbnailGridView: View {
                         ) {
                             selectedGroup = group
                         }
+                        .task(id: group.representativeID ?? group.id) {
+                            guard let repID = group.representativeID ?? group.memberIDs.first,
+                                  let entry = scanStore.entries[repID],
+                                  scanStore.thumbnails[repID] == nil else { return }
+                            await scanStore.requestThumbnail(for: entry)
+                        }
                     }
                 }
                 .padding(gridSpacing)
