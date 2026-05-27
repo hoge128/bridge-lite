@@ -174,10 +174,9 @@ struct SettingsSheetView: View {
             cachedImageCount = ScanStore.cachedThumbnailCount()
         }
         .interactiveDismissDisabled(false)
-        .confirmationDialog(
+        .alert(
             String(localized: "Clear Cache?"),
-            isPresented: $showCacheClearConfirm,
-            titleVisibility: .visible
+            isPresented: $showCacheClearConfirm
         ) {
             Button(String(localized: "Clear"), role: .destructive) {
                 scanStore.clearCache()
