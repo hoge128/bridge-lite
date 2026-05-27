@@ -7,6 +7,14 @@ import UIKit
 final class AppDelegate: NSObject, UIApplicationDelegate {
     @MainActor func application(
         _ application: UIApplication,
+        didFinishLaunchingWithOptions launchOptions: [UIApplication.LaunchOptionsKey: Any]?
+    ) -> Bool {
+        BackgroundScanManager.shared.registerHandler()
+        return true
+    }
+
+    @MainActor func application(
+        _ application: UIApplication,
         supportedInterfaceOrientationsFor window: UIWindow?
     ) -> UIInterfaceOrientationMask {
         allowLandscape ? .all : .portrait

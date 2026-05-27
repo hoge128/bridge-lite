@@ -106,6 +106,10 @@ targets:
     deploymentTarget: "18.0"
     sources:
       - path: BridgeLiteiOS
+        excludes:
+          - "exp-images/**"
+      - path: BridgeLiteiOS/exp-images
+        type: folder
       - path: Generated
         optional: true
         excludes:
@@ -117,6 +121,7 @@ targets:
       - path: BridgeLite/Pipelines/PHashPipeline.swift
       - path: BridgeLite/Pipelines/PairingPipeline.swift
       - path: BridgeLite/Pipelines/RAWRenderPipeline.swift
+      - path: BridgeLite/Pipelines/ThumbnailWriteBuffer.swift
       - path: BridgeLite/Models/PhotoEntry.swift
       - path: BridgeLite/Models/ExifData.swift
       - path: BridgeLite/Models/XmpData.swift
@@ -160,3 +165,7 @@ targets:
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer for iPhone"
         UILaunchScreen: {}
         NSPhotoLibraryAddUsageDescription: "Used to save exported photos to your Photo Library."
+        UIBackgroundModes:
+          - processing
+        BGTaskSchedulerPermittedIdentifiers:
+          - io.github.bridge-lite.ios.exifindex

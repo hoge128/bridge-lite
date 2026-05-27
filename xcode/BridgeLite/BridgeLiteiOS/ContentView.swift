@@ -25,8 +25,23 @@ struct ContentView: View {
             }
         }
         .onChange(of: scenePhase) { _, phase in
-            if phase == .active {
+            switch phase {
+            case .active:
+                BackgroundScanManager.shared.endExtendedTime()
                 Task { await scanStore.verifyFolderReachability() }
+            case .background:
+                if scanStore.isScanning {
+                    BackgroundScanManager.shared.beginExtendedTime()
+                    BackgroundScanManager.shared.scheduleTask()
+                }
+            default:
+                break
+            }
+        }
+        .onChange(of: scanStore.isScanning) { _, isScanning in
+            if !isScanning {
+                BackgroundScanManager.shared.endExtendedTime()
+                BackgroundScanManager.shared.cancelScheduledTask()
             }
         }
     }
