@@ -570,14 +570,75 @@ final class ScanStore: ReindexedGroupSink {
             await loadCachedThumbnails(entries: scannedEntries, imageList: imageList, db: db)
             guard gen == scanGeneration else { return }
 
+            // スキャン中: 未キャッシュ分を逐次プリフェッチ（1 件ずつ）。
+            // requestThumbnail 経由なので onDemandLimiter の残りスロットを可視セルに開放する。
+            let duringScanPrefetch = Task { [weak self] in
+                guard let self else { return }
+                for entry in scannedEntries {
+                    guard self.scanGeneration == gen, !Task.isCancelled else { break }
+                    guard self.thumbnails[entry.id] == nil else { continue }
+                    await self.requestThumbnail(for: entry)
+                }
+            }
+
             // DB に保存済みの pHash を使ってショットグループを再計算する。
             // 未キャッシュファイルの pHash はオンデマンド生成時に都度記録され、次回スキャン時に反映される。
             await capturedPairing.notePhashReady(list: capturedList, db: db, store: self, splitThresholdSecs: 2, phashHammingThreshold: 15, generation: gen)
-            guard gen == scanGeneration else { return }
+            guard gen == scanGeneration else {
+                duringScanPrefetch.cancel()
+                return
+            }
 
             await exifTask.value
+            duringScanPrefetch.cancel()
             guard gen == scanGeneration else { return }
             isScanning = false
+
+            // スキャン完了後: 未キャッシュ分をスライディングウィンドウで並列生成。
+            // MainActor hop・batchLimiter actor hop を排除し、スロット数を CPU コア数ベースに拡大。
+            let capturedEntries = scannedEntries
+            Task { [weak self] in
+                guard let self,
+                      let db = self.db,
+                      let writeBuffer = self.onDemandWriteBuffer else { return }
+                let mode = self.thumbnailQualityMode
+                let pipeline: PHashPipeline? = self.enablePhashGrouping ? self.phashPipeline : nil
+                let uncached = capturedEntries.filter { self.thumbnails[$0.id] == nil }
+                guard !uncached.isEmpty else { return }
+
+                let concurrency = max(ProcessInfo.processInfo.activeProcessorCount, 6)
+                var cursor = 0
+
+                await withTaskGroup(of: (UInt64, Data?).self) { group in
+                    // 初期スロット充填
+                    while cursor < uncached.count, cursor < concurrency {
+                        let entry = uncached[cursor]; cursor += 1
+                        group.addTask {
+                            let jpeg = await ThumbnailService.generate(
+                                for: entry, db: db, phashPipeline: pipeline,
+                                mode: mode, writeBuffer: writeBuffer)
+                            return (entry.id, jpeg)
+                        }
+                    }
+                    // 完了ごとに次を補充（スライディングウィンドウ）
+                    while let (id, jpeg) = await group.next() {
+                        guard gen == self.scanGeneration else { break }
+                        if let jpeg, self.thumbnails[id] == nil {
+                            self.thumbnails[id] = jpeg
+                        }
+                        if cursor < uncached.count {
+                            let entry = uncached[cursor]; cursor += 1
+                            group.addTask {
+                                let jpeg = await ThumbnailService.generate(
+                                    for: entry, db: db, phashPipeline: pipeline,
+                                    mode: mode, writeBuffer: writeBuffer)
+                                return (entry.id, jpeg)
+                            }
+                        }
+                    }
+                }
+                await writeBuffer.drain()
+            }
         } catch {
             guard gen == scanGeneration else { return }
             scanError = error.localizedDescription
@@ -678,6 +739,10 @@ final class ScanStore: ReindexedGroupSink {
         imageList: BridgeCoreImageList,
         db: BridgeCoreDatabase
     ) async {
+        // await より前に初期化することで、fetchCachedThumbnailBatch の await 中に
+        // LazyVGrid が初回レンダリングして各セルの .task(id:) が発火しても
+        // requestThumbnail の guard が通るようにする。
+        onDemandWriteBuffer = ThumbnailWriteBuffer(db: db)
         await PHashPipeline.applyBurstMode()
         let prefetched = await BridgeCore.fetchCachedThumbnailBatch(list: imageList, db: db, priority: .userInitiated)
         scanTotalCount = entries.count
@@ -689,8 +754,6 @@ final class ScanStore: ReindexedGroupSink {
         // サムネイルの読み込みカウントをスキャン済み総数に合わせ、
         // 進捗バナーを EXIF フェーズに移行させる。
         scanLoadedCount = entries.count
-        // オンデマンド書き込みバッファを初期化（初回 requestThumbnail 呼び出し前に用意）
-        onDemandWriteBuffer = ThumbnailWriteBuffer(db: db)
     }
 
     /// ThumbnailCellView が画面に現れたときに呼び出す。

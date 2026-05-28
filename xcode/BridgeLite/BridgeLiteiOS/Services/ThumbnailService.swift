@@ -45,14 +45,32 @@ enum ThumbnailService {
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
 
         if mode == .speed {
-            // 埋め込みサムネイルのみ読む。存在しなければ nil を返しフル画像デコードを行わない
             let opts: [CFString: Any] = [
                 kCGImageSourceThumbnailMaxPixelSize: maxPixels,
                 kCGImageSourceCreateThumbnailFromImageIfAbsent: false,
                 kCGImageSourceCreateThumbnailWithTransform: true,
                 kCGImageSourceShouldCache: false,
             ]
-            return CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
+            let embedded = CGImageSourceCreateThumbnailAtIndex(src, 0, opts as CFDictionary)
+            if let embedded, max(embedded.width, embedded.height) >= minCachePixels {
+                return embedded
+            }
+            // 埋め込みサムネイルが小さすぎるか存在しない場合、MPF 等で埋め込まれた
+            // プレビュー画像 (index 1) を試みる。フル画像デコードは行わない。
+            // Sony 等のカメラ JPEG には 1616×1080 程度のプレビューが格納されており、
+            // これをデコードする方が 24MP 本体より大幅に高速で画質も向上する。
+            if CGImageSourceGetCount(src) > 1 {
+                let previewOpts: [CFString: Any] = [
+                    kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceShouldCache: false,
+                ]
+                if let preview = CGImageSourceCreateThumbnailAtIndex(src, 1, previewOpts as CFDictionary) {
+                    return preview
+                }
+            }
+            return embedded
         }
 
         // quality モード: 埋め込み無し・極小の場合はフル画像からフォールバック（現状動作）
