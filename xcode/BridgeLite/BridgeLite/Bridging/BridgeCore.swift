@@ -62,8 +62,8 @@ enum BridgeCore {
         }.value
     }
 
-    static func indexNewEntries(list: BridgeCoreImageList, db: BridgeCoreDatabase) async {
-        await Task.detached(priority: .userInitiated) {
+    static func indexNewEntries(list: BridgeCoreImageList, db: BridgeCoreDatabase, priority: TaskPriority = .userInitiated) async {
+        await Task.detached(priority: priority) {
             bridge_index_new_entries(db.inner, list.inner)
         }.value
     }

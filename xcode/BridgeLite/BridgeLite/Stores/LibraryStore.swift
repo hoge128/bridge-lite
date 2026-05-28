@@ -345,8 +345,8 @@ final class LibraryStore: ReindexedGroupSink {
                 // EXIF 索引をバックグラウンドで起動（XMP/サムネイル/pHash と並行）
                 // iOS ScanStore.performScan L484-486 と等価。
                 let indexTask: Task<Void, Never>? = capturedList.map { list in
-                    Task.detached(priority: .userInitiated) {
-                        await BridgeCore.indexNewEntries(list: list, db: db)
+                    Task.detached(priority: BridgeQoS.scan) {
+                        await BridgeCore.indexNewEntries(list: list, db: db, priority: BridgeQoS.scan)
                     }
                 }
 
