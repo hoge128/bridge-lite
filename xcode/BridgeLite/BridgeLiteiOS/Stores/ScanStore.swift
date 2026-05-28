@@ -570,34 +570,15 @@ final class ScanStore: ReindexedGroupSink {
             await loadCachedThumbnails(entries: scannedEntries, imageList: imageList, db: db)
             guard gen == scanGeneration else { return }
 
-            // スキャン中: 未キャッシュ分を逐次プリフェッチ（1 件ずつ）。
-            // requestThumbnail 経由なので onDemandLimiter の残りスロットを可視セルに開放する。
-            let duringScanPrefetch = Task { [weak self] in
-                guard let self else { return }
-                for entry in scannedEntries {
-                    guard self.scanGeneration == gen, !Task.isCancelled else { break }
-                    guard self.thumbnails[entry.id] == nil else { continue }
-                    await self.requestThumbnail(for: entry)
-                }
-            }
-
             // DB に保存済みの pHash を使ってショットグループを再計算する。
             // 未キャッシュファイルの pHash はオンデマンド生成時に都度記録され、次回スキャン時に反映される。
             await capturedPairing.notePhashReady(list: capturedList, db: db, store: self, splitThresholdSecs: 2, phashHammingThreshold: 15, generation: gen)
-            guard gen == scanGeneration else {
-                duringScanPrefetch.cancel()
-                return
-            }
-
-            await exifTask.value
-            duringScanPrefetch.cancel()
             guard gen == scanGeneration else { return }
-            isScanning = false
 
-            // スキャン完了後: 未キャッシュ分をスライディングウィンドウで並列生成。
-            // MainActor hop・batchLimiter actor hop を排除し、スロット数を CPU コア数ベースに拡大。
+            // 未キャッシュのサムネイル生成を exifTask と並行して開始し、両方完了後に isScanning = false にする。
+            // fire-and-forget にするとスキャン完了バナーが消えた後も数秒グレーのままになるため。
             let capturedEntries = scannedEntries
-            Task { [weak self] in
+            let thumbnailTask = Task { [weak self] in
                 guard let self,
                       let db = self.db,
                       let writeBuffer = self.onDemandWriteBuffer else { return }
@@ -610,7 +591,6 @@ final class ScanStore: ReindexedGroupSink {
                 var cursor = 0
 
                 await withTaskGroup(of: (UInt64, Data?).self) { group in
-                    // 初期スロット充填
                     while cursor < uncached.count, cursor < concurrency {
                         let entry = uncached[cursor]; cursor += 1
                         group.addTask {
@@ -620,7 +600,6 @@ final class ScanStore: ReindexedGroupSink {
                             return (entry.id, jpeg)
                         }
                     }
-                    // 完了ごとに次を補充（スライディングウィンドウ）
                     while let (id, jpeg) = await group.next() {
                         guard gen == self.scanGeneration else { break }
                         if let jpeg, self.thumbnails[id] == nil {
@@ -639,6 +618,11 @@ final class ScanStore: ReindexedGroupSink {
                 }
                 await writeBuffer.drain()
             }
+
+            await exifTask.value
+            await thumbnailTask.value
+            guard gen == scanGeneration else { return }
+            isScanning = false
         } catch {
             guard gen == scanGeneration else { return }
             scanError = error.localizedDescription

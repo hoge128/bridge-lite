@@ -69,7 +69,6 @@ struct ThumbnailGridView: View {
                     groups: scanStore.filteredGroups(ratings: ratingStore.ratings),
                     initialGroup: group,
                     entries: scanStore.entries,
-                    thumbnails: scanStore.thumbnails,
                     ratings: Binding(
                         get: { ratingStore.ratings },
                         set: { ratingStore.ratings = $0 }

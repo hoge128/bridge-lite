@@ -14,11 +14,14 @@ private struct FullResEntry: Sendable {
 struct DetailView: View {
     let groups: [ShotGroup]
     let entries: [UInt64: PhotoEntry]
-    let thumbnails: [UInt64: Data]
     @Binding var ratings: [UInt64: XmpData]
     let db: BridgeCoreDatabase?
     let jpgWriteMode: JpgWriteMode
     let scanStore: ScanStore
+
+    /// scanStore.thumbnails を直接参照することで @Observable の変更検知に乗る。
+    /// let スナップショットだと DetailView オープン後のバッチ生成分が反映されない。
+    private var thumbnails: [UInt64: Data] { scanStore.thumbnails }
     @Environment(\.dismiss) private var dismiss
 
     @State private var currentGroupIndex: Int
@@ -49,7 +52,6 @@ struct DetailView: View {
     init(groups: [ShotGroup],
          initialGroup: ShotGroup,
          entries: [UInt64: PhotoEntry],
-         thumbnails: [UInt64: Data],
          ratings: Binding<[UInt64: XmpData]>,
          db: BridgeCoreDatabase?,
          jpgWriteMode: JpgWriteMode = .embed,
@@ -57,7 +59,6 @@ struct DetailView: View {
          preferRendered: Binding<Bool>) {
         self.groups = groups
         self.entries = entries
-        self.thumbnails = thumbnails
         self._ratings = ratings
         self.db = db
         self.jpgWriteMode = jpgWriteMode
