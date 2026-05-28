@@ -212,5 +212,7 @@ void* __swift_bridge__$bridge_developed_keywords(void);
 bool __swift_bridge__$bridge_has_images_beyond_scan_depth(struct RustStr path);
 uintptr_t __swift_bridge__$bridge_exif_index_progress(void);
 uintptr_t __swift_bridge__$bridge_exif_index_total(void);
+uintptr_t __swift_bridge__$bridge_exif_precheck_progress(void);
+uintptr_t __swift_bridge__$bridge_exif_precheck_total(void);
 
 

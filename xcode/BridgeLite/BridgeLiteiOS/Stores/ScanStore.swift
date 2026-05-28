@@ -68,6 +68,11 @@ final class ScanStore: ReindexedGroupSink {
     /// EXIF 索引の進捗（0 = 未開始 / 全件キャッシュ済み）
     private(set) var exifIndexProgress: Int = 0
     private(set) var exifIndexTotal: Int = 0
+    /// indexTask 完了フラグ（全件キャッシュ済みで TOTAL が 0 のまま終わる場合も true になる）
+    private(set) var exifIndexTaskDone = false
+    /// EXIF 索引事前確認フェーズの進捗（キャッシュ確認済み件数）
+    private(set) var exifPrecheckProgress: Int = 0
+    private(set) var exifPrecheckTotal: Int = 0
     /// EXIF 索引開始時刻（残り時間推定用）
     private var exifIndexStartTime: Date?
 
@@ -504,7 +509,10 @@ final class ScanStore: ReindexedGroupSink {
         scanLoadedCount = 0
         exifIndexProgress = 0
         exifIndexTotal = 0
+        exifIndexTaskDone = false
         exifIndexStartTime = nil
+        exifPrecheckProgress = 0
+        exifPrecheckTotal = 0
         onDemandWriteBuffer = nil
         pendingThumbnailIDs = []
 
@@ -530,8 +538,14 @@ final class ScanStore: ReindexedGroupSink {
             let capturedList = imageList
             let capturedPairing = pairingPipeline
 
+            // indexTask 起動前に precheck の母数を Swift 側へ先行設定する。
+            // Rust が EXIF_PRECHECK_TOTAL を書くより前に最初のポールが走ると 0 を読んでしまい、
+            // その間に Phase 1 が完了すると X/Y が表示されないままになるため。
+            exifPrecheckProgress = 0
+            exifPrecheckTotal = scannedEntries.count
+
             // EXIF 索引をバックグラウンドで開始（サムネイル読み込みと並行実行）
-            let indexTask = Task.detached(priority: .utility) {
+            let indexTask = Task.detached(priority: .userInitiated) {
                 await BridgeCore.indexNewEntries(list: capturedList, db: db)
             }
 
@@ -545,6 +559,8 @@ final class ScanStore: ReindexedGroupSink {
                     }
                     exifIndexProgress = progress
                     exifIndexTotal = total
+                    exifPrecheckProgress = BridgeCore.exifPrecheckProgress()
+                    exifPrecheckTotal = BridgeCore.exifPrecheckTotal()
                     if total > 0 && progress >= total { break }
                     try? await Task.sleep(nanoseconds: 300_000_000)
                 }
@@ -555,6 +571,9 @@ final class ScanStore: ReindexedGroupSink {
             let exifTask = Task { [weak self] in
                 await indexTask.value
                 guard let self, gen == self.scanGeneration else { return }
+                // indexTask 完了を通知（全件キャッシュ済みで EXIF_INDEX_TOTAL が 0 のまま
+                // 終わった場合でも「準備中」バナーを消すために使う）
+                exifIndexTaskDone = true
 
                 let map = await BridgeCore.fetchExifBatch(list: capturedList, db: db)
                 guard gen == self.scanGeneration else { return }
@@ -576,7 +595,6 @@ final class ScanStore: ReindexedGroupSink {
             guard gen == scanGeneration else { return }
 
             // 未キャッシュのサムネイル生成を exifTask と並行して開始し、両方完了後に isScanning = false にする。
-            // fire-and-forget にするとスキャン完了バナーが消えた後も数秒グレーのままになるため。
             let capturedEntries = scannedEntries
             let thumbnailTask = Task { [weak self] in
                 guard let self,
@@ -728,15 +746,15 @@ final class ScanStore: ReindexedGroupSink {
         // requestThumbnail の guard が通るようにする。
         onDemandWriteBuffer = ThumbnailWriteBuffer(db: db)
         await PHashPipeline.applyBurstMode()
+        // fetchCachedThumbnailBatch の await 中（実際に重い処理）は scanLoadedCount = 0 のまま
+        // "Loading 0/N" が表示される。返却後は for ループを yield なしで一気に処理し、
+        // SQLite に存在したサムネイルをすべて同一フレームで表示する。
         let prefetched = await BridgeCore.fetchCachedThumbnailBatch(list: imageList, db: db, priority: .userInitiated)
-        scanTotalCount = entries.count
         for entry in entries {
             if let jpeg = prefetched[entry.url]?.jpeg {
                 thumbnails[entry.id] = jpeg
             }
         }
-        // サムネイルの読み込みカウントをスキャン済み総数に合わせ、
-        // 進捗バナーを EXIF フェーズに移行させる。
         scanLoadedCount = entries.count
     }
 

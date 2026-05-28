@@ -18,6 +18,9 @@ use std::time::SystemTime;
 // EXIF 索引の進捗をポーリング可能にするグローバルカウンタ
 static EXIF_INDEX_PROGRESS: AtomicUsize = AtomicUsize::new(0);
 static EXIF_INDEX_TOTAL: AtomicUsize = AtomicUsize::new(0);
+// Phase1（キャッシュ確認）の進捗カウンタ
+static EXIF_PRECHECK_PROGRESS: AtomicUsize = AtomicUsize::new(0);
+static EXIF_PRECHECK_TOTAL: AtomicUsize = AtomicUsize::new(0);
 
 use bridge_core::developed::DEVELOPED_SOFTWARE_KEYWORDS;
 use bridge_core::error::{CoreError, CoreErrorId};
@@ -48,9 +51,9 @@ fn runtime() -> &'static tokio::runtime::Runtime {
 // ── Internal helper types ──────────────────────────────────────────────────
 
 pub struct BridgeDatabase {
-    #[allow(dead_code)]
     db_path: PathBuf,
-    conn: Arc<Mutex<rusqlite::Connection>>,
+    /// Serialized write connection. All INSERT/UPDATE/DELETE must go through here.
+    write_conn: Arc<Mutex<rusqlite::Connection>>,
 }
 
 impl BridgeDatabase {
@@ -68,8 +71,14 @@ impl BridgeDatabase {
         })?;
         Ok(BridgeDatabase {
             db_path: path,
-            conn: Arc::new(Mutex::new(conn)),
+            write_conn: Arc::new(Mutex::new(conn)),
         })
+    }
+
+    /// Open a short-lived read connection (WAL concurrent read).
+    /// Returns None if the DB file is temporarily inaccessible.
+    fn open_read_conn(&self) -> Option<rusqlite::Connection> {
+        bridge_core::db::open_read_connection(&self.db_path).ok()
     }
 }
 
@@ -309,7 +318,7 @@ pub struct ShotGroupsMap {
 /// Interior Mutex allows push/flush via shared `&self` reference (required by swift-bridge).
 pub struct ThumbBatchBuilder {
     items: Mutex<Vec<(PathBuf, Vec<u8>, bool, u8)>>,
-    conn: Arc<Mutex<rusqlite::Connection>>,
+    write_conn: Arc<Mutex<rusqlite::Connection>>,
 }
 
 // ── XMP write helper ───────────────────────────────────────────────────────
@@ -502,6 +511,9 @@ mod ffi {
         // EXIF indexing progress (poll from Swift during scan)
         fn bridge_exif_index_progress() -> usize;
         fn bridge_exif_index_total() -> usize;
+        // EXIF Phase1 precheck progress (cache confirmation)
+        fn bridge_exif_precheck_progress() -> usize;
+        fn bridge_exif_precheck_total() -> usize;
     }
 }
 
@@ -533,28 +545,41 @@ fn bridge_index_new_entries(db: &BridgeDatabase, entries: &ImageEntryList) {
     EXIF_INDEX_PROGRESS.store(0, Ordering::Relaxed);
 
     // スキャン済みエントリの mtime をそのまま使う（stat 再呼び出しを排除）。
-    // SD カード経由の stat は 1 回 100-300ms かかることがあり、825 ファイル分を
-    // ミューテックス保持中に実行すると db.conn を数分間占有してサムネイル書き込みを
-    // 完全にブロックしてしまう。エントリ取得時に既に mtime を取得済みなので再読不要。
     let path_mtimes: Vec<(PathBuf, i64)> = entries.entries.iter()
         .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
         .collect();
 
-    // Phase 1: キャッシュヒット確認（ロック短時間・SQL クエリのみ）
-    let misses: Vec<(PathBuf, i64)> = {
-        let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
-        let cached = bridge_core::db::fetch_exif_batch(&path_mtimes, &conn);
+    // Phase 1: キャッシュヒット確認（読み取り専用接続 — write_conn と競合しない）
+    // 500件チャンクで処理（fetch_cached_paths の内部チャンクと一致させて SQL クエリ数を最小化）。
+    // path と mtime のみ SELECT する軽量クエリで全 EXIF カラムの転送を排除。
+    const PRECHECK_CHUNK: usize = 500;
+    EXIF_PRECHECK_TOTAL.store(path_mtimes.len(), Ordering::Relaxed);
+    EXIF_PRECHECK_PROGRESS.store(0, Ordering::Relaxed);
+    let misses: Vec<(PathBuf, i64)> = if let Some(rconn) = db.open_read_conn() {
+        let mut cached_set = std::collections::HashSet::new();
+        for chunk in path_mtimes.chunks(PRECHECK_CHUNK) {
+            let cached = bridge_core::db::fetch_cached_paths(chunk, &rconn);
+            for (p, _) in chunk {
+                if cached.contains(p) {
+                    cached_set.insert(p.clone());
+                }
+            }
+            EXIF_PRECHECK_PROGRESS.fetch_add(chunk.len(), Ordering::Relaxed);
+        }
         path_mtimes.iter()
-            .filter(|(p, _)| !cached.contains_key(p))
+            .filter(|(p, _)| !cached_set.contains(p))
             .cloned()
             .collect()
-    }; // ロック解放
+    } else {
+        EXIF_PRECHECK_PROGRESS.store(path_mtimes.len(), Ordering::Relaxed);
+        path_mtimes.clone()
+    };
 
     if misses.is_empty() {
         return;
     }
 
-    // Phase 2: ファイルから EXIF 読み込み（ロック不要、純粋なファイル I/O）
+    // Phase 2: ファイルから EXIF 読み込み（純粋なファイル I/O）
     // グローバルカウンタを初期化して Swift 側からポーリング可能にする
     EXIF_INDEX_TOTAL.store(misses.len(), Ordering::Relaxed);
     EXIF_INDEX_PROGRESS.store(0, Ordering::Relaxed);
@@ -573,9 +598,9 @@ fn bridge_index_new_entries(db: &BridgeDatabase, entries: &ImageEntryList) {
     });
     let new_data = new_data.into_inner().unwrap_or_else(|e| e.into_inner());
 
-    // Phase 3: SQLite に一括書き込み（ロック短時間）
+    // Phase 3: SQLite に一括書き込み（write_conn を短時間だけロック）
     if !new_data.is_empty() {
-        let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let conn = db.write_conn.lock().unwrap_or_else(|e| e.into_inner());
         let _ = conn.execute_batch("BEGIN");
         for (path, mtime, exif) in &new_data {
             let _ = bridge_core::db::upsert(&conn, path, exif, *mtime);
@@ -630,7 +655,8 @@ fn ffi_image_entry_shot_id(entry: &FfiImageEntry) -> u64 {
 
 fn bridge_fetch_exif(db: &BridgeDatabase, path: &str) -> FfiExifResult {
     let p = Path::new(path);
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    // fetch_or_index writes on cache miss → write_conn
+    let conn = db.write_conn.lock().unwrap_or_else(|e| e.into_inner());
     bridge_core::db::fetch_or_index(p, &conn)
         .as_ref()
         .map(FfiExifResult::from_core)
@@ -705,8 +731,11 @@ fn bridge_fetch_exif_for_entries(db: &BridgeDatabase, entries: &ImageEntryList) 
         .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
         .collect();
     let paths_only: Vec<PathBuf> = path_mtimes.iter().map(|(p, _)| p.clone()).collect();
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
-    let mut map = bridge_core::db::fetch_exif_batch(&path_mtimes, &conn);
+    let empty = || FfiExifBatch {
+        results: paths_only.iter().map(|_| FfiExifResult::not_found()).collect(),
+    };
+    let Some(rconn) = db.open_read_conn() else { return empty() };
+    let mut map = bridge_core::db::fetch_exif_batch(&path_mtimes, &rconn);
     let results = paths_only
         .into_iter()
         .map(|p| {
@@ -791,7 +820,7 @@ fn bridge_write_xmp(
     };
     let ok = bridge_core::xmp::write_metadata(p, &data, jpg_use_sidecar).is_ok();
     if ok {
-        let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let conn = db.write_conn.lock().unwrap_or_else(|e| e.into_inner());
         bridge_core::db::update_xmp(p, &conn, &data);
     }
     ok
@@ -809,15 +838,15 @@ fn bridge_compute_phash_from_luma(pixels: &[u8]) -> u64 {
 
 fn bridge_fetch_phash(db: &BridgeDatabase, path: &str) -> i64 {
     let p = Path::new(path);
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
-    bridge_core::db::fetch_phash(p, &conn)
+    let Some(rconn) = db.open_read_conn() else { return -1 };
+    bridge_core::db::fetch_phash(p, &rconn)
         .map(|v| v as i64)
         .unwrap_or(-1)
 }
 
 fn bridge_store_phash(db: &BridgeDatabase, path: &str, phash: u64) {
     let p = Path::new(path);
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    let conn = db.write_conn.lock().unwrap_or_else(|e| e.into_inner());
     bridge_core::db::store_phash(p, &conn, phash);
 }
 
@@ -825,8 +854,8 @@ fn bridge_store_phash(db: &BridgeDatabase, path: &str, phash: u64) {
 
 fn bridge_fetch_cached_thumbnail(db: &BridgeDatabase, path: &str) -> FfiOptionalBytes {
     let p = Path::new(path);
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
-    bridge_core::db::fetch_thumb(p, &conn)
+    let Some(rconn) = db.open_read_conn() else { return FfiOptionalBytes::none() };
+    bridge_core::db::fetch_thumb(p, &rconn)
         .map(FfiOptionalBytes::some)
         .unwrap_or_else(FfiOptionalBytes::none)
 }
@@ -854,14 +883,14 @@ fn bridge_store_cached_thumbnail(
     raw_orientation: u8,
 ) {
     let p = Path::new(path);
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    let conn = db.write_conn.lock().unwrap_or_else(|e| e.into_inner());
     bridge_core::db::store_thumb(p, &conn, jpeg, aspect_ok, raw_orientation);
 }
 
 fn bridge_thumb_batch_new(db: &BridgeDatabase) -> ThumbBatchBuilder {
     ThumbBatchBuilder {
         items: Mutex::new(Vec::new()),
-        conn: Arc::clone(&db.conn),
+        write_conn: Arc::clone(&db.write_conn),
     }
 }
 
@@ -887,7 +916,7 @@ fn bridge_thumb_batch_flush(builder: &ThumbBatchBuilder) {
         std::mem::take(&mut *guard)
     };
     if !items.is_empty() {
-        let conn = builder.conn.lock().unwrap_or_else(|e| e.into_inner());
+        let conn = builder.write_conn.lock().unwrap_or_else(|e| e.into_inner());
         bridge_core::db::store_thumb_batch(&items, &conn);
     }
 }
@@ -902,8 +931,12 @@ fn bridge_fetch_cached_thumbnails_for_entries(
         .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
         .collect();
     let paths_only: Vec<PathBuf> = path_mtimes.iter().map(|(p, _)| p.clone()).collect();
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
-    let mut map = bridge_core::db::fetch_thumb_batch(&path_mtimes, &conn);
+    let empty = || FfiThumbBatch {
+        results: paths_only.iter().map(|_| FfiOptionalBytes::none()).collect(),
+    };
+    // 読み取り専用接続で fetch — write_conn（EXIF 索引 Phase1 等）と競合しない
+    let Some(rconn) = db.open_read_conn() else { return empty() };
+    let mut map = bridge_core::db::fetch_thumb_batch(&path_mtimes, &rconn);
     let results = paths_only
         .into_iter()
         .map(|p| {
@@ -931,8 +964,8 @@ fn bridge_fetch_cached_rendered(
     width: u32,
 ) -> FfiOptionalBytes {
     let p = Path::new(path);
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
-    bridge_core::db::fetch_rendered(p, &conn, engine, width)
+    let Some(rconn) = db.open_read_conn() else { return FfiOptionalBytes::none() };
+    bridge_core::db::fetch_rendered(p, &rconn, engine, width)
         .map(FfiOptionalBytes::some_data)
         .unwrap_or_else(FfiOptionalBytes::none)
 }
@@ -945,17 +978,17 @@ fn bridge_store_cached_rendered(
     jpeg: &[u8],
 ) {
     let p = Path::new(path);
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    let conn = db.write_conn.lock().unwrap_or_else(|e| e.into_inner());
     bridge_core::db::store_rendered(p, &conn, engine, width, jpeg);
 }
 
 fn bridge_clear_rendered_cache(db: &BridgeDatabase) {
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    let conn = db.write_conn.lock().unwrap_or_else(|e| e.into_inner());
     bridge_core::db::clear_rendered(&conn);
 }
 
 fn bridge_prune_cache(db: &BridgeDatabase, max_age_days: u32) {
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
+    let conn = db.write_conn.lock().unwrap_or_else(|e| e.into_inner());
     bridge_core::db::prune_cache(&conn, max_age_days);
 }
 
@@ -987,14 +1020,16 @@ fn bridge_reindex_shot_groups(
         .iter()
         .map(|e| (e.path.clone(), system_time_to_unix(e.modified)))
         .collect();
-    let conn = db.conn.lock().unwrap_or_else(|e| e.into_inner());
-    let exif_by_path = bridge_core::db::fetch_exif_batch(&path_mtimes, &conn);
+    let Some(rconn) = db.open_read_conn() else {
+        return ShotGroupsMap { shot_ids: vec![], groups: HashMap::new() };
+    };
+    let exif_by_path = bridge_core::db::fetch_exif_batch(&path_mtimes, &rconn);
     let exif_by_id: HashMap<usize, CoreExifData> = images
         .iter()
         .filter_map(|e| exif_by_path.get(&e.path).map(|ex| (e.id, ex.clone())))
         .collect();
 
-    let phash_by_path = bridge_core::db::fetch_phash_batch(&path_mtimes, &conn);
+    let phash_by_path = bridge_core::db::fetch_phash_batch(&path_mtimes, &rconn);
     let phash_by_id: HashMap<usize, u64> = images
         .iter()
         .filter_map(|e| phash_by_path.get(&e.path).map(|&h| (e.id, h)))
@@ -1060,4 +1095,12 @@ fn bridge_exif_index_progress() -> usize {
 
 fn bridge_exif_index_total() -> usize {
     EXIF_INDEX_TOTAL.load(Ordering::Relaxed)
+}
+
+fn bridge_exif_precheck_progress() -> usize {
+    EXIF_PRECHECK_PROGRESS.load(Ordering::Relaxed)
+}
+
+fn bridge_exif_precheck_total() -> usize {
+    EXIF_PRECHECK_TOTAL.load(Ordering::Relaxed)
 }

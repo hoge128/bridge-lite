@@ -63,7 +63,7 @@ enum BridgeCore {
     }
 
     static func indexNewEntries(list: BridgeCoreImageList, db: BridgeCoreDatabase) async {
-        await Task.detached(priority: .utility) {
+        await Task.detached(priority: .userInitiated) {
             bridge_index_new_entries(db.inner, list.inner)
         }.value
     }
@@ -228,6 +228,10 @@ enum BridgeCore {
     static func exifIndexProgress() -> Int { Int(bridge_exif_index_progress()) }
     /// EXIF 索引の対象ファイル総数（0 = 索引フェーズ未開始 or 全件キャッシュ済み）
     static func exifIndexTotal() -> Int { Int(bridge_exif_index_total()) }
+    /// Phase1（キャッシュ確認）の処理済みファイル数
+    static func exifPrecheckProgress() -> Int { Int(bridge_exif_precheck_progress()) }
+    /// Phase1 の対象ファイル総数
+    static func exifPrecheckTotal() -> Int { Int(bridge_exif_precheck_total()) }
 
     // MARK: pHash
 

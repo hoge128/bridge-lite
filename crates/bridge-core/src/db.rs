@@ -142,6 +142,22 @@ pub fn open_connection(path: &Path) -> rusqlite::Result<Connection> {
     open_with_pragmas(path)
 }
 
+/// Open a short-lived read-only connection.
+/// Does NOT set journal_mode (requires write access and is DB-wide state).
+/// Suitable for concurrent reads in WAL mode alongside the write connection.
+pub fn open_read_connection(path: &Path) -> rusqlite::Result<Connection> {
+    let conn = Connection::open(path)?;
+    conn.execute_batch(
+        "
+        PRAGMA busy_timeout = 5000;
+        PRAGMA cache_size   = -16384;
+        PRAGMA mmap_size    = 268435456;
+        PRAGMA temp_store   = MEMORY;
+    ",
+    )?;
+    Ok(conn)
+}
+
 /// Add new nullable columns to the images table on existing DBs.
 /// ALTER TABLE fails silently when the column already exists, making this safe
 /// to call on every startup regardless of the current schema state.
@@ -256,6 +272,43 @@ pub fn fetch_exif_batch(
         }
     }
     out
+}
+
+/// Check which paths already have valid EXIF cached (path exists and mtime matches).
+/// Returns only the set of cached paths — reads path and mtime only, skipping all
+/// EXIF columns. Use this for precheck; use fetch_exif_batch when you need the data.
+pub fn fetch_cached_paths(
+    path_mtimes: &[(PathBuf, i64)],
+    conn: &Connection,
+) -> std::collections::HashSet<PathBuf> {
+    let mut cached = std::collections::HashSet::new();
+    let mtime_map: std::collections::HashMap<PathBuf, i64> = path_mtimes.iter().cloned().collect();
+    for chunk in path_mtimes.chunks(500) {
+        let placeholders = std::iter::repeat("?")
+            .take(chunk.len())
+            .collect::<Vec<_>>()
+            .join(",");
+        let sql = format!("SELECT path, mtime FROM images WHERE path IN ({placeholders})");
+        let Ok(mut stmt) = conn.prepare(&sql) else { continue };
+        let params = rusqlite::params_from_iter(
+            chunk.iter().map(|(p, _)| p.to_string_lossy().into_owned()),
+        );
+        let Ok(rows) = stmt.query_map(params, |row| {
+            let path_str: String = row.get(0)?;
+            let stored_mtime: Option<i64> = row.get(1)?;
+            Ok((PathBuf::from(path_str), stored_mtime))
+        }) else {
+            continue
+        };
+        for row in rows.flatten() {
+            let (path, stored_mtime) = row;
+            let known_mtime = mtime_map.get(&path).copied().unwrap_or(-1);
+            if stored_mtime.map_or(false, |m| m == known_mtime) {
+                cached.insert(path);
+            }
+        }
+    }
+    cached
 }
 
 /// Index newly discovered files in parallel.

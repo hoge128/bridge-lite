@@ -3498,6 +3498,70 @@
         }
       }
     },
+    "scan.phase %d" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Phase %d/5"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "フェーズ %d/5"
+          }
+        }
+      }
+    },
+    "scan.phase5" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Generating thumbnails…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サムネイル生成中…"
+          }
+        }
+      }
+    },
+    "scan.exif.precheck %d %d" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Checking EXIF cache %1$d / %2$d"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EXIFキャッシュ確認中 %1$d / %2$d"
+          }
+        }
+      }
+    },
+    "scan.exif.preparing" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Preparing EXIF index…"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EXIF索引の準備中…"
+          }
+        }
+      }
+    },
     "scan.exif.progress %d %d" : {
       "localizations" : {
         "en" : {
@@ -3526,6 +3590,118 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "残り約%d秒"
+          }
+        }
+      }
+    },
+    "scan.detail.p1" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Directory scan"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ディレクトリ走査"
+          }
+        }
+      }
+    },
+    "scan.detail.p2.done %d" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Loaded %d files"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d ファイル読込済"
+          }
+        }
+      }
+    },
+    "scan.detail.p3.cached" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "All EXIF cached"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "EXIFはすべてキャッシュ済み"
+          }
+        }
+      }
+    },
+    "scan.detail.p3.done" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Precheck done"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "確認完了"
+          }
+        }
+      }
+    },
+    "scan.detail.p4.done %d" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Indexed %d files"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%d ファイル索引済み"
+          }
+        }
+      }
+    },
+    "scan.detail.p4.cached" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Skipped (all cached)"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スキップ（全キャッシュ済み）"
+          }
+        }
+      }
+    },
+    "scan.detail.pending" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Pending"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "待機中"
           }
         }
       }

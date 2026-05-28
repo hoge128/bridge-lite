@@ -15,6 +15,7 @@ struct ThumbnailGridView: View {
     @State private var selectedFilterCategory: FilterCategory?
     @State private var showFolderPicker = false
     @State private var showSettings = false
+    @State private var showPhaseDetail = false
 
     private let gridSpacing: CGFloat = 1
     private let columnCount = 3
@@ -128,20 +129,141 @@ struct ThumbnailGridView: View {
         }
     }
 
+    // MARK: - Phase status
+
+    private enum PhaseDetailStatus { case done, active, pending }
+
     private var scanProgressBanner: some View {
-        HStack(spacing: 8) {
-            ProgressView().controlSize(.mini)
-            Group {
-                if scanStore.scanLoadedCount < scanStore.scanTotalCount || scanStore.exifIndexTotal == 0 {
-                    // サムネイル読み込みフェーズ
-                    if scanStore.scanTotalCount > 0 {
-                        Text(String(format: String(localized: "Loading %d / %d"),
-                                    scanStore.scanLoadedCount, scanStore.scanTotalCount))
-                    } else {
-                        Text(String(localized: "Scanning…"))
+        // 実行中の最も番号が小さい Phase をバナーに表示する。
+        // 後のフェーズが並行して先に終わっていても前のフェーズが完了するまでは前を表示し、
+        // 前が完了した瞬間に後もすでに終わっていればその先へ即ジャンプする。
+        let phase2Active = scanStore.scanTotalCount == 0 || scanStore.scanLoadedCount < scanStore.scanTotalCount
+        let phase3Active = !phase2Active && scanStore.exifIndexTotal == 0 && !scanStore.exifIndexTaskDone
+        let phase4Active = !phase2Active && scanStore.exifIndexTotal > 0 && !scanStore.exifIndexTaskDone
+
+        return VStack(spacing: 0) {
+            Button {
+                withAnimation(.easeInOut(duration: 0.2)) { showPhaseDetail.toggle() }
+            } label: {
+                HStack(spacing: 8) {
+                    ProgressView().controlSize(.mini)
+                    Group {
+                        if phase2Active {
+                            phaseLabel(2) {
+                                if scanStore.scanTotalCount > 0 {
+                                    Text(String(format: String(localized: "Loading %d / %d"),
+                                                scanStore.scanLoadedCount, scanStore.scanTotalCount))
+                                } else {
+                                    Text(String(localized: "Scanning…"))
+                                }
+                            }
+                        } else if phase3Active {
+                            phaseLabel(3) {
+                                if scanStore.exifPrecheckTotal > 0 &&
+                                   scanStore.exifPrecheckProgress < scanStore.exifPrecheckTotal {
+                                    Text(String(format: String(localized: "scan.exif.precheck %d %d",
+                                                               defaultValue: "Checking EXIF cache %1$d / %2$d"),
+                                                scanStore.exifPrecheckProgress, scanStore.exifPrecheckTotal))
+                                } else {
+                                    Text(String(localized: "scan.exif.preparing",
+                                                defaultValue: "Preparing EXIF index…"))
+                                }
+                            }
+                        } else if phase4Active {
+                            phaseLabel(4) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(String(format: String(localized: "scan.exif.progress %d %d",
+                                                               defaultValue: "Indexing EXIF %1$d / %2$d"),
+                                                scanStore.exifIndexProgress, scanStore.exifIndexTotal))
+                                    if let secs = scanStore.exifIndexRemainingSeconds {
+                                        Text(String(format: String(localized: "scan.exif.remaining %d",
+                                                                   defaultValue: "Est. %d sec remaining"),
+                                                    secs))
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                }
+                            }
+                        } else {
+                            phaseLabel(5) {
+                                Text(String(localized: "scan.phase5",
+                                            defaultValue: "Generating thumbnails…"))
+                            }
+                        }
                     }
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+                    Spacer()
+                    Image(systemName: "chevron.down")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .rotationEffect(.degrees(showPhaseDetail ? 180 : 0))
+                }
+                .padding(.horizontal, 12)
+                .padding(.vertical, 6)
+                .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .shimmer()
+
+            if showPhaseDetail {
+                scanPhaseDetailView
+                    .transition(.opacity.combined(with: .move(edge: .top)))
+            }
+        }
+        .background(Color(.secondarySystemBackground))
+        .animation(.easeInOut(duration: 0.2), value: showPhaseDetail)
+        .overlay(alignment: .bottom) { Divider() }
+        .transition(.move(edge: .top).combined(with: .opacity))
+    }
+
+    private var scanPhaseDetailView: some View {
+        let p2Done = scanStore.scanTotalCount > 0 && scanStore.scanLoadedCount >= scanStore.scanTotalCount
+        let p3Done = scanStore.exifIndexTotal > 0 || scanStore.exifIndexTaskDone
+        let p4Done = scanStore.exifIndexTaskDone
+        let p3Status: PhaseDetailStatus = p3Done ? .done : (scanStore.exifPrecheckProgress > 0 ? .active : .pending)
+        let p4Status: PhaseDetailStatus = p4Done ? .done : (p3Done ? .active : .pending)
+        let p5Status: PhaseDetailStatus = p4Done ? .active : .pending
+
+        return VStack(alignment: .leading, spacing: 0) {
+            Divider()
+            phaseDetailRow(.done, number: 1) {
+                Text(String(localized: "scan.detail.p1", defaultValue: "Directory scan"))
+            }
+            phaseDetailRow(p2Done ? .done : .active, number: 2) {
+                if p2Done {
+                    Text(String(format: String(localized: "scan.detail.p2.done %d",
+                                               defaultValue: "Loaded %d files"),
+                                scanStore.scanTotalCount))
                 } else {
-                    // EXIF 索引フェーズ（サムネイル 全件完了後）
+                    Text(String(format: String(localized: "Loading %d / %d"),
+                                scanStore.scanLoadedCount, scanStore.scanTotalCount))
+                }
+            }
+            phaseDetailRow(p3Status, number: 3) {
+                if p3Done {
+                    if scanStore.exifIndexTaskDone && scanStore.exifIndexTotal == 0 {
+                        Text(String(localized: "scan.detail.p3.cached", defaultValue: "All EXIF cached"))
+                    } else {
+                        Text(String(localized: "scan.detail.p3.done", defaultValue: "Precheck done"))
+                    }
+                } else if scanStore.exifPrecheckTotal > 0 && scanStore.exifPrecheckProgress < scanStore.exifPrecheckTotal {
+                    Text(String(format: String(localized: "scan.exif.precheck %d %d",
+                                               defaultValue: "Checking EXIF cache %1$d / %2$d"),
+                                scanStore.exifPrecheckProgress, scanStore.exifPrecheckTotal))
+                } else {
+                    Text(String(localized: "scan.exif.preparing", defaultValue: "Preparing EXIF index…"))
+                }
+            }
+            phaseDetailRow(p4Status, number: 4) {
+                if p4Done {
+                    if scanStore.exifIndexTotal > 0 {
+                        Text(String(format: String(localized: "scan.detail.p4.done %d",
+                                                   defaultValue: "Indexed %d files"),
+                                    scanStore.exifIndexTotal))
+                    } else {
+                        Text(String(localized: "scan.detail.p4.cached", defaultValue: "Skipped (all cached)"))
+                    }
+                } else if scanStore.exifIndexTotal > 0 {
                     VStack(alignment: .leading, spacing: 1) {
                         Text(String(format: String(localized: "scan.exif.progress %d %d",
                                                    defaultValue: "Indexing EXIF %1$d / %2$d"),
@@ -153,18 +275,54 @@ struct ThumbnailGridView: View {
                                 .foregroundStyle(.tertiary)
                         }
                     }
+                } else {
+                    Text(String(localized: "scan.detail.pending", defaultValue: "Pending"))
                 }
             }
-            .font(.caption2)
-            .foregroundStyle(.secondary)
+            phaseDetailRow(p5Status, number: 5) {
+                if p4Done {
+                    Text(String(localized: "scan.phase5", defaultValue: "Generating thumbnails…"))
+                } else {
+                    Text(String(localized: "scan.detail.pending", defaultValue: "Pending"))
+                }
+            }
+        }
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .padding(.bottom, 4)
+    }
+
+    @ViewBuilder
+    private func phaseDetailRow(_ status: PhaseDetailStatus, number: Int,
+                                 @ViewBuilder content: () -> some View) -> some View {
+        HStack(spacing: 8) {
+            Group {
+                switch status {
+                case .done:
+                    Image(systemName: "checkmark.circle.fill").foregroundStyle(.green)
+                case .active:
+                    ProgressView().controlSize(.mini).frame(width: 12, height: 12)
+                case .pending:
+                    Image(systemName: "circle").foregroundStyle(.quaternary)
+                }
+            }
+            .frame(width: 14, alignment: .center)
+            content()
             Spacer()
         }
         .padding(.horizontal, 12)
-        .padding(.vertical, 6)
-        .background(Color(.secondarySystemBackground))
-        .shimmer()
-        .overlay(alignment: .bottom) { Divider() }
-        .transition(.move(edge: .top).combined(with: .opacity))
+        .padding(.vertical, 2)
+    }
+
+    @ViewBuilder
+    private func phaseLabel<Content: View>(_ phase: Int, @ViewBuilder content: () -> Content) -> some View {
+        HStack(spacing: 4) {
+            Text(String(format: String(localized: "scan.phase %d",
+                                       defaultValue: "Phase %d/5"),
+                        phase))
+                .foregroundStyle(.tertiary)
+            content()
+        }
     }
 
     private var emptyState: some View {

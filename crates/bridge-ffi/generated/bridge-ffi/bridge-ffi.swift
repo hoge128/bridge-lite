@@ -273,6 +273,12 @@ public func bridge_exif_index_progress() -> UInt {
 public func bridge_exif_index_total() -> UInt {
     __swift_bridge__$bridge_exif_index_total()
 }
+public func bridge_exif_precheck_progress() -> UInt {
+    __swift_bridge__$bridge_exif_precheck_progress()
+}
+public func bridge_exif_precheck_total() -> UInt {
+    __swift_bridge__$bridge_exif_precheck_total()
+}
 
 public class ThumbBatchBuilder: ThumbBatchBuilderRefMut {
     var isOwned: Bool = true
