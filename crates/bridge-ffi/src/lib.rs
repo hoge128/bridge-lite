@@ -550,22 +550,13 @@ fn bridge_index_new_entries(db: &BridgeDatabase, entries: &ImageEntryList) {
         .collect();
 
     // Phase 1: キャッシュヒット確認（読み取り専用接続 — write_conn と競合しない）
-    // 500件チャンクで処理（fetch_cached_paths の内部チャンクと一致させて SQL クエリ数を最小化）。
-    // path と mtime のみ SELECT する軽量クエリで全 EXIF カラムの転送を排除。
-    const PRECHECK_CHUNK: usize = 500;
+    // path と mtime のみ SELECT する軽量クエリ。内部で 500 件チャンクに分割して IN 句制限を回避。
+    // precheck 完了後に一括で進捗を N/N に設定する（ループ不要）。
     EXIF_PRECHECK_TOTAL.store(path_mtimes.len(), Ordering::Relaxed);
     EXIF_PRECHECK_PROGRESS.store(0, Ordering::Relaxed);
     let misses: Vec<(PathBuf, i64)> = if let Some(rconn) = db.open_read_conn() {
-        let mut cached_set = std::collections::HashSet::new();
-        for chunk in path_mtimes.chunks(PRECHECK_CHUNK) {
-            let cached = bridge_core::db::fetch_cached_paths(chunk, &rconn);
-            for (p, _) in chunk {
-                if cached.contains(p) {
-                    cached_set.insert(p.clone());
-                }
-            }
-            EXIF_PRECHECK_PROGRESS.fetch_add(chunk.len(), Ordering::Relaxed);
-        }
+        let cached_set = bridge_core::db::fetch_cached_paths(&path_mtimes, &rconn);
+        EXIF_PRECHECK_PROGRESS.store(path_mtimes.len(), Ordering::Relaxed);
         path_mtimes.iter()
             .filter(|(p, _)| !cached_set.contains(p))
             .cloned()
