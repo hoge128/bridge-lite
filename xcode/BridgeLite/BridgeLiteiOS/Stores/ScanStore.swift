@@ -35,6 +35,36 @@ enum DateMode: String, Codable, Equatable, Sendable {
     case range, multi
 }
 
+enum AutoReleaseTimeout: String, CaseIterable, Identifiable {
+    case oneMinute      = "1min"
+    case fiveMinutes    = "5min"
+    case fifteenMinutes = "15min"
+    case thirtyMinutes  = "30min"
+    case off            = "off"
+
+    var id: String { rawValue }
+
+    var nanoseconds: UInt64? {
+        switch self {
+        case .oneMinute:      return 60_000_000_000
+        case .fiveMinutes:    return 300_000_000_000
+        case .fifteenMinutes: return 900_000_000_000
+        case .thirtyMinutes:  return 1_800_000_000_000
+        case .off:            return nil
+        }
+    }
+
+    var localizedName: String {
+        switch self {
+        case .oneMinute:      return String(localized: "auto_release.timeout.1min",   defaultValue: "1 Minute")
+        case .fiveMinutes:    return String(localized: "auto_release.timeout.5min",   defaultValue: "5 Minutes")
+        case .fifteenMinutes: return String(localized: "auto_release.timeout.15min",  defaultValue: "15 Minutes")
+        case .thirtyMinutes:  return String(localized: "auto_release.timeout.30min",  defaultValue: "30 Minutes")
+        case .off:            return String(localized: "auto_release.timeout.off",    defaultValue: "Off")
+        }
+    }
+}
+
 enum IOSSortKey: String, CaseIterable {
     case filename
     case modifiedDate
@@ -48,6 +78,7 @@ enum IOSSortKey: String, CaseIterable {
         }
     }
 }
+
 
 @Observable
 @MainActor
@@ -384,6 +415,73 @@ final class ScanStore: ReindexedGroupSink {
     /// スキャン世代ごとにリセット。生成中のリクエストを重複排除する。
     private var pendingThumbnailIDs: Set<UInt64> = []
 
+    // MARK: - 自動一時解放
+
+    /// 自動一時解放によってウェルカム画面へ戻ったことを示すフラグ。
+    /// welcomeView でヒントメッセージを表示するために使用する。
+    private(set) var returnedFromAutoRelease: Bool = false
+    private var autoReleaseTask: Task<Void, Never>?
+
+    var autoReleaseTimeout: AutoReleaseTimeout = {
+        if let raw = UserDefaults.standard.string(forKey: "ios.autoReleaseTimeout"),
+           let t = AutoReleaseTimeout(rawValue: raw) { return t }
+        return .oneMinute
+    }() {
+        didSet {
+            UserDefaults.standard.set(autoReleaseTimeout.rawValue, forKey: "ios.autoReleaseTimeout")
+            if autoReleaseTimeout == .off {
+                autoReleaseTask?.cancel()
+                autoReleaseTask = nil
+            } else {
+                resetAutoReleaseTimer()
+            }
+        }
+    }
+
+    /// スキャン完了後・ユーザー操作時に呼ぶ。設定時間無操作でウェルカム画面へ戻る。
+    func resetAutoReleaseTimer() {
+        autoReleaseTask?.cancel()
+        autoReleaseTask = nil
+        guard let nanos = autoReleaseTimeout.nanoseconds,
+              !isScanning, folderURL != nil else { return }
+        autoReleaseTask = Task { [weak self] in
+            do {
+                try await Task.sleep(nanoseconds: nanos)
+                self?.enterAutoRelease()
+            } catch {}
+        }
+    }
+
+    private func enterAutoRelease() {
+        stopFolderMonitor()
+        scanTask?.cancel()
+        scanTask = nil
+        scanGeneration &+= 1
+        isScanning = false
+        isExifReady = false
+        scanError = nil
+        entries = [:]
+        groups = []
+        thumbnails = [:]
+        exifs = [:]
+        scanTotalCount = 0
+        scanLoadedCount = 0
+        exifIndexProgress = 0
+        exifIndexTotal = 0
+        exifIndexTaskDone = false
+        exifIndexStartTime = nil
+        exifPrecheckProgress = 0
+        exifPrecheckTotal = 0
+        onDemandWriteBuffer = nil
+        pendingThumbnailIDs = []
+        lastImageList = nil
+        db = nil
+        folderURL = nil
+        returnedFromAutoRelease = true
+        // BookmarkStore は残す（再開できるように）
+        // フィルタ状態（filterRatings / filterLabels 等）は維持する
+    }
+
     // MARK: - Init
 
     init() {
@@ -431,6 +529,7 @@ final class ScanStore: ReindexedGroupSink {
     // MARK: - Scan
 
     func scan(url: URL) {
+        returnedFromAutoRelease = false
         folderURL = url
         BookmarkStore.save(url: url)
         scanTask?.cancel()
@@ -480,6 +579,8 @@ final class ScanStore: ReindexedGroupSink {
         stopFolderMonitor()
         scanTask?.cancel()
         scanTask = nil
+        autoReleaseTask?.cancel()
+        autoReleaseTask = nil
         scanGeneration &+= 1
         isScanning = false
         isExifReady = false
@@ -767,6 +868,13 @@ final class ScanStore: ReindexedGroupSink {
               let writeBuffer = onDemandWriteBuffer else { return }
         pendingThumbnailIDs.insert(entry.id)
         defer { pendingThumbnailIDs.remove(entry.id) }
+
+        // SQLite キャッシュを先に確認（アイドル省電力復帰時に <100ms で再表示できる）
+        if let cached = await BridgeCore.fetchCachedThumbnail(url: entry.url, db: db) {
+            thumbnails[entry.id] = cached.jpeg
+            return
+        }
+
         let mode = thumbnailQualityMode
         let pipeline: PHashPipeline? = enablePhashGrouping ? phashPipeline : nil
         if let jpeg = try? await onDemandLimiter.run({

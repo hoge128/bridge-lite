@@ -29,6 +29,7 @@ struct ContentView: View {
             case .active:
                 BackgroundScanManager.shared.endExtendedTime()
                 Task { await scanStore.verifyFolderReachability() }
+                scanStore.resetAutoReleaseTimer()
             case .background:
                 if scanStore.isScanning {
                     BackgroundScanManager.shared.beginExtendedTime()
@@ -42,6 +43,7 @@ struct ContentView: View {
             if !isScanning {
                 BackgroundScanManager.shared.endExtendedTime()
                 BackgroundScanManager.shared.cancelScheduledTask()
+                scanStore.resetAutoReleaseTimer()
             }
         }
     }
@@ -83,6 +85,22 @@ struct ContentView: View {
                     .padding(40)
                     .adaptiveGlass(cornerRadius: 28)
                     .padding(.horizontal, 28)
+
+                    if scanStore.returnedFromAutoRelease,
+                       let folderName = BookmarkStore.restore()?.lastPathComponent {
+                        HStack(spacing: 6) {
+                            Image(systemName: "bolt.slash")
+                            Text(String(
+                                format: String(localized: "welcome.idle_power_saving.hint",
+                                               defaultValue: "Released to save power.\nReopen \"%@\" to continue —\nfast since already scanned."),
+                                folderName
+                            ))
+                        }
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 32)
+                    }
 
                     Button {
                         showGuide = true

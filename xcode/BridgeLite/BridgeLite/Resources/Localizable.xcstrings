@@ -5756,6 +5756,64 @@
         }
       }
     },
+    "auto_release.timeout.15min" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "15 Minutes" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "15分" } }
+      }
+    },
+    "auto_release.timeout.1min" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "1 Minute" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "1分" } }
+      }
+    },
+    "auto_release.timeout.30min" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "30 Minutes" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "30分" } }
+      }
+    },
+    "auto_release.timeout.5min" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "5 Minutes" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "5分" } }
+      }
+    },
+    "auto_release.timeout.off" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Off" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "オフ" } }
+      }
+    },
+    "settings.auto_release.description" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "After scanning, to save battery, data is released and the app returns to the home screen after a period of inactivity. Reopening loads quickly from the scan cache."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "スキャン後、一定時間操作がないとき、バッテリー節約のためデータを解放してウェルカム画面に戻ります。再度開くとスキャン済みのため高速に表示されます。"
+          }
+        }
+      }
+    },
+    "settings.auto_release.picker" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Auto Release" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "自動一時解放" } }
+      }
+    },
+    "settings.auto_release.section" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Auto Release" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "自動一時解放" } }
+      }
+    },
     "settings.render.section" : {
       "localizations" : {
         "en" : {
@@ -6882,6 +6940,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "情報を表示 (M)"
+          }
+        }
+      }
+    },
+    "welcome.idle_power_saving.hint" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Released to save power.\nReopen \"%@\" to continue —\nfast since already scanned."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "省電力のため一時解放しました。\n「%@」を再度開いてください\n（スキャン済みのため高速です）"
           }
         }
       }

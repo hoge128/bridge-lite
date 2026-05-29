@@ -122,6 +122,21 @@ struct SettingsSheetView: View {
                     }
                 }
 
+                Section {
+                    Picker(String(localized: "settings.auto_release.picker", defaultValue: "Auto Release"),
+                           selection: $scanStore.autoReleaseTimeout) {
+                        ForEach(AutoReleaseTimeout.allCases) { timeout in
+                            Text(timeout.localizedName).tag(timeout)
+                        }
+                    }
+                    Text(String(localized: "settings.auto_release.description",
+                                defaultValue: "After scanning, to save battery, data is released and the app returns to the home screen after a period of inactivity. Reopening loads quickly from the scan cache."))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                } header: {
+                    Text(String(localized: "settings.auto_release.section", defaultValue: "Auto Release"))
+                }
+
                 Section(String(localized: "settings.render.section", defaultValue: "RAW Rendering")) {
                     Toggle(isOn: $scanStore.autoRenderRawDetail) {
                         Label(

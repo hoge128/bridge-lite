@@ -164,6 +164,7 @@ struct ThumbnailGridView: View {
                             squareCellSize: cellSize,
                             isSelected: selectedGroup?.id == group.id
                         ) {
+                            scanStore.resetAutoReleaseTimer()
                             selectedGroup = group
                         }
                         .task(id: group.representativeID ?? group.id) {
@@ -176,6 +177,10 @@ struct ThumbnailGridView: View {
                 }
                 .padding(gridSpacing)
             }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in scanStore.resetAutoReleaseTimer() }
+            )
         }
     }
 
