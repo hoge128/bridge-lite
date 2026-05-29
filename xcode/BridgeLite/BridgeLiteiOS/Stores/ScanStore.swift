@@ -1191,4 +1191,34 @@ final class ScanStore: ReindexedGroupSink {
               d != 0 else { return nil }
         return n / d
     }
+
+    // MARK: - 削除
+
+    func deleteGroup(_ group: ShotGroup) {
+        guard let folderURL = folderURL else { return }
+        let started = folderURL.startAccessingSecurityScopedResource()
+        defer { if started { folderURL.stopAccessingSecurityScopedResource() } }
+
+        for id in group.memberIDs {
+            guard let entry = entries[id] else { continue }
+            let url = entry.url
+            if (try? FileManager.default.trashItem(at: url, resultingItemURL: nil)) == nil {
+                try? FileManager.default.removeItem(at: url)
+            }
+            let xmpURL = url.deletingPathExtension().appendingPathExtension("xmp")
+            if FileManager.default.fileExists(atPath: xmpURL.path) {
+                if (try? FileManager.default.trashItem(at: xmpURL, resultingItemURL: nil)) == nil {
+                    try? FileManager.default.removeItem(at: xmpURL)
+                }
+            }
+        }
+
+        let ids = Set(group.memberIDs)
+        for id in ids {
+            entries.removeValue(forKey: id)
+            thumbnails.removeValue(forKey: id)
+            exifs.removeValue(forKey: id)
+        }
+        groups.removeAll { $0.id == group.id }
+    }
 }

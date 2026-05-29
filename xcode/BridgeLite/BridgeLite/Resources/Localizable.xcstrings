@@ -1654,6 +1654,38 @@
         }
       }
     },
+    "delete.ios.confirm.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "This cannot be undone."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この操作は元に戻せません。"
+          }
+        }
+      }
+    },
+    "delete.ios.confirm.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Delete Photo?"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真を削除しますか？"
+          }
+        }
+      }
+    },
     "Depth limit reached" : {
       "localizations" : {
         "en" : {

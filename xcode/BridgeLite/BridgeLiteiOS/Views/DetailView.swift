@@ -30,6 +30,7 @@ struct DetailView: View {
     @State private var isImageZoomed = false
     @State private var isFullscreen = false
     @State private var showRatingPopup = false
+    @State private var showDeleteConfirm = false
     @State private var showEmbedWarning = false
     @State private var pendingWriteEntry: (id: UInt64, url: URL, xmp: XmpData, previousXmp: XmpData?, targetIDs: [UInt64])?
     @State private var ratingWriteTask: Task<Void, Never>?
@@ -210,6 +211,31 @@ struct DetailView: View {
                     }
                     .disabled(current == nil)
                 }
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    Menu {
+                        Button(role: .destructive) {
+                            showDeleteConfirm = true
+                        } label: {
+                            Label(String(localized: "Delete"), systemImage: "trash")
+                        }
+                    } label: {
+                        Image(systemName: "ellipsis")
+                    }
+                    .disabled(current == nil)
+                }
+            }
+            .confirmationDialog(
+                String(localized: "delete.ios.confirm.title", defaultValue: "Move to Trash?"),
+                isPresented: $showDeleteConfirm,
+                titleVisibility: .visible
+            ) {
+                Button(String(localized: "Delete"), role: .destructive) {
+                    scanStore.deleteGroup(group)
+                    dismiss()
+                }
+                Button(String(localized: "Cancel"), role: .cancel) {}
+            } message: {
+                Text(String(localized: "delete.ios.confirm.message", defaultValue: "This cannot be undone."))
             }
             .alert(
                 String(localized: "alert.jpg_embed_first.title",

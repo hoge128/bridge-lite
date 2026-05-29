@@ -11,6 +11,7 @@ struct ThumbnailCellView: View {
     let squareCellSize: CGFloat?
     let isSelected: Bool
     let onTap: () -> Void
+    let onDelete: () -> Void
 
     private var representativeID: UInt64? { group.representativeID }
     private var thumbnailData: Data? { representativeID.flatMap { thumbnails[$0] } }
@@ -21,6 +22,11 @@ struct ThumbnailCellView: View {
             cellContent
         }
         .buttonStyle(.plain)
+        .contextMenu {
+            Button(role: .destructive, action: onDelete) {
+                Label(String(localized: "Delete"), systemImage: "trash")
+            }
+        }
     }
 
     @ViewBuilder

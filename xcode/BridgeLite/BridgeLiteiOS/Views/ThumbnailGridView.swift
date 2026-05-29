@@ -21,6 +21,7 @@ struct ThumbnailGridView: View {
     @State private var showShareWarning = false
     @State private var pendingShareURLs: [URL] = []
     @State private var pendingSharePreview: UIImage? = nil
+    @State private var groupPendingDelete: ShotGroup?
 
     private static let shareWarningThreshold = 20
     private let gridSpacing: CGFloat = 1
@@ -144,6 +145,24 @@ struct ThumbnailGridView: View {
         } message: {
             Text(String(localized: "export.warning.body \(pendingShareURLs.count)"))
         }
+        .confirmationDialog(
+            String(localized: "delete.ios.confirm.title", defaultValue: "Move to Trash?"),
+            isPresented: Binding(
+                get: { groupPendingDelete != nil },
+                set: { if !$0 { groupPendingDelete = nil } }
+            ),
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Delete"), role: .destructive) {
+                if let group = groupPendingDelete {
+                    scanStore.deleteGroup(group)
+                    groupPendingDelete = nil
+                }
+            }
+            Button(String(localized: "Cancel"), role: .cancel) { groupPendingDelete = nil }
+        } message: {
+            Text(String(localized: "delete.ios.confirm.message", defaultValue: "This cannot be undone."))
+        }
     }
 
     private var grid: some View {
@@ -162,11 +181,13 @@ struct ThumbnailGridView: View {
                             exifs: scanStore.exifs,
                             kind: scanStore.representativeKind(for: group, xmps: ratingStore.ratings),
                             squareCellSize: cellSize,
-                            isSelected: selectedGroup?.id == group.id
-                        ) {
-                            scanStore.resetAutoReleaseTimer()
-                            selectedGroup = group
-                        }
+                            isSelected: selectedGroup?.id == group.id,
+                            onTap: {
+                                scanStore.resetAutoReleaseTimer()
+                                selectedGroup = group
+                            },
+                            onDelete: { groupPendingDelete = group }
+                        )
                         .task(id: group.representativeID ?? group.id) {
                             guard let repID = group.representativeID ?? group.memberIDs.first,
                                   let entry = scanStore.entries[repID],
