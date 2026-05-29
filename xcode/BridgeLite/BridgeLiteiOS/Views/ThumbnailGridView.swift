@@ -18,7 +18,11 @@ struct ThumbnailGridView: View {
     @State private var showPhaseDetail = false
     @AppStorage("scanFirstRunPromptShown") private var scanFirstRunPromptShown = false
     @State private var showScanStartPrompt = false
+    @State private var showShareWarning = false
+    @State private var pendingShareURLs: [URL] = []
+    @State private var pendingSharePreview: UIImage? = nil
 
+    private static let shareWarningThreshold = 20
     private let gridSpacing: CGFloat = 1
     private let columnCount = 3
 
@@ -26,88 +30,119 @@ struct ThumbnailGridView: View {
         Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: columnCount)
     }
 
+    private var shareNeedsWarning: Bool {
+        scanStore.filteredGroups(ratings: ratingStore.ratings).count > Self.shareWarningThreshold
+    }
+
+    @ViewBuilder
+    private var filterOverlay: some View {
+        if selectedFilterCategory != nil {
+            Color.black.opacity(0.38)
+                .ignoresSafeArea()
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        selectedFilterCategory = nil
+                    }
+                }
+                .transition(.opacity)
+                .allowsHitTesting(true)
+        }
+    }
+
+    @ViewBuilder
+    private var mainContent: some View {
+        ZStack {
+            if scanStore.groups.isEmpty && scanStore.isScanning {
+                VStack(spacing: 8) {
+                    ProgressView()
+                    Text(String(localized: "Scanning…"))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            } else if scanStore.groups.isEmpty {
+                emptyState
+            } else {
+                grid
+                    .safeAreaInset(edge: .top, spacing: 0) {
+                        if scanStore.isScanning {
+                            scanProgressBanner
+                        }
+                    }
+                    .animation(.easeInOut(duration: 0.2), value: scanStore.isScanning)
+            }
+
+            filterOverlay
+        }
+        .animation(.easeInOut(duration: 0.2), value: selectedFilterCategory)
+        .navigationTitle(scanStore.folderURL?.lastPathComponent ?? "BridgeLite")
+        .navigationBarTitleDisplayMode(.inline)
+        .glassNavigationBar()
+        .toolbar { toolbar }
+        .safeAreaInset(edge: .bottom, spacing: 0) { filterBottomBar }
+        .sheet(item: $selectedGroup) { group in
+            DetailView(
+                groups: scanStore.filteredGroups(ratings: ratingStore.ratings),
+                initialGroup: group,
+                entries: scanStore.entries,
+                ratings: Binding(
+                    get: { ratingStore.ratings },
+                    set: { ratingStore.ratings = $0 }
+                ),
+                db: scanStore.db,
+                jpgWriteMode: scanStore.jpgWriteMode,
+                scanStore: scanStore,
+                preferRendered: $preferRendered
+            )
+        }
+        .sheet(isPresented: $showFolderPicker) {
+            FolderPickerView { url in
+                showFolderPicker = false
+                scanStore.scan(url: url)
+                if !scanFirstRunPromptShown {
+                    showScanStartPrompt = true
+                    scanFirstRunPromptShown = true
+                }
+            }
+        }
+        .alert(
+            String(localized: "scan.prompt.title", defaultValue: "Scanning Library"),
+            isPresented: $showScanStartPrompt
+        ) {
+            Button(String(localized: "scan.prompt.ok", defaultValue: "Got It")) { }
+        } message: {
+            Text(String(localized: "scan.prompt.message",
+                        defaultValue: "Your photo library is being scanned for the first time. This may take a few minutes depending on library size.\n\nFilters and search will be available after scanning completes. You can browse photos, but loading may be slower while scanning. Processing continues in the background."))
+        }
+        .sheet(isPresented: $showSettings) {
+            SettingsSheetView(scanStore: scanStore) { showSettings = false }
+        }
+        .onChange(of: scanStore.entries) { _, newEntries in
+            let all = Array(newEntries.values)
+            Task { await ratingStore.loadAll(entries: all, jpgWriteMode: scanStore.jpgWriteMode) }
+        }
+    }
+
     var body: some View {
         NavigationStack {
-            ZStack {
-                if scanStore.groups.isEmpty && scanStore.isScanning {
-                    VStack(spacing: 8) {
-                        ProgressView()
-                        Text(String(localized: "Scanning…"))
-                            .font(.caption)
-                            .foregroundStyle(.secondary)
-                    }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity)
-                } else if scanStore.groups.isEmpty {
-                    emptyState
-                } else {
-                    grid
-                        .safeAreaInset(edge: .top, spacing: 0) {
-                            if scanStore.isScanning {
-                                scanProgressBanner
-                            }
-                        }
-                        .animation(.easeInOut(duration: 0.2), value: scanStore.isScanning)
-                }
-
-                if selectedFilterCategory != nil {
-                    Color.black.opacity(0.38)
-                        .ignoresSafeArea()
-                        .onTapGesture {
-                            withAnimation(.easeInOut(duration: 0.2)) {
-                                selectedFilterCategory = nil
-                            }
-                        }
-                        .transition(.opacity)
-                        .allowsHitTesting(true)
-                }
+            mainContent
+        }
+        .confirmationDialog(
+            String(localized: "export.warning.title", defaultValue: "Too Many Photos"),
+            isPresented: $showShareWarning,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "export.guide.continue")) {
+                let urls = pendingShareURLs
+                let preview = pendingSharePreview
+                pendingShareURLs = []
+                pendingSharePreview = nil
+                presentActivityController(urls: urls, preview: preview, count: urls.count)
             }
-            .animation(.easeInOut(duration: 0.2), value: selectedFilterCategory)
-            .navigationTitle(scanStore.folderURL?.lastPathComponent ?? "BridgeLite")
-            .navigationBarTitleDisplayMode(.inline)
-            .glassNavigationBar()
-            .toolbar { toolbar }
-            .safeAreaInset(edge: .bottom, spacing: 0) { filterBottomBar }
-            .sheet(item: $selectedGroup) { group in
-                DetailView(
-                    groups: scanStore.filteredGroups(ratings: ratingStore.ratings),
-                    initialGroup: group,
-                    entries: scanStore.entries,
-                    ratings: Binding(
-                        get: { ratingStore.ratings },
-                        set: { ratingStore.ratings = $0 }
-                    ),
-                    db: scanStore.db,
-                    jpgWriteMode: scanStore.jpgWriteMode,
-                    scanStore: scanStore,
-                    preferRendered: $preferRendered
-                )
-            }
-            .sheet(isPresented: $showFolderPicker) {
-                FolderPickerView { url in
-                    showFolderPicker = false
-                    scanStore.scan(url: url)
-                    if !scanFirstRunPromptShown {
-                        showScanStartPrompt = true
-                        scanFirstRunPromptShown = true
-                    }
-                }
-            }
-            .alert(
-                String(localized: "scan.prompt.title", defaultValue: "Scanning Library"),
-                isPresented: $showScanStartPrompt
-            ) {
-                Button(String(localized: "scan.prompt.ok", defaultValue: "Got It")) { }
-            } message: {
-                Text(String(localized: "scan.prompt.message",
-                            defaultValue: "Your photo library is being scanned for the first time. This may take a few minutes depending on library size.\n\nFilters and search will be available after scanning completes. You can browse photos, but loading may be slower while scanning. Processing continues in the background."))
-            }
-            .sheet(isPresented: $showSettings) {
-                SettingsSheetView(scanStore: scanStore) { showSettings = false }
-            }
-            .onChange(of: scanStore.entries) { _, newEntries in
-                let all = Array(newEntries.values)
-                Task { await ratingStore.loadAll(entries: all, jpgWriteMode: scanStore.jpgWriteMode) }
-            }
+            Button(String(localized: "export.warning.filter_first", defaultValue: "Filter First")) { }
+            Button(String(localized: "Cancel"), role: .cancel) { }
+        } message: {
+            Text(String(localized: "export.warning.body \(pendingShareURLs.count)"))
         }
     }
 
@@ -366,16 +401,22 @@ struct ThumbnailGridView: View {
                 let groups = scanStore.filteredGroups(ratings: ratingStore.ratings)
                 let urls = ExportService.urlsForGroups(groups, scanStore: scanStore, xmps: ratingStore.ratings)
                 guard !urls.isEmpty else { return }
-                // 先頭グループのサムネイルをプレビューとして渡す
                 var preview: UIImage? = nil
                 if let firstGroup = groups.first,
                    let repID = firstGroup.representativeID,
                    let data = scanStore.thumbnails[repID] {
                     preview = UIImage(data: data)
                 }
-                presentActivityController(urls: urls, preview: preview, count: urls.count)
+                if urls.count > Self.shareWarningThreshold {
+                    pendingShareURLs = urls
+                    pendingSharePreview = preview
+                    showShareWarning = true
+                } else {
+                    presentActivityController(urls: urls, preview: preview, count: urls.count)
+                }
             } label: {
                 Image(systemName: "square.and.arrow.up")
+                    .opacity(shareNeedsWarning ? 0.4 : 1.0)
             }
             .disabled(scanStore.groups.isEmpty)
         }
