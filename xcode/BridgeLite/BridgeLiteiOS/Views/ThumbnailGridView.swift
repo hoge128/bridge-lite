@@ -16,6 +16,8 @@ struct ThumbnailGridView: View {
     @State private var showFolderPicker = false
     @State private var showSettings = false
     @State private var showPhaseDetail = false
+    @AppStorage("scanFirstRunPromptShown") private var scanFirstRunPromptShown = false
+    @State private var showScanStartPrompt = false
 
     private let gridSpacing: CGFloat = 1
     private let columnCount = 3
@@ -38,13 +40,13 @@ struct ThumbnailGridView: View {
                 } else if scanStore.groups.isEmpty {
                     emptyState
                 } else {
-                    VStack(spacing: 0) {
-                        if scanStore.isScanning {
-                            scanProgressBanner
+                    grid
+                        .safeAreaInset(edge: .top, spacing: 0) {
+                            if scanStore.isScanning {
+                                scanProgressBanner
+                            }
                         }
-                        grid
-                    }
-                    .animation(.easeInOut(duration: 0.2), value: scanStore.isScanning)
+                        .animation(.easeInOut(duration: 0.2), value: scanStore.isScanning)
                 }
 
                 if selectedFilterCategory != nil {
@@ -84,7 +86,20 @@ struct ThumbnailGridView: View {
                 FolderPickerView { url in
                     showFolderPicker = false
                     scanStore.scan(url: url)
+                    if !scanFirstRunPromptShown {
+                        showScanStartPrompt = true
+                        scanFirstRunPromptShown = true
+                    }
                 }
+            }
+            .alert(
+                String(localized: "scan.prompt.title", defaultValue: "Scanning Library"),
+                isPresented: $showScanStartPrompt
+            ) {
+                Button(String(localized: "scan.prompt.ok", defaultValue: "Got It")) { }
+            } message: {
+                Text(String(localized: "scan.prompt.message",
+                            defaultValue: "Your photo library is being scanned for the first time. This may take a few minutes depending on library size.\n\nFilters and search will be available after scanning completes. You can browse photos, but loading may be slower while scanning. Processing continues in the background."))
             }
             .sheet(isPresented: $showSettings) {
                 SettingsSheetView(scanStore: scanStore) { showSettings = false }

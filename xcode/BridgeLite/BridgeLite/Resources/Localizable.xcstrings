@@ -3706,6 +3706,54 @@
         }
       }
     },
+    "scan.prompt.title" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Scanning Library"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ライブラリをスキャン中"
+          }
+        }
+      }
+    },
+    "scan.prompt.message" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Your photo library is being scanned for the first time. This may take a few minutes depending on library size.\n\nFilters and search will be available after scanning completes. You can browse photos, but loading may be slower while scanning. Processing continues in the background."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "写真ライブラリを初回スキャン中です。枚数によっては数分かかります。\n\nフィルタ・検索はスキャン完了後に使えます。写真の閲覧はできますが、スキャン中はやや遅くなる場合があります。バックグラウンドに移動しても処理は継続されます。"
+          }
+        }
+      }
+    },
+    "scan.prompt.ok" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Got It"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "了解"
+          }
+        }
+      }
+    },
     "Loading thumbnails…" : {
       "extractionState" : "stale",
       "localizations" : {
