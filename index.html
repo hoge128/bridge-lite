@@ -175,6 +175,9 @@
     }
 
     .btn-fill:hover { opacity: 0.78; }
+    .btn-fill[data-lang] { display: none; }
+    .lang-ja .btn-fill[data-lang="ja"],
+    .lang-en .btn-fill[data-lang="en"] { display: inline-flex; }
 
     .btn-outline {
       display: inline-flex;
@@ -491,6 +494,55 @@
       white-space: nowrap;
     }
 
+    .ms-dl-option {
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .ms-dl-label {
+      display: none;
+      font-size: 12px;
+      font-weight: 600;
+      color: var(--ink);
+      margin: 0;
+    }
+    .lang-ja .ms-dl-label[data-lang="ja"],
+    .lang-en .ms-dl-label[data-lang="en"] {
+      display: block;
+    }
+    .ms-badge-wrap { display: none; align-items: flex-start; gap: 3px; }
+    .lang-ja .ms-badge-wrap[data-lang="ja"],
+    .lang-en .ms-badge-wrap[data-lang="en"] { display: inline-flex; }
+    .ms-badge-link { display: block; line-height: 0; transition: opacity 0.15s; }
+    .ms-badge-link:hover { opacity: 0.75; }
+    .ms-badge-link img { display: block; height: 44px; width: auto; }
+    .ms-installer-btn { font-size: 12px; }
+    .ms-fn {
+      font-size: 10px;
+      font-weight: 400;
+      color: var(--muted);
+    }
+    .ms-fn-btn {
+      font-size: 9px;
+      font-weight: 400;
+      opacity: 0.6;
+    }
+    .ms-footnotes {
+      display: none;
+      flex-direction: column;
+      gap: 3px;
+      margin-top: 12px;
+    }
+    .lang-ja .ms-footnotes[data-lang="ja"],
+    .lang-en .ms-footnotes[data-lang="en"] {
+      display: flex;
+    }
+    .ms-footnotes p {
+      font-size: 11px;
+      color: var(--muted);
+      margin: 0;
+    }
+
     /* ── Footer ── */
     footer {
       border-top: 1px solid var(--border);
@@ -776,13 +828,41 @@
     </div>
 
     <!-- Windows -->
-    <div class="platform-card platform-soon">
+    <div class="platform-card">
       <p class="platform-os">Windows</p>
-      <p class="platform-req" data-lang="ja">Windows 版は今後検討予定です。</p>
-      <p class="platform-req" data-lang="en">A Windows version is under consideration.</p>
+      <p class="platform-req" data-lang="ja">Windows 向け · 無料</p>
+      <p class="platform-req" data-lang="en">For Windows · Free</p>
       <div class="platform-actions">
-        <p class="soon-label" data-lang="ja">近日公開予定</p>
-        <p class="soon-label" data-lang="en">Coming soon</p>
+        <div class="ms-dl-option">
+          <a href="https://get.microsoft.com/installer/download/9N09TWGSDJ9P?referrer=appbadge" class="btn-fill ms-installer-btn" data-lang="ja" target="_self">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            インストーラーをダウンロード <sup class="ms-fn-btn">※1</sup>
+          </a>
+          <a href="https://get.microsoft.com/installer/download/9N09TWGSDJ9P?referrer=appbadge" class="btn-fill ms-installer-btn" data-lang="en" target="_self">
+            <svg width="13" height="13" viewBox="0 0 16 16" fill="none"><path d="M8 1v9M4 7l4 4 4-4M2 13h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            Download Installer <sup class="ms-fn-btn">※1</sup>
+          </a>
+        </div>
+        <div class="ms-dl-option">
+          <span class="ms-badge-wrap" data-lang="ja">
+            <a href="https://apps.microsoft.com/detail/9N09TWGSDJ9P?referrer=appbadge&mode=full" class="ms-badge-link" target="_blank" rel="noopener noreferrer">
+              <img src="src/MS_Store_JP.svg" alt="Microsoft Store から入手">
+            </a><sup class="ms-fn">※2</sup>
+          </span>
+          <span class="ms-badge-wrap" data-lang="en">
+            <a href="https://apps.microsoft.com/detail/9N09TWGSDJ9P?referrer=appbadge&mode=full" class="ms-badge-link" target="_blank" rel="noopener noreferrer">
+              <img src="src/MS_Store_EN.svg" alt="Get it from Microsoft">
+            </a><sup class="ms-fn">※2</sup>
+          </span>
+        </div>
+      </div>
+      <div class="ms-footnotes" data-lang="ja">
+        <p>※1 更新は手動での再インストールが必要です</p>
+        <p>※2 更新は Microsoft Store が自動で配信します</p>
+      </div>
+      <div class="ms-footnotes" data-lang="en">
+        <p>※1 Updates require manual reinstall</p>
+        <p>※2 Updates delivered automatically by Microsoft Store</p>
       </div>
     </div>
   </div>
