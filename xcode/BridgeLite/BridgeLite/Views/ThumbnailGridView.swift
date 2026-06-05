@@ -181,25 +181,31 @@ struct ThumbnailGridView: View {
                 Text("Recent Folders")
                     .font(.caption)
                     .foregroundStyle(.tertiary)
-                VStack(spacing: 6) {
+                VStack(spacing: 4) {
                     ForEach(recents, id: \.path) { url in
                         Button {
                             store.loadFolder(url)
                         } label: {
-                            HStack(spacing: 6) {
+                            HStack(spacing: 8) {
                                 Image(systemName: "folder")
-                                    .font(.system(size: 12))
+                                    .font(.system(size: 13))
                                     .foregroundStyle(.secondary)
-                                Text(url.lastPathComponent)
-                                    .font(.body)
-                                    .foregroundStyle(.primary)
-                                    .lineLimit(1)
+                                    .frame(width: 16)
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text(url.lastPathComponent)
+                                        .font(.body)
+                                        .foregroundStyle(.primary)
+                                        .lineLimit(1)
+                                    Text(url.path)
+                                        .font(.caption2)
+                                        .foregroundStyle(.tertiary)
+                                        .lineLimit(1)
+                                }
                             }
-                            .frame(minWidth: 160, alignment: .leading)
+                            .frame(minWidth: 220, maxWidth: 320, alignment: .leading)
                             .contentShape(Rectangle())
                         }
                         .buttonStyle(.borderless)
-                        .help(url.path)
                     }
                 }
             }
