@@ -14,10 +14,15 @@ struct ContentView: View {
         Group {
             if scanStore.folderURL != nil {
                 ThumbnailGridView(scanStore: scanStore, ratingStore: ratingStore)
+                    .onAppear { allowLandscape = true }
             } else {
                 welcomeView
                     .opacity(welcomeAppeared ? 1 : 0)
-                    .onAppear { welcomeAppeared = false }
+                    .onAppear {
+                        welcomeAppeared = false
+                        allowLandscape = false
+                        forcePortraitOrientation()
+                    }
                     .task {
                         try? await Task.sleep(nanoseconds: 50_000_000)
                         withAnimation(.easeOut(duration: 0.35)) { welcomeAppeared = true }

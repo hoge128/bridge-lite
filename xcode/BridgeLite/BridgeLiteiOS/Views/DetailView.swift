@@ -23,6 +23,8 @@ struct DetailView: View {
     /// let スナップショットだと DetailView オープン後のバッチ生成分が反映されない。
     private var thumbnails: [UInt64: Data] { scanStore.thumbnails }
     @Environment(\.dismiss) private var dismiss
+    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
+    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     @State private var currentGroupIndex: Int
     @State private var currentIndex: Int
@@ -34,6 +36,7 @@ struct DetailView: View {
     @State private var showEmbedWarning = false
     @State private var pendingWriteEntry: (id: UInt64, url: URL, xmp: XmpData, previousXmp: XmpData?, targetIDs: [UInt64])?
     @State private var ratingWriteTask: Task<Void, Never>?
+    @State private var showInfoPanel = false
 
     // フルサイズキャッシュ（最大3枚 FIFO: prev / current / next）
     @State private var fullResCache: [FullResEntry] = []
@@ -80,79 +83,39 @@ struct DetailView: View {
 
     private var current: PhotoEntry? { members[safe: currentIndex] }
 
+    private var usesLandscapeLayout: Bool {
+        horizontalSizeClass == .compact && verticalSizeClass == .compact
+    }
+
     var body: some View {
         NavigationStack {
+            let isLandscape = usesLandscapeLayout
             ZStack(alignment: .bottom) {
                 Color.black.ignoresSafeArea()
                 if let entry = current {
-                    VStack(spacing: 0) {
-                        GeometryReader { geo in
-                            ZStack {
-                                // Previous image — shown only while swiping right
-                                if dragOffset > 2, let prevImg = imageForGroup(at: currentGroupIndex - 1) {
-                                    Image(uiImage: prevImg)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: geo.size.width, height: geo.size.height)
-                                        .offset(x: dragOffset - geo.size.width)
-                                }
-
-                                // Current image (full ZoomableImageView with all badges/overlays)
-                                photoImage(
-                                    entry: entry,
-                                    navDragOffset: $dragOffset,
-                                    screenWidth: geo.size.width,
-                                    canNavigatePrev: currentGroupIndex > 0,
-                                    canNavigateNext: currentGroupIndex < groups.count - 1,
-                                    onNavigate: { delta in
-                                        let targetOffset = delta < 0 ? geo.size.width : -geo.size.width
-                                        withAnimation(.easeOut(duration: 0.22)) { dragOffset = targetOffset }
-                                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
-                                            currentGroupIndex += delta
-                                            dragOffset = 0
-                                        }
-                                    },
-                                    onDismiss: { dismiss() }
-                                )
-                                    .offset(x: dragOffset)
-
-                                // Next image — shown only while swiping left
-                                if dragOffset < -2, let nextImg = imageForGroup(at: currentGroupIndex + 1) {
-                                    Image(uiImage: nextImg)
-                                        .resizable()
-                                        .scaledToFit()
-                                        .frame(width: geo.size.width, height: geo.size.height)
-                                        .offset(x: dragOffset + geo.size.width)
-                                }
+                    imageViewport(entry: entry)
+                        .safeAreaInset(edge: .trailing, spacing: 0) {
+                            if isLandscape && !isFullscreen {
+                                landscapeInfoPanel(entry: entry)
                             }
-                            .clipped()
-                            .contentShape(Rectangle())
                         }
-                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-
-                        if !isFullscreen {
-                            if members.count > 1 {
-                                memberStrip
+                        .safeAreaInset(edge: .bottom, spacing: 0) {
+                            if !isLandscape && !isFullscreen {
+                                portraitInfoInset(entry: entry)
                             }
-
-                            PhotoInfoCard(
-                                entry: entry,
-                                exif: scanStore.exifs[entry.id],
-                                xmp: ratings[entry.id],
-                                thumbnailData: thumbnails[entry.id],
-                                isLoading: scanStore.isScanning && !scanStore.isExifReady
-                            )
-                            .padding(.horizontal, 16)
-                            .padding(.top, 8)
-                            .padding(.bottom, 88)
                         }
-                    }
+                        .overlay(alignment: .topTrailing) {
+                            // Keep the overlay's hit-test region to the visible button.
+                            infoToggleButton
+                                .padding(.top, 60)
+                                .padding(.trailing, 12)
+                                .opacity(isFullscreen ? 1 : 0)
+                                .allowsHitTesting(isFullscreen)
+                        }
 
-                    if !isFullscreen {
-                        floatingRatingButton(entry: entry)
-                            .padding(.bottom, 20)
-                            .disabled(scanStore.isScanning && !scanStore.isExifReady)
-                            .opacity(scanStore.isScanning && !scanStore.isExifReady ? 0.35 : 1.0)
+                    // フルスクリーン時スライドインパネル
+                    if isFullscreen && showInfoPanel {
+                        fullscreenInfoPanel(entry: entry)
                     }
                 }
             }
@@ -183,13 +146,11 @@ struct DetailView: View {
                     showRendered = true
                 }
             }
+            .onDisappear {
+                showInfoPanel = false
+            }
             .onChange(of: isFullscreen) {
-                allowLandscape = isFullscreen
-                guard let scene = UIApplication.shared.connectedScenes
-                    .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
-                scene.requestGeometryUpdate(
-                    .iOS(interfaceOrientations: isFullscreen ? .all : .portrait)
-                )
+                if !isFullscreen { showInfoPanel = false }
             }
             .navigationBarTitleDisplayMode(.inline)
             .toolbar(isFullscreen ? .hidden : .visible, for: .navigationBar)
@@ -394,9 +355,9 @@ struct DetailView: View {
                                     .resizable()
                                     .scaledToFill()
                                     .frame(width: 44, height: 44)
-                                    .clipped()
+                                    .clipShape(RoundedRectangle(cornerRadius: 5))
                             } else {
-                                Rectangle()
+                                RoundedRectangle(cornerRadius: 5)
                                     .fill(Color.white.opacity(0.1))
                                     .frame(width: 44, height: 44)
                             }
@@ -451,35 +412,7 @@ struct DetailView: View {
                 set: { ratings[entry.id] = $0 }
             )
             RatingBarView(entry: entry, xmp: binding) { newXmp in
-                guard let db else { return }
-                let url = entry.url
-                let isJpg = ["jpg", "jpeg"].contains(url.pathExtension.lowercased())
-                let prevXmp = previousXmp
-                let targetIDs = scanStore.groupTargets(for: entry.id, xmps: ratings)
-                if jpgWriteMode == .embed && isJpg
-                    && !JpgMetadataDefaults.hasShownJpgEmbedWarning() {
-                    pendingWriteEntry = (id: entry.id, url: url, xmp: newXmp,
-                                        previousXmp: prevXmp, targetIDs: targetIDs)
-                    showEmbedWarning = true
-                } else {
-                    ratingWriteTask?.cancel()
-                    ratingWriteTask = Task {
-                        _ = await BridgeCore.writeXmp(url: url, xmp: newXmp, db: db,
-                                                      jpgWriteMode: jpgWriteMode,
-                                                      captionPresent: false)
-                        guard !Task.isCancelled else { return }
-                        for targetID in targetIDs where targetID != entry.id {
-                            guard let te = scanStore.entries[targetID] else { continue }
-                            var tXmp = ratings[targetID] ?? XmpData()
-                            tXmp.rating = newXmp.rating
-                            tXmp.label = newXmp.label
-                            ratings[targetID] = tXmp
-                            _ = await BridgeCore.writeXmp(url: te.url, xmp: tXmp, db: db,
-                                                          jpgWriteMode: jpgWriteMode,
-                                                          captionPresent: false)
-                        }
-                    }
-                }
+                commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
             }
             .padding(8)
             .presentationCompactAdaptation(.popover)
@@ -566,6 +499,240 @@ struct DetailView: View {
             }.value
         }
     }
+
+    // MARK: - Image Stack
+
+    @ViewBuilder
+    private func imageViewport(entry: PhotoEntry) -> some View {
+        GeometryReader { imageGeo in
+            imageZStack(entry: entry, size: imageGeo.size)
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private func imageZStack(entry: PhotoEntry, size: CGSize) -> some View {
+        ZStack {
+            if dragOffset > 2, let prevImg = imageForGroup(at: currentGroupIndex - 1) {
+                Image(uiImage: prevImg)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size.width, height: size.height)
+                    .offset(x: dragOffset - size.width)
+            }
+
+            photoImage(
+                entry: entry,
+                navDragOffset: $dragOffset,
+                screenWidth: size.width,
+                canNavigatePrev: currentGroupIndex > 0,
+                canNavigateNext: currentGroupIndex < groups.count - 1,
+                onNavigate: { delta in
+                    let targetOffset = delta < 0 ? size.width : -size.width
+                    withAnimation(.easeOut(duration: 0.22)) { dragOffset = targetOffset }
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+                        currentGroupIndex += delta
+                        dragOffset = 0
+                    }
+                },
+                onDismiss: { dismiss() }
+            )
+            .offset(x: dragOffset)
+
+            if dragOffset < -2, let nextImg = imageForGroup(at: currentGroupIndex + 1) {
+                Image(uiImage: nextImg)
+                    .resizable()
+                    .scaledToFit()
+                    .frame(width: size.width, height: size.height)
+                    .offset(x: dragOffset + size.width)
+            }
+        }
+        .clipped()
+        .contentShape(Rectangle())
+    }
+
+    // MARK: - Landscape Info Panel
+
+    @ViewBuilder
+    private func portraitInfoInset(entry: PhotoEntry) -> some View {
+        let previousXmp = ratings[entry.id]
+        let binding = Binding<XmpData>(
+            get: { ratings[entry.id] ?? XmpData() },
+            set: { ratings[entry.id] = $0 }
+        )
+        VStack(spacing: 0) {
+            if members.count > 1 { memberStrip }
+
+            RatingBarView(entry: entry, xmp: binding) { newXmp in
+                commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+            }
+            .disabled(scanStore.isScanning && !scanStore.isExifReady)
+            .opacity(scanStore.isScanning && !scanStore.isExifReady ? 0.35 : 1.0)
+
+            Color.white.opacity(0.12).frame(height: 0.5)
+                .padding(.horizontal, 12)
+
+            PhotoInfoCard(
+                entry: entry,
+                exif: scanStore.exifs[entry.id],
+                xmp: ratings[entry.id],
+                thumbnailData: thumbnails[entry.id],
+                isLoading: scanStore.isScanning && !scanStore.isExifReady
+            )
+            .padding(.horizontal, 16)
+            .padding(.top, 8)
+            .padding(.bottom, 16)
+        }
+        .background(Color.black)
+        .colorScheme(.dark)
+    }
+
+    @ViewBuilder
+    private func landscapeInfoPanel(entry: PhotoEntry) -> some View {
+        let previousXmp = ratings[entry.id]
+        let binding = Binding<XmpData>(
+            get: { ratings[entry.id] ?? XmpData() },
+            set: { ratings[entry.id] = $0 }
+        )
+        VStack(spacing: 0) {
+            if members.count > 1 { memberStrip }
+
+            ScrollView {
+                VStack(spacing: 0) {
+                    RatingBarView(entry: entry, xmp: binding) { newXmp in
+                        commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+                    }
+                    .disabled(scanStore.isScanning && !scanStore.isExifReady)
+                    .opacity(scanStore.isScanning && !scanStore.isExifReady ? 0.35 : 1.0)
+
+                    Color.white.opacity(0.12).frame(height: 0.5)
+                        .padding(.horizontal, 12)
+
+                    PhotoInfoCard(
+                        entry: entry,
+                        exif: scanStore.exifs[entry.id],
+                        xmp: ratings[entry.id],
+                        thumbnailData: thumbnails[entry.id],
+                        isLoading: scanStore.isScanning && !scanStore.isExifReady
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.top, 4)
+                    .padding(.bottom, 20)
+                }
+            }
+        }
+        .containerRelativeFrame(.horizontal) { length, _ in
+            min(300, max(220, length * 0.38))
+        }
+        .background(Color.black)
+        .clipped()
+        .colorScheme(.dark)
+    }
+
+    // MARK: - Fullscreen Info Panel
+
+    private var infoToggleButton: some View {
+        Button {
+            withAnimation(.easeInOut(duration: 0.25)) { showInfoPanel.toggle() }
+        } label: {
+            Image(systemName: showInfoPanel ? "chevron.right" : "info.circle")
+                .font(.system(size: 16, weight: .medium))
+                .foregroundStyle(.white.opacity(0.85))
+                .frame(width: 36, height: 36)
+                .background(.black.opacity(0.45), in: RoundedRectangle(cornerRadius: 8))
+        }
+        .buttonStyle(.plain)
+    }
+
+    @ViewBuilder
+    private func fullscreenInfoPanel(entry: PhotoEntry) -> some View {
+        let previousXmp = ratings[entry.id]
+        let binding = Binding<XmpData>(
+            get: { ratings[entry.id] ?? XmpData() },
+            set: { ratings[entry.id] = $0 }
+        )
+        HStack(spacing: 0) {
+            // パネル外タップでパネルを閉じる（ZoomableImageView へ透過させない）
+            Color.clear
+                .contentShape(Rectangle())
+                .onTapGesture {
+                    withAnimation(.easeInOut(duration: 0.25)) { showInfoPanel = false }
+                }
+            ScrollView {
+                VStack(spacing: 0) {
+                    RatingBarView(entry: entry, xmp: binding) { newXmp in
+                        commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+                    }
+
+                    Color.white.opacity(0.15).frame(height: 0.5)
+                        .padding(.horizontal, 16)
+
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label(String(localized: "Delete"), systemImage: "trash")
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .padding(.horizontal, 20)
+                            .padding(.vertical, 14)
+                    }
+                    .buttonStyle(.plain)
+                    .foregroundStyle(.red.opacity(0.85))
+
+                    Color.white.opacity(0.15).frame(height: 0.5)
+                        .padding(.horizontal, 16)
+
+                    PhotoInfoCard(
+                        entry: entry,
+                        exif: scanStore.exifs[entry.id],
+                        xmp: ratings[entry.id],
+                        thumbnailData: thumbnails[entry.id],
+                        isLoading: scanStore.isScanning && !scanStore.isExifReady
+                    )
+                    .padding(.horizontal, 12)
+                    .padding(.top, 8)
+                    .padding(.bottom, 20)
+                }
+            }
+            .frame(width: 290)
+            .background(Color.black.opacity(0.6))
+            .colorScheme(.dark)
+        }
+        .frame(maxHeight: .infinity)
+        .transition(.move(edge: .trailing))
+    }
+
+    // MARK: - Rating Commit
+
+    private func commitRating(entry: PhotoEntry, newXmp: XmpData, previousXmp: XmpData?) {
+        guard let db else { return }
+        let url = entry.url
+        let isJpg = ["jpg", "jpeg"].contains(url.pathExtension.lowercased())
+        let targetIDs = scanStore.groupTargets(for: entry.id, xmps: ratings)
+        if jpgWriteMode == .embed && isJpg && !JpgMetadataDefaults.hasShownJpgEmbedWarning() {
+            pendingWriteEntry = (id: entry.id, url: url, xmp: newXmp,
+                                previousXmp: previousXmp, targetIDs: targetIDs)
+            showEmbedWarning = true
+        } else {
+            ratingWriteTask?.cancel()
+            ratingWriteTask = Task {
+                _ = await BridgeCore.writeXmp(url: url, xmp: newXmp, db: db,
+                                              jpgWriteMode: jpgWriteMode,
+                                              captionPresent: false)
+                guard !Task.isCancelled else { return }
+                for targetID in targetIDs where targetID != entry.id {
+                    guard let te = scanStore.entries[targetID] else { continue }
+                    var tXmp = ratings[targetID] ?? XmpData()
+                    tXmp.rating = newXmp.rating
+                    tXmp.label = newXmp.label
+                    ratings[targetID] = tXmp
+                    _ = await BridgeCore.writeXmp(url: te.url, xmp: tXmp, db: db,
+                                                  jpgWriteMode: jpgWriteMode,
+                                                  captionPresent: false)
+                }
+            }
+        }
+    }
+
 }
 
 // MARK: - Info Card

@@ -1,8 +1,14 @@
 import SwiftUI
 import UIKit
 
-// 全画面表示など横向きを許可したい VC がこれを true にする
-@MainActor var allowLandscape = false
+// 横向きを許可するかどうか（ThumbnailGridView / DetailView ともに横画面対応のため常時 true）
+@MainActor var allowLandscape = true
+
+@MainActor func forcePortraitOrientation() {
+    guard let scene = UIApplication.shared.connectedScenes
+        .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
+    scene.requestGeometryUpdate(.iOS(interfaceOrientations: .portrait))
+}
 
 final class AppDelegate: NSObject, UIApplicationDelegate {
     @MainActor func application(
