@@ -57,6 +57,12 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
         return img
     }
 
+    func store(url: URL, image: CGImage) {
+        let key = url.absoluteString as NSString
+        guard cache.object(forKey: key) == nil else { return }
+        cache.setObject(image, forKey: key, cost: image.bytesPerRow * image.height)
+    }
+
     func evict(url: URL) {
         cache.removeObject(forKey: url.absoluteString as NSString)
     }

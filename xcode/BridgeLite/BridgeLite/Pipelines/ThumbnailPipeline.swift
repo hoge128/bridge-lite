@@ -103,6 +103,8 @@ enum ThumbnailPipeline {
                 }
                 if isAdequate && !hasBadAspect {
                     await store.setThumbnail(id: entry.id, jpeg: ce.jpeg, generation: generation)
+                    // SQLite ヒット時は CGImage が手元にある — そのまま NSCache に格納してスクロール時の再デコードを省く
+                    if let img = cached { ThumbnailDecodeCache.shared.store(url: entry.url, image: img) }
                     if entry.isRaw {
                         // raw_orientation > 0 なら DB キャッシュから復元 — ファイル再オープン不要
                         let orient: Image.Orientation
@@ -124,6 +126,8 @@ enum ThumbnailPipeline {
             if let img = await generateWithImageIO(url: entry.url, maxPixels: targetPixels),
                let jpeg = img.jpegData(compressionQuality: 0.85) {
                 await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
+                // 生成した CGImage をそのまま NSCache に格納 — スクロール時の再デコードを省く
+                ThumbnailDecodeCache.shared.store(url: entry.url, image: img)
                 await writeBuffer.enqueue(url: entry.url, data: jpeg)
                 await phashPipeline.enqueue(entry: entry, source: img, db: db)
                 return
@@ -147,6 +151,8 @@ enum ThumbnailPipeline {
                 guard let jpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
                 await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
                 await store.setThumbnailOrientation(id: entry.id, orientation: orient, generation: generation)
+                // スケール済み CGImage をそのまま NSCache に格納 — スクロール時の再デコードを省く
+                ThumbnailDecodeCache.shared.store(url: entry.url, image: scaled)
                 await writeBuffer.enqueue(url: entry.url, data: jpeg, rawOrientation: cgOrientRaw)
                 await phashPipeline.enqueue(entry: entry, source: scaled, db: db)
             }
