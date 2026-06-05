@@ -37,27 +37,29 @@ struct OnboardingGuideView: View {
 
     var body: some View {
         NavigationStack {
-            VStack(spacing: 12) {
-                TabView(selection: $currentPage) {
-                    ForEach(steps.indices, id: \.self) { i in
-                        stepCard(steps[i], index: i)
-                            .tag(i)
+            GeometryReader { geo in
+                VStack(spacing: 12) {
+                    TabView(selection: $currentPage) {
+                        ForEach(steps.indices, id: \.self) { i in
+                            stepCard(steps[i], index: i)
+                                .tag(i)
+                        }
                     }
-                }
-                .tabViewStyle(.page(indexDisplayMode: .never))
-                .frame(height: 560)
+                    .tabViewStyle(.page(indexDisplayMode: .never))
+                    .frame(height: min(560, max(300, geo.size.height - 60)))
 
-                HStack(spacing: 9) {
-                    ForEach(steps.indices, id: \.self) { i in
-                        Circle()
-                            .fill(i == currentPage ? Color.primary : Color.secondary.opacity(0.3))
-                            .frame(width: 8, height: 8)
-                            .animation(.easeInOut(duration: 0.15), value: currentPage)
+                    HStack(spacing: 9) {
+                        ForEach(steps.indices, id: \.self) { i in
+                            Circle()
+                                .fill(i == currentPage ? Color.primary : Color.secondary.opacity(0.3))
+                                .frame(width: 8, height: 8)
+                                .animation(.easeInOut(duration: 0.15), value: currentPage)
+                        }
                     }
+                    .padding(.bottom, 8)
                 }
-                .padding(.bottom, 8)
+                .padding(.horizontal, 16)
             }
-            .padding(.horizontal, 16)
             .navigationTitle(Text("guide.title", tableName: nil))
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

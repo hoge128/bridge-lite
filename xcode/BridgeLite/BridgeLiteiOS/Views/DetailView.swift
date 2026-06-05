@@ -13,6 +13,7 @@ private struct FullResEntry: Sendable {
 
 struct DetailView: View {
     let groups: [ShotGroup]
+    private let fallbackGroup: ShotGroup
     let entries: [UInt64: PhotoEntry]
     @Binding var ratings: [UInt64: XmpData]
     let db: BridgeCoreDatabase?
@@ -61,6 +62,7 @@ struct DetailView: View {
          scanStore: ScanStore,
          preferRendered: Binding<Bool>) {
         self.groups = groups
+        self.fallbackGroup = initialGroup
         self.entries = entries
         self._ratings = ratings
         self.db = db
@@ -75,7 +77,8 @@ struct DetailView: View {
     }
 
     private var group: ShotGroup {
-        groups[max(0, min(currentGroupIndex, groups.count - 1))]
+        guard !groups.isEmpty else { return fallbackGroup }
+        return groups[max(0, min(currentGroupIndex, groups.count - 1))]
     }
 
     private var members: [PhotoEntry] {
@@ -135,9 +138,11 @@ struct DetailView: View {
                 guard preferRendered, entry.isRaw, !isLimitedRawPreview, let db else { return }
                 isRendering = true
                 defer { isRendering = false }
+                let targetID = entry.id
                 if let (cgImage, _) = await RAWRenderPipeline.shared.render(
                     url: entry.url, target: .viewer, db: db
                 ) {
+                    guard !Task.isCancelled, current?.id == targetID else { return }
                     rawRendered = UIImage(cgImage: cgImage)
                     showRendered = true
                 }
@@ -420,12 +425,14 @@ struct DetailView: View {
     private func triggerRender(entry: PhotoEntry) {
         guard let db else { return }
         preferRendered = true
+        let targetID = entry.id
         Task {
             isRendering = true
             defer { isRendering = false }
             if let (cgImage, _) = await RAWRenderPipeline.shared.render(
                 url: entry.url, target: .viewer, db: db
             ) {
+                guard current?.id == targetID else { return }
                 rawRendered = UIImage(cgImage: cgImage)
                 showRendered = true
             }
@@ -715,6 +722,7 @@ struct DetailView: View {
         } else {
             ratingWriteTask?.cancel()
             ratingWriteTask = Task {
+                guard !Task.isCancelled else { return }
                 _ = await BridgeCore.writeXmp(url: url, xmp: newXmp, db: db,
                                               jpgWriteMode: jpgWriteMode,
                                               captionPresent: false)

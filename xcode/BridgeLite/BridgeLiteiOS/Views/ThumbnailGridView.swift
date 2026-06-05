@@ -471,6 +471,13 @@ struct ThumbnailGridView: View {
         }
 
         let actVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+        if let popover = actVC.popoverPresentationController {
+            popover.sourceView = topVC.view
+            popover.sourceRect = CGRect(x: topVC.view.bounds.midX,
+                                        y: topVC.view.bounds.midY,
+                                        width: 1, height: 1)
+            popover.permittedArrowDirections = []
+        }
         topVC.present(actVC, animated: true)
     }
 
