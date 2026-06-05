@@ -26,6 +26,7 @@
 		20FA827723A350BA5FA21B62 /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
 		215494EF82648C16BB89CE55 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A857B065B055D6ACA28D45 /* BookmarkStore.swift */; };
 		221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 562FFC709A5EF19C156C3F4B /* LibraryStore.swift */; };
+		DE294CA076A3A173EAE4A8E5 /* RecentFoldersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D65EB8D3D009C848E3D99AC /* RecentFoldersStore.swift */; };
 		2B393FBA258B56A1BD277370 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A4260412EA9F57B97926BB9 /* SettingsView.swift */; };
 		2BC3C6189802029B5387B89C /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
 		2BE62A4FCB568FF94B43F5F6 /* RatingBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */; };
@@ -142,6 +143,7 @@
 		4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarView.swift; sourceTree = "<group>"; };
 		4D049A57268958B6678D2C20 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 		562FFC709A5EF19C156C3F4B /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
+		1D65EB8D3D009C848E3D99AC /* RecentFoldersStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFoldersStore.swift; sourceTree = "<group>"; };
 		5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailPipeline.swift; sourceTree = "<group>"; };
 		5F6AB0BABA5195DAD2785DD6 /* en */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = en; path = en.lproj/Help.md; sourceTree = "<group>"; };
 		6259A93CEB1040679F6D1C26 /* ToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarView.swift; sourceTree = "<group>"; };
@@ -310,6 +312,7 @@
 				562FFC709A5EF19C156C3F4B /* LibraryStore.swift */,
 				E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */,
 				F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */,
+				1D65EB8D3D009C848E3D99AC /* RecentFoldersStore.swift */,
 				7B123E21AF2DA71784C11365 /* SettingsStore.swift */,
 				F9F1394BA720F5BB1FAC74FB /* TabManager.swift */,
 			);
@@ -623,6 +626,7 @@
 				D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */,
 				EF5F1D3737463925000086EB /* LargeImageDecoder.swift in Sources */,
 				221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */,
+				DE294CA076A3A173EAE4A8E5 /* RecentFoldersStore.swift in Sources */,
 				9BF8C6AB43E6FF9A22E6B3F1 /* ManageApplicationsSheet.swift in Sources */,
 				A697498B8D3F1EC28704C642 /* OpenFolderRegistry.swift in Sources */,
 				867E4D731D55D911BE92FCDA /* OpenWithMenu.swift in Sources */,

@@ -204,6 +204,7 @@ final class LibraryStore: ReindexedGroupSink {
             showDuplicateOpenAlert(url: url, target: existing)
             return
         }
+        RecentFoldersStore.shared.record(url)
         // 旧 URL を unregister してから新 URL を register する。
         if let oldURL = currentDirectoryURL {
             OpenFolderRegistry.shared.unregister(url: oldURL)

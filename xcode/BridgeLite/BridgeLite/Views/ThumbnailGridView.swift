@@ -165,13 +165,44 @@ struct ThumbnailGridView: View {
     // MARK: - Empty state
 
     private var emptyStateContent: some View {
-        VStack(spacing: 16) {
+        let recents = RecentFoldersStore.shared.recentURLs
+        return VStack(spacing: 16) {
             Image(systemName: "folder.badge.plus")
                 .font(.system(size: 56, weight: .thin))
                 .foregroundStyle(isDropTargeted ? Color.blue : Color.secondary)
             Text("Drop a folder to open")
                 .font(.title3)
                 .foregroundStyle(isDropTargeted ? Color.blue : Color.secondary)
+
+            if !recents.isEmpty && !isDropTargeted {
+                Divider()
+                    .frame(width: 220)
+                    .padding(.vertical, 4)
+                Text("Recent Folders")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                VStack(spacing: 6) {
+                    ForEach(recents, id: \.path) { url in
+                        Button {
+                            store.loadFolder(url)
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "folder")
+                                    .font(.system(size: 12))
+                                    .foregroundStyle(.secondary)
+                                Text(url.lastPathComponent)
+                                    .font(.body)
+                                    .foregroundStyle(.primary)
+                                    .lineLimit(1)
+                            }
+                            .frame(minWidth: 160, alignment: .leading)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.borderless)
+                        .help(url.path)
+                    }
+                }
+            }
         }
     }
 

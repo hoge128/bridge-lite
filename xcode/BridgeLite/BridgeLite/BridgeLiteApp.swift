@@ -186,6 +186,25 @@ struct BridgeLiteCommands: Commands {
             .keyboardShortcut("o", modifiers: .command)
             .disabled(store == nil)
 
+            let recents = RecentFoldersStore.shared.recentURLs
+            Menu(String(localized: "menu.open_recent", defaultValue: "Open Recent")) {
+                if recents.isEmpty {
+                    Text(String(localized: "menu.open_recent.empty", defaultValue: "No Recent Folders"))
+                        .foregroundStyle(.secondary)
+                } else {
+                    ForEach(recents, id: \.path) { url in
+                        Button(url.lastPathComponent) {
+                            store?.loadFolder(url)
+                        }
+                    }
+                    Divider()
+                    Button(String(localized: "menu.open_recent.clear", defaultValue: "Clear Recent Folders")) {
+                        RecentFoldersStore.shared.clear()
+                    }
+                }
+            }
+            .disabled(store == nil)
+
             Button("Rescan") {
                 store?.triggerRescan()
             }
