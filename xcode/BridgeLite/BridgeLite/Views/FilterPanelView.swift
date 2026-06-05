@@ -92,7 +92,7 @@ struct FilterPanelView: View {
 
     @ViewBuilder
     private func sectionLabel(
-        _ title: String,
+        _ title: LocalizedStringKey,
         isExpanded: Binding<Bool>,
         help: String,
         isActive: Bool,

@@ -14,7 +14,7 @@ struct RGBHistogram {
 // MARK: - Shared
 
 struct MetaRow: View {
-    let key: String
+    let key: LocalizedStringKey
     let value: String
 
     var body: some View {
@@ -36,11 +36,11 @@ struct MetaRow: View {
 }
 
 struct SectionBox<Content: View>: View {
-    let title: String
+    let title: LocalizedStringKey
     var isExpanded: Binding<Bool>?
     @ViewBuilder let content: () -> Content
 
-    init(_ title: String, isExpanded: Binding<Bool>? = nil, @ViewBuilder content: @escaping () -> Content) {
+    init(_ title: LocalizedStringKey, isExpanded: Binding<Bool>? = nil, @ViewBuilder content: @escaping () -> Content) {
         self.title = title
         self.isExpanded = isExpanded
         self.content = content
