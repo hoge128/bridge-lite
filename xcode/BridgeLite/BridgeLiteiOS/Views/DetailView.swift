@@ -1164,7 +1164,7 @@ private struct ZoomableImageView: UIViewRepresentable {
         var onSingleTap: (() -> Void)?
         weak var imageView: UIImageView?
         private var lastSingleTapTime: Date? = nil
-        private var pendingSingleTap: DispatchWorkItem? = nil
+        fileprivate var pendingSingleTap: DispatchWorkItem? = nil
         weak var navPanGesture: UIPanGestureRecognizer?
         private var navDragAxis: NavAxis = .undecided
         private enum NavAxis { case undecided, horizontal, vertical }
