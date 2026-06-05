@@ -11,7 +11,7 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
     static let shared = ThumbnailDecodeCache()
     private let cache = NSCache<NSString, CGImage>()
     private let memoryPressureSource: DispatchSourceMemoryPressure
-    private let baseLimitBytes: Int
+    private var baseLimitBytes: Int
 
     private init() {
         let stored = UserDefaults.standard.integer(forKey: "thumbnailCacheMB")
@@ -44,7 +44,8 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
     }
 
     func updateLimit(mb: Int) {
-        cache.totalCostLimit = mb * 1024 * 1024
+        baseLimitBytes = mb * 1024 * 1024
+        cache.totalCostLimit = baseLimitBytes
     }
 
     func peek(url: URL) -> CGImage? {
