@@ -423,7 +423,7 @@ private struct CompareMemberColumn: View {
                 Divider()
                 Button(String(localized: "Clear Label")) {
                     store.selectEntry(memberID)
-                    if let current = xmp?.label { store.applyLabel(current.rawValue) }
+                    store.clearLabel()
                 }
             }
 

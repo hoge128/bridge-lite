@@ -21,9 +21,9 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
         baseLimitBytes = limit
         cache.totalCostLimit = limit
 
-        // メモリ圧迫時に自動回収する。warning で半減、critical で全消去。
+        // メモリ圧迫時に自動回収する。warning で半減、critical で全消去、normal で上限復元。
         let src = DispatchSource.makeMemoryPressureSource(
-            eventMask: [.warning, .critical],
+            eventMask: [.all],
             queue: .main
         )
         memoryPressureSource = src
@@ -32,9 +32,12 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
             let event = src.data
             if event.contains(.critical) {
                 self.cache.removeAllObjects()
+                self.cache.totalCostLimit = 50 * 1024 * 1024
             } else if event.contains(.warning) {
-                let halved = max(50 * 1024 * 1024, self.cache.totalCostLimit / 2)
+                let halved = max(50 * 1024 * 1024, self.baseLimitBytes / 2)
                 self.cache.totalCostLimit = halved
+            } else if event.contains(.normal) {
+                self.cache.totalCostLimit = self.baseLimitBytes
             }
         }
         src.resume()

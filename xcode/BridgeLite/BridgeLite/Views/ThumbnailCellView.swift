@@ -245,9 +245,7 @@ struct ThumbnailCellView: View {
             Button(XmpLabel.purple.name) { store.applyLabel(XmpLabel.purple.rawValue) }
             Divider()
             Button("Clear Label") {
-                if let current = store.xmpData[store.primaryID ?? entry.id]?.label {
-                    store.applyLabel(current.rawValue)
-                }
+                store.clearLabel()
             }
         }
 
@@ -259,7 +257,6 @@ struct ThumbnailCellView: View {
             store.compareAnchorID = entry.id
             store.compareMode = true
         }
-        .keyboardShortcut(.return, modifiers: [])
 
         Button(String(localized: "thumbnail.context.move_to_viewer",
                       defaultValue: "Move to Viewer")) {

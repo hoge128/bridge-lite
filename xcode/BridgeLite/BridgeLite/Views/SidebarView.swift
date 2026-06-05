@@ -640,9 +640,7 @@ struct VariationThumbView: View {
             Divider()
             Button("Clear Label") {
                 store.selectEntry(entry.id)
-                if let current = store.xmpData[entry.id]?.label {
-                    store.applyLabel(current.rawValue)
-                }
+                store.clearLabel()
             }
         }
 
@@ -869,7 +867,7 @@ struct XmpSectionView: View {
                         .foregroundStyle(xmp?.label != nil ? Color.red.opacity(0.7) : Color.secondary.opacity(0.3))
                         .frame(width: 22, height: 22)
                         .onTapGesture {
-                            if let current = xmp?.label { store.applyLabel(current.rawValue) }
+                            store.clearLabel()
                         }
                     ForEach(XmpLabel.allCases, id: \.rawValue) { label in
                         ZStack {

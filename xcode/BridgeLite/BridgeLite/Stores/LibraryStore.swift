@@ -204,7 +204,6 @@ final class LibraryStore: ReindexedGroupSink {
             showDuplicateOpenAlert(url: url, target: existing)
             return
         }
-        RecentFoldersStore.shared.record(url)
         // 旧 URL を unregister してから新 URL を register する。
         if let oldURL = currentDirectoryURL {
             OpenFolderRegistry.shared.unregister(url: oldURL)
@@ -314,6 +313,8 @@ final class LibraryStore: ReindexedGroupSink {
             }
             try Task.checkCancellation()
             ingest(scanned)
+            // スキャン成功後に記録（エラー・空フォルダ・キャンセル時は記録しない）
+            RecentFoldersStore.shared.record(url)
 
             // 初期グルーピング: ステム名ベース。EXIF 未索引でも RAW+JPG ペアを即時に束ねる。
             // iOS ScanStore.performScan L475 と等価。
@@ -1102,6 +1103,52 @@ final class LibraryStore: ReindexedGroupSink {
                 allTargets.append((entry: te, old: xmpData[targetID]?.label))
                 var current = xmpData[targetID] ?? XmpData()
                 current.label = newLabel
+                xmpData[targetID] = current
+                xmpDidUpdate.send(targetID)
+                writeList.append((te, current))
+            }
+        }
+        recomputeVisible()
+        undoManager.beginUndoGrouping()
+        undoManager.setActionName(String(localized: "Label Change"))
+        undoManager.registerUndo(withTarget: self) { [allTargets] target in
+            guard let db = target.database else { return }
+            for (te, old) in allTargets {
+                guard target.entries[te.id] != nil else { continue }
+                var current = target.xmpData[te.id] ?? XmpData()
+                current.label = old
+                target.xmpData[te.id] = current
+                target.xmpDidUpdate.send(te.id)
+                let x = current; let url = te.url
+                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: target.settings.jpgWriteMode) }
+            }
+            target.recomputeVisible()
+        }
+        let mode = settings.jpgWriteMode
+        let policy = settings.jpgSidecarConflictPolicy
+        Task {
+            for (te, x) in writeList {
+                _ = await BridgeCore.writeXmp(url: te.url, xmp: x, db: db, jpgWriteMode: mode)
+            }
+            if mode == .sidecar {
+                await self.checkAndHandleEmbedConflict(writeList: writeList, db: db, policy: policy)
+            }
+            self.undoManager.endUndoGrouping()
+        }
+    }
+
+    func clearLabel() {
+        guard !selectedIDs.isEmpty, let db = database else { return }
+        var allTargets: [(entry: PhotoEntry, old: XmpLabel?)] = []
+        var writeList:  [(entry: PhotoEntry, xmp: XmpData)] = []
+        for id in selectedIDs {
+            guard let entry = entries[id] else { continue }
+            let targets: [UInt64] = filter.flatten ? [id] : groupTargets(for: id, entry: entry)
+            for targetID in targets {
+                guard let te = entries[targetID] else { continue }
+                allTargets.append((entry: te, old: xmpData[targetID]?.label))
+                var current = xmpData[targetID] ?? XmpData()
+                current.label = nil
                 xmpData[targetID] = current
                 xmpDidUpdate.send(targetID)
                 writeList.append((te, current))

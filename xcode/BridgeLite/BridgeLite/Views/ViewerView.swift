@@ -274,7 +274,7 @@ struct ViewerView: View {
                 Button(XmpLabel.purple.name) { store.applyLabel(XmpLabel.purple.rawValue) }
                 Divider()
                 Button(String(localized: "Clear Label")) {
-                    if let current = xmp?.label { store.applyLabel(current.rawValue) }
+                    store.clearLabel()
                 }
             }
 
