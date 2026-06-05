@@ -1135,6 +1135,11 @@ private struct ZoomableImageView: UIViewRepresentable {
         return sv
     }
 
+    static func dismantleUIView(_ uiView: ImageScrollView, coordinator: Coordinator) {
+        coordinator.pendingSingleTap?.cancel()
+        coordinator.pendingSingleTap = nil
+    }
+
     func updateUIView(_ sv: ImageScrollView, context: Context) {
         context.coordinator.onSingleTap = onSingleTap
         context.coordinator.screenWidth = screenWidth
@@ -1182,10 +1187,6 @@ private struct ZoomableImageView: UIViewRepresentable {
             self.onNavigate = onNavigate
             self.onDismiss = onDismiss
             self.onSingleTap = onSingleTap
-        }
-
-        deinit {
-            pendingSingleTap?.cancel()
         }
 
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
