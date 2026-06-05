@@ -302,6 +302,12 @@ private struct CompareMemberColumn: View {
     private var xmp: XmpData? { store.xmpData[memberID] }
     private var exif: ExifData? { store.exifData[memberID] }
 
+    private var deleteShortcut: KeyboardShortcut {
+        store.settings.deleteShortcutKey == .delete
+            ? KeyboardShortcut(.delete, modifiers: [])
+            : KeyboardShortcut(.delete, modifiers: .command)
+    }
+
     // CR2 on macOS 26: CIRAWFilter unsupported; only an 18 KB embedded thumbnail is available.
     private var isLimitedRawPreview: Bool {
         entry?.url.pathExtension.lowercased() == "cr2"
@@ -432,6 +438,7 @@ private struct CompareMemberColumn: View {
             } label: {
                 Text(String(localized: "Move to Trash"))
             }
+            .keyboardShortcut(deleteShortcut)
         }
     }
 

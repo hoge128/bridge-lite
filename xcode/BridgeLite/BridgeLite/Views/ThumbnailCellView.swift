@@ -201,6 +201,12 @@ struct ThumbnailCellView: View {
     // MARK: - Context menu
 
     @ViewBuilder
+    private var deleteShortcut: KeyboardShortcut {
+        store.settings.deleteShortcutKey == .delete
+            ? KeyboardShortcut(.delete, modifiers: [])
+            : KeyboardShortcut(.delete, modifiers: .command)
+    }
+
     private var cellContextMenu: some View {
         Button("Copy") {
             store.triggerCopy()
@@ -259,6 +265,7 @@ struct ThumbnailCellView: View {
         } label: {
             Text("Move to Trash")
         }
+        .keyboardShortcut(deleteShortcut)
     }
 
     // MARK: - D&D scope

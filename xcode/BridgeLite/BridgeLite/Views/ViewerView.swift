@@ -225,6 +225,12 @@ struct ViewerView: View {
         }
     }
 
+    private var deleteShortcut: KeyboardShortcut {
+        store.settings.deleteShortcutKey == .delete
+            ? KeyboardShortcut(.delete, modifiers: [])
+            : KeyboardShortcut(.delete, modifiers: .command)
+    }
+
     @ViewBuilder
     private var viewerContextMenu: some View {
         if let entry = selectedEntry {
@@ -283,6 +289,7 @@ struct ViewerView: View {
             } label: {
                 Text(String(localized: "Move to Trash"))
             }
+            .keyboardShortcut(deleteShortcut)
         }
     }
 
