@@ -1,5 +1,6 @@
 import Foundation
 
+@MainActor
 @Observable
 final class RecentFoldersStore {
     static let shared = RecentFoldersStore()
