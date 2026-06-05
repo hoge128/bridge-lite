@@ -1184,6 +1184,10 @@ private struct ZoomableImageView: UIViewRepresentable {
             self.onSingleTap = onSingleTap
         }
 
+        deinit {
+            pendingSingleTap?.cancel()
+        }
+
         func viewForZooming(in scrollView: UIScrollView) -> UIView? { imageView }
 
         func scrollViewWillBeginZooming(_ scrollView: UIScrollView, with view: UIView?) {
@@ -1274,6 +1278,9 @@ private struct ZoomableImageView: UIViewRepresentable {
             switch g.state {
             case .began:
                 navDragAxis = .undecided
+                // タップ遅延実行がスワイプと競合しないようキャンセル
+                pendingSingleTap?.cancel()
+                pendingSingleTap = nil
             case .changed:
                 if navDragAxis == .undecided {
                     if abs(t.x) > abs(t.y) && abs(t.x) > 8 {
