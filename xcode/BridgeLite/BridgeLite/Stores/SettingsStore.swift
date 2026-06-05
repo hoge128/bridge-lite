@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import SwiftUI
 
 enum FilterSection: String, CaseIterable, Codable, Identifiable {
     case fileType, camera, artist, lens, rating, label
