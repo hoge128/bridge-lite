@@ -207,6 +207,15 @@ struct ThumbnailGridView: View {
                         }
                         .buttonStyle(.borderless)
                     }
+                    Divider()
+                        .frame(width: 220)
+                        .padding(.top, 4)
+                    Button(String(localized: "menu.open_recent.clear", defaultValue: "Clear Recent Folders")) {
+                        RecentFoldersStore.shared.clear()
+                    }
+                    .buttonStyle(.borderless)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
                 }
             }
         }
