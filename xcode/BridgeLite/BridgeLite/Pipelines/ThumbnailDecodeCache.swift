@@ -43,7 +43,7 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
         src.resume()
     }
 
-    func updateLimit(mb: Int) {
+    @MainActor func updateLimit(mb: Int) {
         baseLimitBytes = mb * 1024 * 1024
         cache.totalCostLimit = baseLimitBytes
     }
