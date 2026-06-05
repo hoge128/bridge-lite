@@ -140,15 +140,6 @@ struct BridgeLiteApp: App {
     }
 }
 
-private extension RatingShortcutModifier {
-    var swiftUIModifiers: SwiftUI.EventModifiers {
-        switch self {
-        case .none:    return []
-        case .command: return .command
-        case .control: return .control
-        }
-    }
-}
 
 struct BridgeLiteCommands: Commands {
     @FocusedValue(\.libraryStore) private var store: LibraryStore?

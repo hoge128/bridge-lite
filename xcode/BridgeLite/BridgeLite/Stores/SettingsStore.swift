@@ -72,6 +72,14 @@ enum RatingShortcutModifier: String, CaseIterable, Identifiable {
         case .control: return .control
         }
     }
+
+    var swiftUIModifiers: SwiftUI.EventModifiers {
+        switch self {
+        case .none:    return []
+        case .command: return .command
+        case .control: return .control
+        }
+    }
 }
 
 enum DeleteShortcutKey: String, CaseIterable, Identifiable {

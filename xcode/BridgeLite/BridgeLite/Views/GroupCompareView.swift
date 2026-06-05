@@ -387,23 +387,38 @@ private struct CompareMemberColumn: View {
             Divider()
 
             Menu(String(localized: "Rating")) {
+                let mods = store.settings.ratingShortcutModifier.swiftUIModifiers
                 Button(String(localized: "No Rating")) {
-                    store.selectEntry(memberID)
-                    store.triggerRating(0)
+                    store.selectEntry(memberID); store.triggerRating(0)
                 }
+                .keyboardShortcut("0", modifiers: mods)
                 ForEach(1...5, id: \.self) { n in
                     Button(String(repeating: "★", count: n)) {
-                        store.selectEntry(memberID)
-                        store.triggerRating(n)
+                        store.selectEntry(memberID); store.triggerRating(n)
                     }
+                    .keyboardShortcut(KeyEquivalent(Character(String(n))), modifiers: mods)
                 }
             }
             Menu(String(localized: "Label")) {
-                ForEach(XmpLabel.allCases, id: \.rawValue) { label in
-                    Button(label.name) {
-                        store.selectEntry(memberID)
-                        store.applyLabel(label.rawValue)
-                    }
+                let mods = store.settings.ratingShortcutModifier.swiftUIModifiers
+                Button(XmpLabel.red.name) {
+                    store.selectEntry(memberID); store.applyLabel(XmpLabel.red.rawValue)
+                }
+                .keyboardShortcut("6", modifiers: mods)
+                Button(XmpLabel.yellow.name) {
+                    store.selectEntry(memberID); store.applyLabel(XmpLabel.yellow.rawValue)
+                }
+                .keyboardShortcut("7", modifiers: mods)
+                Button(XmpLabel.green.name) {
+                    store.selectEntry(memberID); store.applyLabel(XmpLabel.green.rawValue)
+                }
+                .keyboardShortcut("8", modifiers: mods)
+                Button(XmpLabel.blue.name) {
+                    store.selectEntry(memberID); store.applyLabel(XmpLabel.blue.rawValue)
+                }
+                .keyboardShortcut("9", modifiers: mods)
+                Button(XmpLabel.purple.name) {
+                    store.selectEntry(memberID); store.applyLabel(XmpLabel.purple.rawValue)
                 }
                 Divider()
                 Button(String(localized: "Clear Label")) {

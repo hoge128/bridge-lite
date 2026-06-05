@@ -223,16 +223,26 @@ struct ThumbnailCellView: View {
         Divider()
 
         Menu("Rating") {
+            let mods = store.settings.ratingShortcutModifier.swiftUIModifiers
             Button("No Rating") { store.triggerRating(0) }
+                .keyboardShortcut("0", modifiers: mods)
             ForEach(1...5, id: \.self) { n in
                 Button(String(repeating: "★", count: n)) { store.triggerRating(n) }
+                    .keyboardShortcut(KeyEquivalent(Character(String(n))), modifiers: mods)
             }
         }
 
         Menu("Label") {
-            ForEach(XmpLabel.allCases, id: \.rawValue) { label in
-                Button(label.name) { store.applyLabel(label.rawValue) }
-            }
+            let mods = store.settings.ratingShortcutModifier.swiftUIModifiers
+            Button(XmpLabel.red.name)    { store.applyLabel(XmpLabel.red.rawValue) }
+                .keyboardShortcut("6", modifiers: mods)
+            Button(XmpLabel.yellow.name) { store.applyLabel(XmpLabel.yellow.rawValue) }
+                .keyboardShortcut("7", modifiers: mods)
+            Button(XmpLabel.green.name)  { store.applyLabel(XmpLabel.green.rawValue) }
+                .keyboardShortcut("8", modifiers: mods)
+            Button(XmpLabel.blue.name)   { store.applyLabel(XmpLabel.blue.rawValue) }
+                .keyboardShortcut("9", modifiers: mods)
+            Button(XmpLabel.purple.name) { store.applyLabel(XmpLabel.purple.rawValue) }
             Divider()
             Button("Clear Label") {
                 if let current = store.xmpData[store.primaryID ?? entry.id]?.label {
