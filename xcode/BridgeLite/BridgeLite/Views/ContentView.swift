@@ -120,6 +120,7 @@ struct ContentView: View {
 struct FolderView: View {
     @Environment(LibraryStore.self) private var store
     @State private var spaceKeyMonitor: Any?
+    @State private var showShortcuts = false
     // class ベースの可変参照。@State<NSWindow?> をクロージャでキャプチャすると
     // 初期値 nil で固定されてしまうため、参照型のホルダー経由で動的に読む。
     @State private var windowRef = WindowRef()
@@ -308,6 +309,12 @@ struct FolderView: View {
         }
         .onDisappear {
             if let m = spaceKeyMonitor { NSEvent.removeMonitor(m); spaceKeyMonitor = nil }
+        }
+        .sheet(isPresented: $showShortcuts) {
+            ShortcutCheatSheetView()
+        }
+        .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteShowShortcuts)) { _ in
+            showShortcuts = true
         }
     }
 }

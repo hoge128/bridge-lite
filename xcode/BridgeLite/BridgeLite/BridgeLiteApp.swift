@@ -53,6 +53,7 @@ extension NSNotification.Name {
     static let bridgeLiteRegroup = NSNotification.Name("BridgeLiteRegroup")
     static let bridgeLiteFocusSearch = NSNotification.Name("BridgeLiteFocusSearch")
     static let bridgeLiteCacheCleared = NSNotification.Name("BridgeLiteCacheCleared")
+    static let bridgeLiteShowShortcuts = NSNotification.Name("BridgeLiteShowShortcuts")
 }
 
 // MARK: - Window state monitor
@@ -218,6 +219,11 @@ struct BridgeLiteCommands: Commands {
             .keyboardShortcut("q", modifiers: .command)
         }
         CommandMenu("View") {
+            Button(String(localized: "shortcut.sheet.title", defaultValue: "Keyboard Shortcuts")) {
+                NotificationCenter.default.post(name: .bridgeLiteShowShortcuts, object: nil)
+            }
+            .keyboardShortcut("/", modifiers: .command)
+            Divider()
             Toggle("Metadata", isOn: Binding(
                 get: { store?.showSidebar ?? false },
                 set: { store?.showSidebar = $0 }

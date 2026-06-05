@@ -254,6 +254,14 @@ struct ToolbarView: ToolbarContent {
                 Toggle(isOn: $store.showSidebar) {
                     Label("Metadata", systemImage: "sidebar.right")
                 }
+
+                Button {
+                    NotificationCenter.default.post(name: .bridgeLiteShowShortcuts, object: nil)
+                } label: {
+                    Label(String(localized: "shortcut.sheet.title", defaultValue: "Keyboard Shortcuts"),
+                          systemImage: "keyboard")
+                }
+                .help(String(localized: "shortcut.sheet.title", defaultValue: "Keyboard Shortcuts"))
             }
         }
     }
