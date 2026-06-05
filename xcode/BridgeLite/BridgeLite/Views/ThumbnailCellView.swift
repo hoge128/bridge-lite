@@ -44,13 +44,18 @@ struct ThumbnailCellView: View {
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity, alignment: .leading)
-            if let rating = xmp?.rating, rating > 0 {
-                Text(String(repeating: "★", count: rating))
-                    .font(.system(size: 12, weight: .bold))
-                    .foregroundStyle(.yellow.opacity(0.75))
-            } else {
-                Color.clear.frame(height: 11)
+            HStack(spacing: 1) {
+                ForEach(1...5, id: \.self) { i in
+                    Text(i <= (xmp?.rating ?? 0) ? "★" : "☆")
+                        .font(.system(size: 11, weight: .medium))
+                        .foregroundStyle(
+                            i <= (xmp?.rating ?? 0)
+                                ? Color(red: 0.95, green: 0.55, blue: 0.05)
+                                : Color.secondary.opacity(0.35)
+                        )
+                }
             }
+            .frame(height: 13)
         }
         .padding(.horizontal, 5)
         .padding(.top, 2)
