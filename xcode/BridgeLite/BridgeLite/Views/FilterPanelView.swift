@@ -359,7 +359,7 @@ struct FilterPanelView: View {
                                 .fill(label.color)
                                 .frame(width: 18, height: 18)
                                 .overlay(
-                                    Circle().stroke(
+                                    Circle().strokeBorder(
                                         filter.wrappedValue.filterLabels.contains(label)
                                         ? Color.primary : Color.clear,
                                         lineWidth: 2
