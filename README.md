@@ -43,6 +43,47 @@ open xcode/BridgeLite/BridgeLite.xcodeproj
 
 Xcode で `Cmd+B` (ビルド) → `Cmd+R` (実行)。
 
+## 開発上の注意
+
+### ❌ 禁止: `project.pbxproj` を直接編集する
+
+```sh
+# やってはいけない
+vim xcode/BridgeLite/BridgeLite.xcodeproj/project.pbxproj
+python3 edit_pbxproj.py   # 外部スクリプトも同様
+```
+
+このプロジェクトは **XcodeGen** (`project.yml`) でプロジェクトファイルを管理している。  
+`project.pbxproj` を直接編集すると以下の問題が発生する:
+
+1. Xcode が外部変更を検知してプロジェクトを再読み込みしようとする
+2. SPM パッケージ解決処理が走り `Package.resolved` が削除される
+3. 再解決に失敗すると `Package.resolved` が消えたまま残る
+4. 以降 Xcode が「Couldn't load project」エラーを出し続ける
+5. その状態の Xcode は SPM ディレクトリを監視し続けるため、`Package.resolved` を手動で置いても即座に削除されてしまう
+
+**正しい方法**: Swift ファイルの追加・削除・グループ変更はすべて `project.yml` を編集してから `xcodegen generate` を実行する。
+
+```sh
+# ファイルを追加したいとき
+vim xcode/BridgeLite/project.yml   # sources に追記
+cd xcode/BridgeLite
+xcodegen generate                  # project.pbxproj を再生成
+```
+
+### `Package.resolved` が消えて Xcode が起動できなくなった場合の復旧手順
+
+```sh
+# 1. Xcode を完全に終了する（必須）
+#    Xcode が起動中だと書き込んでも即削除される
+
+# 2. Package.resolved を復元する
+git checkout HEAD -- "xcode/BridgeLite/BridgeLite.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved"
+
+# 3. Xcode を再度開く
+open xcode/BridgeLite/BridgeLite.xcodeproj
+```
+
 ## テスト
 
 ```sh
