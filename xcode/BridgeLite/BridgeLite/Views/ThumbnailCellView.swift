@@ -206,6 +206,7 @@ struct ThumbnailCellView: View {
             : KeyboardShortcut(.delete, modifiers: .command)
     }
 
+    @ViewBuilder
     private var cellContextMenu: some View {
         Button("Copy") {
             store.triggerCopy()
