@@ -413,6 +413,7 @@ private struct CompareMemberColumn: View {
                 store.selectEntry(memberID)
                 store.compareMode = false
             }
+            .keyboardShortcut(.escape, modifiers: [])
             Button(String(localized: "thumbnail.context.move_to_viewer",
                           defaultValue: "Move to Viewer")) {
                 store.selectEntry(memberID)
@@ -421,6 +422,7 @@ private struct CompareMemberColumn: View {
                     NSApplication.shared.mainWindow?.toggleFullScreen(nil)
                 }
             }
+            .keyboardShortcut(.space, modifiers: [])
 
             Divider()
 

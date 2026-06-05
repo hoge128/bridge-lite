@@ -268,6 +268,7 @@ struct ViewerView: View {
                           defaultValue: "Back to Grid")) {
                 store.viewerMode = false
             }
+            .keyboardShortcut(.escape, modifiers: [])
             Button(String(localized: "viewer.context.move_to_compare",
                           defaultValue: "Move to Compare")) {
                 store.compareAnchorID = entry.id

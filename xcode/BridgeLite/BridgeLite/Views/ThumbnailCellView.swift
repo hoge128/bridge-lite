@@ -237,18 +237,20 @@ struct ThumbnailCellView: View {
 
         Divider()
 
-        Button(String(localized: "viewer.context.move_to_compare",
-                      defaultValue: "Move to Compare")) {
+        Button(String(localized: "thumbnail.context.move_to_compare",
+                      defaultValue: "Move to Compare (Double-click)")) {
             store.selectEntry(entry.id)
             store.compareAnchorID = entry.id
             store.compareMode = true
         }
+        .keyboardShortcut(.return, modifiers: [])
 
         Button(String(localized: "thumbnail.context.move_to_viewer",
                       defaultValue: "Move to Viewer")) {
             store.selectEntry(entry.id)
             store.viewerMode = true
         }
+        .keyboardShortcut(.space, modifiers: [])
 
         Divider()
 
