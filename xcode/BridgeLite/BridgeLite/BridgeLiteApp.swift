@@ -193,15 +193,8 @@ struct BridgeLiteCommands: Commands {
                         .foregroundStyle(.secondary)
                 } else {
                     ForEach(recents, id: \.path) { url in
-                        Button {
+                        Button((url.path as NSString).abbreviatingWithTildeInPath) {
                             store?.loadFolder(url)
-                        } label: {
-                            VStack(alignment: .leading, spacing: 1) {
-                                Text(url.lastPathComponent)
-                                Text((url.path as NSString).abbreviatingWithTildeInPath)
-                                    .font(.caption)
-                                    .foregroundStyle(.secondary)
-                            }
                         }
                     }
                     Divider()
