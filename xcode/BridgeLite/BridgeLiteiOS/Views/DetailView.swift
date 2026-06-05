@@ -1151,6 +1151,7 @@ private struct ZoomableImageView: UIViewRepresentable {
         var onSingleTap: (() -> Void)?
         weak var imageView: UIImageView?
         private var lastSingleTapTime: Date? = nil
+        private var pendingSingleTap: DispatchWorkItem? = nil
         weak var navPanGesture: UIPanGestureRecognizer?
         private var navDragAxis: NavAxis = .undecided
         private enum NavAxis { case undecided, horizontal, vertical }
@@ -1213,6 +1214,11 @@ private struct ZoomableImageView: UIViewRepresentable {
         }
 
         @objc func handleDoubleTap(_ g: UITapGestureRecognizer) {
+            // シングルタップの遅延実行をキャンセル（ダブルタップ優先）
+            pendingSingleTap?.cancel()
+            pendingSingleTap = nil
+            lastSingleTapTime = nil
+
             guard let sv = g.view as? UIScrollView else { return }
             if sv.zoomScale > 1.01 {
                 sv.setZoomScale(1.0, animated: true)
@@ -1230,12 +1236,22 @@ private struct ZoomableImageView: UIViewRepresentable {
             let now = Date()
             let prev = lastSingleTapTime
             lastSingleTapTime = now
-            // 350ms 以内の再タップはダブルタップと判断して無視（handleDoubleTap が処理）
+
+            // 2打目が来た場合は保留中のシングルタップをキャンセルして終了
             if let prev, now.timeIntervalSince(prev) < 0.35 {
+                pendingSingleTap?.cancel()
+                pendingSingleTap = nil
                 lastSingleTapTime = nil
                 return
             }
-            onSingleTap?()
+
+            // 0.25s 後に実行（その間に2打目が来たら上の分岐でキャンセルされる）
+            let work = DispatchWorkItem { [weak self] in
+                self?.pendingSingleTap = nil
+                self?.onSingleTap?()
+            }
+            pendingSingleTap = work
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: work)
         }
 
         @objc func handleNavPan(_ g: UIPanGestureRecognizer) {
