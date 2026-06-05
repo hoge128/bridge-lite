@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BridgeLite 0.4.5 Release Notes</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; font-size: 13px; margin: 0; padding: 12px 16px; color: #1d1d1f; }
+    h2 { font-size: 15px; margin: 0 0 8px; }
+    h3 { font-size: 12px; font-weight: 600; margin: 12px 0 4px; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+    ul { margin: 0 0 4px; padding-left: 18px; }
+    li { margin: 2px 0; }
+    .lang-divider { border: none; border-top: 1px solid #e0e0e0; margin: 16px 0; }
+  </style>
+</head>
+<body>
+
+<!-- English -->
+<h2>BridgeLite 0.4.5</h2>
+
+<p>0.4.5 arrives alongside the first release of BridgeLite for Windows. While the Windows version was being built from the ground up, we used the time to polish the Mac experience — refining UI details that had been sitting on the list, and finally fixing thumbnail cache issues that had been lurking since the very first release. The result is a noticeably smoother feel, especially when scrolling through large folders.</p>
+
+<h3>Recent Folders</h3>
+<ul>
+  <li>Added <strong>Open Recent</strong> — the welcome screen and File menu now list the last 5 folders you opened</li>
+  <li>Added a <strong>Clear History</strong> button to the welcome screen</li>
+</ul>
+
+<h3>Keyboard Shortcuts</h3>
+<ul>
+  <li>Added a <strong>Keyboard Shortcut Reference</strong> sheet (accessible from the Help menu)</li>
+  <li>Rating, label, delete, and view-navigation shortcuts are now shown inline in the right-click context menu</li>
+</ul>
+
+<h3>Performance</h3>
+<ul>
+  <li>Thumbnails are now pre-loaded into the memory cache during scanning — scrolling through large folders is noticeably smoother</li>
+</ul>
+
+<h3>Fixes</h3>
+<ul>
+  <li>Fixed label clear not working when multiple photos were selected and the primary photo had no label</li>
+  <li>Fixed recent folder history being recorded even when scanning failed or was cancelled</li>
+  <li>Fixed thumbnail memory cache limit not being restored after the OS relieved memory pressure</li>
+  <li>Fixed memory cache limit set in Settings not being used as the baseline when the OS applies memory pressure</li>
+</ul>
+
+<hr class="lang-divider">
+
+<!-- 日本語 -->
+<h2>BridgeLite 0.4.5</h2>
+
+<p>0.4.5 は、Windows 版 BridgeLite の初リリースに合わせてお届けするアップデートです。Windows 版の開発と並走するなかで、Mac 版はずっと積み残していた UI の細部を丁寧に整え、リリース当初から潜んでいたサムネイルキャッシュの問題をようやく修正しました。特に大量フォルダでのスクロール時の体感が向上しています。</p>
+
+<h3>最近開いたフォルダ</h3>
+<ul>
+  <li><strong>Open Recent（最近開いたフォルダ）</strong>機能を追加 — ウェルカム画面と File メニューに直近5件のフォルダが表示されます</li>
+  <li>ウェルカム画面に<strong>「履歴を消去」</strong>ボタンを追加</li>
+</ul>
+
+<h3>キーボードショートカット</h3>
+<ul>
+  <li><strong>キーボードショートカット一覧</strong>シートを追加（Help メニューから表示できます）</li>
+  <li>評価・ラベル・削除・ビュー遷移のショートカットキーが右クリックメニューに表示されるようになりました</li>
+</ul>
+
+<h3>パフォーマンス</h3>
+<ul>
+  <li>スキャン中にサムネイルをメモリキャッシュへ先行格納するようにしました — 大量フォルダのスクロールが体感的に滑らかになります</li>
+</ul>
+
+<h3>バグ修正</h3>
+<ul>
+  <li>複数の写真を選択中、プライマリ写真にラベルがない状態でラベルクリアが機能しない問題を修正</li>
+  <li>スキャン失敗・キャンセル時にも最近開いたフォルダへ記録されていた問題を修正</li>
+  <li>OS のメモリ圧迫が解除された後にサムネイルキャッシュの上限が復元されない問題を修正</li>
+  <li>設定で変更したキャッシュ上限がメモリ圧迫時の半減計算に反映されない問題を修正</li>
+</ul>
+
+</body>
+</html>
