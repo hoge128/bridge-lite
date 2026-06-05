@@ -162,7 +162,7 @@
 		8959834812C243F4AB214555 /* ViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerView.swift; sourceTree = "<group>"; };
 		8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSheet.swift; sourceTree = "<group>"; };
 		8B691B7F084D124BC8711440 /* RustLink.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = RustLink.xcconfig; sourceTree = "<group>"; };
-		918FB1B2CC528D4E52EABDB9 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		918FB1B2CC528D4E52EABDB9 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		940DD5D430F25636C785B60A /* ThumbnailService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailService.swift; sourceTree = "<group>"; };
 		967747AA45B0717E1ABB3BC8 /* ZoomableImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomableImage.swift; sourceTree = "<group>"; };
 		9A4260412EA9F57B97926BB9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -194,7 +194,7 @@
 		E8B64F29E109361726718A3C /* PhotoEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEntry.swift; sourceTree = "<group>"; };
 		EAE570D73DB707E72992F2C3 /* JpgWriteMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JpgWriteMode.swift; sourceTree = "<group>"; };
 		F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithService.swift; sourceTree = "<group>"; };
-		F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BridgeLiteiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F4E55FE6639221B92FF06FE1 /* BridgeLite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BridgeLite.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
 		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
 		F9F1394BA720F5BB1FAC74FB /* TabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabManager.swift; sourceTree = "<group>"; };
@@ -320,7 +320,7 @@
 			isa = PBXGroup;
 			children = (
 				9CE46BEBEEE9B02A6F31B9F8 /* BridgeLite.app */,
-				F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */,
+				F4E55FE6639221B92FF06FE1 /* BridgeLite.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -485,7 +485,7 @@
 			packageProductDependencies = (
 			);
 			productName = BridgeLiteiOS;
-			productReference = F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */;
+			productReference = F4E55FE6639221B92FF06FE1 /* BridgeLite.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -799,14 +799,21 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = KTQ8JQW28L;
-				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Generated/include",
+				);
 				INFOPLIST_FILE = BridgeLiteiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lbridge_ffi",
+					"-lc++",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = iphoneos;
@@ -822,17 +829,28 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = KTQ8JQW28L;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
-				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Generated/include",
+				);
 				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Generated/lib",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lbridge_ffi",
+					"-lc++",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = macosx;
@@ -851,14 +869,21 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = KTQ8JQW28L;
-				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Generated/include",
+				);
 				INFOPLIST_FILE = BridgeLiteiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lbridge_ffi",
+					"-lc++",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = iphoneos;
@@ -874,17 +899,28 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
+				"DEVELOPMENT_TEAM[sdk=macosx*]" = KTQ8JQW28L;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
-				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				HEADER_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Generated/include",
+				);
 				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					"$(PROJECT_DIR)/Generated/lib",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
+				OTHER_LDFLAGS = (
+					"$(inherited)",
+					"-lbridge_ffi",
+					"-lc++",
+				);
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = macosx;

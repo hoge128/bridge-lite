@@ -351,6 +351,10 @@ private struct ViewerMetaOverlay: View {
     let xmp: XmpData?
     let onHide: () -> Void
 
+    @Environment(LibraryStore.self) private var store
+    @State private var dragRating: Int? = nil
+    @State private var dragStartRating: Int = 0
+
     private static let mono: Font = .system(.caption2, design: .monospaced)
 
     private var bgColor: Color {
@@ -421,10 +425,50 @@ private struct ViewerMetaOverlay: View {
                         .foregroundStyle(.white.opacity(0.9))
                         .multilineTextAlignment(.center)
                         .fixedSize(horizontal: false, vertical: true)
-                    if let rating = xmp?.rating, rating > 0 {
-                        Text(String(repeating: "★", count: rating))
-                            .font(.system(size: 10, weight: .bold))
-                            .foregroundStyle(.yellow.opacity(0.95))
+                    let currentRating = dragRating ?? (xmp?.rating ?? 0)
+                    HStack(spacing: 1) {
+                        ForEach(1...5, id: \.self) { i in
+                            Text(i <= currentRating ? "★" : "☆")
+                                .font(.system(size: 13, weight: .medium))
+                                .foregroundStyle(
+                                    i <= currentRating
+                                        ? Color(red: 0.95, green: 0.55, blue: 0.05)
+                                        : Color.white.opacity(0.25)
+                                )
+                        }
+                    }
+                    .overlay(
+                        GeometryReader { geo in
+                            Color.clear
+                                .contentShape(Rectangle())
+                                .gesture(
+                                    DragGesture(minimumDistance: 0)
+                                        .onChanged { value in
+                                            if dragRating == nil { dragStartRating = xmp?.rating ?? 0 }
+                                            let delta = Int(value.translation.width / 18)
+                                            dragRating = max(0, min(5, dragStartRating + delta))
+                                        }
+                                        .onEnded { value in
+                                            let dx = value.translation.width
+                                            let dy = value.translation.height
+                                            if abs(dx) < 4 && abs(dy) < 4 {
+                                                let starWidth = geo.size.width / 5
+                                                let rating = Int(value.startLocation.x / starWidth) + 1
+                                                store.applyRating(max(1, min(5, rating)))
+                                            } else {
+                                                let delta = Int(value.translation.width / 18)
+                                                store.applyRating(max(0, min(5, dragStartRating + delta)))
+                                            }
+                                            dragRating = nil
+                                        }
+                                )
+                        }
+                    )
+                    .onContinuousHover { phase in
+                        switch phase {
+                        case .active: NSCursor.resizeLeftRight.push()
+                        case .ended:  NSCursor.pop()
+                        }
                     }
                 }
 

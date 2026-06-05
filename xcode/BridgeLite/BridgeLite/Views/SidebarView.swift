@@ -814,6 +814,7 @@ struct XmpSectionView: View {
     let entryID: UInt64
     @State private var isExpanded = true
     @State private var captionDraft: String = ""
+    @State private var dragRating: Int? = nil
     @FocusState private var isCaptionFocused: Bool
     @Environment(LibraryStore.self) private var store
 
@@ -827,15 +828,49 @@ struct XmpSectionView: View {
 
     var body: some View {
         SectionBox("XMP", isExpanded: $isExpanded) {
-            VStack(alignment: .leading, spacing: 8) {
-                HStack(spacing: 4) {
+            VStack(alignment: .center, spacing: 8) {
+                let currentRating = dragRating ?? (xmp?.rating ?? 0)
+                HStack(spacing: 6) {
                     ForEach(0...5, id: \.self) { n in
-                        Image(systemName: n == 0 ? "xmark.circle" : (n <= (xmp?.rating ?? 0) ? "star.fill" : "star"))
-                            .foregroundStyle(n == 0 ? Color.red.opacity(0.7) : Color.yellow.opacity(0.8))
-                            .onTapGesture { store.applyRating(n) }
+                        let filled = n > 0 && n <= currentRating
+                        Image(systemName: n == 0 ? "xmark.circle" : (filled ? "star.fill" : "star"))
+                            .font(.system(size: 18))
+                            .foregroundStyle(
+                                n == 0
+                                    ? (currentRating > 0 ? Color.red.opacity(0.7) : Color.secondary.opacity(0.3))
+                                    : filled ? Color(red: 0.95, green: 0.55, blue: 0.05)
+                                    : Color.secondary.opacity(0.5)
+                            )
+                            .frame(width: 22, height: 22)
                     }
                 }
-                HStack(spacing: 8) {
+                .contentShape(Rectangle())
+                .overlay(
+                    GeometryReader { geo in
+                        Color.clear
+                            .contentShape(Rectangle())
+                            .gesture(
+                                DragGesture(minimumDistance: 0)
+                                    .onChanged { value in
+                                        let idx = max(0, min(5, Int(value.location.x / (geo.size.width / 6))))
+                                        dragRating = idx
+                                    }
+                                    .onEnded { value in
+                                        let idx = max(0, min(5, Int(value.location.x / (geo.size.width / 6))))
+                                        store.applyRating(idx)
+                                        dragRating = nil
+                                    }
+                            )
+                    }
+                )
+                HStack(spacing: 6) {
+                    Image(systemName: "xmark.circle")
+                        .font(.system(size: 18))
+                        .foregroundStyle(xmp?.label != nil ? Color.red.opacity(0.7) : Color.secondary.opacity(0.3))
+                        .frame(width: 22, height: 22)
+                        .onTapGesture {
+                            if let current = xmp?.label { store.applyLabel(current.rawValue) }
+                        }
                     ForEach(XmpLabel.allCases, id: \.rawValue) { label in
                         ZStack {
                             Circle()
@@ -850,7 +885,7 @@ struct XmpSectionView: View {
                                     .foregroundStyle(.white)
                             }
                         }
-                        .frame(width: 20, height: 20)
+                        .frame(width: 22, height: 22)
                         .onTapGesture { store.applyLabel(label.rawValue) }
                     }
                 }
