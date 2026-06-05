@@ -200,7 +200,6 @@ struct ThumbnailCellView: View {
 
     // MARK: - Context menu
 
-    @ViewBuilder
     private var deleteShortcut: KeyboardShortcut {
         store.settings.deleteShortcutKey == .delete
             ? KeyboardShortcut(.delete, modifiers: [])
