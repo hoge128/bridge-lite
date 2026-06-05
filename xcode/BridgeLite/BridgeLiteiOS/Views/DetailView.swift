@@ -23,8 +23,6 @@ struct DetailView: View {
     /// let スナップショットだと DetailView オープン後のバッチ生成分が反映されない。
     private var thumbnails: [UInt64: Data] { scanStore.thumbnails }
     @Environment(\.dismiss) private var dismiss
-    @Environment(\.horizontalSizeClass) private var horizontalSizeClass
-    @Environment(\.verticalSizeClass) private var verticalSizeClass
 
     @State private var currentGroupIndex: Int
     @State private var currentIndex: Int
@@ -37,6 +35,7 @@ struct DetailView: View {
     @State private var pendingWriteEntry: (id: UInt64, url: URL, xmp: XmpData, previousXmp: XmpData?, targetIDs: [UInt64])?
     @State private var ratingWriteTask: Task<Void, Never>?
     @State private var showInfoPanel = false
+    @State private var isLandscape = false
 
     // フルサイズキャッシュ（最大3枚 FIFO: prev / current / next）
     @State private var fullResCache: [FullResEntry] = []
@@ -75,7 +74,9 @@ struct DetailView: View {
         self._currentIndex = State(initialValue: repIdx)
     }
 
-    private var group: ShotGroup { groups[currentGroupIndex] }
+    private var group: ShotGroup {
+        groups[max(0, min(currentGroupIndex, groups.count - 1))]
+    }
 
     private var members: [PhotoEntry] {
         group.memberIDs.compactMap { entries[$0] }
@@ -83,13 +84,8 @@ struct DetailView: View {
 
     private var current: PhotoEntry? { members[safe: currentIndex] }
 
-    private var usesLandscapeLayout: Bool {
-        horizontalSizeClass == .compact && verticalSizeClass == .compact
-    }
-
     var body: some View {
         NavigationStack {
-            let isLandscape = usesLandscapeLayout
             ZStack(alignment: .bottom) {
                 Color.black.ignoresSafeArea()
                 if let entry = current {
@@ -146,9 +142,11 @@ struct DetailView: View {
                     showRendered = true
                 }
             }
-            .onDisappear {
-                showInfoPanel = false
-            }
+            .onAppear { updateLandscapeState() }
+            .onDisappear { showInfoPanel = false }
+            .onReceive(NotificationCenter.default.publisher(
+                for: UIDevice.orientationDidChangeNotification)
+            ) { _ in updateLandscapeState() }
             .onChange(of: isFullscreen) {
                 if !isFullscreen { showInfoPanel = false }
             }
@@ -663,6 +661,8 @@ struct DetailView: View {
                     RatingBarView(entry: entry, xmp: binding) { newXmp in
                         commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
                     }
+                    .disabled(scanStore.isScanning && !scanStore.isExifReady)
+                    .opacity(scanStore.isScanning && !scanStore.isExifReady ? 0.35 : 1.0)
 
                     Color.white.opacity(0.15).frame(height: 0.5)
                         .padding(.horizontal, 16)
@@ -731,6 +731,14 @@ struct DetailView: View {
                 }
             }
         }
+    }
+
+    // MARK: - Orientation
+
+    private func updateLandscapeState() {
+        guard let scene = UIApplication.shared.connectedScenes
+            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
+        isLandscape = scene.interfaceOrientation.isLandscape
     }
 
 }
@@ -1105,7 +1113,7 @@ private struct ZoomableImageView: UIViewRepresentable {
             target: context.coordinator,
             action: #selector(Coordinator.handleSingleTap(_:))
         )
-        singleTap.require(toFail: doubleTap)
+        // require(toFail:) は ~500ms の遅延を生むため使わず、handleSingleTap 内で手動検出する
         sv.addGestureRecognizer(singleTap)
 
         let navPan = UIPanGestureRecognizer(
@@ -1142,6 +1150,7 @@ private struct ZoomableImageView: UIViewRepresentable {
         var onDismiss: (() -> Void)?
         var onSingleTap: (() -> Void)?
         weak var imageView: UIImageView?
+        private var lastSingleTapTime: Date? = nil
         weak var navPanGesture: UIPanGestureRecognizer?
         private var navDragAxis: NavAxis = .undecided
         private enum NavAxis { case undecided, horizontal, vertical }
@@ -1217,7 +1226,17 @@ private struct ZoomableImageView: UIViewRepresentable {
             }
         }
 
-        @objc func handleSingleTap(_ g: UITapGestureRecognizer) { onSingleTap?() }
+        @objc func handleSingleTap(_ g: UITapGestureRecognizer) {
+            let now = Date()
+            let prev = lastSingleTapTime
+            lastSingleTapTime = now
+            // 350ms 以内の再タップはダブルタップと判断して無視（handleDoubleTap が処理）
+            if let prev, now.timeIntervalSince(prev) < 0.35 {
+                lastSingleTapTime = nil
+                return
+            }
+            onSingleTap?()
+        }
 
         @objc func handleNavPan(_ g: UIPanGestureRecognizer) {
             guard let sv = g.view as? UIScrollView, !sv.isScrollEnabled else {

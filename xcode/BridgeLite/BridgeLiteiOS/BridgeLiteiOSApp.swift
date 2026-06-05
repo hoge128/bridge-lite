@@ -1,8 +1,8 @@
 import SwiftUI
 import UIKit
 
-// 横向きを許可するかどうか（ThumbnailGridView / DetailView ともに横画面対応のため常時 true）
-@MainActor var allowLandscape = true
+// 横向きを許可するかどうか（Welcome 画面は false、ThumbnailGridView / DetailView は true）
+@MainActor var allowLandscape = false
 
 @MainActor func forcePortraitOrientation() {
     guard let scene = UIApplication.shared.connectedScenes
@@ -23,7 +23,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         _ application: UIApplication,
         supportedInterfaceOrientationsFor window: UIWindow?
     ) -> UIInterfaceOrientationMask {
-        allowLandscape ? .all : .portrait
+        allowLandscape ? [.portrait, .landscapeLeft, .landscapeRight] : .portrait
     }
 }
 

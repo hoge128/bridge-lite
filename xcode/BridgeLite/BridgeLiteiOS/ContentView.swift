@@ -23,6 +23,7 @@ struct ContentView: View {
                         allowLandscape = false
                         forcePortraitOrientation()
                     }
+                    .onDisappear { allowLandscape = true }
                     .task {
                         try? await Task.sleep(nanoseconds: 50_000_000)
                         withAnimation(.easeOut(duration: 0.35)) { welcomeAppeared = true }

@@ -26,8 +26,8 @@ struct ThumbnailGridView: View {
     private static let shareWarningThreshold = 20
     private let gridSpacing: CGFloat = 1
 
-    private func columnCount(for width: CGFloat) -> Int {
-        max(3, Int(width / 140))
+    private func columnCount(for size: CGSize) -> Int {
+        size.width > size.height ? 5 : 3
     }
 
     private var shareNeedsWarning: Bool {
@@ -166,7 +166,7 @@ struct ThumbnailGridView: View {
 
     private var grid: some View {
         GeometryReader { geo in
-            let cols = columnCount(for: geo.size.width)
+            let cols = columnCount(for: geo.size)
             let n = CGFloat(cols)
             let cellSize = (geo.size.width - gridSpacing * (n + 1)) / n
             let columns = Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: cols)
