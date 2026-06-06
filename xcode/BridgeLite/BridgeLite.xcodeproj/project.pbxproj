@@ -9,6 +9,7 @@
 /* Begin PBXBuildFile section */
 		01D99717EFC9132583EC925A /* FolderPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */; };
 		023C9DB516FC5F3EC66D2009 /* IOSCalendarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0AB8F4DD6E72DE0A539806AD /* IOSCalendarView.swift */; };
+		057DA6754121110A7CCDE511 /* ManageApplicationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08267E9BB3F4272FE0BBD6B3 /* ManageApplicationsSheet.swift */; };
 		05ECD571285BD5D65864592F /* FilterSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */; };
 		080BCFEFED5119F429F6EF37 /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
 		0B0BC12A398E84A26C01BBBC /* TabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */; };
@@ -16,21 +17,34 @@
 		0B60DE05312E9F3B3E292659 /* DatePresetChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2384ADFCC6A85641754CACC6 /* DatePresetChips.swift */; };
 		0BF5211BFCBCCD0800E28289 /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E9544AD911B7B44DF245CA /* HelpView.swift */; };
 		0BF52C82A21586308C297CF1 /* ShimmerModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C72413C08CEDEA6CEF916D3 /* ShimmerModifier.swift */; };
+		0C1F33F69189FED7D66D0FC6 /* PhotoEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B64F29E109361726718A3C /* PhotoEntry.swift */; };
+		0C977FFF527F409AC85C9190 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6259A93CEB1040679F6D1C26 /* ToolbarView.swift */; };
+		0CF0C5095EA7CBE236BF1320 /* BridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */; };
 		0E65648D56216F575D4DFE73 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1C59E59994061A04481C6A6A /* Localizable.xcstrings */; };
+		0EC9764D857121AF21A99FC7 /* CoreError+LocalizedError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */; };
+		0F84FA46E6EA193589CE858B /* GroupCompareView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6719A1E8E79428CC067F6086 /* GroupCompareView.swift */; };
+		134497A7300BAA07792ED140 /* LargeImageDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79936F50668EA508B13ADA64 /* LargeImageDecoder.swift */; };
+		1411482B5439F1DDE1035C78 /* StorageProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB29D70D3C5AFA843D165F7 /* StorageProbe.swift */; };
 		153A1705C9336E2AB8DFF50B /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		15EC68B4A95093A65194736A /* OnboardingGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A99D7A009ECB59C2566D6019 /* OnboardingGuideView.swift */; };
 		18F473074BA8B73A8706C1D9 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
+		1B81ACFE220F94FACC9CB317 /* RecentFoldersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 457102D9A774F68E8EA1188D /* RecentFoldersStore.swift */; };
 		1CA3A2C4229728F0691BEAB8 /* ShotGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E644DA2225FFA58312896A06 /* ShotGroup.swift */; };
 		1E5E68B25E2EC686594106E6 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D049A57268958B6678D2C20 /* UpdaterController.swift */; };
+		1F8360D7A99C3AA99A73998E /* DatePresetChips.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2384ADFCC6A85641754CACC6 /* DatePresetChips.swift */; };
 		2017A2227FC3FB4B6E5DEDEB /* CoreError+LocalizedError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */; };
 		20FA827723A350BA5FA21B62 /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
+		213CA1ED6A3984BB7CA2E972 /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E01FA6276D771ABD948AEB /* CalendarDayCell.swift */; };
 		215494EF82648C16BB89CE55 /* BookmarkStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B9A857B065B055D6ACA28D45 /* BookmarkStore.swift */; };
 		221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 562FFC709A5EF19C156C3F4B /* LibraryStore.swift */; };
+		22E5DF0F1AF914B38B233B1A /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
+		274C8160BA64E7F94DE1ACA0 /* ZoomableImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 967747AA45B0717E1ABB3BC8 /* ZoomableImage.swift */; };
 		2B393FBA258B56A1BD277370 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A4260412EA9F57B97926BB9 /* SettingsView.swift */; };
 		2BC3C6189802029B5387B89C /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
 		2BE62A4FCB568FF94B43F5F6 /* RatingBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */; };
 		321E9F5925168E01168CF59B /* bridge-ffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */; };
 		33C078EF4BC9AA58CA3FA762 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 15664F7FA303F94AF6538F3E /* AppIcon.icon */; };
+		347461394E6B6A4C59721EA9 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
 		35EC070FBDA487AA56355519 /* ZoomableImage.swift in Sources */ = {isa = PBXBuildFile; fileRef = 967747AA45B0717E1ABB3BC8 /* ZoomableImage.swift */; };
 		37B766B17BB5740BA7505661 /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FE2F5F0FC1CBE2DFCB5E024F /* ThumbnailCellView.swift */; };
 		39AE66ED4011C68812AED891 /* Help.md in Resources */ = {isa = PBXBuildFile; fileRef = 378A4578CCFA7628D5DBDC95 /* Help.md */; };
@@ -40,32 +54,52 @@
 		3E440C342AD8D7EC85E9F37B /* ScanStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2BE75B59E9A9916005F01D79 /* ScanStore.swift */; };
 		3ECF458059E0E92F6318ABA0 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F0D4EF54B7033D13443243 /* SidebarView.swift */; };
 		42C21D5247C07C7E1B455749 /* ExportSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */; };
+		430F15B0C0554DBBC6A7A1F6 /* PHashPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */; };
+		455D3B93B6800FE7460EA8ED /* ShotGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E644DA2225FFA58312896A06 /* ShotGroup.swift */; };
+		4575F7DE5681E1686EC33D97 /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
+		4625AC1A603577B1F0E6B89E /* PairingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */; };
 		46298ED8412E1E06AADF32B2 /* FilterCriteria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */; };
 		4779F287F1B4C86EE63CCFEB /* JpgWriteMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = EAE570D73DB707E72992F2C3 /* JpgWriteMode.swift */; };
 		487E0F471C54D7589919532C /* PhotoEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B64F29E109361726718A3C /* PhotoEntry.swift */; };
 		4E72A5090DBD0AF45203A54B /* ExifBucket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A627C92B271E8FA93132A5 /* ExifBucket.swift */; };
+		4EB7D500580692958C5782A9 /* Localizable.xcstrings in Resources */ = {isa = PBXBuildFile; fileRef = 1C59E59994061A04481C6A6A /* Localizable.xcstrings */; };
+		53CF5FAE5E379C10FB52E9EC /* ExifBucket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A627C92B271E8FA93132A5 /* ExifBucket.swift */; };
 		5478CCDC6D2D1C6C2FEEBEFF /* ThumbnailPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */; };
 		54EC15B9A343E7437C1D1606 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 9CD8299E55E3AC885C1D9E24 /* Assets.xcassets */; };
 		54F4CBE0C0AF7B59DE4D27DF /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49A54E1E164617C20BDC0BE8 /* Assets.xcassets */; };
+		56F1E66642F9D1B28258EC21 /* ThumbnailPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */; };
 		584A95D26699F228799AFA44 /* FilterBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = DA9262B1680B7331805E940E /* FilterBarView.swift */; };
 		5B7AA16F9AB39446C7450658 /* PairingPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */; };
+		5C8908E68D2FD7359F1DA2E0 /* RecentFoldersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 457102D9A774F68E8EA1188D /* RecentFoldersStore.swift */; };
 		5CA8DE50A11EA3EBA7C43444 /* ThumbnailQualityMode.swift in Sources */ = {isa = PBXBuildFile; fileRef = 19E46FA46CB539DD45F65D00 /* ThumbnailQualityMode.swift */; };
+		5D1CE19346BD8C95417AD6EA /* HelpView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E2E9544AD911B7B44DF245CA /* HelpView.swift */; };
+		63AC46E689E7DCA97912B6FB /* LibraryStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 562FFC709A5EF19C156C3F4B /* LibraryStore.swift */; };
+		64ED1F35A2D5944C883FD2BA /* bridge-ffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */; };
+		67B96E19777E32CEFAC1F7D1 /* ShortcutCheatSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A4FC9A3AE4AF4E2525A120 /* ShortcutCheatSheetView.swift */; };
 		68AFA52E99B3C8444EBAA652 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = 36DF9C66D41809477B26A054 /* Sparkle */; };
-		6AB6297C275B1E3C3320AB13 /* ShortcutCheatSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6EA249FC905570D693B352D /* ShortcutCheatSheetView.swift */; };
 		6B3EDFEBE636886E1F758C6B /* PrivacyInfo.xcprivacy in Resources */ = {isa = PBXBuildFile; fileRef = 918FB1B2CC528D4E52EABDB9 /* PrivacyInfo.xcprivacy */; };
+		6C6AF072A74BE61A8DEDBFF8 /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
 		6ED0F6462194267F516E1405 /* PHashPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */; };
+		740AF9418C7DFF37A2A11104 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */; };
 		740B6E0B825A83C207B42109 /* ToolbarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6259A93CEB1040679F6D1C26 /* ToolbarView.swift */; };
 		74506E19CABDC2BB84366C6E /* PHashPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 07C83C57EB29D9E72266B5E9 /* PHashPipeline.swift */; };
 		7536EC2290FDDDE51D587021 /* SwiftBridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 30302DDBEABABB72702317BF /* SwiftBridgeCore.swift */; };
 		757F65595D73658FC438F522 /* BridgeCore.swift in Sources */ = {isa = PBXBuildFile; fileRef = B64D00B056E39FE57EE0BD92 /* BridgeCore.swift */; };
 		75BBD1B5458C5D8D77610FB6 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F1394BA720F5BB1FAC74FB /* TabManager.swift */; };
+		7623A213FAC4840D74558B97 /* ThumbnailDecodeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A25B9314CAA8624F7FEAE8 /* ThumbnailDecodeCache.swift */; };
 		79E1D0EBFDA23601F6574747 /* PhotoKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F5F4B06F799171789826B0 /* PhotoKind.swift */; };
 		7E3DB46D71165F7E199F8D9A /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D52544FC27897A0CD233A37E /* ThumbnailGridView.swift */; };
+		7E4A0F82B4283A151B6AF4D6 /* Help.md in Resources */ = {isa = PBXBuildFile; fileRef = 378A4578CCFA7628D5DBDC95 /* Help.md */; };
 		8061ABA38A6138E7DF26799E /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E01FA6276D771ABD948AEB /* CalendarDayCell.swift */; };
+		81838D87950C2CEDDB8AC840 /* RAWRenderPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66FAC10D47AADEDC3B802F22 /* RAWRenderPipeline.swift */; };
+		866CD9808EB6AA3575A970B6 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F1394BA720F5BB1FAC74FB /* TabManager.swift */; };
 		867E4D731D55D911BE92FCDA /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */; };
 		89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
+		89F05D54256A5A3A83482CC9 /* PhotoKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F5F4B06F799171789826B0 /* PhotoKind.swift */; };
+		8A9E5D939EDE9E2B40EF0912 /* ScanPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829D014EC927B51D64289330 /* ScanPipeline.swift */; };
 		8F544229F248278F9D38D074 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
 		909FBB7C62F31EDF0BFC3AEA /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
+		92F76664E9BA914493521AE5 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B123E21AF2DA71784C11365 /* SettingsStore.swift */; };
 		936EAB6141C91B2B1E4A54E2 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
 		9663B6EB0122125A7F1E5BAB /* ThumbnailWriteBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7067E465B097CEE819C6B4DF /* ThumbnailWriteBuffer.swift */; };
 		9BF8C6AB43E6FF9A22E6B3F1 /* ManageApplicationsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = 08267E9BB3F4272FE0BBD6B3 /* ManageApplicationsSheet.swift */; };
@@ -73,37 +107,60 @@
 		9E7C26206D8C655C98E57C30 /* ThumbnailWriteBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7067E465B097CEE819C6B4DF /* ThumbnailWriteBuffer.swift */; };
 		9FE9F88FC4671DAF54FB52A3 /* ThumbnailDecodeCache.swift in Sources */ = {isa = PBXBuildFile; fileRef = 34A25B9314CAA8624F7FEAE8 /* ThumbnailDecodeCache.swift */; };
 		A017CA3928F5411EB8A668A1 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B123E21AF2DA71784C11365 /* SettingsStore.swift */; };
+		A0E49E3C68D41A2F30F3DD50 /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */; };
+		A18641D876F865748C1DA2A7 /* ThumbnailWriteBuffer.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7067E465B097CEE819C6B4DF /* ThumbnailWriteBuffer.swift */; };
 		A25971232D7E0AD8FC6C0E12 /* ThumbnailService.swift in Sources */ = {isa = PBXBuildFile; fileRef = 940DD5D430F25636C785B60A /* ThumbnailService.swift */; };
+		A4BFED7827A2C0C0CE867277 /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */; };
 		A5C7AF7B756C4E14095476E7 /* RatingStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = D29F4F691391FA55169693EC /* RatingStore.swift */; };
 		A697498B8D3F1EC28704C642 /* OpenFolderRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */; };
+		A8B7F0B04A391D12104164A4 /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */; };
 		ADFD4A2AE0A9DA9BA0CEF576 /* CalendarPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4B133A4910622F9BE06420A /* CalendarPickerView.swift */; };
+		B1061D382B13A2CBFAB855C5 /* ViewerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8959834812C243F4AB214555 /* ViewerView.swift */; };
+		B32B3F84FA45D3B9B88BB3ED /* ShimmerModifier.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C72413C08CEDEA6CEF916D3 /* ShimmerModifier.swift */; };
 		B381E002D017743456FC7713 /* bridge-ffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */; };
+		B453A3634F3D723A2EEC8533 /* DateModeToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FAA6D6FCBC572B4F19C4347 /* DateModeToggle.swift */; };
+		B57152E0E49E99DE76079642 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
+		B6DA180DE24ADC350A698CE8 /* FolderWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5954B00B0C942104F38783B /* FolderWatcher.swift */; };
+		B76FC46F4A9B85CCA622848A /* OpenFolderRegistry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */; };
 		B8167BC2395FD9F9A557FD6B /* DetailView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C85D8596A0E46A5E932A65FA /* DetailView.swift */; };
+		B85D885C8B3EA243286721F8 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = 49A54E1E164617C20BDC0BE8 /* Assets.xcassets */; };
 		B8D2E26E4404EF20904397E4 /* FilterPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 449E124463D6E6D28958EBE9 /* FilterPanelView.swift */; };
+		BAF53C87442DFB983F3B6085 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A4260412EA9F57B97926BB9 /* SettingsView.swift */; };
 		BBAC36178F92008A8F84A15B /* GlassHelper.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3FD5F39B0A7874AC5C8C83B9 /* GlassHelper.swift */; };
+		BBE024A5AFEC287857AD190D /* TabBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */; };
 		BD135BC5DA5312F04B946CC4 /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
+		C0830689FDBA3F476B7F95BE /* CalendarPickerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = D4B133A4910622F9BE06420A /* CalendarPickerView.swift */; };
 		C2B1F29F428CDBE27A663823 /* exp-images in Resources */ = {isa = PBXBuildFile; fileRef = 37867048876991648DB9CDB0 /* exp-images */; };
+		C2BA8D655F73C69B9C1D346C /* Info.plist in Resources */ = {isa = PBXBuildFile; fileRef = 851B10EDFF439C8C3987E4B6 /* Info.plist */; };
 		C5E75A4F20CD758BDD8C2EFC /* BridgeLiteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */; };
 		CBD8D3D6954D40D54CF4655C /* ShotGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E644DA2225FFA58312896A06 /* ShotGroup.swift */; };
+		CC5DC31FEF81A05E3A92399B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */; };
 		CF8892645373D041666BB500 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */; };
 		D0246288EB437833D4CB9511 /* RAWRenderPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66FAC10D47AADEDC3B802F22 /* RAWRenderPipeline.swift */; };
 		D1EC203AA8C20B42769BD3ED /* StorageProbe.swift in Sources */ = {isa = PBXBuildFile; fileRef = FEB29D70D3C5AFA843D165F7 /* StorageProbe.swift */; };
+		D21F3A4DCF9F004EE1CF01F7 /* SidebarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 05F0D4EF54B7033D13443243 /* SidebarView.swift */; };
+		D389EF6B6030E41C3F8CE2BC /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 15664F7FA303F94AF6538F3E /* AppIcon.icon */; };
 		D4242D876FEFDA8DA59C5D73 /* DateModeToggle.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6FAA6D6FCBC572B4F19C4347 /* DateModeToggle.swift */; };
 		D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
+		D6B6C4459B7CAECBEAF64A16 /* ShortcutCheatSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0A4FC9A3AE4AF4E2525A120 /* ShortcutCheatSheetView.swift */; };
 		D6D0CEEDEC8AC157916A6652 /* RAWRenderPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66FAC10D47AADEDC3B802F22 /* RAWRenderPipeline.swift */; };
+		D8277F9B1B33A39A2265AE8C /* FilterPanelView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 449E124463D6E6D28958EBE9 /* FilterPanelView.swift */; };
 		D94D2E517C63501996A36845 /* CoreError+LocalizedError.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6A34C2A7F370C7ABF734F095 /* CoreError+LocalizedError.swift */; };
-		DE294CA076A3A173EAE4A8E5 /* RecentFoldersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 1D65EB8D3D009C848E3D99AC /* RecentFoldersStore.swift */; };
 		DEF30A887E4B37AD5335E2A0 /* ExifBucket.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79A627C92B271E8FA93132A5 /* ExifBucket.swift */; };
+		E14A6E1DAD9A416C531A398F /* FilterCriteria.swift in Sources */ = {isa = PBXBuildFile; fileRef = 09D4ED0420AFCA1D0193BB5E /* FilterCriteria.swift */; };
 		E178D5FA3E211751512F52AD /* BackgroundScanManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761A7F2902CB941EF914F7A8 /* BackgroundScanManager.swift */; };
 		E5E2B3A3C79D72BA0C7FC841 /* PhotoKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F5F4B06F799171789826B0 /* PhotoKind.swift */; };
 		E807A02B6D748E5BBE9F17CB /* FolderWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5954B00B0C942104F38783B /* FolderWatcher.swift */; };
 		E8F5A37ADB423EFE6A24493D /* ScanPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829D014EC927B51D64289330 /* ScanPipeline.swift */; };
 		EB75052F94D03E07762F3E62 /* PhotoEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B64F29E109361726718A3C /* PhotoEntry.swift */; };
 		EB98541B8291C56BC7DAAE8C /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */; };
+		EC5E1649CA2D5F743AB33502 /* BridgeLiteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */; };
 		ECE6710712DBC27DCC0E6E19 /* BridgeLiteiOSApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = 17DEFE7CAC099009D687EF89 /* BridgeLiteiOSApp.swift */; };
 		EF5F1D3737463925000086EB /* LargeImageDecoder.swift in Sources */ = {isa = PBXBuildFile; fileRef = 79936F50668EA508B13ADA64 /* LargeImageDecoder.swift */; };
 		F049B58AD623462639BFDA52 /* AboutView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */; };
+		F14883BA8A962481D067716E /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		F359ECF33974606B988A6517 /* SettingsSheetView.swift in Sources */ = {isa = PBXBuildFile; fileRef = B0AAC7F0B8C0E9D8E625EAE1 /* SettingsSheetView.swift */; };
+		F8CA354961DB9BAABAB6A1F2 /* OpenWithService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */; };
 		F992512EC9A4A82A8EC53439 /* OpenWithService.swift in Sources */ = {isa = PBXBuildFile; fileRef = F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */; };
 		FDF5C4C6E780449E3350C68C /* ThumbnailGridView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */; };
 		FFBB566343EEA7BA991F4AAE /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3086AA6CCBB10934498DD210 /* ContentView.swift */; };
@@ -120,7 +177,6 @@
 		17DEFE7CAC099009D687EF89 /* BridgeLiteiOSApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BridgeLiteiOSApp.swift; sourceTree = "<group>"; };
 		19E46FA46CB539DD45F65D00 /* ThumbnailQualityMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailQualityMode.swift; sourceTree = "<group>"; };
 		1C59E59994061A04481C6A6A /* Localizable.xcstrings */ = {isa = PBXFileReference; lastKnownFileType = text.json.xcstrings; path = Localizable.xcstrings; sourceTree = "<group>"; };
-		1D65EB8D3D009C848E3D99AC /* RecentFoldersStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFoldersStore.swift; sourceTree = "<group>"; };
 		2384ADFCC6A85641754CACC6 /* DatePresetChips.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DatePresetChips.swift; sourceTree = "<group>"; };
 		2A9A6A7C8BAA6F1550DA5308 /* ThumbnailGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridView.swift; sourceTree = "<group>"; };
 		2BE75B59E9A9916005F01D79 /* ScanStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ScanStore.swift; sourceTree = "<group>"; };
@@ -139,6 +195,7 @@
 		3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingPipeline.swift; sourceTree = "<group>"; };
 		3FD5F39B0A7874AC5C8C83B9 /* GlassHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassHelper.swift; sourceTree = "<group>"; };
 		449E124463D6E6D28958EBE9 /* FilterPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterPanelView.swift; sourceTree = "<group>"; };
+		457102D9A774F68E8EA1188D /* RecentFoldersStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFoldersStore.swift; sourceTree = "<group>"; };
 		49A54E1E164617C20BDC0BE8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		4A8E11C67D0CD9F9AA64A43A /* FolderPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderPickerView.swift; sourceTree = "<group>"; };
 		4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingBarView.swift; sourceTree = "<group>"; };
@@ -165,13 +222,14 @@
 		8959834812C243F4AB214555 /* ViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerView.swift; sourceTree = "<group>"; };
 		8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSheet.swift; sourceTree = "<group>"; };
 		8B691B7F084D124BC8711440 /* RustLink.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = RustLink.xcconfig; sourceTree = "<group>"; };
-		918FB1B2CC528D4E52EABDB9 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		918FB1B2CC528D4E52EABDB9 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		940DD5D430F25636C785B60A /* ThumbnailService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailService.swift; sourceTree = "<group>"; };
 		967747AA45B0717E1ABB3BC8 /* ZoomableImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomableImage.swift; sourceTree = "<group>"; };
 		9A4260412EA9F57B97926BB9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
 		9CD8299E55E3AC885C1D9E24 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		9CE46BEBEEE9B02A6F31B9F8 /* BridgeLite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BridgeLite.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCellView.swift; sourceTree = "<group>"; };
+		A0A4FC9A3AE4AF4E2525A120 /* ShortcutCheatSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutCheatSheetView.swift; sourceTree = "<group>"; };
 		A5954B00B0C942104F38783B /* FolderWatcher.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FolderWatcher.swift; sourceTree = "<group>"; };
 		A8396ACA4DEDDE8C7A2933D8 /* AboutView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AboutView.swift; sourceTree = "<group>"; };
 		A8476046BC02C30936274119 /* bridge-ffi.h */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.c.h; path = "bridge-ffi.h"; sourceTree = "<group>"; };
@@ -187,6 +245,7 @@
 		D29F4F691391FA55169693EC /* RatingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingStore.swift; sourceTree = "<group>"; };
 		D4B133A4910622F9BE06420A /* CalendarPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPickerView.swift; sourceTree = "<group>"; };
 		D52544FC27897A0CD233A37E /* ThumbnailGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridView.swift; sourceTree = "<group>"; };
+		D5C8362831EE177BBD575267 /* BridgeLiteMAS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BridgeLiteMAS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA9262B1680B7331805E940E /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
 		E18D649E31736AC707A51F47 /* BridgeLite.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BridgeLite.entitlements; sourceTree = "<group>"; };
 		E2E9544AD911B7B44DF245CA /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
@@ -197,9 +256,8 @@
 		E8B64F29E109361726718A3C /* PhotoEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEntry.swift; sourceTree = "<group>"; };
 		EAE570D73DB707E72992F2C3 /* JpgWriteMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JpgWriteMode.swift; sourceTree = "<group>"; };
 		F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithService.swift; sourceTree = "<group>"; };
-		F4E55FE6639221B92FF06FE1 /* BridgeLite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BridgeLite.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BridgeLiteiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
-		F6EA249FC905570D693B352D /* ShortcutCheatSheetView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShortcutCheatSheetView.swift; sourceTree = "<group>"; };
 		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
 		F9F1394BA720F5BB1FAC74FB /* TabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabManager.swift; sourceTree = "<group>"; };
 		FE2F5F0FC1CBE2DFCB5E024F /* ThumbnailCellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCellView.swift; sourceTree = "<group>"; };
@@ -314,7 +372,7 @@
 				562FFC709A5EF19C156C3F4B /* LibraryStore.swift */,
 				E46B9587F6EDB521882BF02E /* OpenFolderRegistry.swift */,
 				F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */,
-				1D65EB8D3D009C848E3D99AC /* RecentFoldersStore.swift */,
+				457102D9A774F68E8EA1188D /* RecentFoldersStore.swift */,
 				7B123E21AF2DA71784C11365 /* SettingsStore.swift */,
 				F9F1394BA720F5BB1FAC74FB /* TabManager.swift */,
 			);
@@ -325,7 +383,8 @@
 			isa = PBXGroup;
 			children = (
 				9CE46BEBEEE9B02A6F31B9F8 /* BridgeLite.app */,
-				F4E55FE6639221B92FF06FE1 /* BridgeLite.app */,
+				F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */,
+				D5C8362831EE177BBD575267 /* BridgeLiteMAS.app */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -427,11 +486,11 @@
 				449E124463D6E6D28958EBE9 /* FilterPanelView.swift */,
 				6719A1E8E79428CC067F6086 /* GroupCompareView.swift */,
 				E2E9544AD911B7B44DF245CA /* HelpView.swift */,
-				F6EA249FC905570D693B352D /* ShortcutCheatSheetView.swift */,
 				08267E9BB3F4272FE0BBD6B3 /* ManageApplicationsSheet.swift */,
 				CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */,
 				9A4260412EA9F57B97926BB9 /* SettingsView.swift */,
 				2C72413C08CEDEA6CEF916D3 /* ShimmerModifier.swift */,
+				A0A4FC9A3AE4AF4E2525A120 /* ShortcutCheatSheetView.swift */,
 				05F0D4EF54B7033D13443243 /* SidebarView.swift */,
 				4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */,
 				9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */,
@@ -491,7 +550,25 @@
 			packageProductDependencies = (
 			);
 			productName = BridgeLiteiOS;
-			productReference = F4E55FE6639221B92FF06FE1 /* BridgeLite.app */;
+			productReference = F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */;
+			productType = "com.apple.product-type.application";
+		};
+		E5EE11EA61F96AD6E23533E2 /* BridgeLiteMAS */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = E295AEDED71B07D5BD18A741 /* Build configuration list for PBXNativeTarget "BridgeLiteMAS" */;
+			buildPhases = (
+				AEAF601147ED0F235B840E83 /* Sources */,
+				55ADAA26024FF735CBA58562 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = BridgeLiteMAS;
+			packageProductDependencies = (
+			);
+			productName = BridgeLiteMAS;
+			productReference = D5C8362831EE177BBD575267 /* BridgeLiteMAS.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */
@@ -504,6 +581,10 @@
 				LastUpgradeCheck = 1630;
 				TargetAttributes = {
 					77040631C433B68A1D9BE548 = {
+						DevelopmentTeam = KTQ8JQW28L;
+						ProvisioningStyle = Automatic;
+					};
+					E5EE11EA61F96AD6E23533E2 = {
 						DevelopmentTeam = KTQ8JQW28L;
 						ProvisioningStyle = Automatic;
 					};
@@ -528,6 +609,7 @@
 			projectRoot = "";
 			targets = (
 				3ADD03B0946F6C036A05B104 /* BridgeLite */,
+				E5EE11EA61F96AD6E23533E2 /* BridgeLiteMAS */,
 				77040631C433B68A1D9BE548 /* BridgeLiteiOS */,
 			);
 		};
@@ -542,6 +624,18 @@
 				0E65648D56216F575D4DFE73 /* Localizable.xcstrings in Resources */,
 				6B3EDFEBE636886E1F758C6B /* PrivacyInfo.xcprivacy in Resources */,
 				C2B1F29F428CDBE27A663823 /* exp-images in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		55ADAA26024FF735CBA58562 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				D389EF6B6030E41C3F8CE2BC /* AppIcon.icon in Resources */,
+				B85D885C8B3EA243286721F8 /* Assets.xcassets in Resources */,
+				7E4A0F82B4283A151B6AF4D6 /* Help.md in Resources */,
+				C2BA8D655F73C69B9C1D346C /* Info.plist in Resources */,
+				4EB7D500580692958C5782A9 /* Localizable.xcstrings in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -626,11 +720,9 @@
 				E807A02B6D748E5BBE9F17CB /* FolderWatcher.swift in Sources */,
 				3C455A207919FF49AB0272DE /* GroupCompareView.swift in Sources */,
 				0BF5211BFCBCCD0800E28289 /* HelpView.swift in Sources */,
-				6AB6297C275B1E3C3320AB13 /* ShortcutCheatSheetView.swift in Sources */,
 				D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */,
 				EF5F1D3737463925000086EB /* LargeImageDecoder.swift in Sources */,
 				221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */,
-				DE294CA076A3A173EAE4A8E5 /* RecentFoldersStore.swift in Sources */,
 				9BF8C6AB43E6FF9A22E6B3F1 /* ManageApplicationsSheet.swift in Sources */,
 				A697498B8D3F1EC28704C642 /* OpenFolderRegistry.swift in Sources */,
 				867E4D731D55D911BE92FCDA /* OpenWithMenu.swift in Sources */,
@@ -640,10 +732,12 @@
 				487E0F471C54D7589919532C /* PhotoEntry.swift in Sources */,
 				E5E2B3A3C79D72BA0C7FC841 /* PhotoKind.swift in Sources */,
 				D0246288EB437833D4CB9511 /* RAWRenderPipeline.swift in Sources */,
+				1B81ACFE220F94FACC9CB317 /* RecentFoldersStore.swift in Sources */,
 				E8F5A37ADB423EFE6A24493D /* ScanPipeline.swift in Sources */,
 				A017CA3928F5411EB8A668A1 /* SettingsStore.swift in Sources */,
 				2B393FBA258B56A1BD277370 /* SettingsView.swift in Sources */,
 				0BF52C82A21586308C297CF1 /* ShimmerModifier.swift in Sources */,
+				67B96E19777E32CEFAC1F7D1 /* ShortcutCheatSheetView.swift in Sources */,
 				CBD8D3D6954D40D54CF4655C /* ShotGroup.swift in Sources */,
 				3ECF458059E0E92F6318ABA0 /* SidebarView.swift in Sources */,
 				D1EC203AA8C20B42769BD3ED /* StorageProbe.swift in Sources */,
@@ -661,6 +755,65 @@
 				BD135BC5DA5312F04B946CC4 /* XmpData.swift in Sources */,
 				35EC070FBDA487AA56355519 /* ZoomableImage.swift in Sources */,
 				B381E002D017743456FC7713 /* bridge-ffi.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		AEAF601147ED0F235B840E83 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				740AF9418C7DFF37A2A11104 /* AboutView.swift in Sources */,
+				0CF0C5095EA7CBE236BF1320 /* BridgeCore.swift in Sources */,
+				EC5E1649CA2D5F743AB33502 /* BridgeLiteApp.swift in Sources */,
+				213CA1ED6A3984BB7CA2E972 /* CalendarDayCell.swift in Sources */,
+				C0830689FDBA3F476B7F95BE /* CalendarPickerView.swift in Sources */,
+				6C6AF072A74BE61A8DEDBFF8 /* ConcurrencyLimiter.swift in Sources */,
+				CC5DC31FEF81A05E3A92399B /* ContentView.swift in Sources */,
+				0EC9764D857121AF21A99FC7 /* CoreError+LocalizedError.swift in Sources */,
+				B453A3634F3D723A2EEC8533 /* DateModeToggle.swift in Sources */,
+				1F8360D7A99C3AA99A73998E /* DatePresetChips.swift in Sources */,
+				53CF5FAE5E379C10FB52E9EC /* ExifBucket.swift in Sources */,
+				B57152E0E49E99DE76079642 /* ExifData.swift in Sources */,
+				F14883BA8A962481D067716E /* ExifHistogramView.swift in Sources */,
+				E14A6E1DAD9A416C531A398F /* FilterCriteria.swift in Sources */,
+				D8277F9B1B33A39A2265AE8C /* FilterPanelView.swift in Sources */,
+				B6DA180DE24ADC350A698CE8 /* FolderWatcher.swift in Sources */,
+				0F84FA46E6EA193589CE858B /* GroupCompareView.swift in Sources */,
+				5D1CE19346BD8C95417AD6EA /* HelpView.swift in Sources */,
+				347461394E6B6A4C59721EA9 /* ImageEntry+Convert.swift in Sources */,
+				134497A7300BAA07792ED140 /* LargeImageDecoder.swift in Sources */,
+				63AC46E689E7DCA97912B6FB /* LibraryStore.swift in Sources */,
+				057DA6754121110A7CCDE511 /* ManageApplicationsSheet.swift in Sources */,
+				B76FC46F4A9B85CCA622848A /* OpenFolderRegistry.swift in Sources */,
+				A4BFED7827A2C0C0CE867277 /* OpenWithMenu.swift in Sources */,
+				F8CA354961DB9BAABAB6A1F2 /* OpenWithService.swift in Sources */,
+				430F15B0C0554DBBC6A7A1F6 /* PHashPipeline.swift in Sources */,
+				4625AC1A603577B1F0E6B89E /* PairingPipeline.swift in Sources */,
+				0C1F33F69189FED7D66D0FC6 /* PhotoEntry.swift in Sources */,
+				89F05D54256A5A3A83482CC9 /* PhotoKind.swift in Sources */,
+				81838D87950C2CEDDB8AC840 /* RAWRenderPipeline.swift in Sources */,
+				5C8908E68D2FD7359F1DA2E0 /* RecentFoldersStore.swift in Sources */,
+				8A9E5D939EDE9E2B40EF0912 /* ScanPipeline.swift in Sources */,
+				92F76664E9BA914493521AE5 /* SettingsStore.swift in Sources */,
+				BAF53C87442DFB983F3B6085 /* SettingsView.swift in Sources */,
+				B32B3F84FA45D3B9B88BB3ED /* ShimmerModifier.swift in Sources */,
+				D6B6C4459B7CAECBEAF64A16 /* ShortcutCheatSheetView.swift in Sources */,
+				455D3B93B6800FE7460EA8ED /* ShotGroup.swift in Sources */,
+				D21F3A4DCF9F004EE1CF01F7 /* SidebarView.swift in Sources */,
+				1411482B5439F1DDE1035C78 /* StorageProbe.swift in Sources */,
+				22E5DF0F1AF914B38B233B1A /* SwiftBridgeCore.swift in Sources */,
+				BBE024A5AFEC287857AD190D /* TabBarView.swift in Sources */,
+				866CD9808EB6AA3575A970B6 /* TabManager.swift in Sources */,
+				A0E49E3C68D41A2F30F3DD50 /* ThumbnailCellView.swift in Sources */,
+				7623A213FAC4840D74558B97 /* ThumbnailDecodeCache.swift in Sources */,
+				A8B7F0B04A391D12104164A4 /* ThumbnailGridView.swift in Sources */,
+				56F1E66642F9D1B28258EC21 /* ThumbnailPipeline.swift in Sources */,
+				A18641D876F865748C1DA2A7 /* ThumbnailWriteBuffer.swift in Sources */,
+				0C977FFF527F409AC85C9190 /* ToolbarView.swift in Sources */,
+				B1061D382B13A2CBFAB855C5 /* ViewerView.swift in Sources */,
+				4575F7DE5681E1686EC33D97 /* XmpData.swift in Sources */,
+				274C8160BA64E7F94DE1ACA0 /* ZoomableImage.swift in Sources */,
+				64ED1F35A2D5944C883FD2BA /* bridge-ffi.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -798,6 +951,35 @@
 			};
 			name = Debug;
 		};
+		861F9DFC64FA701AFFB2B22F /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BridgeLiteMAS/BridgeLiteMAS.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = KTQ8JQW28L;
+				ENABLE_HARDENED_RUNTIME = YES;
+				EXCLUDED_ARCHS = x86_64;
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				INFOPLIST_FILE = BridgeLiteMAS/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
+				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
+				PRODUCT_NAME = BridgeLiteMAS;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG APPSTORE";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "BridgeLite/BridgeLite-Bridging-Header.h";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
 		B7F9608D6CBA50F3E425E1F0 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			baseConfigurationReference = 8B691B7F084D124BC8711440 /* RustLink.xcconfig */;
@@ -807,21 +989,14 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = KTQ8JQW28L;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLiteiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = iphoneos;
@@ -832,34 +1007,51 @@
 			};
 			name = Debug;
 		};
+		C24D2C547AB62A4A069EDDE8 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				CODE_SIGN_ENTITLEMENTS = BridgeLiteMAS/BridgeLiteMAS.entitlements;
+				CODE_SIGN_STYLE = Automatic;
+				COMBINE_HIDPI_IMAGES = YES;
+				DEVELOPMENT_TEAM = KTQ8JQW28L;
+				ENABLE_HARDENED_RUNTIME = YES;
+				EXCLUDED_ARCHS = x86_64;
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
+				INFOPLIST_FILE = BridgeLiteMAS/Resources/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
+				MACOSX_DEPLOYMENT_TARGET = 14.0;
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
+				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
+				PRODUCT_NAME = BridgeLiteMAS;
+				SDKROOT = macosx;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = APPSTORE;
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "BridgeLite/BridgeLite-Bridging-Header.h";
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
 		EDD49F2E2E0D052BB3D8BEA6 /* Debug */ = {
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				COMBINE_HIDPI_IMAGES = YES;
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = KTQ8JQW28L;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/lib",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = macosx;
@@ -878,21 +1070,14 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = KTQ8JQW28L;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLiteiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = iphoneos;
@@ -907,30 +1092,18 @@
 			isa = XCBuildConfiguration;
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
-				"CODE_SIGN_IDENTITY[sdk=macosx*]" = "Apple Development";
 				COMBINE_HIDPI_IMAGES = YES;
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = KTQ8JQW28L;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/lib",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = macosx;
@@ -957,6 +1130,15 @@
 			buildConfigurations = (
 				B7F9608D6CBA50F3E425E1F0 /* Debug */,
 				EE7B683B9A9AC894C839C5EF /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Debug;
+		};
+		E295AEDED71B07D5BD18A741 /* Build configuration list for PBXNativeTarget "BridgeLiteMAS" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				861F9DFC64FA701AFFB2B22F /* Debug */,
+				C24D2C547AB62A4A069EDDE8 /* Release */,
 			);
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Debug;

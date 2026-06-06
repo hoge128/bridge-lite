@@ -16,6 +16,15 @@ struct AboutView: View {
             Text("Version \(Self.version)")
                 .font(.callout)
                 .foregroundStyle(.secondary)
+            #if APPSTORE
+            Text("about.edition.appstore")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            #else
+            Text("about.edition.direct")
+                .font(.caption2)
+                .foregroundStyle(.tertiary)
+            #endif
             Text("about.description")
                 .font(.caption)
                 .foregroundStyle(.secondary)
@@ -33,11 +42,14 @@ struct AboutView: View {
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+            #if !APPSTORE
+            // Sparkle is only bundled in the Direct (DMG) build.
             Text(verbatim: "Sparkle 2.9.1 — © 2006–2022 Andy Matuschak,\nElgato Systems GmbH, Kornel Lesiński, Mayur Pawashe\nand contributors. MIT License.")
                 .font(.caption2)
                 .foregroundStyle(.tertiary)
                 .multilineTextAlignment(.center)
                 .fixedSize(horizontal: false, vertical: true)
+            #endif
         }
         .padding(.horizontal, 40)
         .padding(.vertical, 48)

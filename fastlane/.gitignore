@@ -1,0 +1,6 @@
+# fastlane 実行時生成物
+report.xml
+Preview.html
+screenshots/screenshots.html
+*.p8
+README.md

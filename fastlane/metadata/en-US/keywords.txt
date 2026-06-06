@@ -1,0 +1,1 @@
+RAW,JPG,photo,viewer,culling,cull,select,picker,photography,thumbnail,EXIF,rating

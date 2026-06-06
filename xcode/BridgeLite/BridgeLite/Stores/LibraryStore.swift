@@ -274,6 +274,36 @@ final class LibraryStore: ReindexedGroupSink {
         isLoading = false
         statusMessage = ""
         currentDirectoryURL = nil
+        // Release sandbox access for the folder being closed (MAS build).
+        endScopedAccess()
+    }
+
+    #if APPSTORE
+    /// Folder URL currently holding security-scoped access (sandboxed build).
+    private var scopedAccessURL: URL?
+    #endif
+
+    /// Begin security-scoped access for `url`, releasing any access held for a
+    /// previously open folder. Access must stay active for the whole time the
+    /// folder is open because thumbnails/EXIF/XMP are read lazily on scroll.
+    /// No-op in the non-sandboxed Direct (DMG) build.
+    private func beginScopedAccess(_ url: URL) {
+        #if APPSTORE
+        endScopedAccess()
+        // Returns false for powerbox-granted (NSOpenPanel / drag-drop) URLs that
+        // already have access — that's fine, we only track URLs we actually start.
+        if url.startAccessingSecurityScopedResource() {
+            scopedAccessURL = url
+        }
+        #endif
+    }
+
+    /// Release the currently held security-scoped access, if any.
+    private func endScopedAccess() {
+        #if APPSTORE
+        scopedAccessURL?.stopAccessingSecurityScopedResource()
+        scopedAccessURL = nil
+        #endif
     }
 
     func openDirectory(_ url: URL) async {
@@ -286,6 +316,8 @@ final class LibraryStore: ReindexedGroupSink {
         statusMessage = String(localized: "Scanning…")
         reset()
         currentDirectoryURL = url
+        // Hold sandbox access before the Rust scan touches any file (MAS build).
+        beginScopedAccess(url)
         let gen = scanGeneration // reset() がバンプした世代を確定
 
         do {

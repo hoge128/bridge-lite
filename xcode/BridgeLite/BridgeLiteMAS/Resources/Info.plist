@@ -24,7 +24,7 @@
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
-	<string>io.github.bridge-lite</string>
+	<string>io.github.bridge-lite.ios</string>
 	<key>CFBundleInfoDictionaryVersion</key>
 	<string>6.0</string>
 	<key>CFBundleName</key>
@@ -34,24 +34,12 @@
 	<key>CFBundleShortVersionString</key>
 	<string>0.4.5</string>
 	<key>CFBundleVersion</key>
-	<string>19</string>
+	<string>1</string>
 	<key>LSApplicationCategoryType</key>
 	<string>public.app-category.photography</string>
 	<key>NSHumanReadableCopyright</key>
-	<string>Copyright © 2026 hoge128. All rights reserved.</string>
+	<string>Copyright © 2026 Tsuyoshi Ito. All rights reserved.</string>
 	<key>NSHumanReadableDescription</key>
 	<string>Lightweight RAW+JPG image viewer</string>
-	<key>SUAllowsAutomaticUpdates</key>
-	<true/>
-	<key>SUEnableAutomaticChecks</key>
-	<true/>
-	<key>SUEnableInstallerLauncherService</key>
-	<true/>
-	<key>SUFeedURL</key>
-	<string>https://hoge128.github.io/bridge-lite/appcast.xml</string>
-	<key>SUPublicEDKey</key>
-	<string>aVwGOcsYTnZ/rchyd9K+ZRhph0Xy+oOtU4oa9S0ZwhI=</string>
-	<key>SUScheduledCheckInterval</key>
-	<integer>86400</integer>
 </dict>
 </plist>

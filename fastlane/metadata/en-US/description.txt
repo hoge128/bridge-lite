@@ -1,0 +1,11 @@
+BridgeLite is a lightweight macOS viewer built for one job: deciding which photos to keep.
+
+After a big shoot you can be left with thousands of RAW+JPG frames. Lightroom and Bridge are powerful, but heavy to launch just to cull. BridgeLite fills that gap — it shows you the information you need to pick the keepers, as fast and accurately as possible.
+
+• RAW+JPG as one shot — frames from the same shutter are grouped and toggled with a single tap, so you compare JPG, RAW and retouched variations seamlessly.
+• Never modifies your files — browsing, scrolling and filtering never touch the original bytes, timestamps or permissions. Only ratings are written, to XMP sidecar files. Your RAW stays untouched.
+• Native macOS speed — Image I/O, Grand Central Dispatch and an SQLite thumbnail cache deliver fast thumbnails and smooth 60 fps scrolling, even on folders with thousands of images.
+• Read-only friendly — safe to browse straight from memory cards or network drives.
+• Filter and analyze — sort and filter by EXIF (camera, lens, ISO, shutter, aperture) to zero in on the frames that matter.
+
+BridgeLite does not develop, edit, resize or export. Those are jobs for Lightroom, Capture One or Darkroom. BridgeLite does one thing: help you choose, fast.

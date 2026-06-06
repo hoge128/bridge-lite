@@ -108,7 +108,10 @@ struct BridgeLiteApp: App {
 
     init() {
         _ = Self._bootstrap
+        #if !APPSTORE
+        // Start Sparkle on launch (Direct/DMG build only; App Store handles updates).
         _ = UpdaterController.shared
+        #endif
     }
 
     var body: some Scene {
@@ -152,12 +155,15 @@ struct BridgeLiteCommands: Commands {
                 openWindow(id: "about")
             }
         }
+        #if !APPSTORE
+        // Mac App Store builds update via the App Store; no manual check menu.
         CommandGroup(after: .appInfo) {
             Button(String(localized: "menu.check_for_updates",
                           defaultValue: "Check for Updates…")) {
                 UpdaterController.shared.checkForUpdates()
             }
         }
+        #endif
         CommandGroup(replacing: .undoRedo) {
             Button(store?.undoActionTitle ?? String(localized: "Undo")) {
                 let fr = NSApp.keyWindow?.firstResponder

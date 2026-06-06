@@ -218,6 +218,38 @@
         }
       }
     },
+    "about.edition.appstore": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App Store Edition"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "App Store 版"
+          }
+        }
+      }
+    },
+    "about.edition.direct": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Direct Download Edition"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダウンロード版"
+          }
+        }
+      }
+    },
     "Add Application…": {
       "localizations": {
         "en": {

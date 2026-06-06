@@ -198,6 +198,9 @@ struct SettingsView: View {
                     showClearRenderCacheAlert = true
                 }
             }
+            #if !APPSTORE
+            // Sparkle-driven update controls. Mac App Store builds update via the
+            // App Store, so this section is compiled out there.
             Section {
                 Toggle(String(localized: "settings.update.toggle",
                               defaultValue: "Check for Updates Automatically"),
@@ -233,6 +236,7 @@ struct SettingsView: View {
                 Text(String(localized: "settings.update.section",
                             defaultValue: "Updates"))
             }
+            #endif
             Section("Cache") {
                 LabeledContent("Database Size") {
                     if cacheSize < 0 {

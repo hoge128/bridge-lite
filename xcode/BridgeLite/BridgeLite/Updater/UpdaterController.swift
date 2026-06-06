@@ -1,3 +1,7 @@
+// Sparkle is the Direct (DMG) distribution updater. The Mac App Store build
+// (APPSTORE compilation condition) relies on App Store auto-update instead and
+// must not link or embed Sparkle, so the whole file is compiled out there.
+#if !APPSTORE
 import Foundation
 import Sparkle
 
@@ -31,3 +35,4 @@ private final class UpdaterDelegate: NSObject, SPUUpdaterDelegate {
     // ローカルテスト時のみ "http://localhost:8000/appcast.xml" を返すよう一時的に変更する
     // (手順: cd docs && python3 -m http.server 8000)
 }
+#endif

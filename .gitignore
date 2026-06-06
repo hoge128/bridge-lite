@@ -37,3 +37,7 @@ privkey.txt
 manual-src/node_modules/
 manual-src/.vitepress/cache/
 manual-src/.vitepress/dist/
+
+# Mac App Store スクショの作業・エクスポート用ディレクトリ（大容量）。
+# 投入用の最終セットは fastlane/screenshots/ に置く。
+assets/mas/

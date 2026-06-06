@@ -28,6 +28,18 @@ schemes:
       config: Debug
     archive:
       config: Release
+  BridgeLiteMAS:
+    build:
+      targets:
+        BridgeLiteMAS: all
+    run:
+      config: Debug
+    profile:
+      config: Release
+    analyze:
+      config: Debug
+    archive:
+      config: Release
   BridgeLiteiOS:
     build:
       targets:
@@ -84,6 +96,7 @@ targets:
         CFBundleVersion: "19"
         CFBundleShortVersionString: "0.4.5"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"
+        NSHumanReadableCopyright: "Copyright © 2026 hoge128. All rights reserved."
         # Finder の右クリック「このアプリケーションで開く」と Dock ドラッグで
         # フォルダを開けるようにするための公開ドキュメントタイプ宣言。
         # xcodegen が Info.plist を生成上書きするので、ここに含める必要がある。
@@ -96,6 +109,87 @@ targets:
         LSApplicationCategoryType: "public.app-category.photography"
         CFBundleDocumentTypes:
           - CFBundleTypeName: Folder
+            # 閲覧専用ツールのため Viewer。未指定だと NSDocumentController が
+            # 「CFBundleTypeRole must be Editor/Viewer/None/Shell」警告を出す。
+            CFBundleTypeRole: Viewer
+            LSHandlerRank: Alternate
+            LSItemContentTypes:
+              - public.folder
+
+  # Mac App Store build. Same sources as BridgeLite but App-Sandboxed and with no
+  # Sparkle dependency (App Store handles updates). Sparkle call sites are compiled
+  # out via the APPSTORE compilation condition. Distributed via App Store Connect.
+  BridgeLiteMAS:
+    type: application
+    platform: macOS
+    deploymentTarget: "14.0"
+    sources:
+      - path: BridgeLite
+        excludes:
+          - "Updater/**"
+      - path: Generated
+        optional: true
+        excludes:
+          - "lib/**"
+          - "lib-ios/**"
+          - "lib-ios-sim/**"
+    entitlements:
+      # xcodegen regenerates this file from these properties on every `generate`,
+      # so the sandbox keys must live here (not hand-edited in the .entitlements file).
+      path: BridgeLiteMAS/BridgeLiteMAS.entitlements
+      properties:
+        # Mac App Store build: App Sandbox is mandatory.
+        com.apple.security.app-sandbox: true
+        # Read/write access to folders & files the user picks via NSOpenPanel.
+        com.apple.security.files.user-selected.read-write: true
+        # Persist access across launches (Recents) via app-scoped security-scoped bookmarks.
+        com.apple.security.files.bookmarks.app-scope: true
+    settings:
+      base:
+        SWIFT_VERSION: 6.0
+        MACOSX_DEPLOYMENT_TARGET: "14.0"
+        # Shared with the iOS target for Universal Purchase: the Mac app joins the
+        # existing iOS App Store record (one listing, one name "BridgeLite"). The two
+        # bundle IDs must match EXACTLY; iOS already shipped as io.github.bridge-lite.ios
+        # (immutable once created), so the Mac App Store build adopts the same id. The
+        # .ios suffix is an internal identifier only — users never see it.
+        PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite.ios
+        # Distinct executable/.app name so MAS and DMG don't collide in the shared
+        # Build/Products dir (interleaved builds left Sparkle ad-hoc-signed → Library
+        # Validation SIGABRT). User-facing name stays "BridgeLite" via CFBundleDisplayName.
+        PRODUCT_NAME: BridgeLiteMAS
+        SWIFT_EMIT_LOC_STRINGS: YES
+        DEVELOPMENT_TEAM: KTQ8JQW28L
+        CODE_SIGN_STYLE: Automatic
+        # Rust static library linked directly (run tools/build-rust-xcframework.sh first)
+        OTHER_LDFLAGS: $(inherited) -lbridge_ffi -lc++
+        LIBRARY_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/lib
+        HEADER_SEARCH_PATHS: $(inherited) $(PROJECT_DIR)/Generated/include
+        SWIFT_OBJC_BRIDGING_HEADER: BridgeLite/BridgeLite-Bridging-Header.h
+        EXCLUDED_ARCHS: x86_64
+        ENABLE_HARDENED_RUNTIME: YES
+      configs:
+        Debug:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: DEBUG APPSTORE
+        Release:
+          SWIFT_ACTIVE_COMPILATION_CONDITIONS: APPSTORE
+    info:
+      path: BridgeLiteMAS/Resources/Info.plist
+      properties:
+        CFBundleName: BridgeLite
+        CFBundleDisplayName: BridgeLite
+        CFBundleIdentifier: io.github.bridge-lite.ios
+        CFBundleVersion: "1"
+        CFBundleShortVersionString: "0.4.5"
+        NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"
+        NSHumanReadableCopyright: "Copyright © 2026 Tsuyoshi Ito. All rights reserved."
+        # No SU* (Sparkle) keys: Mac App Store updates are handled by the App Store.
+        LSApplicationCategoryType: "public.app-category.photography"
+        CFBundleDocumentTypes:
+          - CFBundleTypeName: Folder
+            # 閲覧専用ツールのため Viewer。未指定だと NSDocumentController が
+            # 「CFBundleTypeRole must be Editor/Viewer/None/Shell」警告を出す。
+            CFBundleTypeRole: Viewer
             LSHandlerRank: Alternate
             LSItemContentTypes:
               - public.folder

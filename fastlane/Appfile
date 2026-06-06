@@ -1,0 +1,15 @@
+# fastlane Appfile — BridgeLite (Mac App Store)
+# https://docs.fastlane.tools/advanced/#appfile
+
+# iOS と共有する Bundle ID（Universal Purchase）。Mac 版は既存 iOS アプリレコードに
+# macOS プラットフォームとして相乗りするため、iOS と完全一致させる必要がある。
+app_identifier("io.github.bridge-lite.ios")
+team_id("KTQ8JQW28L") # Apple Developer Team ID
+
+# 認証は App Store Connect API キー（.p8）を推奨（2FA 不要・CI 向き）。
+# do-release-mas.sh が下記の環境変数を読みます:
+#   APP_STORE_CONNECT_API_KEY_ID, APP_STORE_CONNECT_API_ISSUER_ID, APP_STORE_CONNECT_API_KEY_PATH
+#
+# Apple ID + アプリ用パスワードで認証する場合のみ、以下を設定:
+# apple_id("your-apple-id@example.com")
+# itc_team_id("XXXXXXXX") # App Store Connect の Team ID（複数チーム所属時）
