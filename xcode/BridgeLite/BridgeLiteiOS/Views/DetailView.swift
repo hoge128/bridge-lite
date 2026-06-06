@@ -19,6 +19,15 @@ struct DetailView: View {
     let db: BridgeCoreDatabase?
     let jpgWriteMode: JpgWriteMode
     let scanStore: ScanStore
+    /// true のとき iPad のインライン詳細（ペイン/オーバーレイ）として振る舞う
+    /// （選択状態を外部 Binding と双方向同期する）。
+    let embedded: Bool
+    /// 埋め込み時のレイアウトを親のジオメトリ基準で指定する。
+    /// true=横(画像+1:2情報) / false=縦(画像+横並び評価+拡大ヒストグラム)。
+    /// DetailView 自身の interfaceOrientation を見ないことで回転直後のズレを防ぐ。
+    let embeddedLandscape: Bool
+    /// 埋め込み時にグリッド選択と同期する外部バインディング。
+    private let selectionBinding: Binding<ShotGroup?>?
 
     /// scanStore.thumbnails を直接参照することで @Observable の変更検知に乗る。
     /// let スナップショットだと DetailView オープン後のバッチ生成分が反映されない。
@@ -28,6 +37,10 @@ struct DetailView: View {
     @State private var currentGroupIndex: Int
     @State private var currentIndex: Int
     @State private var dragOffset: CGFloat = 0
+    // iPad インライン詳細の下スワイプ閉じ（指追従）の縦オフセット。
+    // 親（ThumbnailGridView）が所有し、グリッド幅の拡大・カードの視覚効果に使うため Binding。
+    // DetailView 自身は ZoomableImageView へ渡してジェスチャ量を書き込むのみ。
+    private let dismissDragBinding: Binding<CGFloat>
     @State private var isImageZoomed = false
     @State private var isFullscreen = false
     @State private var showRatingPopup = false
@@ -60,7 +73,11 @@ struct DetailView: View {
          db: BridgeCoreDatabase?,
          jpgWriteMode: JpgWriteMode = .embed,
          scanStore: ScanStore,
-         preferRendered: Binding<Bool>) {
+         preferRendered: Binding<Bool>,
+         embedded: Bool = false,
+         embeddedLandscape: Bool = false,
+         dismissDrag: Binding<CGFloat> = .constant(0),
+         selection: Binding<ShotGroup?>? = nil) {
         self.groups = groups
         self.fallbackGroup = initialGroup
         self.entries = entries
@@ -69,6 +86,10 @@ struct DetailView: View {
         self.jpgWriteMode = jpgWriteMode
         self.scanStore = scanStore
         self._preferRendered = preferRendered
+        self.embedded = embedded
+        self.embeddedLandscape = embeddedLandscape
+        self.dismissDragBinding = dismissDrag
+        self.selectionBinding = selection
         let groupIdx = groups.firstIndex(where: { $0.id == initialGroup.id }) ?? 0
         self._currentGroupIndex = State(initialValue: groupIdx)
         let g = groups.isEmpty ? initialGroup : groups[groupIdx]
@@ -92,29 +113,52 @@ struct DetailView: View {
             ZStack(alignment: .bottom) {
                 Color.black.ignoresSafeArea()
                 if let entry = current {
-                    imageViewport(entry: entry)
-                        .safeAreaInset(edge: .trailing, spacing: 0) {
-                            if isLandscape && !isFullscreen {
+                    if isFullscreen {
+                        // フルスクリーン: 画像が全面、情報はスライドインパネル
+                        imageViewport(entry: entry)
+                            .overlay(alignment: .topTrailing) {
+                                infoToggleButton
+                                    .padding(.top, 60)
+                                    .padding(.trailing, 12)
+                            }
+                        if showInfoPanel {
+                            fullscreenInfoPanel(entry: entry)
+                        }
+                    } else if !embedded && isLandscape {
+                        // iPhone 横向きモーダル: 画像 + 右サイドパネル（従来どおり）
+                        imageViewport(entry: entry)
+                            .safeAreaInset(edge: .trailing, spacing: 0) {
                                 landscapeInfoPanel(entry: entry)
                             }
-                        }
-                        .safeAreaInset(edge: .bottom, spacing: 0) {
-                            if !isLandscape && !isFullscreen {
-                                portraitInfoInset(entry: entry)
+                    } else {
+                        // 縦向きモーダル / iPad 埋め込みペイン:
+                        // 画像領域を上部に固定（アスペクト比による位置ズレ防止）し、
+                        // 情報を下に配置。embedded は 2×2 グリッド、縦は縦積み。
+                        GeometryReader { g in
+                            VStack(spacing: 0) {
+                                if embedded && embeddedLandscape {
+                                    // iPad 横ペイン: 画像は相対描画（残りを占有）、
+                                    // 情報は下部に固定高で 1:2 配置。
+                                    imageViewport(entry: entry)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                    embeddedInfoArea(entry: entry)
+                                        .frame(height: min(340, g.size.height * 0.46))
+                                } else if embedded {
+                                    // iPad 縦（インラインオーバーレイ）: 画像固定 +
+                                    // 横並び評価/ラベル + 拡大ヒストグラム、スクロールなし。
+                                    imageViewport(entry: entry)
+                                        .frame(height: g.size.height * 0.58)
+                                    iPadPortraitInfoColumn(entry: entry)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                } else {
+                                    // iPhone 縦モーダル: 従来の縦積み（スクロール可）。
+                                    imageViewport(entry: entry)
+                                        .frame(height: g.size.height * 0.58)
+                                    portraitInfoColumn(entry: entry)
+                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                }
                             }
                         }
-                        .overlay(alignment: .topTrailing) {
-                            // Keep the overlay's hit-test region to the visible button.
-                            infoToggleButton
-                                .padding(.top, 60)
-                                .padding(.trailing, 12)
-                                .opacity(isFullscreen ? 1 : 0)
-                                .allowsHitTesting(isFullscreen)
-                        }
-
-                    // フルスクリーン時スライドインパネル
-                    if isFullscreen && showInfoPanel {
-                        fullscreenInfoPanel(entry: entry)
                     }
                 }
             }
@@ -122,6 +166,14 @@ struct DetailView: View {
             .onChange(of: currentGroupIndex) {
                 dragOffset = 0
                 currentIndex = group.representativeID.flatMap { group.memberIDs.firstIndex(of: $0) } ?? 0
+                syncSelectionOut()
+            }
+            // 外部（グリッド）選択の変更を内部 index に反映（埋め込み時のみ）。
+            .onChange(of: selectionBinding?.wrappedValue?.id) { _, newID in
+                guard embedded, let newID,
+                      let idx = groups.firstIndex(where: { $0.id == newID }),
+                      idx != currentGroupIndex else { return }
+                currentGroupIndex = idx
             }
             .task(id: current?.id) {
                 rawRendered = nil
@@ -161,7 +213,9 @@ struct DetailView: View {
             .glassNavigationBar()
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
-                    Button { dismiss() } label: {
+                    Button {
+                        closeDetail()
+                    } label: {
                         Image(systemName: "xmark")
                     }
                 }
@@ -194,8 +248,7 @@ struct DetailView: View {
                 titleVisibility: .visible
             ) {
                 Button(String(localized: "Delete"), role: .destructive) {
-                    scanStore.deleteGroup(group)
-                    dismiss()
+                    deleteCurrentGroup()
                 }
                 Button(String(localized: "Cancel"), role: .cancel) {}
             } message: {
@@ -238,6 +291,9 @@ struct DetailView: View {
             }
         }
         .statusBarHidden(isFullscreen)
+        // 下スワイプの視覚効果（offset/scale/角丸/半透明）は親 ThumbnailGridView 側で
+        // detailDragY を使って適用する（NavigationStack を含む本体を自前で clip すると
+        // セーフエリアの黒が切れるため）。ここではジェスチャ量の収集のみ。
     }
 
     private func imageForGroup(at index: Int) -> UIImage? {
@@ -273,7 +329,9 @@ struct DetailView: View {
                     canNavigatePrev: canNavigatePrev,
                     canNavigateNext: canNavigateNext,
                     onNavigate: onNavigate,
-                    onDismiss: onDismiss
+                    onDismiss: onDismiss,
+                    interactiveDismiss: embedded,
+                    dismissOffset: dismissDragBinding
                 ) {
                     withAnimation(.easeInOut(duration: 0.2)) { isFullscreen.toggle() }
                 }
@@ -540,7 +598,7 @@ struct DetailView: View {
                         dragOffset = 0
                     }
                 },
-                onDismiss: { dismiss() }
+                onDismiss: { closeDetail() }
             )
             .offset(x: dragOffset)
 
@@ -587,6 +645,118 @@ struct DetailView: View {
             .padding(.horizontal, 16)
             .padding(.top, 8)
             .padding(.bottom, 16)
+        }
+        .background(Color.black)
+        .colorScheme(.dark)
+    }
+
+    // MARK: - Portrait info column (image bounded above)
+
+    /// 縦向きモーダル用（iPhone）。画像下に グループ→評価→ラベル→EXIF を縦積み（スクロール可）。
+    private func portraitInfoColumn(entry: PhotoEntry) -> some View {
+        ScrollView {
+            portraitInfoInset(entry: entry)
+        }
+        .background(Color.black)
+    }
+
+    /// iPad 縦レイアウト用。星とラベルを横並び1行にし、その分 PhotoInfoCard の
+    /// ヒストグラムを残り高さいっぱいに拡大。スクロールは発生させない。
+    @ViewBuilder
+    private func iPadPortraitInfoColumn(entry: PhotoEntry) -> some View {
+        let previousXmp = ratings[entry.id]
+        let binding = Binding<XmpData>(
+            get: { ratings[entry.id] ?? XmpData() },
+            set: { ratings[entry.id] = $0 }
+        )
+        let onCommit: (XmpData) -> Void = { newXmp in
+            commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+        }
+        let ratingDisabled = scanStore.isScanning && !scanStore.isExifReady
+
+        VStack(spacing: 0) {
+            if members.count > 1 {
+                memberStrip
+                Color.white.opacity(0.12).frame(height: 0.5)
+            }
+            // 星 + ラベルを横並び。
+            HStack(spacing: 16) {
+                RatingStarsControl(xmp: binding, onCommit: onCommit)
+                    .disabled(ratingDisabled)
+                    .opacity(ratingDisabled ? 0.35 : 1.0)
+                ColorLabelControl(xmp: binding, onCommit: onCommit)
+                    .disabled(ratingDisabled)
+                    .opacity(ratingDisabled ? 0.35 : 1.0)
+            }
+            .padding(.vertical, 8)
+
+            PhotoInfoCard(
+                entry: entry,
+                exif: scanStore.exifs[entry.id],
+                xmp: ratings[entry.id],
+                thumbnailData: thumbnails[entry.id],
+                isLoading: ratingDisabled,
+                expandHistogram: true
+            )
+            .padding(.horizontal, 16)
+            .padding(.bottom, 12)
+            .frame(maxHeight: .infinity)
+        }
+        .background(Color.black)
+        .colorScheme(.dark)
+    }
+
+    // MARK: - iPad embedded info area
+
+    /// iPad 並列ペイン用。画像下に: グループ(1行・全幅) →
+    /// 横 1:2 分割で 左(評価+ラベル縦積み) | 右(EXIF)。
+    @ViewBuilder
+    private func embeddedInfoArea(entry: PhotoEntry) -> some View {
+        let previousXmp = ratings[entry.id]
+        let binding = Binding<XmpData>(
+            get: { ratings[entry.id] ?? XmpData() },
+            set: { ratings[entry.id] = $0 }
+        )
+        let onCommit: (XmpData) -> Void = { newXmp in
+            commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+        }
+        let ratingDisabled = scanStore.isScanning && !scanStore.isExifReady
+
+        VStack(spacing: 0) {
+            // グループ（RAW/JPG 等のメンバー）を1行・全幅で表示。
+            if members.count > 1 {
+                memberStrip
+                Color.white.opacity(0.12).frame(height: 0.5)
+            }
+            // 左(評価+ラベル) : 右(EXIF) = 1 : 2（左は内容に合わせた自然幅）。
+            // 両列とも縦方向に中央寄せして、評価/ラベルが EXIF ブロックと
+            // 同じ高さの中心線で揃うようにする。
+            HStack(spacing: 0) {
+                VStack(spacing: 8) {
+                    RatingStarsControl(xmp: binding, onCommit: onCommit)
+                        .disabled(ratingDisabled)
+                        .opacity(ratingDisabled ? 0.35 : 1.0)
+                    ColorLabelControl(xmp: binding, onCommit: onCommit)
+                        .disabled(ratingDisabled)
+                        .opacity(ratingDisabled ? 0.35 : 1.0)
+                }
+                .fixedSize(horizontal: true, vertical: false)
+                .frame(maxHeight: .infinity)
+
+                Color.white.opacity(0.12).frame(width: 0.5)
+
+                // compact 版でヒストグラム高さ等を詰め、スクロールなしで全表示。
+                PhotoInfoCard(
+                    entry: entry,
+                    exif: scanStore.exifs[entry.id],
+                    xmp: ratings[entry.id],
+                    thumbnailData: thumbnails[entry.id],
+                    isLoading: ratingDisabled,
+                    compact: true
+                )
+                .padding(8)
+                .frame(maxWidth: .infinity, maxHeight: .infinity)
+            }
         }
         .background(Color.black)
         .colorScheme(.dark)
@@ -749,6 +919,34 @@ struct DetailView: View {
         isLandscape = scene.interfaceOrientation.isLandscape
     }
 
+    // MARK: - Embedded selection sync
+
+    /// 内部 index の変化を外部（グリッド）選択へ反映。埋め込み時のみ動作。
+    private func syncSelectionOut() {
+        guard embedded, let selectionBinding,
+              groups.indices.contains(currentGroupIndex) else { return }
+        let g = groups[currentGroupIndex]
+        if selectionBinding.wrappedValue?.id != g.id {
+            selectionBinding.wrappedValue = g
+        }
+    }
+
+    /// 削除。埋め込み時は選択を解除（ペインを空に）、モーダル時は閉じる。
+    private func deleteCurrentGroup() {
+        scanStore.deleteGroup(group)
+        closeDetail()
+    }
+
+    /// 詳細を閉じる。iPad 埋め込み時は選択解除でグリッドへ戻り、
+    /// iPhone モーダル時は dismiss。閉じるボタン・下スワイプ共通。
+    private func closeDetail() {
+        if embedded {
+            selectionBinding?.wrappedValue = nil
+        } else {
+            dismiss()
+        }
+    }
+
 }
 
 // MARK: - Info Card
@@ -759,6 +957,10 @@ private struct PhotoInfoCard: View {
     let xmp: XmpData?
     let thumbnailData: Data?
     var isLoading: Bool = false
+    /// iPad 埋め込みペイン用。ヒストグラム高さと余白を詰めてスクロールなしで全表示する。
+    var compact: Bool = false
+    /// iPad 縦レイアウト用。ヒストグラムを残り高さいっぱいに拡大する。
+    var expandHistogram: Bool = false
 
     @State private var histogram: RGBHistogram = .empty
 
@@ -796,7 +998,7 @@ private struct PhotoInfoCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
             Text(entry.filename)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.white.opacity(0.92))
@@ -829,7 +1031,7 @@ private struct PhotoInfoCard: View {
                         )
                 }
                 .padding(.horizontal, 14)
-                .padding(.top, 12)
+                .padding(.top, compact ? 8 : 12)
 
                 if let lens = exif?.lensName {
                     HStack {
@@ -861,20 +1063,14 @@ private struct PhotoInfoCard: View {
                 // Histogram (JPG/SOOC は RGB、RAW は灰色プレースホルダー)
                 Color.white.opacity(0.12).frame(height: 0.5)
                 Group {
-                    if !entry.isRaw && !histogram.isEmpty {
-                        RGBHistogramView(histogram: histogram)
-                    } else if isLoading {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.white.opacity(0.1))
-                            .shimmer()
+                    if expandHistogram {
+                        histogramView.frame(maxHeight: .infinity)
                     } else {
-                        RoundedRectangle(cornerRadius: 4)
-                            .fill(Color.white.opacity(0.06))
+                        histogramView.frame(height: compact ? 26 : 48)
                     }
                 }
-                .frame(height: 48)
                 .padding(.horizontal, 14)
-                .padding(.vertical, 6)
+                .padding(.vertical, compact ? 4 : 6)
 
                 Color.white.opacity(0.12).frame(height: 0.5)
 
@@ -890,7 +1086,7 @@ private struct PhotoInfoCard: View {
                     vSep
                     exifCell(ssText)
                 }
-                .padding(.vertical, 10)
+                .padding(.vertical, compact ? 6 : 10)
 
                 Color.white.opacity(0.12).frame(height: 0.5)
                 HStack(spacing: 0) {
@@ -900,8 +1096,9 @@ private struct PhotoInfoCard: View {
                     vSep
                     exifCell(exif?.resolutionString)
                 }
-                .padding(.vertical, 10)
+                .padding(.vertical, compact ? 6 : 10)
             }
+            .frame(maxHeight: expandHistogram ? .infinity : nil)
             .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
         }
         .task(id: entry.id) {
@@ -912,6 +1109,20 @@ private struct PhotoInfoCard: View {
                 return
             }
             histogram = await computeRGBHistogram(image: cgImage, bins: 64)
+        }
+    }
+
+    @ViewBuilder
+    private var histogramView: some View {
+        if !entry.isRaw && !histogram.isEmpty {
+            RGBHistogramView(histogram: histogram)
+        } else if isLoading {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.white.opacity(0.1))
+                .shimmer()
+        } else {
+            RoundedRectangle(cornerRadius: 4)
+                .fill(Color.white.opacity(0.06))
         }
     }
 
@@ -1072,6 +1283,10 @@ private struct ZoomableImageView: UIViewRepresentable {
     var canNavigateNext: Bool
     var onNavigate: ((Int) -> Void)?
     var onDismiss: (() -> Void)?
+    /// true のとき縦ドラッグを指追従の「下スワイプ閉じ」にする（iPad インライン用）。
+    var interactiveDismiss: Bool = false
+    /// 指追従の縦オフセット（DetailView 側で offset/scale に反映）。
+    var dismissOffset: Binding<CGFloat> = .constant(0)
     var onSingleTap: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
@@ -1083,6 +1298,8 @@ private struct ZoomableImageView: UIViewRepresentable {
             canNavigateNext: canNavigateNext,
             onNavigate: onNavigate,
             onDismiss: onDismiss,
+            interactiveDismiss: interactiveDismiss,
+            dismissOffset: dismissOffset,
             onSingleTap: onSingleTap
         )
     }
@@ -1147,6 +1364,8 @@ private struct ZoomableImageView: UIViewRepresentable {
         context.coordinator.canNavigateNext = canNavigateNext
         context.coordinator.onNavigate = onNavigate
         context.coordinator.onDismiss = onDismiss
+        context.coordinator.interactiveDismiss = interactiveDismiss
+        context.coordinator.dismissOffset = dismissOffset
         context.coordinator.navDragOffset = $navDragOffset
         guard context.coordinator.imageView?.image !== uiImage else { return }
         context.coordinator.imageView?.image = uiImage
@@ -1161,6 +1380,8 @@ private struct ZoomableImageView: UIViewRepresentable {
         var canNavigateNext: Bool = false
         var onNavigate: ((Int) -> Void)?
         var onDismiss: (() -> Void)?
+        var interactiveDismiss: Bool = false
+        var dismissOffset: Binding<CGFloat> = .constant(0)
         var onSingleTap: (() -> Void)?
         weak var imageView: UIImageView?
         private var lastSingleTapTime: Date? = nil
@@ -1177,6 +1398,8 @@ private struct ZoomableImageView: UIViewRepresentable {
             canNavigateNext: Bool,
             onNavigate: ((Int) -> Void)?,
             onDismiss: (() -> Void)?,
+            interactiveDismiss: Bool,
+            dismissOffset: Binding<CGFloat>,
             onSingleTap: (() -> Void)?
         ) {
             self.isZoomed = isZoomed
@@ -1186,6 +1409,8 @@ private struct ZoomableImageView: UIViewRepresentable {
             self.canNavigateNext = canNavigateNext
             self.onNavigate = onNavigate
             self.onDismiss = onDismiss
+            self.interactiveDismiss = interactiveDismiss
+            self.dismissOffset = dismissOffset
             self.onSingleTap = onSingleTap
         }
 
@@ -1300,10 +1525,32 @@ private struct ZoomableImageView: UIViewRepresentable {
                         clampedOffset = t.x
                     }
                     navDragOffset.wrappedValue = clampedOffset
+                } else if navDragAxis == .vertical && interactiveDismiss {
+                    // 指追従: 下方向はそのまま、上方向はゴムバンドで抵抗。
+                    dismissOffset.wrappedValue = t.y > 0 ? t.y : t.y * 0.2
                 }
             case .ended, .cancelled:
                 defer { navDragAxis = .undecided }
                 if navDragAxis == .vertical {
+                    if interactiveDismiss {
+                        // 閾値を超える / 速く振り下ろした場合のみ閉じる。
+                        // それ以外はスプリングで元位置へ戻す（少し下げただけでは閉じない）。
+                        if t.y > 180 || vel.y > 1000 {
+                            withAnimation(.easeOut(duration: 0.22)) {
+                                dismissOffset.wrappedValue = 1200
+                            }
+                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                                self.onDismiss?()
+                            }
+                        } else {
+                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
+                                dismissOffset.wrappedValue = 0
+                            }
+                        }
+                        navDragOffset.wrappedValue = 0
+                        return
+                    }
+                    // iPhone（sheet 内）従来挙動。
                     if t.y > 60 || vel.y > 400 {
                         onDismiss?()
                     }

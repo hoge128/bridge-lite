@@ -6,6 +6,9 @@ struct ThumbnailGridView: View {
     @State var ratingStore: RatingStore
     @State private var selectedGroup: ShotGroup?
     @State private var preferRendered: Bool
+    // iPad 下スワイプ閉じの縦ドラッグ量（DetailView と共有）。
+    // 横レイアウトではこの量に応じてグリッド幅を広げ、背後にグリッドを見せる。
+    @State private var detailDragY: CGFloat = 0
 
     init(scanStore: ScanStore, ratingStore: RatingStore) {
         self._scanStore = State(initialValue: scanStore)
@@ -27,7 +30,15 @@ struct ThumbnailGridView: View {
     private let gridSpacing: CGFloat = 1
 
     private func columnCount(for size: CGSize) -> Int {
-        size.width > size.height ? 5 : 3
+        // iPad: 幅から目標セル幅（~165pt）で逆算。Stage Manager / Split View で
+        // ウィンドウがリサイズされても geo.size 追従で列数が変わる。3〜10 列にクランプ。
+        if UIDevice.current.userInterfaceIdiom == .pad {
+            let targetCellWidth: CGFloat = 165
+            let cols = Int((size.width / targetCellWidth).rounded())
+            return max(3, min(cols, 10))
+        }
+        // iPhone は従来どおり縦3列 / 横5列。
+        return size.width > size.height ? 5 : 3
     }
 
     private var shareNeedsWarning: Bool {
@@ -80,21 +91,6 @@ struct ThumbnailGridView: View {
         .glassNavigationBar()
         .toolbar { toolbar }
         .safeAreaInset(edge: .bottom, spacing: 0) { filterBottomBar }
-        .sheet(item: $selectedGroup) { group in
-            DetailView(
-                groups: scanStore.filteredGroups(ratings: ratingStore.ratings),
-                initialGroup: group,
-                entries: scanStore.entries,
-                ratings: Binding(
-                    get: { ratingStore.ratings },
-                    set: { ratingStore.ratings = $0 }
-                ),
-                db: scanStore.db,
-                jpgWriteMode: scanStore.jpgWriteMode,
-                scanStore: scanStore,
-                preferRendered: $preferRendered
-            )
-        }
         .sheet(isPresented: $showFolderPicker) {
             FolderPickerView { url in
                 showFolderPicker = false
@@ -123,9 +119,63 @@ struct ThumbnailGridView: View {
         }
     }
 
+    private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
+
+    /// 下スワイプ進捗 0...1（300pt で 1）。グリッド拡大・カードの縮小/角丸/半透明に使用。
+    private var detailDragProgress: CGFloat { min(max(detailDragY, 0), 300) / 300 }
+
     var body: some View {
-        NavigationStack {
-            mainContent
+        GeometryReader { geo in
+            let landscape = geo.size.width > geo.size.height
+            if isPad {
+                // iPad: 詳細を常に「右側の同じ位置」に置く。横向きは幅58%でグリッド
+                // (左42%)と並列、縦向きは全幅でグリッドを覆う。位置を変えないことで
+                // 回転しても DetailView が作り直されず（再デコードなし）、状態を保持。
+                // fullScreenCover を使わないので present/dismiss 遅延も無い。
+                let p = detailDragProgress
+                // 横向きは下スワイプ量に応じてグリッド幅を 42%→100% に広げ、縮むカードの
+                // 背後にサムネイルグリッドを現す（縦向きは常に全幅で背後にグリッド）。
+                let gridFraction: CGFloat = (landscape && selectedGroup != nil)
+                    ? min(1.0, 0.42 + p * 0.58)
+                    : 1.0
+                ZStack {
+                    HStack(spacing: 0) {
+                        NavigationStack { mainContent }
+                            .frame(width: geo.size.width * gridFraction)
+                        Spacer(minLength: 0)
+                    }
+                    // 詳細層（右寄せ）。横=58% / 縦=全幅。常に同一ツリー位置。
+                    // 下スワイプ中: 縮小＋角丸＋半透明で背後のグリッドを見せる（ガラス）。
+                    if let selected = selectedGroup {
+                        HStack(spacing: 0) {
+                            Spacer(minLength: 0)
+                            detailView(group: selected, embedded: true,
+                                       embeddedLandscape: landscape)
+                                .frame(width: landscape ? geo.size.width * 0.58 : geo.size.width)
+                                .scaleEffect(1 - p * 0.16, anchor: .center)
+                                // inset を休止時に負にして clip を無効化し、セーフエリアの
+                                // 黒が切れないようにする。ドラッグ開始直後に 0 まで詰めて角丸を効かせる。
+                                .clipShape(
+                                    RoundedRectangle(cornerRadius: p * 44, style: .continuous)
+                                        .inset(by: -80 * (1 - min(p * 5, 1)))
+                                )
+                                .opacity(1 - p * 0.5)
+                                .offset(y: detailDragY)
+                        }
+                        .zIndex(1)
+                    }
+                }
+            } else {
+                // iPhone: 全画面グリッド → sheet モーダル詳細。
+                NavigationStack { mainContent }
+                    .sheet(item: $selectedGroup) { group in
+                        detailView(group: group, embedded: false)
+                    }
+            }
+        }
+        // プレビューを閉じたら下スワイプ量をリセット（次回オープン時に残らないように）。
+        .onChange(of: selectedGroup?.id) { _, newID in
+            if newID == nil { detailDragY = 0 }
         }
         .confirmationDialog(
             String(localized: "export.warning.title", defaultValue: "Too Many Photos"),
@@ -164,6 +214,29 @@ struct ThumbnailGridView: View {
         }
     }
 
+    // MARK: - Detail presentation
+
+    /// 詳細ビュー本体。embedded=true で iPad インライン、false で iPhone モーダル。
+    private func detailView(group: ShotGroup, embedded: Bool, embeddedLandscape: Bool = false) -> some View {
+        DetailView(
+            groups: scanStore.filteredGroups(ratings: ratingStore.ratings),
+            initialGroup: group,
+            entries: scanStore.entries,
+            ratings: Binding(
+                get: { ratingStore.ratings },
+                set: { ratingStore.ratings = $0 }
+            ),
+            db: scanStore.db,
+            jpgWriteMode: scanStore.jpgWriteMode,
+            scanStore: scanStore,
+            preferRendered: $preferRendered,
+            embedded: embedded,
+            embeddedLandscape: embeddedLandscape,
+            dismissDrag: $detailDragY,
+            selection: embedded ? $selectedGroup : nil
+        )
+    }
+
     private var grid: some View {
         GeometryReader { geo in
             let cols = columnCount(for: geo.size)
@@ -171,38 +244,53 @@ struct ThumbnailGridView: View {
             let cellSize = (geo.size.width - gridSpacing * (n + 1)) / n
             let columns = Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: cols)
 
-            ScrollView {
-                LazyVGrid(columns: columns, spacing: gridSpacing) {
-                    ForEach(scanStore.filteredGroups(ratings: ratingStore.ratings)) { group in
-                        ThumbnailCellView(
-                            group: group,
-                            entries: scanStore.entries,
-                            thumbnails: scanStore.thumbnails,
-                            ratings: ratingStore.ratings,
-                            exifs: scanStore.exifs,
-                            kind: scanStore.representativeKind(for: group, xmps: ratingStore.ratings),
-                            squareCellSize: cellSize,
-                            isSelected: selectedGroup?.id == group.id,
-                            onTap: {
-                                scanStore.resetAutoReleaseTimer()
-                                selectedGroup = group
-                            },
-                            onDelete: { groupPendingDelete = group }
-                        )
-                        .task(id: group.representativeID ?? group.id) {
-                            guard let repID = group.representativeID ?? group.memberIDs.first,
-                                  let entry = scanStore.entries[repID],
-                                  scanStore.thumbnails[repID] == nil else { return }
-                            await scanStore.requestThumbnail(for: entry)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    LazyVGrid(columns: columns, spacing: gridSpacing) {
+                        ForEach(scanStore.filteredGroups(ratings: ratingStore.ratings)) { group in
+                            ThumbnailCellView(
+                                group: group,
+                                entries: scanStore.entries,
+                                thumbnails: scanStore.thumbnails,
+                                ratings: ratingStore.ratings,
+                                exifs: scanStore.exifs,
+                                kind: scanStore.representativeKind(for: group, xmps: ratingStore.ratings),
+                                squareCellSize: cellSize,
+                                isSelected: selectedGroup?.id == group.id,
+                                onTap: {
+                                    scanStore.resetAutoReleaseTimer()
+                                    selectedGroup = group
+                                },
+                                onDelete: { groupPendingDelete = group }
+                            )
+                            .id(group.id)
+                            .task(id: group.representativeID ?? group.id) {
+                                guard let repID = group.representativeID ?? group.memberIDs.first,
+                                      let entry = scanStore.entries[repID],
+                                      scanStore.thumbnails[repID] == nil else { return }
+                                await scanStore.requestThumbnail(for: entry)
+                            }
                         }
                     }
+                    .padding(gridSpacing)
                 }
-                .padding(gridSpacing)
+                .simultaneousGesture(
+                    DragGesture(minimumDistance: 0)
+                        .onChanged { _ in scanStore.resetAutoReleaseTimer() }
+                )
+                // 回転・レイアウト変更（列数変化）でスクロール位置が先頭に戻るため、
+                // 閲覧中（選択中）のサムネイルへフォーカスを復帰させる。
+                .onAppear { scrollToSelected(proxy, delay: 0.1) }
+                .onChange(of: geo.size) { scrollToSelected(proxy, delay: 0.1) }
             }
-            .simultaneousGesture(
-                DragGesture(minimumDistance: 0)
-                    .onChanged { _ in scanStore.resetAutoReleaseTimer() }
-            )
+        }
+    }
+
+    /// 選択中グループのサムネイルへスクロール（中央寄せ）。回転後のフォーカス復帰用。
+    private func scrollToSelected(_ proxy: ScrollViewProxy, delay: Double = 0) {
+        guard let id = selectedGroup?.id else { return }
+        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
+            proxy.scrollTo(id, anchor: .center)
         }
     }
 
