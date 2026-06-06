@@ -250,6 +250,86 @@
         }
       }
     },
+    "hint.action.openSettings": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open Settings"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "設定を開く"
+          }
+        }
+      }
+    },
+    "hint.cacheThrashing.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Loading a lot of files"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "大量のファイルを読み込んでいます"
+          }
+        }
+      }
+    },
+    "hint.cacheThrashing.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Raising the thumbnail memory cache makes scrolling smoother. Adjust it in Settings → Performance."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "サムネイルのメモリキャッシュ上限を上げると、より快適にスクロールできます。設定 → Performance で調整できます。"
+          }
+        }
+      }
+    },
+    "settings.hints.toggle": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show hint notifications"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ヒント通知を表示"
+          }
+        }
+      }
+    },
+    "settings.hints.description": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Occasionally show an in-app hint suggesting a setting change (e.g. when loading very large folders)."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "大量のフォルダ読み込み時などに、設定変更のヒントをアプリ内で表示します。"
+          }
+        }
+      }
+    },
     "Add Application…": {
       "localizations": {
         "en": {

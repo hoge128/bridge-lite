@@ -92,11 +92,14 @@
 		7E4A0F82B4283A151B6AF4D6 /* Help.md in Resources */ = {isa = PBXBuildFile; fileRef = 378A4578CCFA7628D5DBDC95 /* Help.md */; };
 		8061ABA38A6138E7DF26799E /* CalendarDayCell.swift in Sources */ = {isa = PBXBuildFile; fileRef = 03E01FA6276D771ABD948AEB /* CalendarDayCell.swift */; };
 		81838D87950C2CEDDB8AC840 /* RAWRenderPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66FAC10D47AADEDC3B802F22 /* RAWRenderPipeline.swift */; };
+		83FE96C8B65F3C75A4E9E553 /* HintCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7017CE3A2F45ECDE362C210 /* HintCenter.swift */; };
 		866CD9808EB6AA3575A970B6 /* TabManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = F9F1394BA720F5BB1FAC74FB /* TabManager.swift */; };
 		867E4D731D55D911BE92FCDA /* OpenWithMenu.swift in Sources */ = {isa = PBXBuildFile; fileRef = CAE1AB21E04A1D537B617DA6 /* OpenWithMenu.swift */; };
 		89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		89F05D54256A5A3A83482CC9 /* PhotoKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F5F4B06F799171789826B0 /* PhotoKind.swift */; };
 		8A9E5D939EDE9E2B40EF0912 /* ScanPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829D014EC927B51D64289330 /* ScanPipeline.swift */; };
+		8B97EEEB8E8C019F55BCB34D /* HintCenter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F7017CE3A2F45ECDE362C210 /* HintCenter.swift */; };
+		8C35012A830D822B200858E6 /* HintBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAC863A42146A75843A9283 /* HintBannerView.swift */; };
 		8F544229F248278F9D38D074 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
 		909FBB7C62F31EDF0BFC3AEA /* XmpData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 3666271DD81B9F423848C2B5 /* XmpData.swift */; };
 		92F76664E9BA914493521AE5 /* SettingsStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 7B123E21AF2DA71784C11365 /* SettingsStore.swift */; };
@@ -151,6 +154,7 @@
 		E178D5FA3E211751512F52AD /* BackgroundScanManager.swift in Sources */ = {isa = PBXBuildFile; fileRef = 761A7F2902CB941EF914F7A8 /* BackgroundScanManager.swift */; };
 		E5E2B3A3C79D72BA0C7FC841 /* PhotoKind.swift in Sources */ = {isa = PBXBuildFile; fileRef = E6F5F4B06F799171789826B0 /* PhotoKind.swift */; };
 		E807A02B6D748E5BBE9F17CB /* FolderWatcher.swift in Sources */ = {isa = PBXBuildFile; fileRef = A5954B00B0C942104F38783B /* FolderWatcher.swift */; };
+		E8F194FF07CC70E2E233A7EB /* HintBannerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = FBAC863A42146A75843A9283 /* HintBannerView.swift */; };
 		E8F5A37ADB423EFE6A24493D /* ScanPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 829D014EC927B51D64289330 /* ScanPipeline.swift */; };
 		EB75052F94D03E07762F3E62 /* PhotoEntry.swift in Sources */ = {isa = PBXBuildFile; fileRef = E8B64F29E109361726718A3C /* PhotoEntry.swift */; };
 		EB98541B8291C56BC7DAAE8C /* ThumbnailCellView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9D67AB9BAD3C81FBF0498FC0 /* ThumbnailCellView.swift */; };
@@ -258,8 +262,10 @@
 		F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithService.swift; sourceTree = "<group>"; };
 		F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BridgeLiteiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
+		F7017CE3A2F45ECDE362C210 /* HintCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HintCenter.swift; sourceTree = "<group>"; };
 		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
 		F9F1394BA720F5BB1FAC74FB /* TabManager.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabManager.swift; sourceTree = "<group>"; };
+		FBAC863A42146A75843A9283 /* HintBannerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HintBannerView.swift; sourceTree = "<group>"; };
 		FE2F5F0FC1CBE2DFCB5E024F /* ThumbnailCellView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailCellView.swift; sourceTree = "<group>"; };
 		FEB29D70D3C5AFA843D165F7 /* StorageProbe.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StorageProbe.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
@@ -345,6 +351,7 @@
 				E18D649E31736AC707A51F47 /* BridgeLite.entitlements */,
 				A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */,
 				DCEED3D7ADB9AF247F944868 /* Bridging */,
+				EF9AEC5232BCF0D899178D24 /* Hints */,
 				98857F4203ACB3D6FC91D1DB /* Models */,
 				1DAB6EBEE8F42EC30B8457BD /* Pipelines */,
 				B124AFCD9F68FF2A7830AC45 /* Resources */,
@@ -510,6 +517,15 @@
 				2BE75B59E9A9916005F01D79 /* ScanStore.swift */,
 			);
 			path = Stores;
+			sourceTree = "<group>";
+		};
+		EF9AEC5232BCF0D899178D24 /* Hints */ = {
+			isa = PBXGroup;
+			children = (
+				FBAC863A42146A75843A9283 /* HintBannerView.swift */,
+				F7017CE3A2F45ECDE362C210 /* HintCenter.swift */,
+			);
+			path = Hints;
 			sourceTree = "<group>";
 		};
 /* End PBXGroup section */
@@ -720,6 +736,8 @@
 				E807A02B6D748E5BBE9F17CB /* FolderWatcher.swift in Sources */,
 				3C455A207919FF49AB0272DE /* GroupCompareView.swift in Sources */,
 				0BF5211BFCBCCD0800E28289 /* HelpView.swift in Sources */,
+				E8F194FF07CC70E2E233A7EB /* HintBannerView.swift in Sources */,
+				8B97EEEB8E8C019F55BCB34D /* HintCenter.swift in Sources */,
 				D47255B3731303F5880AEDF4 /* ImageEntry+Convert.swift in Sources */,
 				EF5F1D3737463925000086EB /* LargeImageDecoder.swift in Sources */,
 				221126D159D8CEB591AFA0A8 /* LibraryStore.swift in Sources */,
@@ -780,6 +798,8 @@
 				B6DA180DE24ADC350A698CE8 /* FolderWatcher.swift in Sources */,
 				0F84FA46E6EA193589CE858B /* GroupCompareView.swift in Sources */,
 				5D1CE19346BD8C95417AD6EA /* HelpView.swift in Sources */,
+				8C35012A830D822B200858E6 /* HintBannerView.swift in Sources */,
+				83FE96C8B65F3C75A4E9E553 /* HintCenter.swift in Sources */,
 				347461394E6B6A4C59721EA9 /* ImageEntry+Convert.swift in Sources */,
 				134497A7300BAA07792ED140 /* LargeImageDecoder.swift in Sources */,
 				63AC46E689E7DCA97912B6FB /* LibraryStore.swift in Sources */,

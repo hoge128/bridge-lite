@@ -303,6 +303,14 @@ struct SettingsView: View {
                 ))
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+
+                Toggle(String(localized: "settings.hints.toggle",
+                              defaultValue: "Show hint notifications"),
+                       isOn: $s.showHints)
+                Text(String(localized: "settings.hints.description",
+                            defaultValue: "Occasionally suggest a setting change via a macOS notification (e.g. when loading very large folders)."))
+                .font(.caption2)
+                .foregroundStyle(.secondary)
             } header: {
                 Text(String(localized: "settings.cache.memory.section", defaultValue: "Performance"))
             }

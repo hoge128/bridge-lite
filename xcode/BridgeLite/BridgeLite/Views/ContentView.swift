@@ -30,6 +30,7 @@ struct ContentView: View {
         FolderView()
             .environment(store)
             .focusedSceneValue(\.libraryStore, store)
+            .overlay(alignment: .top) { HintBannerView() }
             .background(WindowAccessor(window: $nsWindow))
             .task {
                 await BridgeCore.pruneCache(

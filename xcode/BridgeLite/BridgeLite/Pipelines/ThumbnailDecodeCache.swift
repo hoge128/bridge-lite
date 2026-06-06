@@ -7,13 +7,22 @@ import Foundation
 ///
 /// Keys are file URLs so the cache is safe across multiple windows / folders
 /// (PhotoEntry.id is a per-scan sequential index and collides between stores).
-final class ThumbnailDecodeCache: @unchecked Sendable {
+final class ThumbnailDecodeCache: NSObject, @unchecked Sendable {
     static let shared = ThumbnailDecodeCache()
     private let cache = NSCache<NSString, CGImage>()
     private let memoryPressureSource: DispatchSourceMemoryPressure
     private var baseLimitBytes: Int
 
-    private init() {
+    // NSCache が cost 上限超過で自動 evict した回数。これが閾値を超える＝ワーキング
+    // セットがキャッシュ上限を大きく超えており、再デコードが頻発している合図。
+    // （removeAllObjects / removeObject では willEvictObject は呼ばれないので、
+    //  ここに来るのは純粋に「上限超過による追い出し」だけ。）
+    private let evictionLock = NSLock()
+    private var evictionCount = 0
+    private var hintFired = false
+    private static let evictionHintThreshold = 200
+
+    private override init() {
         let stored = UserDefaults.standard.integer(forKey: "thumbnailCacheMB")
         // 512MB デフォルト。キャッシュに入るのはビットマップ実体（IOSurface backed ではない）
         // ので、上限を上げても効くのは常駐 RAM だけ。かつて 50 枚止まりを起こした IOSurface
@@ -23,14 +32,20 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
         let mb = stored >= 100 ? min(stored, maxMB) : min(512, maxMB)
         let limit = mb * 1024 * 1024
         baseLimitBytes = limit
-        cache.totalCostLimit = limit
 
-        // メモリ圧迫時に自動回収する。warning で半減、critical で全消去、normal で上限復元。
         let src = DispatchSource.makeMemoryPressureSource(
             eventMask: [.all],
             queue: .main
         )
         memoryPressureSource = src
+
+        super.init()
+
+        cache.totalCostLimit = limit
+        // eviction を捕捉してヒント発火に使う（NSCacheDelegate）。
+        cache.delegate = self
+
+        // メモリ圧迫時に自動回収する。warning で半減、critical で全消去、normal で上限復元。
         src.setEventHandler { [weak self] in
             guard let self else { return }
             let event = src.data
@@ -79,6 +94,22 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
     func evict(urls: [URL]) {
         for url in urls {
             cache.removeObject(forKey: url.absoluteString as NSString)
+        }
+    }
+}
+
+extension ThumbnailDecodeCache: NSCacheDelegate {
+    /// cost 上限超過による自動 evict を数え、閾値を超えたら一度だけヒントを発火する。
+    /// 任意スレッドから呼ばれるため lock で保護し、発火は MainActor へ hop する。
+    func cache(_ cache: NSCache<AnyObject, AnyObject>, willEvictObject obj: Any) {
+        evictionLock.lock()
+        evictionCount += 1
+        let crossed = !hintFired && evictionCount >= Self.evictionHintThreshold
+        if crossed { hintFired = true }
+        evictionLock.unlock()
+        guard crossed else { return }
+        Task { @MainActor in
+            HintCenter.shared.fire(.cacheThrashing)
         }
     }
 }
