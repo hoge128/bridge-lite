@@ -127,6 +127,10 @@ targets:
       - path: BridgeLite
         excludes:
           - "Updater/**"
+          # Direct ターゲットの Info.plist。MAS の info.path は別ファイルなので、
+          # これを除外しないとリソースとして .app/Contents/Resources/Info.plist に
+          # コピーされ、App Store 検証で ITMS-90280 / 90261（二重バンドル）になる。
+          - "Resources/Info.plist"
       - path: Generated
         optional: true
         excludes:
@@ -154,10 +158,14 @@ targets:
         # (immutable once created), so the Mac App Store build adopts the same id. The
         # .ios suffix is an internal identifier only — users never see it.
         PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite.ios
-        # Distinct executable/.app name so MAS and DMG don't collide in the shared
-        # Build/Products dir (interleaved builds left Sparkle ad-hoc-signed → Library
-        # Validation SIGABRT). User-facing name stays "BridgeLite" via CFBundleDisplayName.
-        PRODUCT_NAME: BridgeLiteMAS
+        # Must equal the iOS app's product name "BridgeLite". Under Universal Purchase
+        # (same bundle id as iOS) App Store validation requires the .app/executable name
+        # to match CFBundleName, otherwise upload fails with ITMS-90280 / 90261.
+        # The earlier Sparkle ad-hoc-signing SIGABRT only affected interleaved local ⌘R
+        # builds in the shared Build/Products dir — Archive builds are isolated per scheme
+        # and the MAS target has no Sparkle dependency, so archived/uploaded builds are
+        # clean. For local MAS debugging after a Direct build, do ⇧⌘K (Clean Build Folder).
+        PRODUCT_NAME: BridgeLite
         SWIFT_EMIT_LOC_STRINGS: YES
         DEVELOPMENT_TEAM: KTQ8JQW28L
         CODE_SIGN_STYLE: Automatic
@@ -179,8 +187,8 @@ targets:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite.ios
-        CFBundleVersion: "1"
-        CFBundleShortVersionString: "0.4.5"
+        CFBundleVersion: "2"
+        CFBundleShortVersionString: "0.5.0"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"
         NSHumanReadableCopyright: "Copyright © 2026 Tsuyoshi Ito. All rights reserved."
         # No SU* (Sparkle) keys: Mac App Store updates are handled by the App Store.
