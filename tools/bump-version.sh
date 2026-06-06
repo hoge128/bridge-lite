@@ -4,12 +4,17 @@
 # Usage: ./tools/bump-version.sh <version>
 # Example: ./tools/bump-version.sh 0.4.0
 #
-# 更新対象:
-#   - xcode/BridgeLite/project.yml の CFBundleShortVersionString
-#   - xcode/BridgeLite/project.yml の CFBundleVersion（自動インクリメント）
+# 更新対象（DMG/Direct = BridgeLite ターゲット限定）:
+#   - xcode/BridgeLite/project.yml の BridgeLite セクションの CFBundleShortVersionString
+#   - xcode/BridgeLite/project.yml の BridgeLite セクションの CFBundleVersion（自動インクリメント）
 #   - xcodegen generate → Info.plist に反映
 #   - crates/bridge-core/Cargo.toml の version
 #   - crates/bridge-ffi/Cargo.toml の version
+#
+# 注意: BridgeLiteMAS / BridgeLiteiOS の版数は touch しない（それぞれ
+#       do-release-mas.sh / do-release-ios.sh が自セクション限定で更新する）。
+#       全行 sed 置換だと Direct と MAS が同版数のとき MAS まで巻き込むため、
+#       Python でセクション限定にしている。
 #
 # 規則:
 #   - CFBundleShortVersionString = マーケティングバージョン (例: 0.4.0)
@@ -38,25 +43,46 @@ if ! [[ "$NEW_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
     exit 1
 fi
 
-# ─── 現在のバージョンを取得 ───────────────────────────────────
-CURRENT_VERSION=$(grep -m 1 'CFBundleShortVersionString' "$PROJECT_YML" | grep -o '"[^"]*"' | tr -d '"')
-CURRENT_BUILD=$(grep -m 1 'CFBundleVersion' "$PROJECT_YML" | grep -o '"[^"]*"' | tr -d '"')
+# ─── 現在のバージョンを取得（Direct = BridgeLite セクション限定）──
+# '  BridgeLite:' は targets: 以降から検索する（schemes: にも同名があるため）。
+# '  BridgeLiteMAS:' / '  BridgeLiteiOS:' はコロン位置が違うので一致しない。
+CURRENT_VERSION=$(python3 -c "
+import re
+c = open('$PROJECT_YML').read()
+p = c.index('  BridgeLite:', c.index('\ntargets:'))
+print(re.search(r'CFBundleShortVersionString: \"([^\"]+)\"', c[p:]).group(1))
+")
+CURRENT_BUILD=$(python3 -c "
+import re
+c = open('$PROJECT_YML').read()
+p = c.index('  BridgeLite:', c.index('\ntargets:'))
+print(re.search(r'CFBundleVersion: \"([^\"]+)\"', c[p:]).group(1))
+")
+
+if [[ -z "$CURRENT_VERSION" || -z "$CURRENT_BUILD" ]]; then
+    echo "ERROR: project.yml の BridgeLite セクションから版数を読み取れませんでした"
+    exit 1
+fi
+
 NEW_BUILD=$((CURRENT_BUILD + 1))
 
 echo "現在: $CURRENT_VERSION (build $CURRENT_BUILD)"
 echo "更新後: $NEW_VERSION (build $NEW_BUILD)"
 echo ""
 
-# ─── project.yml を更新 ──────────────────────────────────────
-sed -i '' \
-    "s/CFBundleShortVersionString: \"$CURRENT_VERSION\"/CFBundleShortVersionString: \"$NEW_VERSION\"/" \
-    "$PROJECT_YML"
-
-sed -i '' \
-    "s/CFBundleVersion: \"$CURRENT_BUILD\"/CFBundleVersion: \"$NEW_BUILD\"/" \
-    "$PROJECT_YML"
-
-echo "✓ project.yml を更新しました"
+# ─── project.yml を更新（BridgeLite セクションのみ）───────────────
+# content[p:] は BridgeLite が先頭なので、最初の1件置換で確実に Direct を捉える。
+python3 -c "
+c = open('$PROJECT_YML').read()
+p = c.index('  BridgeLite:', c.index('\ntargets:'))
+pre, post = c[:p], c[p:]
+post = post.replace('CFBundleShortVersionString: \"$CURRENT_VERSION\"',
+                    'CFBundleShortVersionString: \"$NEW_VERSION\"', 1)
+post = post.replace('CFBundleVersion: \"$CURRENT_BUILD\"',
+                    'CFBundleVersion: \"$NEW_BUILD\"', 1)
+open('$PROJECT_YML', 'w').write(pre + post)
+"
+echo "✓ project.yml を更新しました（BridgeLite セクションのみ）"
 
 # ─── Cargo.toml を更新 ───────────────────────────────────────
 sed -i '' \
