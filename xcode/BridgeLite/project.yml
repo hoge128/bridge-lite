@@ -245,7 +245,9 @@ targets:
       base:
         SWIFT_VERSION: 6.0
         IPHONEOS_DEPLOYMENT_TARGET: "18.0"
-        TARGETED_DEVICE_FAMILY: "1"
+        # 1 = iPhone, 2 = iPad. Universal app: a single binary/target runs on both,
+        # sharing the same scheme, sources, and App Store record (same bundle id).
+        TARGETED_DEVICE_FAMILY: "1,2"
         PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite.ios
         PRODUCT_NAME: BridgeLite
         DEVELOPMENT_TEAM: KTQ8JQW28L
