@@ -15,8 +15,12 @@ final class ThumbnailDecodeCache: @unchecked Sendable {
 
     private init() {
         let stored = UserDefaults.standard.integer(forKey: "thumbnailCacheMB")
-        // 150MB デフォルト。300MB だと IOSurface プールが逼迫する。
-        let mb = stored >= 100 ? stored : 150
+        // 512MB デフォルト。キャッシュに入るのはビットマップ実体（IOSurface backed ではない）
+        // ので、上限を上げても効くのは常駐 RAM だけ。かつて 50 枚止まりを起こした IOSurface
+        // 枯渇はデコード/RAW 現像の並列度側で制御済みで、キャッシュサイズとは無関係。
+        // 経緯: knowledge/thumbnail-cache-iosurface.md
+        let maxMB = Int(ProcessInfo.processInfo.physicalMemory / 10 / (1024 * 1024))
+        let mb = stored >= 100 ? min(stored, maxMB) : min(512, maxMB)
         let limit = mb * 1024 * 1024
         baseLimitBytes = limit
         cache.totalCostLimit = limit

@@ -410,8 +410,10 @@ final class SettingsStore {
     var thumbnailCacheMB: Int = {
         let v = UserDefaults.standard.integer(forKey: "thumbnailCacheMB")
         let maxMB = Int(ProcessInfo.processInfo.physicalMemory / 10 / (1024 * 1024))
-        // 150MB デフォルト。300MB だと IOSurface プールが逼迫する。
-        return v >= 100 ? min(v, maxMB) : 150
+        // 512MB デフォルト。キャッシュ上限は常駐 RAM のみに影響し、IOSurface 枯渇とは無関係
+        // （並列度で制御済み）。低 RAM 機では maxMB にクランプ。
+        // 経緯: knowledge/thumbnail-cache-iosurface.md
+        return v >= 100 ? min(v, maxMB) : min(512, maxMB)
     }() {
         didSet {
             UserDefaults.standard.set(thumbnailCacheMB, forKey: "thumbnailCacheMB")
