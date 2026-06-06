@@ -3,11 +3,11 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BridgeLite — RAW セレクトビュワー for macOS</title>
-  <meta name="description" content="RAW+JPG 同時撮影向けの軽量画像セレクトビュワー。macOS 専用。無料。" />
+  <title>BridgeLite — RAW セレクトビュワー for macOS & Windows</title>
+  <meta name="description" content="RAW+JPG 同時撮影向けの軽量画像セレクトビュワー。macOS / Windows 対応。無料。" />
   <link rel="icon" type="image/png" href="/bridge-lite/favicon.png" />
-  <meta property="og:title" content="BridgeLite — RAW セレクトビュワー for macOS" />
-  <meta property="og:description" content="RAW+JPG 同時撮影向けの軽量画像セレクトビュワー。macOS 専用。無料。" />
+  <meta property="og:title" content="BridgeLite — RAW セレクトビュワー for macOS & Windows" />
+  <meta property="og:description" content="RAW+JPG 同時撮影向けの軽量画像セレクトビュワー。macOS / Windows 対応。無料。" />
   <meta property="og:image" content="https://hoge128.github.io/bridge-lite/src/phead.png" />
   <meta property="og:url" content="https://hoge128.github.io/bridge-lite/" />
   <meta property="og:type" content="website" />
@@ -393,6 +393,15 @@
 
     .manual-link a:hover { opacity: 0.75; }
 
+    .free-note {
+      max-width: 560px;
+      margin: 48px auto 0;
+      font-size: 14px;
+      color: var(--muted);
+      line-height: 1.8;
+      text-align: center;
+    }
+
     .appstore-badge {
       display: none;
       align-items: center;
@@ -756,15 +765,16 @@
     <div class="spec-item">
       <p class="spec-label" data-lang="ja">OS</p>
       <p class="spec-label" data-lang="en">OS</p>
-      <p class="spec-value">macOS 14</p>
-      <p class="spec-note">Sonoma 以降 / or later</p>
+      <p class="spec-value">macOS 14 / Windows 11</p>
+      <p class="spec-note" data-lang="ja">macOS は Sonoma 以降 / Windows は 11 以降</p>
+      <p class="spec-note" data-lang="en">macOS Sonoma or later / Windows 11 or later</p>
     </div>
     <div class="spec-item">
       <p class="spec-label" data-lang="ja">チップ</p>
       <p class="spec-label" data-lang="en">Chip</p>
-      <p class="spec-value">Apple Silicon</p>
-      <p class="spec-note" data-lang="ja">M1 以降。Intel 版は将来対応予定。</p>
-      <p class="spec-note" data-lang="en">M1 or later. Intel planned for a future release.</p>
+      <p class="spec-value">Apple Silicon / x64</p>
+      <p class="spec-note" data-lang="ja">Mac は M1 以降 / Windows は Intel・AMD (x64)。Mac の Intel 版は将来対応予定。</p>
+      <p class="spec-note" data-lang="en">Mac: M1 or later / Windows: Intel·AMD (x64). Intel Mac planned for a future release.</p>
     </div>
     <div class="spec-item">
       <p class="spec-label" data-lang="ja">価格</p>
@@ -869,6 +879,9 @@
   <p class="manual-link" data-lang="ja">詳しい使い方は<a href="manual/ja/">ドキュメント</a>をご覧ください。</p>
   <p class="manual-link" data-lang="en">For detailed instructions, see the <a href="manual/en/">Manual</a>.</p>
 
+  <p class="free-note" data-lang="ja">開発者自身が欲しかったツールです。同じ悩みを持つ写真家のために、無料で公開しています。</p>
+  <p class="free-note" data-lang="en">Built for myself, shared for free with every photographer who shoots the same way.</p>
+
 </div>
 
 <!-- ── Roadmap ── -->
@@ -882,7 +895,7 @@
       <li>ソースコードの公開は現在検討中です。</li>
       <li>機能追加のご要望・不具合の報告は、<a href="mailto:itotsum128lab@gmail.com">itotsum128lab@gmail.com</a> までお気軽にどうぞ。</li>
     </ul>
-    <p class="roadmap-note">BridgeLite は開発者個人のプロジェクトです。開発者自身が Mac を日常的に使っているため、まず macOS 版からのリリースとなりました。最高のパフォーマンスを実現するためには、Mac では SwiftUI、Windows では WinUI 3 といったプラットフォーム固有の UI フレームワークが必要と考えています。一方、コア機能は Rust で開発しているため、UI より下の処理については将来的に共通化できる見込みです。</p>
+    <p class="roadmap-note">BridgeLite は開発者個人のプロジェクトです。最高のパフォーマンスを実現するため、UI には Mac では SwiftUI、Windows では WinUI 3 といったプラットフォーム固有のフレームワークを採用しています。一方、コア機能は Rust で共通開発しているため、両プラットフォームで同じ処理品質を保てるのが強みです。</p>
   </div>
   <div data-lang="en">
     <h2>What's next</h2>
@@ -893,7 +906,7 @@
       <li>Open-sourcing the code is currently being considered.</li>
       <li>Feature requests and bug reports are welcome at <a href="mailto:itotsum128lab@gmail.com">itotsum128lab@gmail.com</a>.</li>
     </ul>
-    <p class="roadmap-note">BridgeLite is a personal project. It launched on macOS first because the developer uses Mac day-to-day. Delivering the best experience requires platform-native UI frameworks — SwiftUI on Mac, WinUI 3 on Windows. That said, the core functionality is built in Rust, so the underlying logic could be shared across platforms in the future.</p>
+    <p class="roadmap-note">BridgeLite is a personal project. Delivering the best experience means using platform-native UI frameworks — SwiftUI on Mac, WinUI 3 on Windows. The core functionality is built in Rust and shared across both, so you get the same processing quality on either platform.</p>
   </div>
 </div>
 
