@@ -9,7 +9,6 @@ struct ThumbnailCellView: View {
     let kind: PhotoKind
     /// nil = 2列モード（自然アスペクト比）、非 nil = 3列モード（正方形、値はセル幅）
     let squareCellSize: CGFloat?
-    let isSelected: Bool
     let onTap: () -> Void
     let onDelete: () -> Void
 
@@ -40,7 +39,6 @@ struct ThumbnailCellView: View {
             }
             .frame(width: size, height: size)
             .clipped()
-            .overlay(selectionBorder(cornerRadius: 0))
         } else {
             // 自然アスペクト比
             ZStack(alignment: .bottomLeading) {
@@ -49,7 +47,6 @@ struct ThumbnailCellView: View {
                 overlayBadges
             }
             .clipShape(RoundedRectangle(cornerRadius: 6))
-            .overlay(selectionBorder(cornerRadius: 6))
         }
     }
 
@@ -142,8 +139,4 @@ struct ThumbnailCellView: View {
             }
     }
 
-    private func selectionBorder(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
-            .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-    }
 }

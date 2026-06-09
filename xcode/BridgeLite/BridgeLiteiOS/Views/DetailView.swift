@@ -19,28 +19,16 @@ struct DetailView: View {
     let db: BridgeCoreDatabase?
     let jpgWriteMode: JpgWriteMode
     let scanStore: ScanStore
-    /// true のとき iPad のインライン詳細（ペイン/オーバーレイ）として振る舞う
-    /// （選択状態を外部 Binding と双方向同期する）。
-    let embedded: Bool
-    /// 埋め込み時のレイアウトを親のジオメトリ基準で指定する。
-    /// true=横(画像+1:2情報) / false=縦(画像+横並び評価+拡大ヒストグラム)。
-    /// DetailView 自身の interfaceOrientation を見ないことで回転直後のズレを防ぐ。
-    let embeddedLandscape: Bool
-    /// 埋め込み時にグリッド選択と同期する外部バインディング。
-    private let selectionBinding: Binding<ShotGroup?>?
 
     /// scanStore.thumbnails を直接参照することで @Observable の変更検知に乗る。
     /// let スナップショットだと DetailView オープン後のバッチ生成分が反映されない。
     private var thumbnails: [UInt64: Data] { scanStore.thumbnails }
-    @Environment(\.dismiss) private var dismiss
+    let onClose: () -> Void
+    @Environment(\.isDetailClosing) private var isClosing
 
     @State private var currentGroupIndex: Int
     @State private var currentIndex: Int
     @State private var dragOffset: CGFloat = 0
-    // iPad インライン詳細の下スワイプ閉じ（指追従）の縦オフセット。
-    // 親（ThumbnailGridView）が所有し、グリッド幅の拡大・カードの視覚効果に使うため Binding。
-    // DetailView 自身は ZoomableImageView へ渡してジェスチャ量を書き込むのみ。
-    private let dismissDragBinding: Binding<CGFloat>
     @State private var isImageZoomed = false
     @State private var isFullscreen = false
     @State private var showRatingPopup = false
@@ -49,7 +37,6 @@ struct DetailView: View {
     @State private var pendingWriteEntry: (id: UInt64, url: URL, xmp: XmpData, previousXmp: XmpData?, targetIDs: [UInt64])?
     @State private var ratingWriteTask: Task<Void, Never>?
     @State private var showInfoPanel = false
-    @State private var isLandscape = false
 
     // フルサイズキャッシュ（最大3枚 FIFO: prev / current / next）
     @State private var fullResCache: [FullResEntry] = []
@@ -74,10 +61,8 @@ struct DetailView: View {
          jpgWriteMode: JpgWriteMode = .embed,
          scanStore: ScanStore,
          preferRendered: Binding<Bool>,
-         embedded: Bool = false,
-         embeddedLandscape: Bool = false,
-         dismissDrag: Binding<CGFloat> = .constant(0),
-         selection: Binding<ShotGroup?>? = nil) {
+         onClose: @escaping () -> Void) {
+        self.onClose = onClose
         self.groups = groups
         self.fallbackGroup = initialGroup
         self.entries = entries
@@ -86,10 +71,6 @@ struct DetailView: View {
         self.jpgWriteMode = jpgWriteMode
         self.scanStore = scanStore
         self._preferRendered = preferRendered
-        self.embedded = embedded
-        self.embeddedLandscape = embeddedLandscape
-        self.dismissDragBinding = dismissDrag
-        self.selectionBinding = selection
         let groupIdx = groups.firstIndex(where: { $0.id == initialGroup.id }) ?? 0
         self._currentGroupIndex = State(initialValue: groupIdx)
         let g = groups.isEmpty ? initialGroup : groups[groupIdx]
@@ -109,9 +90,8 @@ struct DetailView: View {
     private var current: PhotoEntry? { members[safe: currentIndex] }
 
     var body: some View {
-        NavigationStack {
-            ZStack(alignment: .bottom) {
-                Color.black.ignoresSafeArea()
+        ZStack(alignment: .bottom) {
+            Group {
                 if let entry = current {
                     if isFullscreen {
                         // フルスクリーン: 画像が全面、情報はスライドインパネル
@@ -123,177 +103,165 @@ struct DetailView: View {
                             }
                         if showInfoPanel {
                             fullscreenInfoPanel(entry: entry)
+                                .opacity(isClosing ? 0 : 1)
+                                .animation(.easeOut(duration: 0.1), value: isClosing)
                         }
-                    } else if !embedded && isLandscape {
-                        // iPhone 横向きモーダル: 画像 + 右サイドパネル（従来どおり）
-                        imageViewport(entry: entry)
-                            .safeAreaInset(edge: .trailing, spacing: 0) {
-                                landscapeInfoPanel(entry: entry)
-                            }
                     } else {
-                        // 縦向きモーダル / iPad 埋め込みペイン:
-                        // 画像領域を上部に固定（アスペクト比による位置ズレ防止）し、
-                        // 情報を下に配置。embedded は 2×2 グリッド、縦は縦積み。
+                        // カード/画面のジオメトリで判定（sheet の中央カードでも正しく効く）:
+                        // 横長 → 画像 + 右サイドパネル / 縦長 → 画像を上部固定 + 縦カラム。
                         GeometryReader { g in
-                            VStack(spacing: 0) {
-                                if embedded && embeddedLandscape {
-                                    // iPad 横ペイン: 画像は相対描画（残りを占有）、
-                                    // 情報は下部に固定高で 1:2 配置。
-                                    imageViewport(entry: entry)
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                    embeddedInfoArea(entry: entry)
-                                        .frame(height: min(340, g.size.height * 0.46))
-                                } else if embedded {
-                                    // iPad 縦（インラインオーバーレイ）: 画像固定 +
-                                    // 横並び評価/ラベル + 拡大ヒストグラム、スクロールなし。
+                            if g.size.width > g.size.height {
+                                imageViewport(entry: entry)
+                                    .background(Color.black.ignoresSafeArea())
+                                    .overlay(GeometryReader { r in
+                                        Color.clear.preference(
+                                            key: DetailImageViewportFrameKey.self,
+                                            value: r.frame(in: .global))
+                                    })
+                                    .safeAreaInset(edge: .trailing, spacing: 0) {
+                                        landscapeInfoPanel(entry: entry)
+                                            .opacity(isClosing ? 0 : 1)
+                                            .animation(.easeOut(duration: 0.1), value: isClosing)
+                                    }
+                            } else {
+                                VStack(spacing: 0) {
+                                    // 黒背景は画像エリアのみ（コンテンツ層）に限定。
+                                    // 情報エリアは透明にしてガラス要素を浮かせる。
                                     imageViewport(entry: entry)
                                         .frame(height: g.size.height * 0.58)
-                                    iPadPortraitInfoColumn(entry: entry)
-                                        .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                } else {
-                                    // iPhone 縦モーダル: 従来の縦積み（スクロール可）。
-                                    imageViewport(entry: entry)
-                                        .frame(height: g.size.height * 0.58)
+                                        .background(Color.black.ignoresSafeArea(edges: .top))
+                                        .overlay(GeometryReader { r in
+                                            Color.clear.preference(
+                                                key: DetailImageViewportFrameKey.self,
+                                                value: r.frame(in: .global))
+                                        })
                                     portraitInfoColumn(entry: entry)
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
+                                        .opacity(isClosing ? 0 : 1)
+                                        .animation(.easeOut(duration: 0.1), value: isClosing)
                                 }
                             }
                         }
                     }
                 }
             }
-            .onChange(of: currentIndex) { isImageZoomed = false }
-            .onChange(of: currentGroupIndex) {
-                dragOffset = 0
-                currentIndex = group.representativeID.flatMap { group.memberIDs.firstIndex(of: $0) } ?? 0
-                syncSelectionOut()
+        }
+        .onChange(of: currentIndex) { isImageZoomed = false }
+        .onChange(of: currentGroupIndex) {
+            dragOffset = 0
+            currentIndex = group.representativeID.flatMap { group.memberIDs.firstIndex(of: $0) } ?? 0
+        }
+        .task(id: current?.id) {
+            rawRendered = nil
+            showRendered = false
+            guard let entry = current else { return }
+            // バッチ索引完了前でも EXIF を表示できるようオンデマンド取得
+            await scanStore.fetchExifOnDemand(id: entry.id, url: entry.url)
+            await loadAndCache(entry: entry)
+            for sibling in members where sibling.id != entry.id {
+                Task(priority: .utility) { await loadAndCache(entry: sibling) }
             }
-            // 外部（グリッド）選択の変更を内部 index に反映（埋め込み時のみ）。
-            .onChange(of: selectionBinding?.wrappedValue?.id) { _, newID in
-                guard embedded, let newID,
-                      let idx = groups.firstIndex(where: { $0.id == newID }),
-                      idx != currentGroupIndex else { return }
-                currentGroupIndex = idx
-            }
-            .task(id: current?.id) {
-                rawRendered = nil
-                showRendered = false
-                guard let entry = current else { return }
-                // バッチ索引完了前でも EXIF を表示できるようオンデマンド取得
-                await scanStore.fetchExifOnDemand(id: entry.id, url: entry.url)
-                await loadAndCache(entry: entry)
-                for sibling in members where sibling.id != entry.id {
-                    Task(priority: .utility) { await loadAndCache(entry: sibling) }
-                }
-                prefetchNeighbors()
-                // preferRendered が有効な RAW なら自動レンダリング
-                guard preferRendered, entry.isRaw, !isLimitedRawPreview, let db else { return }
-                isRendering = true
-                defer { isRendering = false }
-                let targetID = entry.id
-                if let (cgImage, _) = await RAWRenderPipeline.shared.render(
-                    url: entry.url, target: .viewer, db: db
-                ) {
-                    guard !Task.isCancelled, current?.id == targetID else { return }
-                    rawRendered = UIImage(cgImage: cgImage)
-                    showRendered = true
-                }
-            }
-            .onAppear { updateLandscapeState() }
-            .onDisappear { showInfoPanel = false }
-            .onReceive(NotificationCenter.default.publisher(
-                for: UIDevice.orientationDidChangeNotification)
-            ) { _ in updateLandscapeState() }
-            .onChange(of: isFullscreen) {
-                if !isFullscreen { showInfoPanel = false }
-            }
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar(isFullscreen ? .hidden : .visible, for: .navigationBar)
-            .toolbarColorScheme(.dark, for: .navigationBar)
-            .glassNavigationBar()
-            .toolbar {
-                ToolbarItem(placement: .navigationBarLeading) {
-                    Button {
-                        closeDetail()
-                    } label: {
-                        Image(systemName: "xmark")
-                    }
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Button {
-                        guard let entry = current else { return }
-                        let preview = thumbnails[entry.id].flatMap { UIImage(data: $0) }
-                        presentShareSheet(urls: [entry.url], previewImage: preview, title: entry.filename)
-                    } label: {
-                        Image(systemName: "square.and.arrow.up")
-                    }
-                    .disabled(current == nil)
-                }
-                ToolbarItem(placement: .navigationBarTrailing) {
-                    Menu {
-                        Button(role: .destructive) {
-                            showDeleteConfirm = true
-                        } label: {
-                            Label(String(localized: "Delete"), systemImage: "trash")
-                        }
-                    } label: {
-                        Image(systemName: "ellipsis")
-                    }
-                    .disabled(current == nil)
-                }
-            }
-            .confirmationDialog(
-                String(localized: "delete.ios.confirm.title", defaultValue: "Move to Trash?"),
-                isPresented: $showDeleteConfirm,
-                titleVisibility: .visible
+            prefetchNeighbors()
+            // preferRendered が有効な RAW なら自動レンダリング
+            guard preferRendered, entry.isRaw, !isLimitedRawPreview, let db else { return }
+            isRendering = true
+            defer { isRendering = false }
+            let targetID = entry.id
+            if let (cgImage, _) = await RAWRenderPipeline.shared.render(
+                url: entry.url, target: .viewer, db: db
             ) {
-                Button(String(localized: "Delete"), role: .destructive) {
-                    deleteCurrentGroup()
-                }
-                Button(String(localized: "Cancel"), role: .cancel) {}
-            } message: {
-                Text(String(localized: "delete.ios.confirm.message", defaultValue: "This cannot be undone."))
-            }
-            .alert(
-                String(localized: "alert.jpg_embed_first.title",
-                       defaultValue: "Write Metadata into JPEG?"),
-                isPresented: $showEmbedWarning
-            ) {
-                Button(String(localized: "Yes"), role: .destructive) {
-                    UserDefaults.standard.set(true, forKey: JpgMetadataDefaults.hasShownJpgEmbedWarningKey)
-                    if let pending = pendingWriteEntry, let db {
-                        pendingWriteEntry = nil
-                        let newXmp = pending.xmp
-                        let targetIDs = pending.targetIDs
-                        Task {
-                            _ = await BridgeCore.writeXmp(url: pending.url, xmp: newXmp,
-                                                          db: db, jpgWriteMode: .embed,
-                                                          captionPresent: false)
-                            for targetID in targetIDs where targetID != pending.id {
-                                guard let te = scanStore.entries[targetID] else { continue }
-                                var tXmp = ratings[targetID] ?? XmpData()
-                                tXmp.rating = newXmp.rating
-                                tXmp.label = newXmp.label
-                                ratings[targetID] = tXmp
-                                _ = await BridgeCore.writeXmp(url: te.url, xmp: tXmp, db: db,
-                                                              jpgWriteMode: .embed,
-                                                              captionPresent: false)
-                            }
-                        }
-                    }
-                }
-                Button(String(localized: "No"), role: .cancel) {
-                    cancelPendingWrite()
-                }
-            } message: {
-                Text(String(localized: "alert.jpg_embed_first.message",
-                            defaultValue: "Rating will be written directly into the JPEG file. The original file will be modified. You can switch to Sidecar mode in Settings."))
+                guard !Task.isCancelled, current?.id == targetID else { return }
+                rawRendered = UIImage(cgImage: cgImage)
+                showRendered = true
             }
         }
+        .onDisappear { showInfoPanel = false }
+        .onChange(of: isFullscreen) {
+            if !isFullscreen { showInfoPanel = false }
+        }
+        .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
+        .toolbar((isFullscreen || isClosing) ? .hidden : .visible, for: .navigationBar)
+        .toolbarColorScheme(.dark, for: .navigationBar)
+        .glassNavigationBar()
+        .toolbar {
+            ToolbarItem(placement: .navigationBarLeading) {
+                Button { onClose() } label: {
+                    Image(systemName: "xmark")
+                }
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    shareCurrent()
+                } label: {
+                    Image(systemName: "square.and.arrow.up")
+                }
+                .disabled(current == nil)
+            }
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Menu {
+                    Button(role: .destructive) {
+                        showDeleteConfirm = true
+                    } label: {
+                        Label(String(localized: "Delete"), systemImage: "trash")
+                    }
+                } label: {
+                    Image(systemName: "ellipsis")
+                }
+                .disabled(current == nil)
+            }
+        }
+        .confirmationDialog(
+            String(localized: "delete.ios.confirm.title", defaultValue: "Move to Trash?"),
+            isPresented: $showDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button(String(localized: "Delete"), role: .destructive) {
+                deleteCurrentGroup()
+            }
+            Button(String(localized: "Cancel"), role: .cancel) {}
+        } message: {
+            Text(String(localized: "delete.ios.confirm.message", defaultValue: "This cannot be undone."))
+        }
+        .alert(
+            String(localized: "alert.jpg_embed_first.title",
+                   defaultValue: "Write Metadata into JPEG?"),
+            isPresented: $showEmbedWarning
+        ) {
+            Button(String(localized: "Yes"), role: .destructive) {
+                UserDefaults.standard.set(true, forKey: JpgMetadataDefaults.hasShownJpgEmbedWarningKey)
+                if let pending = pendingWriteEntry, let db {
+                    pendingWriteEntry = nil
+                    let newXmp = pending.xmp
+                    let targetIDs = pending.targetIDs
+                    Task {
+                        _ = await BridgeCore.writeXmp(url: pending.url, xmp: newXmp,
+                                                      db: db, jpgWriteMode: .embed,
+                                                      captionPresent: false)
+                        for targetID in targetIDs where targetID != pending.id {
+                            guard let te = scanStore.entries[targetID] else { continue }
+                            var tXmp = ratings[targetID] ?? XmpData()
+                            tXmp.rating = newXmp.rating
+                            tXmp.label = newXmp.label
+                            ratings[targetID] = tXmp
+                            _ = await BridgeCore.writeXmp(url: te.url, xmp: tXmp, db: db,
+                                                          jpgWriteMode: .embed,
+                                                          captionPresent: false)
+                        }
+                    }
+                }
+            }
+            Button(String(localized: "No"), role: .cancel) {
+                cancelPendingWrite()
+            }
+        } message: {
+            Text(String(localized: "alert.jpg_embed_first.message",
+                        defaultValue: "Rating will be written directly into the JPEG file. The original file will be modified. You can switch to Sidecar mode in Settings."))
+        }
         .statusBarHidden(isFullscreen)
-        // 下スワイプの視覚効果（offset/scale/角丸/半透明）は親 ThumbnailGridView 側で
-        // detailDragY を使って適用する（NavigationStack を含む本体を自前で clip すると
-        // セーフエリアの黒が切れるため）。ここではジェスチャ量の収集のみ。
+        // UIHostingController の UIKit 層の backgroundColor を透明にする。
+        // SwiftUI の .background(.clear) だけでは UIKit 層が残るため UIViewRepresentable で直接上書きする。
+        .background(ClearHostingBackground())
     }
 
     private func imageForGroup(at index: Int) -> UIImage? {
@@ -330,8 +298,7 @@ struct DetailView: View {
                     canNavigateNext: canNavigateNext,
                     onNavigate: onNavigate,
                     onDismiss: onDismiss,
-                    interactiveDismiss: embedded,
-                    dismissOffset: dismissDragBinding
+                    horizontalPanOnly: UIDevice.current.userInterfaceIdiom == .pad
                 ) {
                     withAnimation(.easeInOut(duration: 0.2)) { isFullscreen.toggle() }
                 }
@@ -598,7 +565,7 @@ struct DetailView: View {
                         dragOffset = 0
                     }
                 },
-                onDismiss: { closeDetail() }
+                onDismiss: { onClose() }
             )
             .offset(x: dragOffset)
 
@@ -616,149 +583,51 @@ struct DetailView: View {
 
     // MARK: - Landscape Info Panel
 
-    @ViewBuilder
-    private func portraitInfoInset(entry: PhotoEntry) -> some View {
-        let previousXmp = ratings[entry.id]
-        let binding = Binding<XmpData>(
-            get: { ratings[entry.id] ?? XmpData() },
-            set: { ratings[entry.id] = $0 }
-        )
-        VStack(spacing: 0) {
-            if members.count > 1 { memberStrip }
-
-            RatingBarView(entry: entry, xmp: binding) { newXmp in
-                commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
-            }
-            .disabled(scanStore.isScanning && !scanStore.isExifReady)
-            .opacity(scanStore.isScanning && !scanStore.isExifReady ? 0.35 : 1.0)
-
-            Color.white.opacity(0.12).frame(height: 0.5)
-                .padding(.horizontal, 12)
-
-            PhotoInfoCard(
-                entry: entry,
-                exif: scanStore.exifs[entry.id],
-                xmp: ratings[entry.id],
-                thumbnailData: thumbnails[entry.id],
-                isLoading: scanStore.isScanning && !scanStore.isExifReady
-            )
-            .padding(.horizontal, 16)
-            .padding(.top, 8)
-            .padding(.bottom, 16)
-        }
-        .background(Color.black)
-        .colorScheme(.dark)
-    }
-
     // MARK: - Portrait info column (image bounded above)
 
-    /// 縦向きモーダル用（iPhone）。画像下に グループ→評価→ラベル→EXIF を縦積み（スクロール可）。
+    /// 縦向き用。グループ・星評価・ラベル・EXIF を個別ガラスカードとして浮かせる。
+    /// 背景は透明なのでズームディスミス中に背後のグリッドが見える。
+    @ViewBuilder
     private func portraitInfoColumn(entry: PhotoEntry) -> some View {
+        let previousXmp = ratings[entry.id]
+        let binding = Binding<XmpData>(
+            get: { ratings[entry.id] ?? XmpData() },
+            set: { ratings[entry.id] = $0 }
+        )
+        let ratingDisabled = scanStore.isScanning && !scanStore.isExifReady
+
         ScrollView {
-            portraitInfoInset(entry: entry)
-        }
-        .background(Color.black)
-    }
-
-    /// iPad 縦レイアウト用。星とラベルを横並び1行にし、その分 PhotoInfoCard の
-    /// ヒストグラムを残り高さいっぱいに拡大。スクロールは発生させない。
-    @ViewBuilder
-    private func iPadPortraitInfoColumn(entry: PhotoEntry) -> some View {
-        let previousXmp = ratings[entry.id]
-        let binding = Binding<XmpData>(
-            get: { ratings[entry.id] ?? XmpData() },
-            set: { ratings[entry.id] = $0 }
-        )
-        let onCommit: (XmpData) -> Void = { newXmp in
-            commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
-        }
-        let ratingDisabled = scanStore.isScanning && !scanStore.isExifReady
-
-        VStack(spacing: 0) {
-            if members.count > 1 {
-                memberStrip
-                Color.white.opacity(0.12).frame(height: 0.5)
-            }
-            // 星 + ラベルを横並び。
-            HStack(spacing: 16) {
-                RatingStarsControl(xmp: binding, onCommit: onCommit)
-                    .disabled(ratingDisabled)
-                    .opacity(ratingDisabled ? 0.35 : 1.0)
-                ColorLabelControl(xmp: binding, onCommit: onCommit)
-                    .disabled(ratingDisabled)
-                    .opacity(ratingDisabled ? 0.35 : 1.0)
-            }
-            .padding(.vertical, 8)
-
-            PhotoInfoCard(
-                entry: entry,
-                exif: scanStore.exifs[entry.id],
-                xmp: ratings[entry.id],
-                thumbnailData: thumbnails[entry.id],
-                isLoading: ratingDisabled,
-                expandHistogram: true
-            )
-            .padding(.horizontal, 16)
-            .padding(.bottom, 12)
-            .frame(maxHeight: .infinity)
-        }
-        .background(Color.black)
-        .colorScheme(.dark)
-    }
-
-    // MARK: - iPad embedded info area
-
-    /// iPad 並列ペイン用。画像下に: グループ(1行・全幅) →
-    /// 横 1:2 分割で 左(評価+ラベル縦積み) | 右(EXIF)。
-    @ViewBuilder
-    private func embeddedInfoArea(entry: PhotoEntry) -> some View {
-        let previousXmp = ratings[entry.id]
-        let binding = Binding<XmpData>(
-            get: { ratings[entry.id] ?? XmpData() },
-            set: { ratings[entry.id] = $0 }
-        )
-        let onCommit: (XmpData) -> Void = { newXmp in
-            commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
-        }
-        let ratingDisabled = scanStore.isScanning && !scanStore.isExifReady
-
-        VStack(spacing: 0) {
-            // グループ（RAW/JPG 等のメンバー）を1行・全幅で表示。
-            if members.count > 1 {
-                memberStrip
-                Color.white.opacity(0.12).frame(height: 0.5)
-            }
-            // 左(評価+ラベル) : 右(EXIF) = 1 : 2（左は内容に合わせた自然幅）。
-            // 両列とも縦方向に中央寄せして、評価/ラベルが EXIF ブロックと
-            // 同じ高さの中心線で揃うようにする。
-            HStack(spacing: 0) {
-                VStack(spacing: 8) {
-                    RatingStarsControl(xmp: binding, onCommit: onCommit)
-                        .disabled(ratingDisabled)
-                        .opacity(ratingDisabled ? 0.35 : 1.0)
-                    ColorLabelControl(xmp: binding, onCommit: onCommit)
-                        .disabled(ratingDisabled)
-                        .opacity(ratingDisabled ? 0.35 : 1.0)
+            VStack(spacing: 10) {
+                // グループ（RAW/JPG メンバー）
+                if members.count > 1 {
+                    memberStrip
+                        .clipShape(RoundedRectangle(cornerRadius: 12))
                 }
-                .fixedSize(horizontal: true, vertical: false)
-                .frame(maxHeight: .infinity)
-
-                Color.white.opacity(0.12).frame(width: 0.5)
-
-                // compact 版でヒストグラム高さ等を詰め、スクロールなしで全表示。
+                // 星評価（個別ガラス）
+                RatingStarsControl(xmp: binding) { newXmp in
+                    commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+                }
+                .disabled(ratingDisabled)
+                .opacity(ratingDisabled ? 0.35 : 1.0)
+                // ラベル（個別ガラス）
+                ColorLabelControl(xmp: binding) { newXmp in
+                    commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+                }
+                .disabled(ratingDisabled)
+                .opacity(ratingDisabled ? 0.35 : 1.0)
+                // EXIF InfoCard（個別ガラス）
                 PhotoInfoCard(
                     entry: entry,
                     exif: scanStore.exifs[entry.id],
                     xmp: ratings[entry.id],
                     thumbnailData: thumbnails[entry.id],
-                    isLoading: ratingDisabled,
-                    compact: true
+                    isLoading: ratingDisabled
                 )
-                .padding(8)
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .padding(.horizontal, 16)
             }
+            .padding(.horizontal, 8)
+            .padding(.vertical, 12)
         }
-        .background(Color.black)
         .colorScheme(.dark)
     }
 
@@ -844,20 +713,6 @@ struct DetailView: View {
                     Color.white.opacity(0.15).frame(height: 0.5)
                         .padding(.horizontal, 16)
 
-                    Button(role: .destructive) {
-                        showDeleteConfirm = true
-                    } label: {
-                        Label(String(localized: "Delete"), systemImage: "trash")
-                            .frame(maxWidth: .infinity, alignment: .leading)
-                            .padding(.horizontal, 20)
-                            .padding(.vertical, 14)
-                    }
-                    .buttonStyle(.plain)
-                    .foregroundStyle(.red.opacity(0.85))
-
-                    Color.white.opacity(0.15).frame(height: 0.5)
-                        .padding(.horizontal, 16)
-
                     PhotoInfoCard(
                         entry: entry,
                         exif: scanStore.exifs[entry.id],
@@ -911,42 +766,59 @@ struct DetailView: View {
         }
     }
 
-    // MARK: - Orientation
-
-    private func updateLandscapeState() {
-        guard let scene = UIApplication.shared.connectedScenes
-            .first(where: { $0.activationState == .foregroundActive }) as? UIWindowScene else { return }
-        isLandscape = scene.interfaceOrientation.isLandscape
-    }
-
-    // MARK: - Embedded selection sync
-
-    /// 内部 index の変化を外部（グリッド）選択へ反映。埋め込み時のみ動作。
-    private func syncSelectionOut() {
-        guard embedded, let selectionBinding,
-              groups.indices.contains(currentGroupIndex) else { return }
-        let g = groups[currentGroupIndex]
-        if selectionBinding.wrappedValue?.id != g.id {
-            selectionBinding.wrappedValue = g
-        }
-    }
-
-    /// 削除。埋め込み時は選択を解除（ペインを空に）、モーダル時は閉じる。
     private func deleteCurrentGroup() {
         scanStore.deleteGroup(group)
-        closeDetail()
+        onClose()
     }
 
-    /// 詳細を閉じる。iPad 埋め込み時は選択解除でグリッドへ戻り、
-    /// iPhone モーダル時は dismiss。閉じるボタン・下スワイプ共通。
-    private func closeDetail() {
-        if embedded {
-            selectionBinding?.wrappedValue = nil
-        } else {
-            dismiss()
+    private func shareCurrent() {
+        guard let entry = current else { return }
+        let preview = thumbnails[entry.id].flatMap { UIImage(data: $0) }
+        presentShareSheet(urls: [entry.url], previewImage: preview, title: entry.filename)
+    }
+
+}
+
+// MARK: - UIKit transparent background helper
+
+/// UIHostingController の UIKit 層の backgroundColor を透明にする UIViewRepresentable。
+/// DispatchQueue.main.async は遷移速度によって階層構築前に発火するため、
+/// UIView サブクラスで didMoveToWindow / layoutSubviews をオーバーライドし
+/// 確実なタイミングで繰り返し親の背景をクリアする。
+private struct ClearHostingBackground: UIViewRepresentable {
+    func makeUIView(context: Context) -> HostingClearView { HostingClearView() }
+    func updateUIView(_ uiView: HostingClearView, context: Context) {}
+}
+
+private final class HostingClearView: UIView {
+    override init(frame: CGRect) {
+        super.init(frame: frame)
+        backgroundColor = .clear
+    }
+    required init?(coder: NSCoder) { fatalError() }
+
+    /// ウィンドウに接続された確実なタイミングで親をクリア。
+    override func didMoveToWindow() {
+        super.didMoveToWindow()
+        clearHostingParents()
+    }
+
+    /// アニメーションフレームごとに呼ばれるので遷移速度に依存しない。
+    override func layoutSubviews() {
+        super.layoutSubviews()
+        clearHostingParents()
+    }
+
+    private func clearHostingParents() {
+        var parent = superview
+        while let p = parent {
+            if p.backgroundColor != .clear &&
+               NSStringFromClass(type(of: p)).contains("Hosting") {
+                p.backgroundColor = .clear
+            }
+            parent = p.superview
         }
     }
-
 }
 
 // MARK: - Info Card
@@ -957,10 +829,6 @@ private struct PhotoInfoCard: View {
     let xmp: XmpData?
     let thumbnailData: Data?
     var isLoading: Bool = false
-    /// iPad 埋め込みペイン用。ヒストグラム高さと余白を詰めてスクロールなしで全表示する。
-    var compact: Bool = false
-    /// iPad 縦レイアウト用。ヒストグラムを残り高さいっぱいに拡大する。
-    var expandHistogram: Bool = false
 
     @State private var histogram: RGBHistogram = .empty
 
@@ -998,7 +866,7 @@ private struct PhotoInfoCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: compact ? 6 : 8) {
+        VStack(alignment: .leading, spacing: 8) {
             Text(entry.filename)
                 .font(.subheadline.weight(.medium))
                 .foregroundStyle(.white.opacity(0.92))
@@ -1031,7 +899,7 @@ private struct PhotoInfoCard: View {
                         )
                 }
                 .padding(.horizontal, 14)
-                .padding(.top, compact ? 8 : 12)
+                .padding(.top, 12)
 
                 if let lens = exif?.lensName {
                     HStack {
@@ -1062,15 +930,10 @@ private struct PhotoInfoCard: View {
 
                 // Histogram (JPG/SOOC は RGB、RAW は灰色プレースホルダー)
                 Color.white.opacity(0.12).frame(height: 0.5)
-                Group {
-                    if expandHistogram {
-                        histogramView.frame(maxHeight: .infinity)
-                    } else {
-                        histogramView.frame(height: compact ? 26 : 48)
-                    }
-                }
-                .padding(.horizontal, 14)
-                .padding(.vertical, compact ? 4 : 6)
+                histogramView
+                    .frame(height: 48)
+                    .padding(.horizontal, 14)
+                    .padding(.vertical, 6)
 
                 Color.white.opacity(0.12).frame(height: 0.5)
 
@@ -1086,7 +949,7 @@ private struct PhotoInfoCard: View {
                     vSep
                     exifCell(ssText)
                 }
-                .padding(.vertical, compact ? 6 : 10)
+                .padding(.vertical, 10)
 
                 Color.white.opacity(0.12).frame(height: 0.5)
                 HStack(spacing: 0) {
@@ -1096,10 +959,10 @@ private struct PhotoInfoCard: View {
                     vSep
                     exifCell(exif?.resolutionString)
                 }
-                .padding(.vertical, compact ? 6 : 10)
+                .padding(.vertical, 10)
             }
-            .frame(maxHeight: expandHistogram ? .infinity : nil)
-            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            .adaptiveGlass(cornerRadius: 12)
+            .colorScheme(.dark)
         }
         .task(id: entry.id) {
             guard !entry.isRaw, let data = thumbnailData,
@@ -1283,10 +1146,9 @@ private struct ZoomableImageView: UIViewRepresentable {
     var canNavigateNext: Bool
     var onNavigate: ((Int) -> Void)?
     var onDismiss: (() -> Void)?
-    /// true のとき縦ドラッグを指追従の「下スワイプ閉じ」にする（iPad インライン用）。
-    var interactiveDismiss: Bool = false
-    /// 指追従の縦オフセット（DetailView 側で offset/scale に反映）。
-    var dismissOffset: Binding<CGFloat> = .constant(0)
+    /// iPad push では縦 pan を OS の interactive dismiss/pop に委ねるため、
+    /// この recognizer は横スワイプ送りだけを扱う。
+    var horizontalPanOnly: Bool = false
     var onSingleTap: (() -> Void)? = nil
 
     func makeCoordinator() -> Coordinator {
@@ -1298,8 +1160,7 @@ private struct ZoomableImageView: UIViewRepresentable {
             canNavigateNext: canNavigateNext,
             onNavigate: onNavigate,
             onDismiss: onDismiss,
-            interactiveDismiss: interactiveDismiss,
-            dismissOffset: dismissOffset,
+            horizontalPanOnly: horizontalPanOnly,
             onSingleTap: onSingleTap
         )
     }
@@ -1364,8 +1225,7 @@ private struct ZoomableImageView: UIViewRepresentable {
         context.coordinator.canNavigateNext = canNavigateNext
         context.coordinator.onNavigate = onNavigate
         context.coordinator.onDismiss = onDismiss
-        context.coordinator.interactiveDismiss = interactiveDismiss
-        context.coordinator.dismissOffset = dismissOffset
+        context.coordinator.horizontalPanOnly = horizontalPanOnly
         context.coordinator.navDragOffset = $navDragOffset
         guard context.coordinator.imageView?.image !== uiImage else { return }
         context.coordinator.imageView?.image = uiImage
@@ -1380,8 +1240,7 @@ private struct ZoomableImageView: UIViewRepresentable {
         var canNavigateNext: Bool = false
         var onNavigate: ((Int) -> Void)?
         var onDismiss: (() -> Void)?
-        var interactiveDismiss: Bool = false
-        var dismissOffset: Binding<CGFloat> = .constant(0)
+        var horizontalPanOnly: Bool = false
         var onSingleTap: (() -> Void)?
         weak var imageView: UIImageView?
         private var lastSingleTapTime: Date? = nil
@@ -1398,8 +1257,7 @@ private struct ZoomableImageView: UIViewRepresentable {
             canNavigateNext: Bool,
             onNavigate: ((Int) -> Void)?,
             onDismiss: (() -> Void)?,
-            interactiveDismiss: Bool,
-            dismissOffset: Binding<CGFloat>,
+            horizontalPanOnly: Bool,
             onSingleTap: (() -> Void)?
         ) {
             self.isZoomed = isZoomed
@@ -1409,8 +1267,7 @@ private struct ZoomableImageView: UIViewRepresentable {
             self.canNavigateNext = canNavigateNext
             self.onNavigate = onNavigate
             self.onDismiss = onDismiss
-            self.interactiveDismiss = interactiveDismiss
-            self.dismissOffset = dismissOffset
+            self.horizontalPanOnly = horizontalPanOnly
             self.onSingleTap = onSingleTap
         }
 
@@ -1525,28 +1382,11 @@ private struct ZoomableImageView: UIViewRepresentable {
                         clampedOffset = t.x
                     }
                     navDragOffset.wrappedValue = clampedOffset
-                } else if navDragAxis == .vertical && interactiveDismiss {
-                    // 指追従: 下方向はそのまま、上方向はゴムバンドで抵抗。
-                    dismissOffset.wrappedValue = t.y > 0 ? t.y : t.y * 0.2
                 }
             case .ended, .cancelled:
                 defer { navDragAxis = .undecided }
                 if navDragAxis == .vertical {
-                    if interactiveDismiss {
-                        // 閾値を超える / 速く振り下ろした場合のみ閉じる。
-                        // それ以外はスプリングで元位置へ戻す（少し下げただけでは閉じない）。
-                        if t.y > 180 || vel.y > 1000 {
-                            withAnimation(.easeOut(duration: 0.22)) {
-                                dismissOffset.wrappedValue = 1200
-                            }
-                            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                                self.onDismiss?()
-                            }
-                        } else {
-                            withAnimation(.spring(response: 0.35, dampingFraction: 0.85)) {
-                                dismissOffset.wrappedValue = 0
-                            }
-                        }
+                    if horizontalPanOnly {
                         navDragOffset.wrappedValue = 0
                         return
                     }
@@ -1583,9 +1423,17 @@ private struct ZoomableImageView: UIViewRepresentable {
             if g1 === navPanGesture || g2 === navPanGesture {
                 if g2 is UIPinchGestureRecognizer || g1 is UIPinchGestureRecognizer { return true }
                 if g2 is UITapGestureRecognizer  || g1 is UITapGestureRecognizer  { return true }
+                if horizontalPanOnly { return true }
                 return false
             }
             return true
+        }
+
+        func gestureRecognizerShouldBegin(_ gestureRecognizer: UIGestureRecognizer) -> Bool {
+            guard horizontalPanOnly, gestureRecognizer === navPanGesture,
+                  let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
+            let velocity = pan.velocity(in: pan.view)
+            return abs(velocity.x) > abs(velocity.y)
         }
     }
 }
@@ -1597,3 +1445,4 @@ private extension Array {
         indices.contains(index) ? self[index] : nil
     }
 }
+

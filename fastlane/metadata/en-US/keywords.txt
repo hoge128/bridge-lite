@@ -1,1 +1,1 @@
-RAW,JPG,photo,viewer,culling,cull,select,picker,photography,thumbnail,EXIF,rating
+RAW,JPG,photo,viewer,culling,cull,select,picker,photography,EXIF,rating,mirrorless, camera, XMP

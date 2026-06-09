@@ -5,10 +5,10 @@ struct ThumbnailGridView: View {
     @State var scanStore: ScanStore
     @State var ratingStore: RatingStore
     @State private var selectedGroup: ShotGroup?
+    @State private var selectedSourceRect: CGRect?
+    @State private var visibleCellFrames: [UInt64: CGRect] = [:]
+    @State private var isDetailZoomClosing = false
     @State private var preferRendered: Bool
-    // iPad 下スワイプ閉じの縦ドラッグ量（DetailView と共有）。
-    // 横レイアウトではこの量に応じてグリッド幅を広げ、背後にグリッドを見せる。
-    @State private var detailDragY: CGFloat = 0
 
     init(scanStore: ScanStore, ratingStore: RatingStore) {
         self._scanStore = State(initialValue: scanStore)
@@ -33,7 +33,7 @@ struct ThumbnailGridView: View {
         // iPad: 幅から目標セル幅（~165pt）で逆算。Stage Manager / Split View で
         // ウィンドウがリサイズされても geo.size 追従で列数が変わる。3〜10 列にクランプ。
         if UIDevice.current.userInterfaceIdiom == .pad {
-            let targetCellWidth: CGFloat = 165
+            let targetCellWidth: CGFloat = 148
             let cols = Int((size.width / targetCellWidth).rounded())
             return max(3, min(cols, 10))
         }
@@ -42,7 +42,7 @@ struct ThumbnailGridView: View {
     }
 
     private var shareNeedsWarning: Bool {
-        scanStore.filteredGroups(ratings: ratingStore.ratings).count > Self.shareWarningThreshold
+        filteredGroups.count > Self.shareWarningThreshold
     }
 
     @ViewBuilder
@@ -121,62 +121,8 @@ struct ThumbnailGridView: View {
 
     private var isPad: Bool { UIDevice.current.userInterfaceIdiom == .pad }
 
-    /// 下スワイプ進捗 0...1（300pt で 1）。グリッド拡大・カードの縮小/角丸/半透明に使用。
-    private var detailDragProgress: CGFloat { min(max(detailDragY, 0), 300) / 300 }
-
     var body: some View {
-        GeometryReader { geo in
-            let landscape = geo.size.width > geo.size.height
-            if isPad {
-                // iPad: 詳細を常に「右側の同じ位置」に置く。横向きは幅58%でグリッド
-                // (左42%)と並列、縦向きは全幅でグリッドを覆う。位置を変えないことで
-                // 回転しても DetailView が作り直されず（再デコードなし）、状態を保持。
-                // fullScreenCover を使わないので present/dismiss 遅延も無い。
-                let p = detailDragProgress
-                // 横向きは下スワイプ量に応じてグリッド幅を 42%→100% に広げ、縮むカードの
-                // 背後にサムネイルグリッドを現す（縦向きは常に全幅で背後にグリッド）。
-                let gridFraction: CGFloat = (landscape && selectedGroup != nil)
-                    ? min(1.0, 0.42 + p * 0.58)
-                    : 1.0
-                ZStack {
-                    HStack(spacing: 0) {
-                        NavigationStack { mainContent }
-                            .frame(width: geo.size.width * gridFraction)
-                        Spacer(minLength: 0)
-                    }
-                    // 詳細層（右寄せ）。横=58% / 縦=全幅。常に同一ツリー位置。
-                    // 下スワイプ中: 縮小＋角丸＋半透明で背後のグリッドを見せる（ガラス）。
-                    if let selected = selectedGroup {
-                        HStack(spacing: 0) {
-                            Spacer(minLength: 0)
-                            detailView(group: selected, embedded: true,
-                                       embeddedLandscape: landscape)
-                                .frame(width: landscape ? geo.size.width * 0.58 : geo.size.width)
-                                .scaleEffect(1 - p * 0.16, anchor: .center)
-                                // inset を休止時に負にして clip を無効化し、セーフエリアの
-                                // 黒が切れないようにする。ドラッグ開始直後に 0 まで詰めて角丸を効かせる。
-                                .clipShape(
-                                    RoundedRectangle(cornerRadius: p * 44, style: .continuous)
-                                        .inset(by: -80 * (1 - min(p * 5, 1)))
-                                )
-                                .opacity(1 - p * 0.5)
-                                .offset(y: detailDragY)
-                        }
-                        .zIndex(1)
-                    }
-                }
-            } else {
-                // iPhone: 全画面グリッド → sheet モーダル詳細。
-                NavigationStack { mainContent }
-                    .sheet(item: $selectedGroup) { group in
-                        detailView(group: group, embedded: false)
-                    }
-            }
-        }
-        // プレビューを閉じたら下スワイプ量をリセット（次回オープン時に残らないように）。
-        .onChange(of: selectedGroup?.id) { _, newID in
-            if newID == nil { detailDragY = 0 }
-        }
+        detailPresenter
         .confirmationDialog(
             String(localized: "export.warning.title", defaultValue: "Too Many Photos"),
             isPresented: $showShareWarning,
@@ -216,10 +162,38 @@ struct ThumbnailGridView: View {
 
     // MARK: - Detail presentation
 
-    /// 詳細ビュー本体。embedded=true で iPad インライン、false で iPhone モーダル。
-    private func detailView(group: ShotGroup, embedded: Bool, embeddedLandscape: Bool = false) -> some View {
+    /// iPad は fullScreenCover、iPhone は sheet。
+    /// fullScreenCover は UIKit モーダル presentation のため、
+    /// zoom 遷移の座標ズレバグが構造的に発生しない。
+    @ViewBuilder
+    private var detailPresenter: some View {
+        if isPad {
+            NavigationStack { mainContent }
+                .fullScreenCover(item: $selectedGroup) { group in
+                    ExpandFromCellFullScreenCover(
+                        sourceRect: visibleCellFrames[group.id] ?? selectedSourceRect,
+                        isClosing: isDetailZoomClosing,
+                        onCloseAnimationFinished: finishDetailDismissal
+                    ) {
+                        NavigationStack {
+                            detailView(group: group, onClose: beginDetailDismissal)
+                        }
+                    }
+                    .interactiveDismissDisabled(true)
+                }
+        } else {
+            NavigationStack { mainContent }
+                .sheet(item: $selectedGroup) { group in
+                    NavigationStack {
+                        detailView(group: group) { selectedGroup = nil }
+                    }
+                }
+        }
+    }
+
+    private func detailView(group: ShotGroup, onClose: @escaping () -> Void) -> some View {
         DetailView(
-            groups: scanStore.filteredGroups(ratings: ratingStore.ratings),
+            groups: filteredGroups,
             initialGroup: group,
             entries: scanStore.entries,
             ratings: Binding(
@@ -230,11 +204,37 @@ struct ThumbnailGridView: View {
             jpgWriteMode: scanStore.jpgWriteMode,
             scanStore: scanStore,
             preferRendered: $preferRendered,
-            embedded: embedded,
-            embeddedLandscape: embeddedLandscape,
-            dismissDrag: $detailDragY,
-            selection: embedded ? $selectedGroup : nil
+            onClose: onClose
         )
+    }
+
+    private func presentDetail(group: ShotGroup) {
+        selectedSourceRect = visibleCellFrames[group.id]
+        isDetailZoomClosing = false
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        UIView.performWithoutAnimation {
+            withTransaction(transaction) {
+                selectedGroup = group
+            }
+        }
+    }
+
+    private func beginDetailDismissal() {
+        guard selectedGroup != nil, !isDetailZoomClosing else { return }
+        isDetailZoomClosing = true
+    }
+
+    private func finishDetailDismissal() {
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        UIView.performWithoutAnimation {
+            withTransaction(transaction) {
+                selectedGroup = nil
+            }
+        }
+        isDetailZoomClosing = false
+        selectedSourceRect = nil
     }
 
     private var grid: some View {
@@ -243,55 +243,64 @@ struct ThumbnailGridView: View {
             let n = CGFloat(cols)
             let cellSize = (geo.size.width - gridSpacing * (n + 1)) / n
             let columns = Array(repeating: GridItem(.flexible(), spacing: gridSpacing), count: cols)
+            // filteredGroups を一度だけ評価してローカルに保持することで、
+            // ForEach 内・各セルで重複計算しない。
+            let groups = filteredGroups
 
-            ScrollViewReader { proxy in
-                ScrollView {
-                    LazyVGrid(columns: columns, spacing: gridSpacing) {
-                        ForEach(scanStore.filteredGroups(ratings: ratingStore.ratings)) { group in
-                            ThumbnailCellView(
-                                group: group,
-                                entries: scanStore.entries,
-                                thumbnails: scanStore.thumbnails,
-                                ratings: ratingStore.ratings,
-                                exifs: scanStore.exifs,
-                                kind: scanStore.representativeKind(for: group, xmps: ratingStore.ratings),
-                                squareCellSize: cellSize,
-                                isSelected: selectedGroup?.id == group.id,
-                                onTap: {
-                                    scanStore.resetAutoReleaseTimer()
+            ScrollView {
+                LazyVGrid(columns: columns, spacing: gridSpacing) {
+                    ForEach(groups) { group in
+                        ThumbnailCellView(
+                            group: group,
+                            entries: scanStore.entries,
+                            thumbnails: scanStore.thumbnails,
+                            ratings: ratingStore.ratings,
+                            exifs: scanStore.exifs,
+                            kind: scanStore.representativeKind(for: group, xmps: ratingStore.ratings),
+                            squareCellSize: cellSize,
+                            onTap: {
+                                scanStore.resetAutoReleaseTimer()
+                                if isPad {
+                                    presentDetail(group: group)
+                                } else {
                                     selectedGroup = group
-                                },
-                                onDelete: { groupPendingDelete = group }
-                            )
-                            .id(group.id)
-                            .task(id: group.representativeID ?? group.id) {
-                                guard let repID = group.representativeID ?? group.memberIDs.first,
-                                      let entry = scanStore.entries[repID],
-                                      scanStore.thumbnails[repID] == nil else { return }
-                                await scanStore.requestThumbnail(for: entry)
+                                }
+                            },
+                            onDelete: { groupPendingDelete = group }
+                        )
+                        .id(group.id)
+                        .background {
+                            GeometryReader { cellGeo in
+                                Color.clear.preference(
+                                    key: ThumbnailCellFramePreferenceKey.self,
+                                    value: [group.id: cellGeo.frame(in: .global)]
+                                )
                             }
                         }
+                        .task(id: group.representativeID ?? group.id) {
+                            guard let repID = group.representativeID ?? group.memberIDs.first,
+                                  let entry = scanStore.entries[repID],
+                                  scanStore.thumbnails[repID] == nil else { return }
+                            await scanStore.requestThumbnail(for: entry)
+                        }
                     }
-                    .padding(gridSpacing)
                 }
-                .simultaneousGesture(
-                    DragGesture(minimumDistance: 0)
-                        .onChanged { _ in scanStore.resetAutoReleaseTimer() }
-                )
-                // 回転・レイアウト変更（列数変化）でスクロール位置が先頭に戻るため、
-                // 閲覧中（選択中）のサムネイルへフォーカスを復帰させる。
-                .onAppear { scrollToSelected(proxy, delay: 0.1) }
-                .onChange(of: geo.size) { scrollToSelected(proxy, delay: 0.1) }
+                .padding(gridSpacing)
+            }
+            .simultaneousGesture(
+                DragGesture(minimumDistance: 0)
+                    .onChanged { _ in scanStore.resetAutoReleaseTimer() }
+            )
+            .onPreferenceChange(ThumbnailCellFramePreferenceKey.self) { frames in
+                visibleCellFrames = frames
             }
         }
     }
 
-    /// 選択中グループのサムネイルへスクロール（中央寄せ）。回転後のフォーカス復帰用。
-    private func scrollToSelected(_ proxy: ScrollViewProxy, delay: Double = 0) {
-        guard let id = selectedGroup?.id else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
-            proxy.scrollTo(id, anchor: .center)
-        }
+    /// フィルタ済みグループを一度だけ評価する。
+    /// grid・navigationDestination・detailView で共通参照し重複計算を排除する。
+    private var filteredGroups: [ShotGroup] {
+        scanStore.filteredGroups(ratings: ratingStore.ratings)
     }
 
     // MARK: - Phase status
@@ -513,7 +522,7 @@ struct ThumbnailGridView: View {
                 Image(systemName: "gearshape")
             }
             Button {
-                let groups = scanStore.filteredGroups(ratings: ratingStore.ratings)
+                let groups = filteredGroups
                 let urls = ExportService.urlsForGroups(groups, scanStore: scanStore, xmps: ratingStore.ratings)
                 guard !urls.isEmpty else { return }
                 var preview: UIImage? = nil
@@ -588,5 +597,263 @@ struct ThumbnailGridView: View {
         // タッチを遮断するため不可視な背景を置く（glass が壊れないよう opacity を最小化）
         .background(Color(UIColor.systemBackground).opacity(0.001))
         .animation(.easeInOut(duration: 0.2), value: selectedFilterCategory)
+    }
+}
+
+private struct ThumbnailCellFramePreferenceKey: PreferenceKey {
+    nonisolated(unsafe) static var defaultValue: [UInt64: CGRect] = [:]
+
+    static func reduce(value: inout [UInt64: CGRect], nextValue: () -> [UInt64: CGRect]) {
+        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
+    }
+}
+
+// DetailView の imageViewport がグローバル座標を報告するための PreferenceKey。
+// internal（private でない）にすることで DetailView.swift からも使用できる。
+struct DetailImageViewportFrameKey: PreferenceKey {
+    nonisolated(unsafe) static var defaultValue: CGRect = .zero
+    static func reduce(value: inout CGRect, nextValue: () -> CGRect) {
+        let n = nextValue()
+        if !n.isEmpty { value = n }
+    }
+}
+
+private struct ExpandFromCellFullScreenCover<Content: View>: View {
+    let sourceRect: CGRect?
+    let isClosing: Bool
+    let onCloseAnimationFinished: () -> Void
+    let content: Content
+
+    @State private var isExpanded = false
+    @State private var hasFinishedClosing = false
+    @State private var isContentVisible = false
+    /// DetailView の imageViewport から受け取ったグローバル座標フレーム。
+    @State private var capturedImageFrame: CGRect = .zero
+    /// 閉じるアニメーション中、マスクを使ってコンテンツを縮小するフラグ。
+    @State private var showClosingMask = false
+    /// 0 = imageFrame、1 = sourceRect（セル位置）へ補間する閉じ進捗。
+    @State private var closingProgress: CGFloat = 0
+
+    private let animationDuration: TimeInterval = 0.22
+
+    init(
+        sourceRect: CGRect?,
+        isClosing: Bool,
+        onCloseAnimationFinished: @escaping () -> Void,
+        @ViewBuilder content: () -> Content
+    ) {
+        self.sourceRect = sourceRect
+        self.isClosing = isClosing
+        self.onCloseAnimationFinished = onCloseAnimationFinished
+        self.content = content()
+    }
+
+    var body: some View {
+        GeometryReader { coverGeo in
+            let coverRect = coverGeo.frame(in: .global)
+
+            ZStack {
+                Color.black
+                    .opacity(showClosingMask ? Double(1 - closingProgress) : (isExpanded ? 1 : 0))
+                    .ignoresSafeArea()
+
+                if !showClosingMask {
+                    // 開くアニメーション
+                    openingContent(coverRect: coverRect)
+                } else {
+                    // 閉じるアニメーション：コンテンツにマスクを当てて縮小
+                    // サムネイルの画像種別（埋め込み・デコード済み）に依存しない
+                    closingContent(coverRect: coverRect)
+                }
+            }
+            .frame(width: coverRect.width, height: coverRect.height)
+            .background(Color.clear)
+            .onAppear { startOpenAnimation() }
+            .onChange(of: isClosing) { _, closing in
+                guard closing, !hasFinishedClosing else { return }
+                hasFinishedClosing = true
+                isContentVisible = false
+                startClosingAnimation()
+            }
+            .onPreferenceChange(DetailImageViewportFrameKey.self) { frame in
+                if isExpanded, isContentVisible, !frame.isEmpty {
+                    capturedImageFrame = frame
+                }
+            }
+        }
+        .ignoresSafeArea()
+        .background(Color.clear)
+    }
+
+    // MARK: - Open animation content
+
+    @ViewBuilder
+    private func openingContent(coverRect: CGRect) -> some View {
+        let t = openTransform(coverRect: coverRect)
+        let progress: CGFloat = isExpanded ? 1 : 0
+        let scale = t.scale + (1 - t.scale) * progress
+        let clipW = t.clipW + (coverRect.width  - t.clipW) * progress
+        let clipH = t.clipH + (coverRect.height - t.clipH) * progress
+        let offX  = t.offsetX * (1 - progress)
+        let offY  = t.offsetY * (1 - progress)
+
+        content
+            .environment(\.isDetailClosing, !isContentVisible)
+            .frame(width: coverRect.width, height: coverRect.height)
+            .scaleEffect(scale, anchor: .center)
+            .clipShape(ZoomClipShape(width: clipW, height: clipH,
+                                     cornerRadius: 18 * (1 - progress)))
+            .offset(x: offX, y: offY)
+            .opacity(sourceRect == nil ? Double(progress) : 1)
+            .allowsHitTesting(isExpanded && !isClosing)
+    }
+
+    // MARK: - Close animation content（scale+offset 方式）
+    // Photos app と同様に「コンテンツ自体を縮小・移動」させることで、
+    // 画像が自分でセルへ飛んでいく自然な動きを実現する。
+    // マスク方式と異なり、静止コンテンツの上を窓が動く「スライド窓」効果が起きない。
+
+    @ViewBuilder
+    private func closingContent(coverRect: CGRect) -> some View {
+        let target = sourceRect ?? CGRect(x: coverRect.midX - 75, y: coverRect.midY - 75,
+                                          width: 150, height: 150)
+        // capturedImageFrame が未取得の場合はフルスクリーンから縮小
+        let start = capturedImageFrame.isEmpty ? coverRect : capturedImageFrame
+
+        let screenCenterX = coverRect.width  / 2
+        let screenCenterY = coverRect.height / 2
+
+        // imageViewport がセルに収まる均一スケール
+        let closingScale = max(min(target.width  / max(start.width,  1),
+                                   target.height / max(start.height, 1)), 0.01)
+        let currentScale = 1 + (closingScale - 1) * closingProgress
+
+        // imageFrame 中心のローカル座標
+        let imageMidX = start.midX  - coverRect.minX
+        let imageMidY = start.midY  - coverRect.minY
+        let cellMidX  = target.midX - coverRect.minX
+        let cellMidY  = target.midY - coverRect.minY
+
+        // 最終スケール後に imageFrame 中心がどこに来るか（スクリーン中央からのスケール）
+        let scaledFinalMidX = screenCenterX + (imageMidX - screenCenterX) * closingScale
+        let scaledFinalMidY = screenCenterY + (imageMidY - screenCenterY) * closingScale
+
+        // progress=1 でセル中心に一致させるオフセット
+        let targetOffX = cellMidX - scaledFinalMidX
+        let targetOffY = cellMidY - scaledFinalMidY
+
+        // imageViewport の領域だけを先にクリップする。
+        // これにより info パネルの透明エリアが黒背景を透かして見えるのを防ぐ。
+        let imageLocalRect = CGRect(x: start.minX - coverRect.minX,
+                                    y: start.minY - coverRect.minY,
+                                    width:  start.width,
+                                    height: start.height)
+        content
+            .environment(\.isDetailClosing, true)
+            .frame(width: coverRect.width, height: coverRect.height)
+            .clipShape(FixedRectClip(rect: imageLocalRect))
+            .scaleEffect(currentScale, anchor: .center)
+            .offset(x: targetOffX * closingProgress, y: targetOffY * closingProgress)
+            .allowsHitTesting(false)
+    }
+
+    // MARK: - Animation helpers
+
+    private func startOpenAnimation() {
+        isExpanded = false
+        hasFinishedClosing = false
+        isContentVisible = false
+        showClosingMask = false
+        closingProgress = 0
+        capturedImageFrame = .zero
+
+        DispatchQueue.main.async {
+            withAnimation(.spring(response: animationDuration, dampingFraction: 0.86)) {
+                isExpanded = true
+            }
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+                withAnimation(.easeOut(duration: 0.15)) {
+                    isContentVisible = true
+                }
+            }
+        }
+    }
+
+    private func startClosingAnimation() {
+        closingProgress = 0
+        showClosingMask = true
+
+        withAnimation(.easeIn(duration: animationDuration)) {
+            closingProgress = 1
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + animationDuration) {
+            onCloseAnimationFinished()
+        }
+    }
+
+    private func openTransform(coverRect: CGRect)
+        -> (scale: CGFloat, clipW: CGFloat, clipH: CGFloat, offsetX: CGFloat, offsetY: CGFloat) {
+        guard let src = sourceRect, !src.isNull, !src.isEmpty,
+              coverRect.width > 0, coverRect.height > 0 else {
+            return (0.96, coverRect.width, coverRect.height, 0, 0)
+        }
+        let scaleX = src.width / coverRect.width
+        let scaleY = src.height / coverRect.height
+        return (
+            max(max(scaleX, scaleY), 0.01),
+            src.width, src.height,
+            src.midX - coverRect.midX,
+            src.midY - coverRect.midY
+        )
+    }
+}
+
+// MARK: - ZoomClipShape
+
+/// アニメーション中にクリップ矩形をセルサイズ→フルスクリーンへ補間するカスタム Shape。
+/// 親ビューの中央に配置され、均一スケールのコンテンツから縦横比を保ったまま切り出す。
+private struct ZoomClipShape: Shape {
+    var width: CGFloat
+    var height: CGFloat
+    var cornerRadius: CGFloat
+
+    var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>, CGFloat> {
+        get { AnimatablePair(AnimatablePair(width, height), cornerRadius) }
+        set {
+            width = newValue.first.first
+            height = newValue.first.second
+            cornerRadius = newValue.second
+        }
+    }
+
+    func path(in rect: CGRect) -> Path {
+        let r = CGRect(
+            x: (rect.width  - width)  / 2,
+            y: (rect.height - height) / 2,
+            width: width,
+            height: height
+        )
+        return Path(roundedRect: r, cornerRadius: cornerRadius, style: .continuous)
+    }
+}
+
+/// 閉じるアニメーション用クリップ。
+/// コンテンツ座標系内の固定矩形でクリップし、
+/// info パネル透明エリアが黒背景を透かして見えるのを防ぐ。
+private struct FixedRectClip: Shape {
+    let rect: CGRect
+    func path(in _: CGRect) -> Path { Path(rect) }
+}
+
+// MARK: - Environment: isDetailClosing
+
+private struct IsDetailClosingKey: EnvironmentKey {
+    nonisolated(unsafe) static let defaultValue = false
+}
+
+extension EnvironmentValues {
+    var isDetailClosing: Bool {
+        get { self[IsDetailClosingKey.self] }
+        set { self[IsDetailClosingKey.self] = newValue }
     }
 }
