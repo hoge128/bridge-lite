@@ -162,14 +162,16 @@ struct ThumbnailGridView: View {
 
     // MARK: - Detail presentation
 
-    /// iPad は fullScreenCover、iPhone は sheet。
-    /// fullScreenCover は UIKit モーダル presentation のため、
-    /// zoom 遷移の座標ズレバグが構造的に発生しない。
+    /// iPad は ZStack オーバーレイ、iPhone は sheet。
+    /// fullScreenCover は dismiss 時に UIKit の transition frame が発生し flash するため、
+    /// iPad は ZStack で直接重ねる方式に変更。UIKit presentation layer が存在しないため
+    /// transition flash が構造的に起きない。
     @ViewBuilder
     private var detailPresenter: some View {
         if isPad {
-            NavigationStack { mainContent }
-                .fullScreenCover(item: $selectedGroup) { group in
+            ZStack {
+                NavigationStack { mainContent }
+                if let group = selectedGroup {
                     ExpandFromCellFullScreenCover(
                         sourceRect: selectedSourceRect,
                         onCloseAnimationStarted: {
@@ -184,8 +186,9 @@ struct ThumbnailGridView: View {
                         }
                     }
                     .opacity(coverOpacity)
-                    .interactiveDismissDisabled(true)
+                    .ignoresSafeArea()
                 }
+            }
         } else {
             NavigationStack { mainContent }
                 .sheet(item: $selectedGroup) { group in
@@ -217,37 +220,28 @@ struct ThumbnailGridView: View {
 
     private func presentDetail(group: ShotGroup, sourceRect: CGRect?) {
         selectedSourceRect = sourceRect
-        selectedCellDimOpacity = 1.0  // 開いた瞬間にセルを黒く
-        coverOpacity = 1.0            // dismiss 後のリセットより先に開いた場合も確実に不透明に
+        selectedCellDimOpacity = 1.0
+        coverOpacity = 1.0
+        // ZStack 方式: UIKit アニメーションの抑制は不要。
+        // SwiftUI の transition を無効化して ExpandFromCellFullScreenCover の
+        // 独自開くアニメーションだけを使う。
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
-        UIView.performWithoutAnimation {
-            withTransaction(transaction) {
-                selectedGroup = group
-            }
+        withTransaction(transaction) {
+            selectedGroup = group
         }
     }
 
     private func finishDetailDismissal() {
         selectedCellDimOpacity = 0
         selectedSourceRect = nil
-        // 1. カバーを即座に不透明度 0 にして現フレームで透明化する。
-        // 2. 次フレームで selectedGroup = nil を実行し UIKit に dismiss を伝える。
-        // UIKit の transition frame では既に opacity=0 になっているため flash しない。
-        // coverOpacity を先に 0 にして SwiftUI に transparent フレームを描画させる。
-        // async ブロックには coverOpacity = 1.0 を書かない。
-        // 同じ closure に書くと SwiftUI が 0→1.0 をバッチ処理して
-        // UIKit dismiss snapshot が opacity=1 になり flash が起きるため。
-        // リセットは次の presentDetail() 内で行う。
-        coverOpacity = 0
-        DispatchQueue.main.async {
-            var transaction = Transaction(animation: nil)
-            transaction.disablesAnimations = true
-            UIView.performWithoutAnimation {
-                withTransaction(transaction) {
-                    self.selectedGroup = nil
-                }
-            }
+        coverOpacity = 1.0
+        // ZStack 方式: UIKit transition が存在しないため flash なし。
+        // transition を無効化して SwiftUI がデフォルトアニメーションを掛けないようにする。
+        var transaction = Transaction(animation: nil)
+        transaction.disablesAnimations = true
+        withTransaction(transaction) {
+            selectedGroup = nil
         }
     }
 
@@ -672,16 +666,6 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
     /// 閉じるボタン / スワイプディスミスから直接呼ばれる。ThumbnailGridView を経由しない。
     private func triggerClose() {
         guard !isDismissing else { return }
-        isDismissing = true
-        isContentVisible = false
-        // dismissMagPeak > 0 ならスワイプ操作があった（指を戻しても true のまま）。
-        // swipeReleasedOffset == .zero だと開始位置に戻して離した場合に誤判定するため
-        // このフラグで黒フラッシュを防ぐ。
-        isSwipeDismiss = dismissMagPeak > 0
-        swipeReleasedOffset = dismissDragOffset
-        // dismissDragOffset はここでリセットせず startClosingAnimation() 内で
-        // closingProgress と同時アニメーションする。
-        // これにより closingContent の開始状態がリリース時の見た目と一致する。
         startClosingAnimation()
     }
 
@@ -703,18 +687,18 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
                              //   フラッシュを確実に防げる。
                              ? (isSwipeDismiss ? 0.0 : Double(1 - closingProgress))
                              : isExpanded
-                                 ? max(0, 1.0 - dismissProgress * 1.5)
+                                 // 完全透明にしない（最低 0.3）。
+                                 // 0 にすると閉じアニメーション開始時の
+                                 // 背景ジャンプが視覚的に目立つため。
+                                 ? max(0.5, 1.0 - dismissProgress * 1.5)
                                  : 0)
                     .ignoresSafeArea()
 
-                if !showClosingMask {
-                    // 開くアニメーション
-                    openingContent(coverRect: coverRect)
-                } else {
-                    // 閉じるアニメーション：コンテンツにマスクを当てて縮小
-                    // サムネイルの画像種別（埋め込み・デコード済み）に依存しない
-                    closingContent(coverRect: coverRect)
-                }
+                // ブランチ切り替えを廃止し content の View identity を維持する。
+                // openingContent / closingContent で if-else 分岐すると SwiftUI が
+                // content(triggerClose, $dismissDragOffset) を別 View と見なし、
+                // dismissDragOffset のアニメーションが引き継がれず瞬間移動が起きる。
+                unifiedContent(coverRect: coverRect)
             }
             .frame(width: coverRect.width, height: coverRect.height)
             .background(Color.clear)
@@ -734,83 +718,78 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
         .background(Color.clear)
     }
 
-    // MARK: - Open animation content
+    // MARK: - Unified content（opening + closing を単一 View で処理）
+    //
+    // SwiftUI は if-else ブランチを異なる View として扱うため、
+    // openingContent / closingContent でブランチを切り替えると
+    // content(triggerClose, $dismissDragOffset) が別 View として再生成される。
+    // その結果、dismissDragOffset のアニメーション状態が引き継がれず
+    // スワイプ位置から自然位置への連続アニメーションが壊れる（瞬間移動フラッシュ）。
+    //
+    // 解決: content を常に同一 View として保ち、modifier の値を
+    //        showClosingMask で切り替える。Clip shape も CoverClip 単一型で統一し
+    //        型切り替えによる View 再生成を防ぐ。
 
     @ViewBuilder
-    private func openingContent(coverRect: CGRect) -> some View {
+    private func unifiedContent(coverRect: CGRect) -> some View {
+        // ── Opening 用パラメータ ──────────────────────────────────
         let t = openTransform(coverRect: coverRect)
-        let progress: CGFloat = isExpanded ? 1 : 0
-        let scale = t.scale + (1 - t.scale) * progress
-        let clipW = t.clipW + (coverRect.width  - t.clipW) * progress
-        let clipH = t.clipH + (coverRect.height - t.clipH) * progress
-        let offX  = t.offsetX * (1 - progress)
-        let offY  = t.offsetY * (1 - progress)
-        // dismissDragOffset は DetailView 内の imageViewport 単体に適用されるため、
-        // ここでは全体 offset を変更しない。背景の透明化のみ body 側で行う。
-        content(triggerClose, $dismissDragOffset)
-            .environment(\.isDetailClosing, !isContentVisible)
-            .frame(width: coverRect.width, height: coverRect.height)
-            .scaleEffect(scale, anchor: .center)
-            .clipShape(ZoomClipShape(width: clipW, height: clipH,
-                                     cornerRadius: 18 * (1 - progress)))
-            .offset(x: offX, y: offY)
-            .opacity(sourceRect == nil ? Double(progress) : 1)
-            .allowsHitTesting(isExpanded && !isDismissing)
-    }
+        let openProgress: CGFloat = isExpanded ? 1 : 0
+        let openScale    = t.scale   + (1 - t.scale)   * openProgress
+        let openClipW    = t.clipW   + (coverRect.width  - t.clipW)  * openProgress
+        let openClipH    = t.clipH   + (coverRect.height - t.clipH)  * openProgress
+        let openOffX     = t.offsetX * (1 - openProgress)
+        let openOffY     = t.offsetY * (1 - openProgress)
 
-    // MARK: - Close animation content（scale+offset 方式）
-    // Photos app と同様に「コンテンツ自体を縮小・移動」させることで、
-    // 画像が自分でセルへ飛んでいく自然な動きを実現する。
-    // マスク方式と異なり、静止コンテンツの上を窓が動く「スライド窓」効果が起きない。
-
-    @ViewBuilder
-    private func closingContent(coverRect: CGRect) -> some View {
+        // ── Closing 用パラメータ ─────────────────────────────────
         let target = sourceRect ?? CGRect(x: coverRect.midX - 75, y: coverRect.midY - 75,
                                           width: 150, height: 150)
-        // capturedImageFrame が未取得の場合はフルスクリーンから縮小
-        let start = capturedImageFrame.isEmpty ? coverRect : capturedImageFrame
+        let start  = capturedImageFrame.isEmpty ? coverRect : capturedImageFrame
+        let sX = coverRect.width  / 2
+        let sY = coverRect.height / 2
+        let closingScale     = max(min(target.width  / max(start.width,  1),
+                                       target.height / max(start.height, 1)), 0.01)
+        let currentScale     = 1 + (closingScale - 1) * closingProgress
+        let imageMidX  = start.midX  - coverRect.minX
+        let imageMidY  = start.midY  - coverRect.minY
+        let cellMidX   = target.midX - coverRect.minX
+        let cellMidY   = target.midY - coverRect.minY
+        let sFinalX    = sX + (imageMidX - sX) * closingScale
+        let sFinalY    = sY + (imageMidY - sY) * closingScale
+        let releasedX = swipeReleasedOffset.width
+        let releasedY = swipeReleasedOffset.height
+        let imageLocalRect = CGRect(x: start.minX - coverRect.minX + releasedX,
+                                    y: start.minY - coverRect.minY + releasedY,
+                                    width: start.width, height: start.height)
+        // DetailView 側のドラッグ offset は閉じ終端まで固定する。
+        // その分を最終スケール後の画像中心に加味し、外側の移動だけでセル中心へ戻す。
+        let releasedFinalX = sFinalX + releasedX * closingScale
+        let releasedFinalY = sFinalY + releasedY * closingScale
+        let adjustedTargetOffX = cellMidX - releasedFinalX
+        let adjustedTargetOffY = cellMidY - releasedFinalY
+        let combinedOffX = adjustedTargetOffX * closingProgress
+        let combinedOffY = adjustedTargetOffY * closingProgress
 
-        let screenCenterX = coverRect.width  / 2
-        let screenCenterY = coverRect.height / 2
+        // ── 統合パラメータ ───────────────────────────────────────
+        let effectiveScale   = showClosingMask ? currentScale  : openScale
+        let effectiveOffX    = showClosingMask ? combinedOffX  : openOffX
+        let effectiveOffY    = showClosingMask ? combinedOffY  : openOffY
+        let effectiveOpacity = showClosingMask ? 1.0 : (sourceRect == nil ? Double(openProgress) : 1.0)
+        let isInteractive    = !showClosingMask && isExpanded && !isDismissing
 
-        // imageViewport がセルに収まる均一スケール
-        let closingScale = max(min(target.width  / max(start.width,  1),
-                                   target.height / max(start.height, 1)), 0.01)
-        let currentScale = 1 + (closingScale - 1) * closingProgress
-
-        // imageFrame 中心のローカル座標
-        let imageMidX = start.midX  - coverRect.minX
-        let imageMidY = start.midY  - coverRect.minY
-        let cellMidX  = target.midX - coverRect.minX
-        let cellMidY  = target.midY - coverRect.minY
-
-        // 最終スケール後に imageFrame 中心がどこに来るか（スクリーン中央からのスケール）
-        let scaledFinalMidX = screenCenterX + (imageMidX - screenCenterX) * closingScale
-        let scaledFinalMidY = screenCenterY + (imageMidY - screenCenterY) * closingScale
-
-        // progress=1 でセル中心に一致させるオフセット
-        let targetOffX = cellMidX - scaledFinalMidX
-        let targetOffY = cellMidY - scaledFinalMidY
-
-        // imageViewport の領域だけを先にクリップする。
-        // これにより info パネルの透明エリアが黒背景を透かして見えるのを防ぐ。
-        let imageLocalRect = CGRect(x: start.minX - coverRect.minX,
-                                    y: start.minY - coverRect.minY,
-                                    width:  start.width,
-                                    height: start.height)
-        // スワイプ位置は dismissDragOffset のアニメーションで表現するため
-        // 外部オフセットはセル方向への移動のみ。
-        // p=0: 外部オフセットなし（画像は dismissDragOffset でリリース位置にある）
-        // p=1: targetOff（セル中心）
-        let combinedOffX = targetOffX * closingProgress
-        let combinedOffY = targetOffY * closingProgress
         content(triggerClose, $dismissDragOffset)
-            .environment(\.isDetailClosing, true)
+            .environment(\.isDetailClosing, showClosingMask || !isContentVisible)
             .frame(width: coverRect.width, height: coverRect.height)
-            .clipShape(FixedRectClip(rect: imageLocalRect))
-            .scaleEffect(currentScale, anchor: .center)
-            .offset(x: combinedOffX, y: combinedOffY)
-            .allowsHitTesting(false)
+            .scaleEffect(effectiveScale, anchor: .center)
+            // CoverClip 単一型: showClosingMask が変わっても型が同じなので View が再生成されない
+            .clipShape(CoverClip(
+                openW: openClipW, openH: openClipH,
+                openCornerRadius: 18 * (1 - openProgress),
+                fixedRect: imageLocalRect,
+                isClosing: showClosingMask))
+            .offset(x: effectiveOffX, y: effectiveOffY)
+            .opacity(effectiveOpacity)
+            .allowsHitTesting(isInteractive)
     }
 
     // MARK: - Animation helpers
@@ -827,30 +806,33 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
         isSwipeDismiss = false
         isDismissing = false
 
-        DispatchQueue.main.async {
-            withAnimation(.spring(response: animationDuration, dampingFraction: 0.86)) {
-                isExpanded = true
-            }
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
-                withAnimation(.easeOut(duration: 0.15)) {
-                    isContentVisible = true
-                }
+        // onAppear と同じターンで開始し、初期状態だけが描画されるフレームを作らない。
+        // 背景は isExpanded == false の間 opacity 0 のため透明から立ち上がる。
+        withAnimation(.spring(response: animationDuration, dampingFraction: 0.86)) {
+            isExpanded = true
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
+            withAnimation(.easeOut(duration: 0.15)) {
+                isContentVisible = true
             }
         }
     }
 
     private func startClosingAnimation() {
-        closingProgress = 0
-        showClosingMask = true
-        onCloseAnimationStarted?()
-
-        withAnimation(.easeIn(duration: animationDuration)) {
+        let releasedOffset = dismissDragOffset
+        let wasSwipeDismiss = dismissMagPeak > 0
+        // この2値は showClosingMask == false の間は描画に影響しないため、
+        // アニメーション開始値として先に固定する。
+        swipeReleasedOffset = releasedOffset
+        isSwipeDismiss = wasSwipeDismiss
+        withAnimation(.easeOut(duration: animationDuration)) {
+            isDismissing = true
+            isContentVisible = false
+            showClosingMask = true
             closingProgress = 1
-            // スワイプ閉じ: リリース位置から自然位置へ戻しながらセルへズームバック。
-            // ボタン閉じ: dismissDragOffset はすでに .zero なので無害。
-            dismissDragOffset = .zero
         }
-        DispatchQueue.main.asyncAfter(deadline: .now() + animationDuration) {
+        onCloseAnimationStarted?()
+        DispatchQueue.main.asyncAfter(deadline: .now() + animationDuration + 0.05) {
             onCloseAnimationFinished()
         }
     }
@@ -873,6 +855,30 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
 }
 
 // MARK: - ZoomClipShape
+
+/// Opening / Closing 両フェーズを単一型で扱うクリップ Shape。
+/// ZoomClipShape（opening）と FixedRectClip（closing）を型切り替えなしで表現し、
+/// content View の identity を維持してアニメーションの連続性を保つ。
+private struct CoverClip: Shape {
+    var openW: CGFloat
+    var openH: CGFloat
+    var openCornerRadius: CGFloat
+    var fixedRect: CGRect
+    var isClosing: Bool
+
+    func path(in rect: CGRect) -> Path {
+        if isClosing {
+            return Path(fixedRect)
+        } else {
+            let r = CGRect(
+                x: (rect.width  - openW) / 2,
+                y: (rect.height - openH) / 2,
+                width: openW, height: openH
+            )
+            return Path(roundedRect: r, cornerRadius: openCornerRadius, style: .continuous)
+        }
+    }
+}
 
 /// アニメーション中にクリップ矩形をセルサイズ→フルスクリーンへ補間するカスタム Shape。
 /// 親ビューの中央に配置され、均一スケールのコンテンツから縦横比を保ったまま切り出す。

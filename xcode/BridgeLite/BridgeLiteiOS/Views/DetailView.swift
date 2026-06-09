@@ -130,11 +130,6 @@ struct DetailView: View {
                                     .background(Color.black
                                         .opacity(isClosing ? 0 : dismissInfoOpacity)
                                         .ignoresSafeArea())
-                                    .overlay(GeometryReader { r in
-                                        Color.clear.preference(
-                                            key: DetailImageViewportFrameKey.self,
-                                            value: r.frame(in: .global))
-                                    })
                                     .safeAreaInset(edge: .trailing, spacing: 0) {
                                         landscapeInfoPanel(entry: entry)
                                             .opacity(isClosing ? 0 : dismissInfoOpacity)
@@ -149,11 +144,6 @@ struct DetailView: View {
                                         .background(Color.black
                                             .opacity(isClosing ? 0 : dismissInfoOpacity)
                                             .ignoresSafeArea(edges: .top))
-                                        .overlay(GeometryReader { r in
-                                            Color.clear.preference(
-                                                key: DetailImageViewportFrameKey.self,
-                                                value: r.frame(in: .global))
-                                        })
                                     portraitInfoColumn(entry: entry)
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                                         .opacity(isClosing ? 0 : dismissInfoOpacity)
@@ -564,6 +554,16 @@ struct DetailView: View {
             imageZStack(entry: entry, size: imageGeo.size)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
+        // Preference は offset 適用前に報告し capturedImageFrame を自然座標に保つ。
+        .overlay(GeometryReader { r in
+            Color.clear.preference(
+                key: DetailImageViewportFrameKey.self,
+                value: r.frame(in: .global))
+        })
+        // GeometryReader の外で offset を適用することで SwiftUI のアニメーション
+        // コンテキストが正しく伝播し、スワイプ→セルへのアニメーションが連続する。
+        .offset(x: dismissDragOffset.wrappedValue.width,
+                y: dismissDragOffset.wrappedValue.height)
     }
 
     @ViewBuilder
@@ -605,11 +605,6 @@ struct DetailView: View {
         }
         .clipped()
         .contentShape(Rectangle())
-        // 写真コンテンツのみ指に追従させる。
-        // .clipped() の後に適用することで黒背景・情報パネルは動かない。
-        // capturedImageFrame は imageViewport overlay で報告しているため常に自然座標。
-        .offset(x: dismissDragOffset.wrappedValue.width,
-                y: dismissDragOffset.wrappedValue.height)
     }
 
     // MARK: - Landscape Info Panel
