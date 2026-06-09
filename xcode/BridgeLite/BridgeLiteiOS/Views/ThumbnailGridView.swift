@@ -6,7 +6,6 @@ struct ThumbnailGridView: View {
     @State var ratingStore: RatingStore
     @State private var selectedGroup: ShotGroup?
     @State private var selectedSourceRect: CGRect?
-    @State private var visibleCellFrames: [UInt64: CGRect] = [:]
     @State private var isDetailZoomClosing = false
     @State private var preferRendered: Bool
 
@@ -171,7 +170,7 @@ struct ThumbnailGridView: View {
             NavigationStack { mainContent }
                 .fullScreenCover(item: $selectedGroup) { group in
                     ExpandFromCellFullScreenCover(
-                        sourceRect: visibleCellFrames[group.id] ?? selectedSourceRect,
+                        sourceRect: selectedSourceRect,
                         isClosing: isDetailZoomClosing,
                         onCloseAnimationFinished: finishDetailDismissal
                     ) {
@@ -208,8 +207,8 @@ struct ThumbnailGridView: View {
         )
     }
 
-    private func presentDetail(group: ShotGroup) {
-        selectedSourceRect = visibleCellFrames[group.id]
+    private func presentDetail(group: ShotGroup, sourceRect: CGRect?) {
+        selectedSourceRect = sourceRect
         isDetailZoomClosing = false
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
@@ -250,33 +249,35 @@ struct ThumbnailGridView: View {
             ScrollView {
                 LazyVGrid(columns: columns, spacing: gridSpacing) {
                     ForEach(groups) { group in
+                        let repID = group.representativeID ?? group.memberIDs.first
                         ThumbnailCellView(
                             group: group,
-                            entries: scanStore.entries,
-                            thumbnails: scanStore.thumbnails,
-                            ratings: ratingStore.ratings,
-                            exifs: scanStore.exifs,
+                            thumbnailData: repID.flatMap { scanStore.thumbnails[$0] },
+                            xmp: repID.flatMap { ratingStore.ratings[$0] },
                             kind: scanStore.representativeKind(for: group, xmps: ratingStore.ratings),
                             squareCellSize: cellSize,
                             onTap: {
                                 scanStore.resetAutoReleaseTimer()
-                                if isPad {
-                                    presentDetail(group: group)
-                                } else {
-                                    selectedGroup = group
-                                }
+                                // iPhone のみ: iPad は simultaneousGesture で処理。
+                                if !isPad { selectedGroup = group }
                             },
                             onDelete: { groupPendingDelete = group }
                         )
                         .id(group.id)
-                        .background {
-                            GeometryReader { cellGeo in
-                                Color.clear.preference(
-                                    key: ThumbnailCellFramePreferenceKey.self,
-                                    value: [group.id: cellGeo.frame(in: .global)]
-                                )
-                            }
-                        }
+                        // iPad: SpatialTapGesture は tap 専用（pan ではない）のため
+                        // ScrollView の pan ジェスチャーと競合せずスクロールを妨げない。
+                        // simultaneousGesture で Button と同時発火させタップ座標を取得。
+                        .simultaneousGesture(
+                            SpatialTapGesture(coordinateSpace: .global)
+                                .onEnded { value in
+                                    guard isPad else { return }
+                                    let loc = value.location
+                                    let sourceRect = CGRect(x: loc.x - cellSize / 2,
+                                                            y: loc.y - cellSize / 2,
+                                                            width: cellSize, height: cellSize)
+                                    presentDetail(group: group, sourceRect: sourceRect)
+                                }
+                        )
                         .task(id: group.representativeID ?? group.id) {
                             guard let repID = group.representativeID ?? group.memberIDs.first,
                                   let entry = scanStore.entries[repID],
@@ -291,9 +292,6 @@ struct ThumbnailGridView: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in scanStore.resetAutoReleaseTimer() }
             )
-            .onPreferenceChange(ThumbnailCellFramePreferenceKey.self) { frames in
-                visibleCellFrames = frames
-            }
         }
     }
 
@@ -600,13 +598,6 @@ struct ThumbnailGridView: View {
     }
 }
 
-private struct ThumbnailCellFramePreferenceKey: PreferenceKey {
-    nonisolated(unsafe) static var defaultValue: [UInt64: CGRect] = [:]
-
-    static func reduce(value: inout [UInt64: CGRect], nextValue: () -> [UInt64: CGRect]) {
-        value.merge(nextValue(), uniquingKeysWith: { _, new in new })
-    }
-}
 
 // DetailView の imageViewport がグローバル座標を報告するための PreferenceKey。
 // internal（private でない）にすることで DetailView.swift からも使用できる。

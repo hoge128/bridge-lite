@@ -2,19 +2,15 @@ import SwiftUI
 
 struct ThumbnailCellView: View {
     let group: ShotGroup
-    let entries: [UInt64: PhotoEntry]
-    let thumbnails: [UInt64: Data]
-    let ratings: [UInt64: XmpData]
-    let exifs: [UInt64: ExifData]
+    /// このセルの代表画像サムネイル（辞書全体でなく必要な1エントリのみ）
+    let thumbnailData: Data?
+    /// このセルの XMP 評価データ（辞書全体でなく必要な1エントリのみ）
+    let xmp: XmpData?
     let kind: PhotoKind
     /// nil = 2列モード（自然アスペクト比）、非 nil = 3列モード（正方形、値はセル幅）
     let squareCellSize: CGFloat?
     let onTap: () -> Void
     let onDelete: () -> Void
-
-    private var representativeID: UInt64? { group.representativeID }
-    private var thumbnailData: Data? { representativeID.flatMap { thumbnails[$0] } }
-    private var xmp: XmpData? { representativeID.flatMap { ratings[$0] } }
 
     var body: some View {
         Button(action: onTap) {
