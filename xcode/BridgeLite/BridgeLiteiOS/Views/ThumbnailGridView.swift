@@ -6,7 +6,6 @@ struct ThumbnailGridView: View {
     @State var ratingStore: RatingStore
     @State private var selectedGroup: ShotGroup?
     @State private var selectedSourceRect: CGRect?
-    @State private var isDetailZoomClosing = false
     @State private var preferRendered: Bool
 
     init(scanStore: ScanStore, ratingStore: RatingStore) {
@@ -171,11 +170,10 @@ struct ThumbnailGridView: View {
                 .fullScreenCover(item: $selectedGroup) { group in
                     ExpandFromCellFullScreenCover(
                         sourceRect: selectedSourceRect,
-                        isClosing: isDetailZoomClosing,
                         onCloseAnimationFinished: finishDetailDismissal
-                    ) {
+                    ) { triggerClose in
                         NavigationStack {
-                            detailView(group: group, onClose: beginDetailDismissal)
+                            detailView(group: group, onClose: triggerClose)
                         }
                     }
                     .interactiveDismissDisabled(true)
@@ -209,7 +207,6 @@ struct ThumbnailGridView: View {
 
     private func presentDetail(group: ShotGroup, sourceRect: CGRect?) {
         selectedSourceRect = sourceRect
-        isDetailZoomClosing = false
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
         UIView.performWithoutAnimation {
@@ -217,11 +214,6 @@ struct ThumbnailGridView: View {
                 selectedGroup = group
             }
         }
-    }
-
-    private func beginDetailDismissal() {
-        guard selectedGroup != nil, !isDetailZoomClosing else { return }
-        isDetailZoomClosing = true
     }
 
     private func finishDetailDismissal() {
@@ -232,7 +224,6 @@ struct ThumbnailGridView: View {
                 selectedGroup = nil
             }
         }
-        isDetailZoomClosing = false
         selectedSourceRect = nil
     }
 
@@ -611,12 +602,13 @@ struct DetailImageViewportFrameKey: PreferenceKey {
 
 private struct ExpandFromCellFullScreenCover<Content: View>: View {
     let sourceRect: CGRect?
-    let isClosing: Bool
     let onCloseAnimationFinished: () -> Void
-    let content: Content
+    /// content は triggerClose クロージャを受け取る ViewBuilder。
+    /// DetailView の閉じるボタンがこのクロージャを直接呼ぶことで、
+    /// ThumbnailGridView を経由するフレーム遅延をなくす。
+    let content: (_ triggerClose: @escaping () -> Void) -> Content
 
     @State private var isExpanded = false
-    @State private var hasFinishedClosing = false
     @State private var isContentVisible = false
     /// DetailView の imageViewport から受け取ったグローバル座標フレーム。
     @State private var capturedImageFrame: CGRect = .zero
@@ -629,14 +621,19 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
 
     init(
         sourceRect: CGRect?,
-        isClosing: Bool,
         onCloseAnimationFinished: @escaping () -> Void,
-        @ViewBuilder content: () -> Content
+        @ViewBuilder content: @escaping (_ triggerClose: @escaping () -> Void) -> Content
     ) {
         self.sourceRect = sourceRect
-        self.isClosing = isClosing
         self.onCloseAnimationFinished = onCloseAnimationFinished
-        self.content = content()
+        self.content = content
+    }
+
+    /// 閉じるボタンから直接呼ばれる。ThumbnailGridView を経由しないので即座に発火する。
+    private func triggerClose() {
+        guard !showClosingMask else { return }
+        isContentVisible = false
+        startClosingAnimation()
     }
 
     var body: some View {
@@ -660,12 +657,6 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
             .frame(width: coverRect.width, height: coverRect.height)
             .background(Color.clear)
             .onAppear { startOpenAnimation() }
-            .onChange(of: isClosing) { _, closing in
-                guard closing, !hasFinishedClosing else { return }
-                hasFinishedClosing = true
-                isContentVisible = false
-                startClosingAnimation()
-            }
             .onPreferenceChange(DetailImageViewportFrameKey.self) { frame in
                 if isExpanded, isContentVisible, !frame.isEmpty {
                     capturedImageFrame = frame
@@ -688,7 +679,7 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
         let offX  = t.offsetX * (1 - progress)
         let offY  = t.offsetY * (1 - progress)
 
-        content
+        content(triggerClose)
             .environment(\.isDetailClosing, !isContentVisible)
             .frame(width: coverRect.width, height: coverRect.height)
             .scaleEffect(scale, anchor: .center)
@@ -696,7 +687,7 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
                                      cornerRadius: 18 * (1 - progress)))
             .offset(x: offX, y: offY)
             .opacity(sourceRect == nil ? Double(progress) : 1)
-            .allowsHitTesting(isExpanded && !isClosing)
+            .allowsHitTesting(isExpanded)
     }
 
     // MARK: - Close animation content（scale+offset 方式）
@@ -739,7 +730,7 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
                                     y: start.minY - coverRect.minY,
                                     width:  start.width,
                                     height: start.height)
-        content
+        content(triggerClose)
             .environment(\.isDetailClosing, true)
             .frame(width: coverRect.width, height: coverRect.height)
             .clipShape(FixedRectClip(rect: imageLocalRect))
@@ -752,7 +743,6 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
 
     private func startOpenAnimation() {
         isExpanded = false
-        hasFinishedClosing = false
         isContentVisible = false
         showClosingMask = false
         closingProgress = 0

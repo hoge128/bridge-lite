@@ -1386,12 +1386,10 @@ private struct ZoomableImageView: UIViewRepresentable {
             case .ended, .cancelled:
                 defer { navDragAxis = .undecided }
                 if navDragAxis == .vertical {
-                    if horizontalPanOnly {
-                        navDragOffset.wrappedValue = 0
-                        return
-                    }
-                    // iPhone（sheet 内）従来挙動。
-                    if t.y > 60 || vel.y > 400 {
+                    // iPad: higher threshold to avoid accidental dismiss. iPhone: standard.
+                    let distThreshold: CGFloat = horizontalPanOnly ? 80 : 60
+                    let velThreshold: CGFloat  = horizontalPanOnly ? 500 : 400
+                    if t.y > distThreshold || vel.y > velThreshold {
                         onDismiss?()
                     }
                     navDragOffset.wrappedValue = 0
@@ -1433,7 +1431,8 @@ private struct ZoomableImageView: UIViewRepresentable {
             guard horizontalPanOnly, gestureRecognizer === navPanGesture,
                   let pan = gestureRecognizer as? UIPanGestureRecognizer else { return true }
             let velocity = pan.velocity(in: pan.view)
-            return abs(velocity.x) > abs(velocity.y)
+            // Allow horizontal navigation OR downward swipe-to-dismiss.
+            return abs(velocity.x) > abs(velocity.y) || velocity.y > 50
         }
     }
 }
