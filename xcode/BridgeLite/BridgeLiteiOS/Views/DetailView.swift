@@ -24,7 +24,20 @@ struct DetailView: View {
     /// let スナップショットだと DetailView オープン後のバッチ生成分が反映されない。
     private var thumbnails: [UInt64: Data] { scanStore.thumbnails }
     let onClose: () -> Void
+    private let dismissDragOffset: Binding<CGSize>
     @Environment(\.isDetailClosing) private var isClosing
+
+    /// ジェスチャー中に記録した開始点からの最大距離。
+    /// 一度しきい値を超えたら指を戻しても opacity が上がらないようにする。
+    @State private var dismissPeakDist: CGFloat = 0
+
+    /// dist=0: 1.0、dist≥100pt: 0.0。ピーク値を使うため指を戻しても戻らない。
+    private var dismissInfoOpacity: Double {
+        let d = dismissDragOffset.wrappedValue
+        let dist = sqrt(Double(d.width * d.width + d.height * d.height))
+        let effective = max(dist, Double(dismissPeakDist))
+        return max(0, 1.0 - effective / 100)
+    }
 
     @State private var currentGroupIndex: Int
     @State private var currentIndex: Int
@@ -61,8 +74,10 @@ struct DetailView: View {
          jpgWriteMode: JpgWriteMode = .embed,
          scanStore: ScanStore,
          preferRendered: Binding<Bool>,
+         dismissDragOffset: Binding<CGSize> = .constant(.zero),
          onClose: @escaping () -> Void) {
         self.onClose = onClose
+        self.dismissDragOffset = dismissDragOffset
         self.groups = groups
         self.fallbackGroup = initialGroup
         self.entries = entries
@@ -112,7 +127,9 @@ struct DetailView: View {
                         GeometryReader { g in
                             if g.size.width > g.size.height {
                                 imageViewport(entry: entry)
-                                    .background(Color.black.ignoresSafeArea())
+                                    .background(Color.black
+                                        .opacity(isClosing ? 0 : dismissInfoOpacity)
+                                        .ignoresSafeArea())
                                     .overlay(GeometryReader { r in
                                         Color.clear.preference(
                                             key: DetailImageViewportFrameKey.self,
@@ -120,7 +137,7 @@ struct DetailView: View {
                                     })
                                     .safeAreaInset(edge: .trailing, spacing: 0) {
                                         landscapeInfoPanel(entry: entry)
-                                            .opacity(isClosing ? 0 : 1)
+                                            .opacity(isClosing ? 0 : dismissInfoOpacity)
                                             .animation(.easeOut(duration: 0.1), value: isClosing)
                                     }
                             } else {
@@ -129,7 +146,9 @@ struct DetailView: View {
                                     // 情報エリアは透明にしてガラス要素を浮かせる。
                                     imageViewport(entry: entry)
                                         .frame(height: g.size.height * 0.58)
-                                        .background(Color.black.ignoresSafeArea(edges: .top))
+                                        .background(Color.black
+                                            .opacity(isClosing ? 0 : dismissInfoOpacity)
+                                            .ignoresSafeArea(edges: .top))
                                         .overlay(GeometryReader { r in
                                             Color.clear.preference(
                                                 key: DetailImageViewportFrameKey.self,
@@ -137,7 +156,7 @@ struct DetailView: View {
                                         })
                                     portraitInfoColumn(entry: entry)
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
-                                        .opacity(isClosing ? 0 : 1)
+                                        .opacity(isClosing ? 0 : dismissInfoOpacity)
                                         .animation(.easeOut(duration: 0.1), value: isClosing)
                                 }
                             }
@@ -145,6 +164,12 @@ struct DetailView: View {
                     }
                 }
             }
+        }
+        .onChange(of: dismissDragOffset.wrappedValue) { _, newOffset in
+            let dist = sqrt(newOffset.width * newOffset.width + newOffset.height * newOffset.height)
+            if dist > dismissPeakDist { dismissPeakDist = dist }
+            // snap-back でオフセットが 0 に戻ったらピークをリセット
+            if newOffset == .zero { dismissPeakDist = 0 }
         }
         .onChange(of: currentIndex) { isImageZoomed = false }
         .onChange(of: currentGroupIndex) {
@@ -293,6 +318,7 @@ struct DetailView: View {
                     uiImage: img,
                     isZoomed: $isImageZoomed,
                     navDragOffset: navDragOffset,
+                    dismissDragOffset: dismissDragOffset,
                     screenWidth: screenWidth,
                     canNavigatePrev: canNavigatePrev,
                     canNavigateNext: canNavigateNext,
@@ -579,6 +605,11 @@ struct DetailView: View {
         }
         .clipped()
         .contentShape(Rectangle())
+        // 写真コンテンツのみ指に追従させる。
+        // .clipped() の後に適用することで黒背景・情報パネルは動かない。
+        // capturedImageFrame は imageViewport overlay で報告しているため常に自然座標。
+        .offset(x: dismissDragOffset.wrappedValue.width,
+                y: dismissDragOffset.wrappedValue.height)
     }
 
     // MARK: - Landscape Info Panel
@@ -812,9 +843,15 @@ private final class HostingClearView: UIView {
     private func clearHostingParents() {
         var parent = superview
         while let p = parent {
-            if p.backgroundColor != .clear &&
-               NSStringFromClass(type(of: p)).contains("Hosting") {
-                p.backgroundColor = .clear
+            if p.backgroundColor != .clear {
+                let cls = NSStringFromClass(type(of: p))
+                // UIHostingController 系の view に加え、
+                // UINavigationController の view も透明化する。
+                // デフォルトの .systemBackground（白）がレターボックス領域から
+                // 透けて見えるのを防ぐため。
+                if cls.contains("Hosting") || cls.contains("NavigationController") {
+                    p.backgroundColor = .clear
+                }
             }
             parent = p.superview
         }
@@ -1141,13 +1178,13 @@ private struct ZoomableImageView: UIViewRepresentable {
     let uiImage: UIImage
     @Binding var isZoomed: Bool
     @Binding var navDragOffset: CGFloat
+    var dismissDragOffset: Binding<CGSize> = .constant(.zero)
     var screenWidth: CGFloat
     var canNavigatePrev: Bool
     var canNavigateNext: Bool
     var onNavigate: ((Int) -> Void)?
     var onDismiss: (() -> Void)?
-    /// iPad push では縦 pan を OS の interactive dismiss/pop に委ねるため、
-    /// この recognizer は横スワイプ送りだけを扱う。
+    /// iPad では縦スワイプで dismiss ジェスチャーを開始し、その後上下左右に追従する。
     var horizontalPanOnly: Bool = false
     var onSingleTap: (() -> Void)? = nil
 
@@ -1155,6 +1192,7 @@ private struct ZoomableImageView: UIViewRepresentable {
         Coordinator(
             isZoomed: $isZoomed,
             navDragOffset: $navDragOffset,
+            dismissDragOffset: dismissDragOffset,
             screenWidth: screenWidth,
             canNavigatePrev: canNavigatePrev,
             canNavigateNext: canNavigateNext,
@@ -1227,6 +1265,7 @@ private struct ZoomableImageView: UIViewRepresentable {
         context.coordinator.onDismiss = onDismiss
         context.coordinator.horizontalPanOnly = horizontalPanOnly
         context.coordinator.navDragOffset = $navDragOffset
+        context.coordinator.dismissDragOffset = dismissDragOffset
         guard context.coordinator.imageView?.image !== uiImage else { return }
         context.coordinator.imageView?.image = uiImage
         context.coordinator.recalculateLayout(sv)
@@ -1235,6 +1274,7 @@ private struct ZoomableImageView: UIViewRepresentable {
     final class Coordinator: NSObject, UIScrollViewDelegate, UIGestureRecognizerDelegate {
         var isZoomed: Binding<Bool>
         var navDragOffset: Binding<CGFloat> = .constant(0)
+        var dismissDragOffset: Binding<CGSize> = .constant(.zero)
         var screenWidth: CGFloat = 390
         var canNavigatePrev: Bool = false
         var canNavigateNext: Bool = false
@@ -1248,10 +1288,16 @@ private struct ZoomableImageView: UIViewRepresentable {
         weak var navPanGesture: UIPanGestureRecognizer?
         private var navDragAxis: NavAxis = .undecided
         private enum NavAxis { case undecided, horizontal, vertical }
+        /// true の間は上下左右すべての移動を dismiss ジェスチャーとして追従する。
+        private var isDismissGestureActive = false
+        /// 開始点からの距離が 100pt を超えた瞬間に立てるフラグ。
+        /// 指を元の位置に戻しても dismiss 確定を維持するために使う。
+        private var hasExceededSwipeThreshold = false
 
         init(
             isZoomed: Binding<Bool>,
             navDragOffset: Binding<CGFloat>,
+            dismissDragOffset: Binding<CGSize>,
             screenWidth: CGFloat,
             canNavigatePrev: Bool,
             canNavigateNext: Bool,
@@ -1262,6 +1308,7 @@ private struct ZoomableImageView: UIViewRepresentable {
         ) {
             self.isZoomed = isZoomed
             self.navDragOffset = navDragOffset
+            self.dismissDragOffset = dismissDragOffset
             self.screenWidth = screenWidth
             self.canNavigatePrev = canNavigatePrev
             self.canNavigateNext = canNavigateNext
@@ -1361,10 +1408,21 @@ private struct ZoomableImageView: UIViewRepresentable {
             switch g.state {
             case .began:
                 navDragAxis = .undecided
-                // タップ遅延実行がスワイプと競合しないようキャンセル
+                isDismissGestureActive = false
+                hasExceededSwipeThreshold = false
                 pendingSingleTap?.cancel()
                 pendingSingleTap = nil
             case .changed:
+                if isDismissGestureActive && horizontalPanOnly {
+                    // dismiss ジェスチャー活性後: 上下左右すべてに指追従
+                    dismissDragOffset.wrappedValue = CGSize(width: t.x, height: t.y)
+                    // 開始点からの距離が 100pt を超えたらフラグを立てる（一度立ったら下がらない）
+                    if !hasExceededSwipeThreshold {
+                        let dist = sqrt(t.x * t.x + t.y * t.y)
+                        if dist > 100 { hasExceededSwipeThreshold = true }
+                    }
+                    return
+                }
                 if navDragAxis == .undecided {
                     if abs(t.x) > abs(t.y) && abs(t.x) > 8 {
                         navDragAxis = .horizontal
@@ -1382,16 +1440,34 @@ private struct ZoomableImageView: UIViewRepresentable {
                         clampedOffset = t.x
                     }
                     navDragOffset.wrappedValue = clampedOffset
+                } else if navDragAxis == .vertical && horizontalPanOnly {
+                    // iPad 縦スワイプ開始 → dismiss ジェスチャーを活性化して追従開始
+                    isDismissGestureActive = true
+                    dismissDragOffset.wrappedValue = CGSize(width: t.x, height: t.y)
                 }
             case .ended, .cancelled:
                 defer { navDragAxis = .undecided }
-                if navDragAxis == .vertical {
-                    // iPad: higher threshold to avoid accidental dismiss. iPhone: standard.
-                    let distThreshold: CGFloat = horizontalPanOnly ? 80 : 60
-                    let velThreshold: CGFloat  = horizontalPanOnly ? 500 : 400
-                    if t.y > distThreshold || vel.y > velThreshold {
+                if isDismissGestureActive && horizontalPanOnly {
+                    isDismissGestureActive = false
+                    let speed = sqrt(vel.x * vel.x + vel.y * vel.y)
+                    // しきい値フラグ立済み → 指の位置に関わらず dismiss 確定
+                    // フラグ未達でも高速フリックなら dismiss
+                    let shouldDismiss = hasExceededSwipeThreshold
+                        || (g.state == .ended && speed > 700)
+                    hasExceededSwipeThreshold = false
+                    if shouldDismiss {
                         onDismiss?()
+                    } else {
+                        withAnimation(.spring(response: 0.4, dampingFraction: 0.82)) {
+                            dismissDragOffset.wrappedValue = .zero
+                        }
                     }
+                    navDragOffset.wrappedValue = 0
+                    return
+                }
+                if navDragAxis == .vertical {
+                    // iPhone: standard sheet dismiss threshold
+                    if t.y > 60 || vel.y > 400 { onDismiss?() }
                     navDragOffset.wrappedValue = 0
                     return
                 }

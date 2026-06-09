@@ -6,6 +6,8 @@ struct ThumbnailGridView: View {
     @State var ratingStore: RatingStore
     @State private var selectedGroup: ShotGroup?
     @State private var selectedSourceRect: CGRect?
+    @State private var selectedCellDimOpacity: Double = 0
+    @State private var coverOpacity: Double = 1.0
     @State private var preferRendered: Bool
 
     init(scanStore: ScanStore, ratingStore: RatingStore) {
@@ -170,12 +172,18 @@ struct ThumbnailGridView: View {
                 .fullScreenCover(item: $selectedGroup) { group in
                     ExpandFromCellFullScreenCover(
                         sourceRect: selectedSourceRect,
+                        onCloseAnimationStarted: {
+                            withAnimation(.easeIn(duration: 0.22)) {
+                                selectedCellDimOpacity = 0
+                            }
+                        },
                         onCloseAnimationFinished: finishDetailDismissal
-                    ) { triggerClose in
+                    ) { triggerClose, dismissDragOffset in
                         NavigationStack {
-                            detailView(group: group, onClose: triggerClose)
+                            detailView(group: group, onClose: triggerClose, dismissDragOffset: dismissDragOffset)
                         }
                     }
+                    .opacity(coverOpacity)
                     .interactiveDismissDisabled(true)
                 }
         } else {
@@ -188,7 +196,8 @@ struct ThumbnailGridView: View {
         }
     }
 
-    private func detailView(group: ShotGroup, onClose: @escaping () -> Void) -> some View {
+    private func detailView(group: ShotGroup, onClose: @escaping () -> Void,
+                            dismissDragOffset: Binding<CGSize> = .constant(.zero)) -> some View {
         DetailView(
             groups: filteredGroups,
             initialGroup: group,
@@ -201,12 +210,15 @@ struct ThumbnailGridView: View {
             jpgWriteMode: scanStore.jpgWriteMode,
             scanStore: scanStore,
             preferRendered: $preferRendered,
+            dismissDragOffset: dismissDragOffset,
             onClose: onClose
         )
     }
 
     private func presentDetail(group: ShotGroup, sourceRect: CGRect?) {
         selectedSourceRect = sourceRect
+        selectedCellDimOpacity = 1.0  // 開いた瞬間にセルを黒く
+        coverOpacity = 1.0            // dismiss 後のリセットより先に開いた場合も確実に不透明に
         var transaction = Transaction(animation: nil)
         transaction.disablesAnimations = true
         UIView.performWithoutAnimation {
@@ -217,14 +229,26 @@ struct ThumbnailGridView: View {
     }
 
     private func finishDetailDismissal() {
-        var transaction = Transaction(animation: nil)
-        transaction.disablesAnimations = true
-        UIView.performWithoutAnimation {
-            withTransaction(transaction) {
-                selectedGroup = nil
+        selectedCellDimOpacity = 0
+        selectedSourceRect = nil
+        // 1. カバーを即座に不透明度 0 にして現フレームで透明化する。
+        // 2. 次フレームで selectedGroup = nil を実行し UIKit に dismiss を伝える。
+        // UIKit の transition frame では既に opacity=0 になっているため flash しない。
+        // coverOpacity を先に 0 にして SwiftUI に transparent フレームを描画させる。
+        // async ブロックには coverOpacity = 1.0 を書かない。
+        // 同じ closure に書くと SwiftUI が 0→1.0 をバッチ処理して
+        // UIKit dismiss snapshot が opacity=1 になり flash が起きるため。
+        // リセットは次の presentDetail() 内で行う。
+        coverOpacity = 0
+        DispatchQueue.main.async {
+            var transaction = Transaction(animation: nil)
+            transaction.disablesAnimations = true
+            UIView.performWithoutAnimation {
+                withTransaction(transaction) {
+                    self.selectedGroup = nil
+                }
             }
         }
-        selectedSourceRect = nil
     }
 
     private var grid: some View {
@@ -254,6 +278,14 @@ struct ThumbnailGridView: View {
                             },
                             onDelete: { groupPendingDelete = group }
                         )
+                        .overlay {
+                            // 現在開いているセルを黒くし、閉じるアニメーションで徐々に明転する
+                            if group.id == selectedGroup?.id, selectedCellDimOpacity > 0 {
+                                Color.black
+                                    .opacity(selectedCellDimOpacity)
+                                    .allowsHitTesting(false)
+                            }
+                        }
                         .id(group.id)
                         // iPad: SpatialTapGesture は tap 専用（pan ではない）のため
                         // ScrollView の pan ジェスチャーと競合せずスクロールを妨げない。
@@ -602,14 +634,20 @@ struct DetailImageViewportFrameKey: PreferenceKey {
 
 private struct ExpandFromCellFullScreenCover<Content: View>: View {
     let sourceRect: CGRect?
+    let onCloseAnimationStarted: (() -> Void)?
     let onCloseAnimationFinished: () -> Void
     /// content は triggerClose クロージャを受け取る ViewBuilder。
     /// DetailView の閉じるボタンがこのクロージャを直接呼ぶことで、
     /// ThumbnailGridView を経由するフレーム遅延をなくす。
-    let content: (_ triggerClose: @escaping () -> Void) -> Content
+    let content: (_ triggerClose: @escaping () -> Void, _ dismissDragOffset: Binding<CGSize>) -> Content
 
     @State private var isExpanded = false
     @State private var isContentVisible = false
+    @State private var dismissDragOffset: CGSize = .zero
+    @State private var dismissMagPeak: Double = 0
+    @State private var swipeReleasedOffset: CGSize = .zero
+    @State private var isSwipeDismiss: Bool = false
+    @State private var isDismissing = false
     /// DetailView の imageViewport から受け取ったグローバル座標フレーム。
     @State private var capturedImageFrame: CGRect = .zero
     /// 閉じるアニメーション中、マスクを使ってコンテンツを縮小するフラグ。
@@ -621,18 +659,29 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
 
     init(
         sourceRect: CGRect?,
+        onCloseAnimationStarted: (() -> Void)? = nil,
         onCloseAnimationFinished: @escaping () -> Void,
-        @ViewBuilder content: @escaping (_ triggerClose: @escaping () -> Void) -> Content
+        @ViewBuilder content: @escaping (_ triggerClose: @escaping () -> Void, _ dismissDragOffset: Binding<CGSize>) -> Content
     ) {
         self.sourceRect = sourceRect
+        self.onCloseAnimationStarted = onCloseAnimationStarted
         self.onCloseAnimationFinished = onCloseAnimationFinished
         self.content = content
     }
 
-    /// 閉じるボタンから直接呼ばれる。ThumbnailGridView を経由しないので即座に発火する。
+    /// 閉じるボタン / スワイプディスミスから直接呼ばれる。ThumbnailGridView を経由しない。
     private func triggerClose() {
-        guard !showClosingMask else { return }
+        guard !isDismissing else { return }
+        isDismissing = true
         isContentVisible = false
+        // dismissMagPeak > 0 ならスワイプ操作があった（指を戻しても true のまま）。
+        // swipeReleasedOffset == .zero だと開始位置に戻して離した場合に誤判定するため
+        // このフラグで黒フラッシュを防ぐ。
+        isSwipeDismiss = dismissMagPeak > 0
+        swipeReleasedOffset = dismissDragOffset
+        // dismissDragOffset はここでリセットせず startClosingAnimation() 内で
+        // closingProgress と同時アニメーションする。
+        // これにより closingContent の開始状態がリリース時の見た目と一致する。
         startClosingAnimation()
     }
 
@@ -641,8 +690,21 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
             let coverRect = coverGeo.frame(in: .global)
 
             ZStack {
+                let dismissMag = sqrt(Double(dismissDragOffset.width * dismissDragOffset.width
+                                            + dismissDragOffset.height * dismissDragOffset.height))
+                // ピーク値を使うことで指を戻しても背景が戻らないようにする
+                let effectiveMag = max(dismissMag, dismissMagPeak)
+                let dismissProgress = min(max(effectiveMag / 400, 0), 1)
                 Color.black
-                    .opacity(showClosingMask ? Double(1 - closingProgress) : (isExpanded ? 1 : 0))
+                    .opacity(showClosingMask
+                             // ボタン閉じ: 1.0 → 0 へフェード
+                             // スワイプ閉じ: すでに透明。swipeReleasedOffset が .zero でも
+                             //   開始位置に戻して離した場合は isSwipeDismiss が true になるので
+                             //   フラッシュを確実に防げる。
+                             ? (isSwipeDismiss ? 0.0 : Double(1 - closingProgress))
+                             : isExpanded
+                                 ? max(0, 1.0 - dismissProgress * 1.5)
+                                 : 0)
                     .ignoresSafeArea()
 
                 if !showClosingMask {
@@ -657,6 +719,11 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
             .frame(width: coverRect.width, height: coverRect.height)
             .background(Color.clear)
             .onAppear { startOpenAnimation() }
+            .onChange(of: dismissDragOffset) { _, newOffset in
+                let mag = sqrt(Double(newOffset.width * newOffset.width + newOffset.height * newOffset.height))
+                if mag > dismissMagPeak { dismissMagPeak = mag }
+                if newOffset == .zero { dismissMagPeak = 0 }
+            }
             .onPreferenceChange(DetailImageViewportFrameKey.self) { frame in
                 if isExpanded, isContentVisible, !frame.isEmpty {
                     capturedImageFrame = frame
@@ -678,8 +745,9 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
         let clipH = t.clipH + (coverRect.height - t.clipH) * progress
         let offX  = t.offsetX * (1 - progress)
         let offY  = t.offsetY * (1 - progress)
-
-        content(triggerClose)
+        // dismissDragOffset は DetailView 内の imageViewport 単体に適用されるため、
+        // ここでは全体 offset を変更しない。背景の透明化のみ body 側で行う。
+        content(triggerClose, $dismissDragOffset)
             .environment(\.isDetailClosing, !isContentVisible)
             .frame(width: coverRect.width, height: coverRect.height)
             .scaleEffect(scale, anchor: .center)
@@ -687,7 +755,7 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
                                      cornerRadius: 18 * (1 - progress)))
             .offset(x: offX, y: offY)
             .opacity(sourceRect == nil ? Double(progress) : 1)
-            .allowsHitTesting(isExpanded)
+            .allowsHitTesting(isExpanded && !isDismissing)
     }
 
     // MARK: - Close animation content（scale+offset 方式）
@@ -730,12 +798,18 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
                                     y: start.minY - coverRect.minY,
                                     width:  start.width,
                                     height: start.height)
-        content(triggerClose)
+        // スワイプ位置は dismissDragOffset のアニメーションで表現するため
+        // 外部オフセットはセル方向への移動のみ。
+        // p=0: 外部オフセットなし（画像は dismissDragOffset でリリース位置にある）
+        // p=1: targetOff（セル中心）
+        let combinedOffX = targetOffX * closingProgress
+        let combinedOffY = targetOffY * closingProgress
+        content(triggerClose, $dismissDragOffset)
             .environment(\.isDetailClosing, true)
             .frame(width: coverRect.width, height: coverRect.height)
             .clipShape(FixedRectClip(rect: imageLocalRect))
             .scaleEffect(currentScale, anchor: .center)
-            .offset(x: targetOffX * closingProgress, y: targetOffY * closingProgress)
+            .offset(x: combinedOffX, y: combinedOffY)
             .allowsHitTesting(false)
     }
 
@@ -747,6 +821,11 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
         showClosingMask = false
         closingProgress = 0
         capturedImageFrame = .zero
+        dismissDragOffset = .zero
+        dismissMagPeak = 0
+        swipeReleasedOffset = .zero
+        isSwipeDismiss = false
+        isDismissing = false
 
         DispatchQueue.main.async {
             withAnimation(.spring(response: animationDuration, dampingFraction: 0.86)) {
@@ -763,9 +842,13 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
     private func startClosingAnimation() {
         closingProgress = 0
         showClosingMask = true
+        onCloseAnimationStarted?()
 
         withAnimation(.easeIn(duration: animationDuration)) {
             closingProgress = 1
+            // スワイプ閉じ: リリース位置から自然位置へ戻しながらセルへズームバック。
+            // ボタン閉じ: dismissDragOffset はすでに .zero なので無害。
+            dismissDragOffset = .zero
         }
         DispatchQueue.main.asyncAfter(deadline: .now() + animationDuration) {
             onCloseAnimationFinished()
