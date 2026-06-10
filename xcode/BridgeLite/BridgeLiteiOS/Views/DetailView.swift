@@ -51,9 +51,11 @@ struct DetailView: View {
     @State private var ratingWriteTask: Task<Void, Never>?
     @State private var showInfoPanel = false
 
-    // フルサイズキャッシュ（最大3枚 FIFO: prev / current / next）
+    // フルサイズキャッシュ（最大5枚 LRU。退避時は表示中の写真を保護する）
     @State private var fullResCache: [FullResEntry] = []
     @State private var isLoadingFullRes = false
+    // 同一エントリの二重デコード防止
+    @State private var inFlightFullRes: Set<UInt64> = []
 
     // RAW レンダリング
     @State private var rawRendered: UIImage? = nil
@@ -498,14 +500,31 @@ struct DetailView: View {
 
     // MARK: - Full-resolution loading
 
-    /// キャッシュミス時のみロードし、最大3枚 FIFO で保持する。
+    /// キャッシュミス時のみロードし、最大5枚 LRU で保持する。
+    /// 退避時は表示中の写真（current）を保護して最古の非表示エントリを落とす。
+    /// FIFO で無条件に先頭を落とすと、4メンバー以上のグループでは
+    /// 兄弟ロード＋隣接プリフェッチ（計6件）が表示中の写真自身を追い出し、
+    /// サムネイル表示に戻ったまま固定される（再ロード機構がないため）。
     @MainActor
     private func loadAndCache(entry: PhotoEntry) async {
-        if fullResCache.contains(where: { $0.id == entry.id }) { return }
+        if let idx = fullResCache.firstIndex(where: { $0.id == entry.id }) {
+            // 参照されたエントリを末尾へ移動（LRU）し、退避されにくくする
+            let hit = fullResCache.remove(at: idx)
+            fullResCache.append(hit)
+            return
+        }
+        if inFlightFullRes.contains(entry.id) { return }
+        inFlightFullRes.insert(entry.id)
+        defer { inFlightFullRes.remove(entry.id) }
         isLoadingFullRes = true
         defer { isLoadingFullRes = false }
         if let img = await decodeFullRes(entry: entry) {
-            if fullResCache.count >= 5 { fullResCache.removeFirst() }
+            if fullResCache.count >= 5 {
+                let protectedID = current?.id
+                if let evictIdx = fullResCache.firstIndex(where: { $0.id != protectedID }) {
+                    fullResCache.remove(at: evictIdx)
+                }
+            }
             fullResCache.append(FullResEntry(id: entry.id, image: img))
         }
     }
