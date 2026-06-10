@@ -150,7 +150,7 @@ struct DetailView: View {
                                         .background(Color.black
                                             .opacity(isClosing ? 0 : dismissInfoOpacity)
                                             .ignoresSafeArea(edges: .top))
-                                    portraitInfoColumn(entry: entry)
+                                    portraitInfoColumn(entry: entry, screenHeight: g.size.height)
                                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                                         .opacity(isClosing ? 0 : dismissInfoOpacity)
                                         .animation(.easeOut(duration: 0.1), value: isClosing)
@@ -666,7 +666,7 @@ struct DetailView: View {
     /// 縦向き用。グループ・星評価・ラベル・EXIF を個別ガラスカードとして浮かせる。
     /// 背景は透明なのでズームディスミス中に背後のグリッドが見える。
     @ViewBuilder
-    private func portraitInfoColumn(entry: PhotoEntry) -> some View {
+    private func portraitInfoColumn(entry: PhotoEntry, screenHeight: CGFloat) -> some View {
         let previousXmp = ratings[entry.id]
         let binding = Binding<XmpData>(
             get: { ratings[entry.id] ?? XmpData() },
@@ -676,32 +676,31 @@ struct DetailView: View {
 
         ScrollView {
             VStack(spacing: 10) {
-                // グループ（RAW/JPG メンバー）
-                if members.count > 1 {
-                    memberStrip
-                        .clipShape(RoundedRectangle(cornerRadius: 12))
-                }
-                // 星評価（個別ガラス）
-                RatingStarsControl(xmp: binding) { newXmp in
-                    commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+                // グループ（常に表示: メンバーが1枚でも情報レイヤーの高さを固定する）
+                memberStrip
+                    .clipShape(RoundedRectangle(cornerRadius: 12))
+                // 星評価 + カラーラベルを横並び
+                HStack(spacing: 8) {
+                    RatingStarsControl(xmp: binding) { newXmp in
+                        commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+                    }
+                    .frame(maxWidth: .infinity)
+                    ColorLabelControl(xmp: binding) { newXmp in
+                        commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+                    }
+                    .frame(maxWidth: .infinity)
                 }
                 .disabled(ratingDisabled)
                 .opacity(ratingDisabled ? 0.35 : 1.0)
-                // ラベル（個別ガラス）
-                ColorLabelControl(xmp: binding) { newXmp in
-                    commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
-                }
-                .disabled(ratingDisabled)
-                .opacity(ratingDisabled ? 0.35 : 1.0)
-                // EXIF InfoCard（個別ガラス）
+                // EXIF InfoCard（横幅フル使用・ヒストグラム高さは画面サイズ比例）
                 PhotoInfoCard(
                     entry: entry,
                     exif: scanStore.exifs[entry.id],
                     xmp: ratings[entry.id],
                     thumbnailData: thumbnails[entry.id],
-                    isLoading: ratingDisabled
+                    isLoading: ratingDisabled,
+                    histogramHeight: max(44, screenHeight * 0.07)
                 )
-                .padding(.horizontal, 16)
             }
             .padding(.horizontal, 8)
             .padding(.vertical, 12)
@@ -917,6 +916,8 @@ private struct PhotoInfoCard: View {
     let xmp: XmpData?
     let thumbnailData: Data?
     var isLoading: Bool = false
+    /// ヒストグラムの表示高さ。縦レイアウトでは呼び出し元が画面高さから算出して渡す。
+    var histogramHeight: CGFloat = 48
 
     @State private var histogram: RGBHistogram = .empty
 
@@ -989,37 +990,31 @@ private struct PhotoInfoCard: View {
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
 
-                if let lens = exif?.lensName {
-                    HStack {
-                        Text(lens)
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.75))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 4)
-                    .padding(.bottom, 10)
-                } else if isLoading {
-                    HStack {
+                // レンズ名行は常に同じ高さを確保してレイアウトを安定させる。
+                // lens が nil のときは不可視テキストで行高を維持する。
+                HStack {
+                    if isLoading && exif == nil {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(Color.white.opacity(0.12))
                             .frame(width: 190, height: 11)
                             .shimmer()
-                        Spacer()
+                    } else {
+                        Text(exif?.lensName ?? " ")
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(exif?.lensName != nil ? 0.75 : 0))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 4)
-                    .padding(.bottom, 10)
-                } else {
-                    Spacer().frame(height: 10)
+                    Spacer()
                 }
+                .padding(.horizontal, 14)
+                .padding(.top, 4)
+                .padding(.bottom, 10)
 
                 // Histogram (JPG/SOOC は RGB、RAW は灰色プレースホルダー)
                 Color.white.opacity(0.12).frame(height: 0.5)
                 histogramView
-                    .frame(height: 48)
+                    .frame(height: histogramHeight)
                     .padding(.horizontal, 14)
                     .padding(.vertical, 6)
 
