@@ -425,7 +425,7 @@ final class ScanStore: ReindexedGroupSink {
     var autoReleaseTimeout: AutoReleaseTimeout = {
         if let raw = UserDefaults.standard.string(forKey: "ios.autoReleaseTimeout"),
            let t = AutoReleaseTimeout(rawValue: raw) { return t }
-        return .oneMinute
+        return .fiveMinutes
     }() {
         didSet {
             UserDefaults.standard.set(autoReleaseTimeout.rawValue, forKey: "ios.autoReleaseTimeout")
