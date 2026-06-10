@@ -28,6 +28,7 @@
 		153A1705C9336E2AB8DFF50B /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		15EC68B4A95093A65194736A /* OnboardingGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A99D7A009ECB59C2566D6019 /* OnboardingGuideView.swift */; };
 		18F473074BA8B73A8706C1D9 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
+		1971BED6815A80C4E7314A64 /* DetailViewPhone.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57AA701E408C7A7E705D5D68 /* DetailViewPhone.swift */; };
 		1B81ACFE220F94FACC9CB317 /* RecentFoldersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 457102D9A774F68E8EA1188D /* RecentFoldersStore.swift */; };
 		1CA3A2C4229728F0691BEAB8 /* ShotGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E644DA2225FFA58312896A06 /* ShotGroup.swift */; };
 		1E5E68B25E2EC686594106E6 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D049A57268958B6678D2C20 /* UpdaterController.swift */; };
@@ -205,6 +206,7 @@
 		4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarView.swift; sourceTree = "<group>"; };
 		4D049A57268958B6678D2C20 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 		562FFC709A5EF19C156C3F4B /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
+		57AA701E408C7A7E705D5D68 /* DetailViewPhone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailViewPhone.swift; sourceTree = "<group>"; };
 		5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailPipeline.swift; sourceTree = "<group>"; };
 		5F6AB0BABA5195DAD2785DD6 /* en */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = en; path = en.lproj/Help.md; sourceTree = "<group>"; };
 		6259A93CEB1040679F6D1C26 /* ToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarView.swift; sourceTree = "<group>"; };
@@ -225,7 +227,7 @@
 		8959834812C243F4AB214555 /* ViewerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ViewerView.swift; sourceTree = "<group>"; };
 		8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExportSheet.swift; sourceTree = "<group>"; };
 		8B691B7F084D124BC8711440 /* RustLink.xcconfig */ = {isa = PBXFileReference; lastKnownFileType = text.xcconfig; path = RustLink.xcconfig; sourceTree = "<group>"; };
-		918FB1B2CC528D4E52EABDB9 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; lastKnownFileType = text.xml; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
+		918FB1B2CC528D4E52EABDB9 /* PrivacyInfo.xcprivacy */ = {isa = PBXFileReference; path = PrivacyInfo.xcprivacy; sourceTree = "<group>"; };
 		940DD5D430F25636C785B60A /* ThumbnailService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailService.swift; sourceTree = "<group>"; };
 		967747AA45B0717E1ABB3BC8 /* ZoomableImage.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ZoomableImage.swift; sourceTree = "<group>"; };
 		9A4260412EA9F57B97926BB9 /* SettingsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsView.swift; sourceTree = "<group>"; };
@@ -248,7 +250,7 @@
 		D29F4F691391FA55169693EC /* RatingStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RatingStore.swift; sourceTree = "<group>"; };
 		D4B133A4910622F9BE06420A /* CalendarPickerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CalendarPickerView.swift; sourceTree = "<group>"; };
 		D52544FC27897A0CD233A37E /* ThumbnailGridView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailGridView.swift; sourceTree = "<group>"; };
-		D5C8362831EE177BBD575267 /* BridgeLiteMAS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = BridgeLiteMAS.app; path = BridgeLite.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		D5C8362831EE177BBD575267 /* BridgeLiteMAS.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BridgeLiteMAS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		DA9262B1680B7331805E940E /* FilterBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterBarView.swift; sourceTree = "<group>"; };
 		E18D649E31736AC707A51F47 /* BridgeLite.entitlements */ = {isa = PBXFileReference; lastKnownFileType = text.plist.entitlements; path = BridgeLite.entitlements; sourceTree = "<group>"; };
 		E2E9544AD911B7B44DF245CA /* HelpView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HelpView.swift; sourceTree = "<group>"; };
@@ -259,7 +261,7 @@
 		E8B64F29E109361726718A3C /* PhotoEntry.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PhotoEntry.swift; sourceTree = "<group>"; };
 		EAE570D73DB707E72992F2C3 /* JpgWriteMode.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = JpgWriteMode.swift; sourceTree = "<group>"; };
 		F2454AD9AE362BD65EDAE72E /* OpenWithService.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = OpenWithService.swift; sourceTree = "<group>"; };
-		F4E55FE6639221B92FF06FE1 /* BridgeLite.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = BridgeLite.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = BridgeLiteiOS.app; sourceTree = BUILT_PRODUCTS_DIR; };
 		F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConcurrencyLimiter.swift; sourceTree = "<group>"; };
 		F7017CE3A2F45ECDE362C210 /* HintCenter.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HintCenter.swift; sourceTree = "<group>"; };
 		F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = "ImageEntry+Convert.swift"; sourceTree = "<group>"; };
@@ -389,7 +391,7 @@
 			isa = PBXGroup;
 			children = (
 				9CE46BEBEEE9B02A6F31B9F8 /* BridgeLite.app */,
-				F4E55FE6639221B92FF06FE1 /* BridgeLite.app */,
+				F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */,
 				D5C8362831EE177BBD575267 /* BridgeLiteMAS.app */,
 			);
 			name = Products;
@@ -454,6 +456,7 @@
 			isa = PBXGroup;
 			children = (
 				C85D8596A0E46A5E932A65FA /* DetailView.swift */,
+				57AA701E408C7A7E705D5D68 /* DetailViewPhone.swift */,
 				8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */,
 				DA9262B1680B7331805E940E /* FilterBarView.swift */,
 				2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */,
@@ -565,7 +568,7 @@
 			packageProductDependencies = (
 			);
 			productName = BridgeLiteiOS;
-			productReference = F4E55FE6639221B92FF06FE1 /* BridgeLite.app */;
+			productReference = F4E55FE6639221B92FF06FE1 /* BridgeLiteiOS.app */;
 			productType = "com.apple.product-type.application";
 		};
 		E5EE11EA61F96AD6E23533E2 /* BridgeLiteMAS */ = {
@@ -679,6 +682,7 @@
 				FFBB566343EEA7BA991F4AAE /* ContentView.swift in Sources */,
 				D94D2E517C63501996A36845 /* CoreError+LocalizedError.swift in Sources */,
 				B8167BC2395FD9F9A557FD6B /* DetailView.swift in Sources */,
+				1971BED6815A80C4E7314A64 /* DetailViewPhone.swift in Sources */,
 				4E72A5090DBD0AF45203A54B /* ExifBucket.swift in Sources */,
 				18F473074BA8B73A8706C1D9 /* ExifData.swift in Sources */,
 				153A1705C9336E2AB8DFF50B /* ExifHistogramView.swift in Sources */,
@@ -979,25 +983,15 @@
 				DEVELOPMENT_TEAM = KTQ8JQW28L;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLiteMAS/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/lib",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = macosx;
@@ -1017,21 +1011,14 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = KTQ8JQW28L;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLiteiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = iphoneos;
@@ -1052,25 +1039,15 @@
 				DEVELOPMENT_TEAM = KTQ8JQW28L;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLiteMAS/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/lib",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = macosx;
@@ -1086,28 +1063,17 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = KTQ8JQW28L;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/lib",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = macosx;
@@ -1126,21 +1092,14 @@
 				CODE_SIGN_IDENTITY = "iPhone Developer";
 				CODE_SIGN_STYLE = Automatic;
 				DEVELOPMENT_TEAM = KTQ8JQW28L;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLiteiOS/Resources/Info.plist;
 				IPHONEOS_DEPLOYMENT_TARGET = 18.0;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/Frameworks",
 				);
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite.ios";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = iphoneos;
@@ -1156,28 +1115,17 @@
 			buildSettings = {
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				COMBINE_HIDPI_IMAGES = YES;
-				"DEVELOPMENT_TEAM[sdk=macosx*]" = KTQ8JQW28L;
 				ENABLE_HARDENED_RUNTIME = YES;
 				EXCLUDED_ARCHS = x86_64;
-				HEADER_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/include",
-				);
+				HEADER_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/include";
 				INFOPLIST_FILE = BridgeLite/Resources/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
 					"@executable_path/../Frameworks",
 				);
-				LIBRARY_SEARCH_PATHS = (
-					"$(inherited)",
-					"$(PROJECT_DIR)/Generated/lib",
-				);
+				LIBRARY_SEARCH_PATHS = "$(inherited) $(PROJECT_DIR)/Generated/lib";
 				MACOSX_DEPLOYMENT_TARGET = 14.0;
-				OTHER_LDFLAGS = (
-					"$(inherited)",
-					"-lbridge_ffi",
-					"-lc++",
-				);
+				OTHER_LDFLAGS = "$(inherited) -lbridge_ffi -lc++";
 				PRODUCT_BUNDLE_IDENTIFIER = "io.github.bridge-lite";
 				PRODUCT_NAME = BridgeLite;
 				SDKROOT = macosx;

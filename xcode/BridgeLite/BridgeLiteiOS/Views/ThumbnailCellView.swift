@@ -9,6 +9,8 @@ struct ThumbnailCellView: View {
     let kind: PhotoKind
     /// nil = 2列モード（自然アスペクト比）、非 nil = 3列モード（正方形、値はセル幅）
     let squareCellSize: CGFloat?
+    /// iPhone のみ使用（accentColor 枠線）。iPad は黒オーバーレイで選択表現するため常に false。
+    var isSelected: Bool = false
     let onTap: () -> Void
     let onDelete: () -> Void
 
@@ -35,6 +37,7 @@ struct ThumbnailCellView: View {
             }
             .frame(width: size, height: size)
             .clipped()
+            .overlay(selectionBorder(cornerRadius: 0))
         } else {
             // 自然アスペクト比
             ZStack(alignment: .bottomLeading) {
@@ -43,7 +46,13 @@ struct ThumbnailCellView: View {
                 overlayBadges
             }
             .clipShape(RoundedRectangle(cornerRadius: 6))
+            .overlay(selectionBorder(cornerRadius: 6))
         }
+    }
+
+    private func selectionBorder(cornerRadius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
     }
 
     @ViewBuilder

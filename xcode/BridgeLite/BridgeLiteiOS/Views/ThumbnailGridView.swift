@@ -222,11 +222,23 @@ struct ThumbnailGridView: View {
                 }
             }
         } else {
+            // iPhone: ios/v0.1.4 と同じ sheet 提示。DetailViewPhone が自前の
+            // NavigationStack を持つため、ここではラップしない。
             NavigationStack { mainContent }
                 .sheet(item: $selectedGroup) { group in
-                    NavigationStack {
-                        detailView(group: group) { selectedGroup = nil }
-                    }
+                    DetailViewPhone(
+                        groups: filteredGroups,
+                        initialGroup: group,
+                        entries: scanStore.entries,
+                        ratings: Binding(
+                            get: { ratingStore.ratings },
+                            set: { ratingStore.ratings = $0 }
+                        ),
+                        db: scanStore.db,
+                        jpgWriteMode: scanStore.jpgWriteMode,
+                        scanStore: scanStore,
+                        preferRendered: $preferRendered
+                    )
                 }
         }
     }
@@ -307,6 +319,9 @@ struct ThumbnailGridView: View {
                             xmp: repID.flatMap { ratingStore.ratings[$0] },
                             kind: scanStore.representativeKind(for: group, xmps: ratingStore.ratings),
                             squareCellSize: cellSize,
+                            // iPhone: v0.1.4 と同じ accentColor 枠線で選択を表現。
+                            // iPad は黒オーバーレイ（dimmedGroupID）で表現するため常に false。
+                            isSelected: !isPad && selectedGroup?.id == group.id,
                             onTap: {
                                 scanStore.resetAutoReleaseTimer()
                                 // iPhone のみ: iPad は simultaneousGesture で処理。
@@ -328,10 +343,11 @@ struct ThumbnailGridView: View {
                         .id(group.id)
                         // セルの実フレームを記録（plain class への書き込みなので
                         // スクロール中も再レンダーは発生しない）。
+                        // iPad のズーム遷移専用のため iPhone では記録しない。
                         .onGeometryChange(for: CGRect.self) { proxy in
                             proxy.frame(in: .global)
                         } action: { newFrame in
-                            cellFrames.frames[group.id] = newFrame
+                            if isPad { cellFrames.frames[group.id] = newFrame }
                         }
                         // iPad: SpatialTapGesture は tap 専用（pan ではない）のため
                         // ScrollView の pan ジェスチャーと競合せずスクロールを妨げない。
