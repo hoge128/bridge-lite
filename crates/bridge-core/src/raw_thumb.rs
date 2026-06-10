@@ -71,11 +71,15 @@ pub fn extract(path: &Path, quality: Quality) -> Option<Vec<u8>> {
             //   ARW  – IFD1=small JPEG;           SubIFDs=large previews
             //   NEF  – IFD1=small JPEG;           SubIFDs=large previews
             //
-            // Quality::Preview should return the best-quality JPEG available:
+            // Preview / Full should return the best-quality JPEG available:
             //   1. In::PRIMARY (IFD0) — standard EXIF
             //   2. In(2)             — PEF IFD2 large preview
-            //   3. In::THUMBNAIL     — CR2/PEF IFD1 small thumbnail (last resort)
-            //   4. SubIFD walk       — NEF/DNG/ARW
+            //   3. SubIFD walk       — NEF/DNG/ARW large previews
+            //   4. In::THUMBNAIL     — IFD1 tiny thumbnail (true last resort)
+            //
+            // IFD1 must come AFTER the SubIFD walk: for files whose large
+            // previews live only in SubIFDs (NEF/DNG/some ARW), trying IFD1
+            // first would return a ~160px thumbnail as "Full".
             match quality {
                 Quality::Thumbnail =>
                     extract_from_ifd(path, In::THUMBNAIL)
@@ -83,13 +87,13 @@ pub fn extract(path: &Path, quality: Quality) -> Option<Vec<u8>> {
                 Quality::Preview =>
                     extract_from_ifd(path, In::PRIMARY)
                         .or_else(|| extract_from_ifd(path, In(2)))
-                        .or_else(|| extract_from_ifd(path, In::THUMBNAIL))
-                        .or_else(|| extract_tiff_subifd(path, is_le, quality)),
+                        .or_else(|| extract_tiff_subifd(path, is_le, quality))
+                        .or_else(|| extract_from_ifd(path, In::THUMBNAIL)),
                 Quality::Full =>
                     extract_from_ifd(path, In(2))
                         .or_else(|| extract_from_ifd(path, In::PRIMARY))
-                        .or_else(|| extract_from_ifd(path, In::THUMBNAIL))
-                        .or_else(|| extract_tiff_subifd(path, is_le, quality)),
+                        .or_else(|| extract_tiff_subifd(path, is_le, quality))
+                        .or_else(|| extract_from_ifd(path, In::THUMBNAIL)),
             }
         }
         _ => None,
