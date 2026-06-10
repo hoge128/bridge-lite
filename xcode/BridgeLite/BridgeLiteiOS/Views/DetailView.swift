@@ -1,5 +1,7 @@
+import Combine
 import CoreGraphics
 import ImageIO
+import os
 import SwiftUI
 import UIKit
 
@@ -9,6 +11,8 @@ private let fullResLimiter = ConcurrencyLimiter(maxConcurrent: 1)
 private struct FullResEntry: Sendable {
     let id: UInt64
     let image: UIImage
+    /// 退避判定用の概算デコード済みコスト（W×H×4 bytes、scale=1 前提）
+    let cost: Int
 }
 
 struct DetailView: View {
@@ -51,7 +55,7 @@ struct DetailView: View {
     @State private var ratingWriteTask: Task<Void, Never>?
     @State private var showInfoPanel = false
 
-    // フルサイズキャッシュ（最大5枚 LRU。退避時は表示中の写真を保護する）
+    // フルサイズキャッシュ（メモリ予算ベースの LRU。退避時は表示中の写真を保護する）
     @State private var fullResCache: [FullResEntry] = []
     @State private var isLoadingFullRes = false
     // 同一エントリの二重デコード防止
@@ -193,6 +197,13 @@ struct DetailView: View {
             }
         }
         .onDisappear { showInfoPanel = false }
+        // 非常弁: メモリ警告で表示中以外のフル解像度キャッシュを即時破棄する。
+        // 予算評価はキャッシュ追加時にしか走らないため、追加の合間に
+        // スキャン等で残量が急減したケースはここで受ける。
+        .onReceive(NotificationCenter.default.publisher(
+            for: UIApplication.didReceiveMemoryWarningNotification)) { _ in
+            fullResCache.removeAll { $0.id != current?.id }
+        }
         .onChange(of: isFullscreen) {
             if !isFullscreen { showInfoPanel = false }
         }
@@ -500,11 +511,23 @@ struct DetailView: View {
 
     // MARK: - Full-resolution loading
 
-    /// キャッシュミス時のみロードし、最大5枚 LRU で保持する。
-    /// 退避時は表示中の写真（current）を保護して最古の非表示エントリを落とす。
-    /// FIFO で無条件に先頭を落とすと、4メンバー以上のグループでは
-    /// 兄弟ロード＋隣接プリフェッチ（計6件）が表示中の写真自身を追い出し、
-    /// サムネイル表示に戻ったまま固定される（再ロード機構がないため）。
+    /// フル解像度キャッシュのバイト予算。スナップショットを持たず追加のたびに評価する。
+    /// スキャン等で残量が減っていれば次の追加時に予算が縮み、キャッシュ側が先に譲る。
+    /// - physicalMemory / 8: デバイス RAM 規模に応じた静的上限
+    /// - os_proc_available_memory() / 2: jetsam までの実残量の半分（ヘッドルーム確保）
+    /// - 下限 256MB: API が 0 を返す環境（simulator 等）での thrash 防止
+    private static func fullResBudgetBytes() -> Int {
+        let physCap = ProcessInfo.processInfo.physicalMemory / 8
+        let avail = UInt64(max(0, os_proc_available_memory())) / 2
+        return max(Int(min(physCap, avail)), 256 * 1024 * 1024)
+    }
+
+    /// キャッシュミス時のみロードし、メモリ予算内で LRU 保持する。
+    /// 退避時は表示中の写真（current）を保護して最古の非表示エントリから落とす。
+    /// 無条件 FIFO だと、4メンバー以上のグループでは兄弟ロード＋隣接プリフェッチが
+    /// 表示中の写真自身を追い出し、サムネイル表示に戻ったまま固定される
+    /// （再ロード機構がないため）。枚数固定だと画素数次第で合計サイズが数倍ぶれるので
+    /// バイト予算で判定する（24MP ≈ 96MB、61MP ≈ 241MB）。
     @MainActor
     private func loadAndCache(entry: PhotoEntry) async {
         if let idx = fullResCache.firstIndex(where: { $0.id == entry.id }) {
@@ -519,13 +542,17 @@ struct DetailView: View {
         isLoadingFullRes = true
         defer { isLoadingFullRes = false }
         if let img = await decodeFullRes(entry: entry) {
-            if fullResCache.count >= 5 {
-                let protectedID = current?.id
-                if let evictIdx = fullResCache.firstIndex(where: { $0.id != protectedID }) {
-                    fullResCache.remove(at: evictIdx)
-                }
+            let cost = Int(img.size.width) * Int(img.size.height) * 4
+            let budget = Self.fullResBudgetBytes()
+            var total = fullResCache.reduce(0) { $0 + $1.cost }
+            let protectedID = current?.id
+            // current だけは予算超過でも退避しない（表示品質の最低保証）
+            while total + cost > budget,
+                  let evictIdx = fullResCache.firstIndex(where: { $0.id != protectedID }) {
+                total -= fullResCache[evictIdx].cost
+                fullResCache.remove(at: evictIdx)
             }
-            fullResCache.append(FullResEntry(id: entry.id, image: img))
+            fullResCache.append(FullResEntry(id: entry.id, image: img, cost: cost))
         }
     }
 
