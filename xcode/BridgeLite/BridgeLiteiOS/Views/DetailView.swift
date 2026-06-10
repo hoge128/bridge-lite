@@ -716,28 +716,27 @@ struct DetailView: View {
         VStack(spacing: 0) {
             if members.count > 1 { memberStrip }
 
-            ScrollView {
-                VStack(spacing: 0) {
-                    RatingBarView(entry: entry, xmp: binding) { newXmp in
-                        commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
-                    }
-                    .disabled(scanStore.isScanning && !scanStore.isExifReady)
-                    .opacity(scanStore.isScanning && !scanStore.isExifReady ? 0.35 : 1.0)
-
-                    Color.white.opacity(0.12).frame(height: 0.5)
-                        .padding(.horizontal, 12)
-
-                    PhotoInfoCard(
-                        entry: entry,
-                        exif: scanStore.exifs[entry.id],
-                        xmp: ratings[entry.id],
-                        thumbnailData: thumbnails[entry.id],
-                        isLoading: scanStore.isScanning && !scanStore.isExifReady
-                    )
-                    .padding(.horizontal, 12)
-                    .padding(.top, 4)
-                    .padding(.bottom, 20)
+            VStack(spacing: 0) {
+                RatingBarView(entry: entry, xmp: binding) { newXmp in
+                    commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
                 }
+                .disabled(scanStore.isScanning && !scanStore.isExifReady)
+                .opacity(scanStore.isScanning && !scanStore.isExifReady ? 0.35 : 1.0)
+
+                Color.white.opacity(0.12).frame(height: 0.5)
+                    .padding(.horizontal, 12)
+
+                PhotoInfoCard(
+                    entry: entry,
+                    exif: scanStore.exifs[entry.id],
+                    xmp: ratings[entry.id],
+                    thumbnailData: thumbnails[entry.id],
+                    isLoading: scanStore.isScanning && !scanStore.isExifReady,
+                    twoColumnExif: true
+                )
+                .padding(.horizontal, 12)
+                .padding(.top, 4)
+                .padding(.bottom, 20)
             }
         }
         .containerRelativeFrame(.horizontal) { length, _ in
@@ -916,6 +915,8 @@ private struct PhotoInfoCard: View {
     var isLoading: Bool = false
     /// ヒストグラムの表示高さ。縦レイアウトでは呼び出し元が画面高さから算出して渡す。
     var histogramHeight: CGFloat = 48
+    /// true のとき EXIF 項目を 2 列 × 4 行グリッドで表示する（横レイアウト用）。
+    var twoColumnExif: Bool = false
 
     @State private var histogram: RGBHistogram = .empty
 
@@ -1018,29 +1019,48 @@ private struct PhotoInfoCard: View {
 
                 Color.white.opacity(0.12).frame(height: 0.5)
 
-                // ISO | focal | EV | f | SS
-                HStack(spacing: 0) {
-                    exifCell(isoText)
-                    vSep
-                    exifCell(focalText)
-                    vSep
-                    exifCell(evText)
-                    vSep
-                    exifCell(fText)
-                    vSep
-                    exifCell(ssText)
+                if twoColumnExif {
+                    // 2列 × 4行グリッド（横レイアウト用）
+                    // 上半分: 露出パラメータ / 下半分: ファイル情報
+                    HStack(spacing: 0) { exifCell(isoText); vSep; exifCell(fText) }
+                        .padding(.vertical, 10)
+                    Color.white.opacity(0.12).frame(height: 0.5)
+                    HStack(spacing: 0) { exifCell(ssText); vSep; exifCell(evText) }
+                        .padding(.vertical, 10)
+                    Color.white.opacity(0.12).frame(height: 0.5)
+                    HStack(spacing: 0) { exifCell(focalText); vSep; exifCell(datetimeText) }
+                        .padding(.vertical, 10)
+                    Color.white.opacity(0.12).frame(height: 0.5)
+                    HStack(spacing: 0) {
+                        exifCell(entry.fileSize > 0 ? entry.formattedFileSize : nil)
+                        vSep
+                        exifCell(exif?.resolutionString)
+                    }
+                    .padding(.vertical, 10)
+                } else {
+                    // 5列 + 3列の 2行レイアウト（縦レイアウト用）
+                    HStack(spacing: 0) {
+                        exifCell(isoText)
+                        vSep
+                        exifCell(focalText)
+                        vSep
+                        exifCell(evText)
+                        vSep
+                        exifCell(fText)
+                        vSep
+                        exifCell(ssText)
+                    }
+                    .padding(.vertical, 10)
+                    Color.white.opacity(0.12).frame(height: 0.5)
+                    HStack(spacing: 0) {
+                        exifCell(datetimeText)
+                        vSep
+                        exifCell(entry.fileSize > 0 ? entry.formattedFileSize : nil)
+                        vSep
+                        exifCell(exif?.resolutionString)
+                    }
+                    .padding(.vertical, 10)
                 }
-                .padding(.vertical, 10)
-
-                Color.white.opacity(0.12).frame(height: 0.5)
-                HStack(spacing: 0) {
-                    exifCell(datetimeText)
-                    vSep
-                    exifCell(entry.fileSize > 0 ? entry.formattedFileSize : nil)
-                    vSep
-                    exifCell(exif?.resolutionString)
-                }
-                .padding(.vertical, 10)
             }
             .adaptiveGlass(cornerRadius: 12)
             .colorScheme(.dark)
