@@ -23,7 +23,6 @@ struct ThumbnailGridView: View {
     /// 可視セルの実フレーム。タップ位置から合成した矩形ではなく
     /// 実セル矩形を開閉アニメーションの起点・着地点に使う。
     @State private var cellFrames = CellFrameStore()
-    @State private var coverOpacity: Double = 1.0
     @State private var preferRendered: Bool
 
     init(scanStore: ScanStore, ratingStore: RatingStore) {
@@ -174,6 +173,16 @@ struct ThumbnailGridView: View {
         } message: {
             Text(String(localized: "delete.ios.confirm.message", defaultValue: "This cannot be undone."))
         }
+        // DetailView 表示中は自動一時解放を保留する。詳細画面のページング・レーティングは
+        // グリッド側のリセット経路を通らないため、保留しないとセレクト作業の最中に
+        // enterAutoRelease が発火してウェルカム画面へ戻されてしまう。
+        .onChange(of: selectedGroup?.id) { _, newID in
+            if newID != nil {
+                scanStore.suspendAutoReleaseTimer()
+            } else {
+                scanStore.resumeAutoReleaseTimer()
+            }
+        }
     }
 
     // MARK: - Detail presentation
@@ -191,6 +200,18 @@ struct ThumbnailGridView: View {
                     ExpandFromCellFullScreenCover(
                         sourceRect: selectedSourceRect,
                         flyingImage: flyingImage,
+                        // 着地先は閉じる瞬間に解決する。開いた時点の矩形・画像は
+                        // DetailView 内のページング・回転・削除で古くなるため。
+                        closeTargetProvider: {
+                            guard let id = dimmedGroupID,
+                                  let g = filteredGroups.first(where: { $0.id == id }),
+                                  let rect = cellFrames.frames[id] else { return (nil, nil) }
+                            let repID = g.representativeID ?? g.memberIDs.first
+                            let img = repID
+                                .flatMap { scanStore.thumbnails[$0] }
+                                .flatMap { UIImage(data: $0) }
+                            return (rect, img)
+                        },
                         onCloseAnimationStarted: nil, // セルは閉じアニメーション中は黒のまま保持
                         onCloseAnimationFinished: {
                             finishDetailDismissal()
@@ -215,7 +236,6 @@ struct ThumbnailGridView: View {
                                 .containerBackground(Color.clear, for: .navigation)
                         }
                     }
-                    .opacity(coverOpacity)
                     .ignoresSafeArea()
                     // 除去時に transaction が滲んでも opacity フェードさせない保険。
                     .transition(.identity)
@@ -258,6 +278,12 @@ struct ThumbnailGridView: View {
             scanStore: scanStore,
             preferRendered: $preferRendered,
             dismissDragOffset: dismissDragOffset,
+            onCurrentGroupChanged: { g in
+                // 黒い穴（dim）を現在の写真のセルへ移す。グリッドのスクロール追従は
+                // dimmedGroupID の onChange 側で「セルが実体化されていないときだけ」行う。
+                // 閉じアニメーションの着地矩形は closeTargetProvider が閉じる瞬間に解決する。
+                dimmedGroupID = g.id
+            },
             onClose: onClose
         )
     }
@@ -274,7 +300,6 @@ struct ThumbnailGridView: View {
             .flatMap { scanStore.thumbnails[$0] }
             .flatMap { UIImage(data: $0) }
         selectedCellDimOpacity = 1.0
-        coverOpacity = 1.0
         // ZStack 方式: UIKit アニメーションの抑制は不要。
         // SwiftUI の transition を無効化して ExpandFromCellFullScreenCover の
         // 独自開くアニメーションだけを使う。
@@ -289,7 +314,6 @@ struct ThumbnailGridView: View {
         // selectedCellDimOpacity は onCloseAnimationFinished 内でアニメーションして 0 にする。
         // ここでは即時リセットしない（アニメーションを上書きするため）。
         selectedSourceRect = nil
-        coverOpacity = 1.0
         // ZStack 方式: UIKit transition が存在しないため flash なし。
         // transition を無効化して SwiftUI がデフォルトアニメーションを掛けないようにする。
         var transaction = Transaction(animation: nil)
@@ -309,6 +333,7 @@ struct ThumbnailGridView: View {
             // ForEach 内・各セルで重複計算しない。
             let groups = filteredGroups
 
+            ScrollViewReader { proxy in
             ScrollView {
                 LazyVGrid(columns: columns, spacing: gridSpacing) {
                     ForEach(groups) { group in
@@ -349,6 +374,13 @@ struct ThumbnailGridView: View {
                         } action: { newFrame in
                             if isPad { cellFrames.frames[group.id] = newFrame }
                         }
+                        // リサイクルされたセルのフレームを辞書から除去する。
+                        // これにより frames の有無が「セルが実体化されているか」を表し、
+                        // ①不要な scrollTo のスキップ判定、②閉じアニメーションが
+                        // 古い矩形へ着地する事故の防止、の両方に使える。
+                        .onDisappear {
+                            if isPad { cellFrames.frames.removeValue(forKey: group.id) }
+                        }
                         // iPad: SpatialTapGesture は tap 専用（pan ではない）のため
                         // ScrollView の pan ジェスチャーと競合せずスクロールを妨げない。
                         // simultaneousGesture で Button と同時発火させタップ座標を取得。
@@ -377,6 +409,26 @@ struct ThumbnailGridView: View {
                 DragGesture(minimumDistance: 0)
                     .onChanged { _ in scanStore.resetAutoReleaseTimer() }
             )
+            // DetailView 内のページングに追従して現在セルを実体化させる
+            //（LazyVGrid は画面外セルを破棄するため、スクロールしないと
+            // cellFrames に新しい着地矩形が記録されない）。カバーの背後なので
+            // ユーザーには見えず、閉じたとき Photos.app と同じく現在の写真の
+            // セルが見える位置にいる。
+            // ⚠️ scrollTo は LazyVGrid の位置解決で大量レイアウトを誘発しうる
+            // 重い操作のため、セルが既に実体化されている（= cellFrames に最新
+            // フレームがある）場合は呼ばない。開いた直後のセルや隣接ページングの
+            // 大半はこれに該当し、scrollTo が走るのは遠くまでページしたときだけ。
+            .onChange(of: dimmedGroupID) { _, id in
+                guard let id, cellFrames.frames[id] == nil else { return }
+                proxy.scrollTo(id)
+            }
+            // 回転・Split View リサイズでセルがリサイクルされ実体化が外れた
+            // 場合のみ、サイズ変化時に追従し直す。
+            .onChange(of: geo.size) { _, _ in
+                guard let id = dimmedGroupID, cellFrames.frames[id] == nil else { return }
+                proxy.scrollTo(id)
+            }
+            }
         }
     }
 
@@ -701,6 +753,11 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
     /// ZoomableImageView（プラットフォームビュー）が SwiftUI のレンダー変換補間に
     /// 追従せず 1 フレームで終端へジャンプするため、純 SwiftUI の Image を飛ばす。
     let flyingImage: UIImage?
+    /// 閉じ開始時に着地先（現在表示中グループのセル矩形と飛行体画像）を解決するクロージャ。
+    /// 開いた時点の sourceRect / flyingImage は DetailView 内のページング・回転・削除で
+    /// 古くなるため、閉じる瞬間に毎回解決する。rect が nil のとき（セルがグリッドに
+    /// 存在しない: 削除・フィルタ脱落）は中央へ縮小するフォールバックで閉じる。
+    let closeTargetProvider: (() -> (rect: CGRect?, image: UIImage?))?
     let onCloseAnimationStarted: (() -> Void)?
     let onCloseAnimationFinished: () -> Void
     /// content は triggerClose クロージャを受け取る ViewBuilder。
@@ -727,18 +784,30 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
     @State private var showClosingMask = false
     /// 0 = imageFrame、1 = sourceRect（セル位置）へ補間する閉じ進捗。
     @State private var closingProgress: CGFloat = 0
+    /// closeTargetProvider で閉じ開始時に解決した着地矩形・飛行体画像。
+    @State private var closeRect: CGRect?
+    @State private var closeImage: UIImage?
+    /// 着地先を解決済みかどうか。解決後は closeRect が nil でも sourceRect へ
+    /// フォールバックしない（古いセルへ飛ぶより中央縮小の方が正しいため）。
+    @State private var didResolveCloseTarget = false
+
+    /// 閉じアニメーションの着地矩形。未解決（provider なし）の間は開いた時点の sourceRect。
+    private var effectiveCloseRect: CGRect? { didResolveCloseTarget ? closeRect : sourceRect }
+    private var effectiveCloseImage: UIImage? { didResolveCloseTarget ? closeImage : flyingImage }
 
     private let animationDuration: TimeInterval = 0.22
 
     init(
         sourceRect: CGRect?,
         flyingImage: UIImage? = nil,
+        closeTargetProvider: (() -> (rect: CGRect?, image: UIImage?))? = nil,
         onCloseAnimationStarted: (() -> Void)? = nil,
         onCloseAnimationFinished: @escaping () -> Void,
         @ViewBuilder content: @escaping (_ triggerClose: @escaping () -> Void, _ dismissDragOffset: Binding<CGSize>) -> Content
     ) {
         self.sourceRect = sourceRect
         self.flyingImage = flyingImage
+        self.closeTargetProvider = closeTargetProvider
         self.onCloseAnimationStarted = onCloseAnimationStarted
         self.onCloseAnimationFinished = onCloseAnimationFinished
         self.content = content
@@ -836,8 +905,8 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
         let openOffY     = t.offsetY * (1 - openProgress)
 
         // ── Closing 用パラメータ ─────────────────────────────────
-        let target = sourceRect ?? CGRect(x: coverRect.midX - 75, y: coverRect.midY - 75,
-                                          width: 150, height: 150)
+        let target = effectiveCloseRect ?? CGRect(x: coverRect.midX - 75, y: coverRect.midY - 75,
+                                                  width: 150, height: 150)
         let start  = capturedImageFrame.isEmpty ? coverRect : capturedImageFrame
         let sX = coverRect.width  / 2
         let sY = coverRect.height / 2
@@ -911,7 +980,7 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
 
     @ViewBuilder
     private func flightView(coverRect: CGRect) -> some View {
-        if let img = flyingImage, let src = sourceRect, !capturedImageFrame.isEmpty {
+        if let img = effectiveCloseImage, let src = effectiveCloseRect, !capturedImageFrame.isEmpty {
             let viewport = CGRect(x: capturedImageFrame.minX - coverRect.minX,
                                   y: capturedImageFrame.minY - coverRect.minY,
                                   width: capturedImageFrame.width,
@@ -962,6 +1031,9 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
         closingStartBackground = 0
         isDismissing = false
         isFlightActive = false
+        closeRect = nil
+        closeImage = nil
+        didResolveCloseTarget = false
 
         // onAppear と同じターンで開始し、初期状態だけが描画されるフレームを作らない。
         // 背景は isExpanded == false の間 opacity 0 のため透明から立ち上がる。
@@ -976,6 +1048,15 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
     }
 
     private func startClosingAnimation() {
+        // 着地先を閉じる瞬間に解決する（withAnimation の外 = 値の差し替えは即時。
+        // 飛行体ビューは常時マウントなので値が変わっても identity は保たれ、
+        // 直後の closingProgress 補間が新しい着地先へ正しく効く）。
+        if let provider = closeTargetProvider {
+            let resolved = provider()
+            closeRect = resolved.rect
+            closeImage = resolved.image
+            didResolveCloseTarget = true
+        }
         let releasedOffset = dismissDragOffset
         swipeReleasedOffset = releasedOffset
         // 現在表示中の背景不透明度を閉じフェードの始点として固定する
@@ -986,7 +1067,7 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
         closingStartBackground = max(0.0, 1.0 - progress * 1.5)
         // 飛行サムネイルが使える場合はそちらで閉じる（withAnimation の外で
         // フラグを立てる = ライブコンテンツの非表示と飛行体の表示は即時）。
-        if flyingImage != nil, sourceRect != nil, !capturedImageFrame.isEmpty {
+        if effectiveCloseImage != nil, effectiveCloseRect != nil, !capturedImageFrame.isEmpty {
             isFlightActive = true
         }
         withAnimation(.easeOut(duration: animationDuration)) {
@@ -1018,11 +1099,11 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
     }
 }
 
-// MARK: - ZoomClipShape
+// MARK: - CoverClip
 
 /// Opening / Closing 両フェーズを単一型で扱うクリップ Shape。
-/// ZoomClipShape（opening）と FixedRectClip（closing）を型切り替えなしで表現し、
-/// content View の identity を維持してアニメーションの連続性を保つ。
+/// フェーズごとに別の Shape 型へ切り替えると content View が再生成されるため、
+/// 単一型に統合して identity を維持しアニメーションの連続性を保つ。
 private struct CoverClip: Shape {
     var openW: CGFloat
     var openH: CGFloat
@@ -1042,41 +1123,6 @@ private struct CoverClip: Shape {
             return Path(roundedRect: r, cornerRadius: openCornerRadius, style: .continuous)
         }
     }
-}
-
-/// アニメーション中にクリップ矩形をセルサイズ→フルスクリーンへ補間するカスタム Shape。
-/// 親ビューの中央に配置され、均一スケールのコンテンツから縦横比を保ったまま切り出す。
-private struct ZoomClipShape: Shape {
-    var width: CGFloat
-    var height: CGFloat
-    var cornerRadius: CGFloat
-
-    var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>, CGFloat> {
-        get { AnimatablePair(AnimatablePair(width, height), cornerRadius) }
-        set {
-            width = newValue.first.first
-            height = newValue.first.second
-            cornerRadius = newValue.second
-        }
-    }
-
-    func path(in rect: CGRect) -> Path {
-        let r = CGRect(
-            x: (rect.width  - width)  / 2,
-            y: (rect.height - height) / 2,
-            width: width,
-            height: height
-        )
-        return Path(roundedRect: r, cornerRadius: cornerRadius, style: .continuous)
-    }
-}
-
-/// 閉じるアニメーション用クリップ。
-/// コンテンツ座標系内の固定矩形でクリップし、
-/// info パネル透明エリアが黒背景を透かして見えるのを防ぐ。
-private struct FixedRectClip: Shape {
-    let rect: CGRect
-    func path(in _: CGRect) -> Path { Path(rect) }
 }
 
 // MARK: - Environment: isDetailClosing

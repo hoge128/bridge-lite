@@ -775,6 +775,9 @@ struct DetailViewPhone: View {
                                               captionPresent: false)
                 guard !Task.isCancelled else { return }
                 for targetID in targetIDs where targetID != entry.id {
+                    // 連続レート変更で旧 Task がキャンセルされた後も仲間ファイルへ
+                    // 旧値を書き続けないよう、各イテレーションで確認する
+                    guard !Task.isCancelled else { return }
                     guard let te = scanStore.entries[targetID] else { continue }
                     var tXmp = ratings[targetID] ?? XmpData()
                     tXmp.rating = newXmp.rating
@@ -878,32 +881,27 @@ private struct PhotoInfoCard: View {
                 .padding(.horizontal, 14)
                 .padding(.top, 12)
 
-                if let lens = exif?.lensName {
-                    HStack {
-                        Text(lens)
-                            .font(.footnote)
-                            .foregroundStyle(.white.opacity(0.75))
-                            .lineLimit(1)
-                            .truncationMode(.middle)
-                        Spacer()
-                    }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 4)
-                    .padding(.bottom, 10)
-                } else if isLoading {
-                    HStack {
+                // レンズ名行は常に同じ高さを確保してレイアウトを安定させる（iPad 版と同一仕様）。
+                // lens が nil のときは不可視テキストで行高を維持し、レンズ名なし⇄ありの
+                // 写真切替時に info パネルがレイアウトジャンプしないようにする。
+                HStack {
+                    if isLoading && exif == nil {
                         RoundedRectangle(cornerRadius: 4)
                             .fill(Color.white.opacity(0.12))
                             .frame(width: 190, height: 11)
                             .shimmer()
-                        Spacer()
+                    } else {
+                        Text(exif?.lensName ?? " ")
+                            .font(.footnote)
+                            .foregroundStyle(.white.opacity(exif?.lensName != nil ? 0.75 : 0))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
                     }
-                    .padding(.horizontal, 14)
-                    .padding(.top, 4)
-                    .padding(.bottom, 10)
-                } else {
-                    Spacer().frame(height: 10)
+                    Spacer()
                 }
+                .padding(.horizontal, 14)
+                .padding(.top, 4)
+                .padding(.bottom, 10)
 
                 // Histogram (JPG/SOOC は RGB、RAW は灰色プレースホルダー)
                 Color.white.opacity(0.12).frame(height: 0.5)
@@ -949,7 +947,9 @@ private struct PhotoInfoCard: View {
                 }
                 .padding(.vertical, 10)
             }
-            .background(Color.white.opacity(0.08), in: RoundedRectangle(cornerRadius: 12))
+            // iPad 版 PhotoInfoCard と同じガラス表現に統一する
+            .adaptiveGlass(cornerRadius: 12)
+            .colorScheme(.dark)
         }
         .task(id: entry.id) {
             guard !entry.isRaw, let data = thumbnailData,
