@@ -264,7 +264,7 @@ targets:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite.ios
-        CFBundleVersion: "5"
+        CFBundleVersion: "6"
         CFBundleShortVersionString: "0.1.5"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer for iPhone"
         UILaunchScreen: {}
