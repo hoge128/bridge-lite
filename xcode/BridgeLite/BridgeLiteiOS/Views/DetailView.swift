@@ -674,37 +674,35 @@ struct DetailView: View {
         )
         let ratingDisabled = scanStore.isScanning && !scanStore.isExifReady
 
-        ScrollView {
-            VStack(spacing: 10) {
-                // グループ（常に表示: メンバーが1枚でも情報レイヤーの高さを固定する）
-                memberStrip
-                    .clipShape(RoundedRectangle(cornerRadius: 12))
-                // 星評価 + カラーラベルを横並び
-                HStack(spacing: 8) {
-                    RatingStarsControl(xmp: binding) { newXmp in
-                        commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
-                    }
-                    .frame(maxWidth: .infinity)
-                    ColorLabelControl(xmp: binding) { newXmp in
-                        commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
-                    }
-                    .frame(maxWidth: .infinity)
+        VStack(spacing: 10) {
+            // グループ（常に表示: メンバーが1枚でも情報レイヤーの高さを固定する）
+            memberStrip
+                .clipShape(RoundedRectangle(cornerRadius: 12))
+            // 星評価 + カラーラベルを横並び
+            HStack(spacing: 8) {
+                RatingStarsControl(xmp: binding) { newXmp in
+                    commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
                 }
-                .disabled(ratingDisabled)
-                .opacity(ratingDisabled ? 0.35 : 1.0)
-                // EXIF InfoCard（横幅フル使用・ヒストグラム高さは画面サイズ比例）
-                PhotoInfoCard(
-                    entry: entry,
-                    exif: scanStore.exifs[entry.id],
-                    xmp: ratings[entry.id],
-                    thumbnailData: thumbnails[entry.id],
-                    isLoading: ratingDisabled,
-                    histogramHeight: max(44, screenHeight * 0.07)
-                )
+                .frame(maxWidth: .infinity)
+                ColorLabelControl(xmp: binding) { newXmp in
+                    commitRating(entry: entry, newXmp: newXmp, previousXmp: previousXmp)
+                }
+                .frame(maxWidth: .infinity)
             }
-            .padding(.horizontal, 8)
-            .padding(.vertical, 12)
+            .disabled(ratingDisabled)
+            .opacity(ratingDisabled ? 0.35 : 1.0)
+            // EXIF InfoCard（横幅フル使用・ヒストグラム高さは画面サイズ比例）
+            PhotoInfoCard(
+                entry: entry,
+                exif: scanStore.exifs[entry.id],
+                xmp: ratings[entry.id],
+                thumbnailData: thumbnails[entry.id],
+                isLoading: ratingDisabled,
+                histogramHeight: max(44, screenHeight * 0.07)
+            )
         }
+        .padding(.horizontal, 8)
+        .padding(.vertical, 12)
         .colorScheme(.dark)
     }
 
