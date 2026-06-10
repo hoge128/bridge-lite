@@ -1,12 +1,28 @@
 import SwiftUI
 import UIKit
 
+/// 可視セルの実フレーム（global 座標）を保持する参照型ストア。
+/// @State の辞書に書くとスクロールのたびに再レンダーが走るため、
+/// SwiftUI が観測しない plain class に書き込む（読むのはタップ時のみ）。
+private final class CellFrameStore {
+    var frames: [ShotGroup.ID: CGRect] = [:]
+}
+
 struct ThumbnailGridView: View {
     @State var scanStore: ScanStore
     @State var ratingStore: RatingStore
     @State private var selectedGroup: ShotGroup?
     @State private var selectedSourceRect: CGRect?
     @State private var selectedCellDimOpacity: Double = 0
+    /// セル黒オーバーレイの対象。selectedGroup と分離する理由:
+    /// selectedGroup を条件にすると overlay 除去（selectedGroup = nil）と同じ
+    /// コミットでセル黒も構造的に消え、フェードが transaction の滲み頼みになる。
+    @State private var dimmedGroupID: ShotGroup.ID?
+    /// 閉じアニメーションの飛行体（開いたセルの代表サムネイル）。presentDetail で確定。
+    @State private var flyingImage: UIImage?
+    /// 可視セルの実フレーム。タップ位置から合成した矩形ではなく
+    /// 実セル矩形を開閉アニメーションの起点・着地点に使う。
+    @State private var cellFrames = CellFrameStore()
     @State private var coverOpacity: Double = 1.0
     @State private var preferRendered: Bool
 
@@ -174,19 +190,35 @@ struct ThumbnailGridView: View {
                 if let group = selectedGroup {
                     ExpandFromCellFullScreenCover(
                         sourceRect: selectedSourceRect,
-                        onCloseAnimationStarted: {
-                            withAnimation(.easeIn(duration: 0.22)) {
-                                selectedCellDimOpacity = 0
-                            }
-                        },
-                        onCloseAnimationFinished: finishDetailDismissal
+                        flyingImage: flyingImage,
+                        onCloseAnimationStarted: nil, // セルは閉じアニメーション中は黒のまま保持
+                        onCloseAnimationFinished: {
+                            finishDetailDismissal()
+                            // セルの黒は【即時】解除する（withAnimation 禁止:
+                            // overlay 除去と同一コミットのグローバル transaction は
+                            // teardown 中の NavigationStack ホストに滲んで全画面ベールになる）。
+                            // 飛行サムネイルがセルとピクセル一致で着地しているため、
+                            // 飛行イメージ→実セルの瞬間スワップはシームレス。
+                            // ここでフェードを掛けると「写真→黒→写真」の瞬きがセル内に見える。
+                            selectedCellDimOpacity = 0
+                            dimmedGroupID = nil
+                        }
                     ) { triggerClose, dismissDragOffset in
                         NavigationStack {
                             detailView(group: group, onClose: triggerClose, dismissDragOffset: dismissDragOffset)
+                                // SwiftUI は state 更新のたびに NavigationStack の
+                                // ホスティングビューへ systemBackground を再アサートする。
+                                // UIKit 階層を歩いて clear にするワークアラウンド
+                                // (ClearHostingBackground) はそのたびに巻き戻されるため、
+                                // SwiftUI 自身に「このナビゲーションコンテナの背景は透明」と
+                                // 宣言させて再アサート自体を clear にする (iOS 18+)。
+                                .containerBackground(Color.clear, for: .navigation)
                         }
                     }
                     .opacity(coverOpacity)
                     .ignoresSafeArea()
+                    // 除去時に transaction が滲んでも opacity フェードさせない保険。
+                    .transition(.identity)
                 }
             }
         } else {
@@ -219,7 +251,16 @@ struct ThumbnailGridView: View {
     }
 
     private func presentDetail(group: ShotGroup, sourceRect: CGRect?) {
-        selectedSourceRect = sourceRect
+        // タップ座標から合成した矩形はセルの実位置と最大セル半分ズレるため、
+        // 記録済みの実セルフレームを優先する（着地点ズレの修正）。
+        selectedSourceRect = cellFrames.frames[group.id] ?? sourceRect
+        dimmedGroupID = group.id
+        // 閉じアニメーション用の飛行体。セルと同じ代表サムネイルを使うことで
+        // 着地時にセル描画とピクセル一致する。
+        let repID = group.representativeID ?? group.memberIDs.first
+        flyingImage = repID
+            .flatMap { scanStore.thumbnails[$0] }
+            .flatMap { UIImage(data: $0) }
         selectedCellDimOpacity = 1.0
         coverOpacity = 1.0
         // ZStack 方式: UIKit アニメーションの抑制は不要。
@@ -233,7 +274,8 @@ struct ThumbnailGridView: View {
     }
 
     private func finishDetailDismissal() {
-        selectedCellDimOpacity = 0
+        // selectedCellDimOpacity は onCloseAnimationFinished 内でアニメーションして 0 にする。
+        // ここでは即時リセットしない（アニメーションを上書きするため）。
         selectedSourceRect = nil
         coverOpacity = 1.0
         // ZStack 方式: UIKit transition が存在しないため flash なし。
@@ -273,14 +315,24 @@ struct ThumbnailGridView: View {
                             onDelete: { groupPendingDelete = group }
                         )
                         .overlay {
-                            // 現在開いているセルを黒くし、閉じるアニメーションで徐々に明転する
-                            if group.id == selectedGroup?.id, selectedCellDimOpacity > 0 {
+                            // DetailView 表示中、開いているセルを黒くする（Photos.app の
+                            // 「写真が抜けた穴」表現）。飛行サムネイルがこの黒セルの上に
+                            // ピクセル一致で着地するため、カバー除去時は即時解除でシームレス。
+                            // フェードは掛けない（着地後の黒い瞬きになる）。
+                            if group.id == dimmedGroupID {
                                 Color.black
                                     .opacity(selectedCellDimOpacity)
                                     .allowsHitTesting(false)
                             }
                         }
                         .id(group.id)
+                        // セルの実フレームを記録（plain class への書き込みなので
+                        // スクロール中も再レンダーは発生しない）。
+                        .onGeometryChange(for: CGRect.self) { proxy in
+                            proxy.frame(in: .global)
+                        } action: { newFrame in
+                            cellFrames.frames[group.id] = newFrame
+                        }
                         // iPad: SpatialTapGesture は tap 専用（pan ではない）のため
                         // ScrollView の pan ジェスチャーと競合せずスクロールを妨げない。
                         // simultaneousGesture で Button と同時発火させタップ座標を取得。
@@ -628,6 +680,11 @@ struct DetailImageViewportFrameKey: PreferenceKey {
 
 private struct ExpandFromCellFullScreenCover<Content: View>: View {
     let sourceRect: CGRect?
+    /// 閉じアニメーション用の飛行体（セルの代表サムネイル）。
+    /// DetailView 全体を scaleEffect で縮小する方式は、UIScrollView ベースの
+    /// ZoomableImageView（プラットフォームビュー）が SwiftUI のレンダー変換補間に
+    /// 追従せず 1 フレームで終端へジャンプするため、純 SwiftUI の Image を飛ばす。
+    let flyingImage: UIImage?
     let onCloseAnimationStarted: (() -> Void)?
     let onCloseAnimationFinished: () -> Void
     /// content は triggerClose クロージャを受け取る ViewBuilder。
@@ -640,8 +697,14 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
     @State private var dismissDragOffset: CGSize = .zero
     @State private var dismissMagPeak: Double = 0
     @State private var swipeReleasedOffset: CGSize = .zero
-    @State private var isSwipeDismiss: Bool = false
+    /// 閉じ開始時点の背景黒の不透明度。閉じ中は
+    /// closingStartBackground * (1 - closingProgress) で連続フェードする。
+    @State private var closingStartBackground: Double = 0
     @State private var isDismissing = false
+    /// 閉じアニメーションを「飛行サムネイル」で行うフラグ。
+    /// withAnimation の【外】で立てる（無アニメーションでライブコンテンツを
+    /// 即時非表示にし、飛行体を即時表示するため）。
+    @State private var isFlightActive = false
     /// DetailView の imageViewport から受け取ったグローバル座標フレーム。
     @State private var capturedImageFrame: CGRect = .zero
     /// 閉じるアニメーション中、マスクを使ってコンテンツを縮小するフラグ。
@@ -653,11 +716,13 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
 
     init(
         sourceRect: CGRect?,
+        flyingImage: UIImage? = nil,
         onCloseAnimationStarted: (() -> Void)? = nil,
         onCloseAnimationFinished: @escaping () -> Void,
         @ViewBuilder content: @escaping (_ triggerClose: @escaping () -> Void, _ dismissDragOffset: Binding<CGSize>) -> Content
     ) {
         self.sourceRect = sourceRect
+        self.flyingImage = flyingImage
         self.onCloseAnimationStarted = onCloseAnimationStarted
         self.onCloseAnimationFinished = onCloseAnimationFinished
         self.content = content
@@ -680,17 +745,19 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
                 let effectiveMag = max(dismissMag, dismissMagPeak)
                 let dismissProgress = min(max(effectiveMag / 400, 0), 1)
                 Color.black
+                    // 閉じ中: 閉じ開始時点の不透明度 (closingStartBackground) から
+                    // closingProgress 駆動で連続的に 0 へフェードする。
+                    // - ボタン閉じ: 1.0 → 0（黒がフェードしながら写真がセルへ飛ぶ）
+                    // - 深いスワイプ閉じ: すでに ~0 → 0 のまま
+                    // Bool 分岐で値を切り替えると、withAnimation の外で設定した
+                    // フラグと中で設定したフラグの transaction 帰属が不定になり
+                    // 1 フレームの瞬時透明化（フラッシュ）が起きる。
+                    // closingProgress（アニメーション補間される値）だけで駆動すれば
+                    // 切替フレームで値が連続するためフラッシュしない。
                     .opacity(showClosingMask
-                             // ボタン閉じ: 1.0 → 0 へフェード
-                             // スワイプ閉じ: すでに透明。swipeReleasedOffset が .zero でも
-                             //   開始位置に戻して離した場合は isSwipeDismiss が true になるので
-                             //   フラッシュを確実に防げる。
-                             ? (isSwipeDismiss ? 0.0 : Double(1 - closingProgress))
+                             ? closingStartBackground * Double(1 - closingProgress)
                              : isExpanded
-                                 // 完全透明にしない（最低 0.3）。
-                                 // 0 にすると閉じアニメーション開始時の
-                                 // 背景ジャンプが視覚的に目立つため。
-                                 ? max(0.5, 1.0 - dismissProgress * 1.5)
+                                 ? max(0.0, 1.0 - dismissProgress * 1.5)
                                  : 0)
                     .ignoresSafeArea()
 
@@ -699,6 +766,11 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
                 // content(triggerClose, $dismissDragOffset) を別 View と見なし、
                 // dismissDragOffset のアニメーションが引き継がれず瞬間移動が起きる。
                 unifiedContent(coverRect: coverRect)
+
+                // 閉じアニメーション用の飛行サムネイル（常時マウント・通常は透明）。
+                // 閉じ開始の同一コミットで挿入すると初期値からの補間が効かないため、
+                // View identity を維持したまま opacity で出し入れする。
+                flightView(coverRect: coverRect)
             }
             .frame(width: coverRect.width, height: coverRect.height)
             .background(Color.clear)
@@ -709,7 +781,13 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
                 if newOffset == .zero { dismissMagPeak = 0 }
             }
             .onPreferenceChange(DetailImageViewportFrameKey.self) { frame in
-                if isExpanded, isContentVisible, !frame.isEmpty {
+                // isContentVisible でゲートしない。onPreferenceChange は値が変化した
+                // ときしか発火せず、viewport のグローバル座標は初回レイアウトで一度
+                // 報告されたきり変わらない（scaleEffect / offset はレンダー変換で
+                // レイアウト座標に影響しない）。初回は isContentVisible == false
+                // (+0.28s まで) のため、ゲートすると capturedImageFrame が永遠に
+                // 空のままになり、閉じアニメーションがフォールバック経路に落ちる。
+                if !isDismissing, !frame.isEmpty {
                     capturedImageFrame = frame
                 }
             }
@@ -771,25 +849,87 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
         let combinedOffY = adjustedTargetOffY * closingProgress
 
         // ── 統合パラメータ ───────────────────────────────────────
-        let effectiveScale   = showClosingMask ? currentScale  : openScale
-        let effectiveOffX    = showClosingMask ? combinedOffX  : openOffX
-        let effectiveOffY    = showClosingMask ? combinedOffY  : openOffY
-        let effectiveOpacity = showClosingMask ? 1.0 : (sourceRect == nil ? Double(openProgress) : 1.0)
+        // 飛行サムネイル方式のときはライブコンテンツを動かさない
+        //（opacity 0 で即時非表示にし、飛行体に任せる）。
+        let contentClosing   = showClosingMask && !isFlightActive
+        let effectiveScale   = contentClosing ? currentScale  : openScale
+        let effectiveOffX    = contentClosing ? combinedOffX  : openOffX
+        let effectiveOffY    = contentClosing ? combinedOffY  : openOffY
+        let effectiveOpacity = isFlightActive ? 0.0
+            : (showClosingMask ? 1.0 : (sourceRect == nil ? Double(openProgress) : 1.0))
         let isInteractive    = !showClosingMask && isExpanded && !isDismissing
 
         content(triggerClose, $dismissDragOffset)
             .environment(\.isDetailClosing, showClosingMask || !isContentVisible)
             .frame(width: coverRect.width, height: coverRect.height)
-            .scaleEffect(effectiveScale, anchor: .center)
             // CoverClip 単一型: showClosingMask が変わっても型が同じなので View が再生成されない
+            //
+            // クリップは必ず scaleEffect の【前】に適用する（knowledge/ipad-detail-transition-
+            // investigation.md の最重要ポイント）。後に置くとクリップ窓がコンテンツと一緒に
+            // 縮小されず、閉じアニメーション中に写真が固定窓から脱出して 1 フレームで
+            // 消えたように見える（ドラッグ量が大きいほど顕著）。
+            // 前に置けば窓は imageLocalRect でコンテンツ座標に固定され、
+            // scaleEffect で写真と窓が一体で縮小・移動する。
+            // open 用クリップ寸法は pre-scale 座標系に合わせて openScale で割る。
             .clipShape(CoverClip(
-                openW: openClipW, openH: openClipH,
-                openCornerRadius: 18 * (1 - openProgress),
+                openW: openClipW / max(openScale, 0.01),
+                openH: openClipH / max(openScale, 0.01),
+                openCornerRadius: 18 * (1 - openProgress) / max(openScale, 0.01),
                 fixedRect: imageLocalRect,
-                isClosing: showClosingMask))
+                isClosing: contentClosing))
+            .scaleEffect(effectiveScale, anchor: .center)
             .offset(x: effectiveOffX, y: effectiveOffY)
             .opacity(effectiveOpacity)
+            // isFlightActive による非表示は即時（無アニメーション）。
+            // withAnimation と同一コミットでもフェードが滲まないようローカルに遮断する。
+            .animation(nil, value: isFlightActive)
             .allowsHitTesting(isInteractive)
+    }
+
+    // MARK: - Flight view（閉じアニメーション用の飛行サムネイル）
+    //
+    // 写真の実表示矩形（capturedImageFrame 内に aspectFit + ドラッグオフセット）から
+    // セル矩形へ、scaledToFill + 角丸 0→6 で補間しながら飛ぶ。
+    // 着地時はセルのサムネイル描画（正方形 scaledToFill クロップ・角丸 6）と
+    // ピクセル一致するため、セル黒フェードとの継続性が保たれる。
+
+    @ViewBuilder
+    private func flightView(coverRect: CGRect) -> some View {
+        if let img = flyingImage, let src = sourceRect, !capturedImageFrame.isEmpty {
+            let viewport = CGRect(x: capturedImageFrame.minX - coverRect.minX,
+                                  y: capturedImageFrame.minY - coverRect.minY,
+                                  width: capturedImageFrame.width,
+                                  height: capturedImageFrame.height)
+            // 写真の aspectFit 矩形（UIImage.size は orientation 適用済み）
+            let aspect = img.size.height > 0 ? img.size.width / img.size.height : 1
+            let fitW = min(viewport.width, viewport.height * aspect)
+            let fitH = fitW / max(aspect, 0.001)
+            // 開始 = 写真の現在表示位置（ドラッグ追従込み）。
+            // dismissDragOffset は閉じ中もリセットされないため、
+            // ドラッグ中は指に追従し、閉じ開始後は離した位置で固定される。
+            let startRect = CGRect(x: viewport.midX - fitW / 2 + dismissDragOffset.width,
+                                   y: viewport.midY - fitH / 2 + dismissDragOffset.height,
+                                   width: fitW, height: fitH)
+            let endRect = CGRect(x: src.minX - coverRect.minX,
+                                 y: src.minY - coverRect.minY,
+                                 width: src.width, height: src.height)
+            let p = closingProgress
+            let w = max(startRect.width  + (endRect.width  - startRect.width)  * p, 1)
+            let h = max(startRect.height + (endRect.height - startRect.height) * p, 1)
+            let cx = startRect.midX + (endRect.midX - startRect.midX) * p
+            let cy = startRect.midY + (endRect.midY - startRect.midY) * p
+            Image(uiImage: img)
+                .resizable()
+                .scaledToFill()
+                .frame(width: w, height: h)
+                .clipShape(RoundedRectangle(cornerRadius: 6 * p))
+                .position(x: cx, y: cy)
+                .opacity(isFlightActive ? 1 : 0)
+                // 表示切替は即時。フレーム/位置/角丸の補間は closingProgress の
+                // withAnimation が担う（常時マウントなので初期値からの補間が効く）。
+                .animation(nil, value: isFlightActive)
+                .allowsHitTesting(false)
+        }
     }
 
     // MARK: - Animation helpers
@@ -803,8 +943,9 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
         dismissDragOffset = .zero
         dismissMagPeak = 0
         swipeReleasedOffset = .zero
-        isSwipeDismiss = false
+        closingStartBackground = 0
         isDismissing = false
+        isFlightActive = false
 
         // onAppear と同じターンで開始し、初期状態だけが描画されるフレームを作らない。
         // 背景は isExpanded == false の間 opacity 0 のため透明から立ち上がる。
@@ -820,11 +961,18 @@ private struct ExpandFromCellFullScreenCover<Content: View>: View {
 
     private func startClosingAnimation() {
         let releasedOffset = dismissDragOffset
-        let wasSwipeDismiss = dismissMagPeak > 0
-        // この2値は showClosingMask == false の間は描画に影響しないため、
-        // アニメーション開始値として先に固定する。
         swipeReleasedOffset = releasedOffset
-        isSwipeDismiss = wasSwipeDismiss
+        // 現在表示中の背景不透明度を閉じフェードの始点として固定する
+        //（ドラッグ中の式と同じ計算。ここから 1 - closingProgress で 0 へ）。
+        let mag = sqrt(Double(releasedOffset.width * releasedOffset.width
+                             + releasedOffset.height * releasedOffset.height))
+        let progress = min(max(max(mag, dismissMagPeak) / 400, 0), 1)
+        closingStartBackground = max(0.0, 1.0 - progress * 1.5)
+        // 飛行サムネイルが使える場合はそちらで閉じる（withAnimation の外で
+        // フラグを立てる = ライブコンテンツの非表示と飛行体の表示は即時）。
+        if flyingImage != nil, sourceRect != nil, !capturedImageFrame.isEmpty {
+            isFlightActive = true
+        }
         withAnimation(.easeOut(duration: animationDuration)) {
             isDismissing = true
             isContentVisible = false

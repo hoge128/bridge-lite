@@ -196,7 +196,13 @@ struct DetailView: View {
         }
         .navigationBarTitleDisplayMode(.inline)
         .navigationBarBackButtonHidden(true)
-        .toolbar((isFullscreen || isClosing) ? .hidden : .visible, for: .navigationBar)
+        // isClosing で toolbar visibility をフリップしない。
+        // フリップすると UIKit のナビバー再レイアウトが走り、その state 更新で
+        // SwiftUI が NavigationStack ホスティングビューに systemBackground を
+        // 再アサートして 1〜2 フレームの白/黒フラッシュになる（背景再アサート検知ログで確認済み）。
+        // 閉じアニメーション中のバーは CoverClip（画像領域のみのクリップ）が隠すため
+        // visibility を変える必要がない。
+        .toolbar(isFullscreen ? .hidden : .visible, for: .navigationBar)
         .toolbarColorScheme(.dark, for: .navigationBar)
         .glassNavigationBar()
         .toolbar {
@@ -844,6 +850,10 @@ private final class HostingClearView: UIView {
                 // UINavigationController の view も透明化する。
                 // デフォルトの .systemBackground（白）がレターボックス領域から
                 // 透けて見えるのを防ぐため。
+                // 注意: SwiftUI は state 更新のたびに背景色を再アサートするため、
+                // この透明化は teardown 時には間に合わない。閉じアニメーションの
+                // フラッシュ対策は「除去コミットに animation transaction を置かない」
+                // こと（knowledge/ipad-dismiss-flash-investigation.md）。
                 if cls.contains("Hosting") || cls.contains("NavigationController") {
                     p.backgroundColor = .clear
                 }
