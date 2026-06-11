@@ -325,6 +325,7 @@
       margin: 0 auto;
       aspect-ratio: 100 / 50;
       perspective: 1500px;
+      touch-action: pan-y;   /* let vertical scroll through, keep horizontal swipes for the carousel */
     }
 
     .device-stack::before {
@@ -1487,7 +1488,7 @@
       if (im) openLightbox(im.currentSrc || im.src, im.alt);
     }
 
-    var lastTapEl = null, lastTapAt = 0;
+    var lastTapEl = null, lastTapAt = 0, lastSwipeAt = 0;
     deviceEls.forEach(function (el, i) {
       // Magnifier button (top-right) — visible only on the front device
       var zoom = document.createElement('button');
@@ -1501,6 +1502,9 @@
       // Tap/click: navigate to this device; double-tap the front one → enlarge
       el.addEventListener('click', function () {
         var now = Date.now();
+        // Ignore the synthetic click that a swipe leaves behind — otherwise it
+        // would override the swipe by snapping to the device under the finger.
+        if (now - lastSwipeAt < 400) return;
         var isFront = !el.classList.contains('is-back');
         if (isFront && lastTapEl === el && (now - lastTapAt) < 320) {
           lastTapEl = null; lastTapAt = 0;
@@ -1515,8 +1519,10 @@
     if (nextBtn) nextBtn.addEventListener('click', function () { userNavigate((frontIndex() + 1) % N); });
 
     // Touch swipe (mobile): horizontal swipe steps to the next/previous image.
-    // Tap-to-front is handled by the per-device click handler above; here we only
-    // act on a clearly-horizontal drag so vertical page scrolling is unaffected.
+    // Listen on the turntable layer (.device-stack) so a drag starting on any
+    // device is caught. Tap-to-front is handled by the per-device click handler
+    // above; a detected swipe sets lastSwipeAt to suppress the click it leaves
+    // behind, so the two gestures don't fight each other.
     var swStartX = 0, swStartY = 0, swActive = false;
     stack.addEventListener('touchstart', function (e) {
       if (e.touches.length !== 1) { swActive = false; return; }
@@ -1531,6 +1537,7 @@
       var dx = t.clientX - swStartX;
       var dy = t.clientY - swStartY;
       if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy)) return;  // not a horizontal swipe
+      lastSwipeAt = Date.now();                              // suppress the trailing click
       if (dx < 0) userNavigate((frontIndex() + 1) % N);   // swipe left  → next
       else        userNavigate((frontIndex() - 1 + N) % N); // swipe right → previous
     }, { passive: true });
