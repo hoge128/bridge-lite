@@ -3,16 +3,21 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>BridgeLite — RAW セレクトビュワー for macOS & Windows</title>
-  <meta name="description" content="RAW+JPG 同時撮影向けの軽量画像セレクトビュワー。macOS / Windows 対応。無料。" />
+  <title>BridgeLite — RAW セレクトビュワー for Mac / Windows / iPhone / iPad</title>
+  <meta name="description" content="RAW+JPG 同時撮影向けの軽量画像セレクトビュワー。Mac・Windows・iPhone・iPad 対応。無料。" />
   <link rel="icon" type="image/png" href="/bridge-lite/favicon.png" />
-  <meta property="og:title" content="BridgeLite — RAW セレクトビュワー for macOS & Windows" />
-  <meta property="og:description" content="RAW+JPG 同時撮影向けの軽量画像セレクトビュワー。macOS / Windows 対応。無料。" />
-  <meta property="og:image" content="https://hoge128.github.io/bridge-lite/src/phead.png" />
+  <meta property="og:title" content="BridgeLite — RAW セレクトビュワー for Mac / Windows / iPhone / iPad" />
+  <meta property="og:description" content="撮って出し・RAW・現像済みが混在するフォルダを、ひと目で。Mac・Windows・iPhone・iPad 対応。無料。" />
+  <meta property="og:image" content="https://hoge128.github.io/bridge-lite/src/og-image.jpg" />
+  <meta property="og:image:type" content="image/jpeg" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
   <meta property="og:url" content="https://hoge128.github.io/bridge-lite/" />
   <meta property="og:type" content="website" />
   <meta name="twitter:card" content="summary_large_image" />
-  <meta name="twitter:image" content="https://hoge128.github.io/bridge-lite/src/phead.png" />
+  <meta name="twitter:title" content="BridgeLite — RAW セレクトビュワー for Mac / Windows / iPhone / iPad" />
+  <meta name="twitter:description" content="撮って出し・RAW・現像済みが混在するフォルダを、ひと目で。Mac・Windows・iPhone・iPad 対応。無料。" />
+  <meta name="twitter:image" content="https://hoge128.github.io/bridge-lite/src/og-image.jpg" />
   <style>
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
@@ -104,15 +109,133 @@
 
     /* ── Hero ── */
     .hero {
-      min-height: 100svh;
       display: flex;
       flex-direction: column;
       align-items: center;
-      justify-content: flex-end;
-      padding: 0 40px 100px;
+      padding: 92px 40px 80px;
       position: relative;
       overflow: hidden;
     }
+
+    .hero-devices {
+      position: relative;
+      z-index: 1;
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      margin-bottom: 24px;
+    }
+
+    /* ── Lightbox (double-click the front device to enlarge) ── */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      z-index: 1000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+      background: rgba(0,0,0,0.82);
+      -webkit-backdrop-filter: blur(6px);
+      backdrop-filter: blur(6px);
+    }
+    .lightbox.open { display: flex; }
+    .lightbox img {
+      max-width: 96%;
+      max-height: 92%;
+      object-fit: contain;
+      border-radius: 10px;
+      box-shadow: 0 24px 90px rgba(0,0,0,0.55);
+    }
+    .lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 24px;
+      width: 40px;
+      height: 40px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      border: none;
+      border-radius: 999px;
+      background: rgba(255,255,255,0.16);
+      color: #fff;
+      font-size: 22px;
+      line-height: 1;
+      cursor: pointer;
+      transition: background 0.2s ease;
+    }
+    .lightbox-close:hover { background: rgba(255,255,255,0.3); }
+
+    /* Generic carousel wrapper (used by hero and feature sections) */
+    .carousel {
+      width: 100%;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+    }
+
+    /* ── Page indicator (arrows + dots) ── */
+    .device-nav {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      margin-top: 22px;
+    }
+
+    .device-arrow {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 28px;
+      height: 28px;
+      padding: 0;
+      border: none;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.05);
+      color: var(--ink);
+      cursor: pointer;
+      transition: background 0.2s ease, opacity 0.2s ease;
+    }
+
+    .device-arrow:hover { background: rgba(0,0,0,0.12); }
+    .device-arrow svg { display: block; }
+
+    .device-dots {
+      display: flex;
+      justify-content: center;
+      gap: 9px;
+    }
+
+    .device-dots button {
+      width: 8px;
+      height: 8px;
+      padding: 0;
+      border: none;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.18);
+      cursor: pointer;
+      transition: width 0.35s cubic-bezier(0.22,1,0.36,1), background 0.35s ease;
+    }
+
+    .device-dots button:hover { background: rgba(0,0,0,0.4); }
+
+    .device-dots button.active {
+      width: 26px;
+      background: var(--ink);
+    }
+
+    /* Hint caption shown under feature-section turntables */
+    .carousel-hint {
+      margin-top: 10px;
+      font-size: 12px;
+      line-height: 1.5;
+      color: var(--muted);
+      text-align: center;
+    }
+    .carousel-hint .hint-mobile { display: none; }
 
     .hero-bg {
       position: absolute;
@@ -194,35 +317,123 @@
 
     .btn-outline:hover { border-color: rgba(0,0,0,0.5); }
 
-    /* ── Screenshot hero ── */
-    .screenshot-hero {
+    /* ── Dual-device hero (interactive) ── */
+    .device-stack {
+      position: relative;
       width: 100%;
-      max-width: 1100px;
+      max-width: 1040px;
       margin: 0 auto;
-      padding: 0 40px 120px;
+      aspect-ratio: 100 / 50;
+      perspective: 1500px;
     }
 
-    .screenshot-box {
-      width: 100%;
-      background: var(--bg2);
-      border: 1px solid var(--border);
+    .device-stack::before {
+      content: '';
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      width: 80%;
+      height: 70%;
+      transform: translate(-50%, -50%);
+      background: radial-gradient(ellipse at center, var(--accent-bg) 0%, rgba(138,111,46,0) 70%);
+      filter: blur(10px);
+      z-index: 0;
+    }
+
+    .device {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform-origin: center;
+      /* positions driven per-frame by JS (turntable); no CSS transition */
+      cursor: pointer;
+      will-change: left, top, transform;
+      user-select: none;
+      -webkit-user-select: none;
+      touch-action: manipulation;
+    }
+
+    /* base width = each type's FRONT size (height roughly normalized) */
+    .device-mac, .device-win { width: 56%; }
+    .device-ipad { width: 24%; }
+    .device-ios { width: 15%; }
+
+    .device-frame {
       border-radius: 12px;
       overflow: hidden;
-      box-shadow: 0 8px 40px rgba(0,0,0,0.08);
+      border: 1px solid var(--border);
+      background: var(--bg2);
+      box-shadow: 0 24px 70px rgba(0,0,0,0.18);
     }
 
-    .screenshot-box img {
+    .device-ios .device-frame { border-radius: 30px; }
+    .device-ipad .device-frame { border-radius: 22px; }
+
+    .device-frame picture,
+    .device-frame img {
+      display: block;
       width: 100%;
       height: auto;
-      display: block;
     }
 
-    .screenshot-placeholder-text {
-      position: relative;
-      font-size: 13px;
-      color: rgba(0,0,0,0.18);
-      letter-spacing: 0.06em;
-      text-transform: uppercase;
+    .device-frame picture[data-lang] { display: none; }
+    .lang-ja .device-frame picture[data-lang="ja"],
+    .lang-en .device-frame picture[data-lang="en"] { display: block; }
+
+    /* Positions are assigned inline per-frame by JS (turntable render). */
+    /* Hover on a back card — un-dim for affordance */
+    .device.is-back:hover { filter: none !important; }
+
+    .device-tag {
+      position: absolute;
+      top: -13px;
+      left: 18px;
+      z-index: 4;
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      color: var(--bg);
+      background: var(--ink);
+      padding: 6px 13px;
+      border-radius: 999px;
+      box-shadow: 0 4px 16px rgba(0,0,0,0.20);
+      white-space: nowrap;
+    }
+
+    .device-tag svg { display: block; }
+
+    /* Magnifier button — top-right of each device, only shown on the front one */
+    .device-zoom {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      z-index: 5;
+      width: 34px;
+      height: 34px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0;
+      border: none;
+      border-radius: 999px;
+      background: rgba(0,0,0,0.45);
+      color: #fff;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.3s ease, background 0.2s ease;
+      -webkit-backdrop-filter: blur(4px);
+      backdrop-filter: blur(4px);
+    }
+    .device-zoom svg { display: block; }
+    .device-zoom:hover { background: rgba(0,0,0,0.66); }
+    .device:not(.is-back) .device-zoom { opacity: 1; pointer-events: auto; }
+
+    @media (prefers-reduced-motion: reduce) {
+      .device { transition: none; }
     }
 
     /* ── Feature sections ── */
@@ -238,6 +449,20 @@
 
     .feature-section.reverse { direction: rtl; }
     .feature-section.reverse > * { direction: ltr; }
+
+    /* Carousel feature: wider image column, no card frame */
+    .feature-section--carousel {
+      max-width: 1240px;
+      grid-template-columns: 0.72fr 1.28fr;
+      gap: 48px;
+    }
+    .feature-img.feature-carousel {
+      background: none;
+      border: none;
+      border-radius: 0;
+      box-shadow: none;
+      overflow: visible;
+    }
 
     .feature-text {}
 
@@ -540,7 +765,7 @@
       gap: 20px;
     }
 
-    .roadmap-list li {
+    .roadmap-list > li {
       display: flex;
       gap: 16px;
       font-size: 15px;
@@ -548,10 +773,29 @@
       color: var(--ink);
     }
 
-    .roadmap-list li::before {
+    .roadmap-list > li::before {
       content: '—';
       color: var(--muted);
       flex-shrink: 0;
+    }
+
+    .roadmap-list > li > ul {
+      list-style: none;
+      padding: 4px 0 0 0;
+      margin: 0;
+    }
+
+    .roadmap-list > li > ul > li {
+      display: block;
+      font-size: 15px;
+      line-height: 1.7;
+      color: var(--ink);
+    }
+
+    .roadmap-list > li > ul > li::before {
+      content: '○';
+      color: var(--muted);
+      margin-right: 8px;
     }
 
     .roadmap-list a {
@@ -581,8 +825,16 @@
     /* ── Responsive ── */
     @media (max-width: 760px) {
       nav { padding: 0 20px; }
-      .hero { padding: 0 20px 80px; }
-      .screenshot-hero { padding: 0 20px 80px; }
+      .hero { padding: 84px 10px 56px; }
+      .hero-devices { margin-bottom: 16px; }
+      /* same turntable carousel on mobile — taller box + bigger devices */
+      .device-stack { aspect-ratio: 100 / 80; }
+      .device-mac, .device-win { width: 78%; }
+      .device-ipad { width: 34%; }
+      .device-ios { width: 22%; }
+      .device-arrow { width: 32px; height: 32px; }
+      .carousel-hint .hint-desktop { display: none; }
+      .carousel-hint .hint-mobile { display: inline; }
       .feature-section {
         grid-template-columns: 1fr;
         gap: 40px;
@@ -613,6 +865,91 @@
 <!-- ── Hero ── -->
 <section class="hero">
   <div class="hero-bg"></div>
+
+  <!-- Main screenshot (Mac + Windows, clickable) -->
+  <div class="hero-devices carousel">
+    <div class="device-stack" data-front="mac">
+      <!-- Mac -->
+      <div class="device device-mac">
+        <span class="device-tag">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M11.2 8.5c0-1.6 1.3-2.4 1.4-2.4-0.8-1.1-1.9-1.3-2.3-1.3-1-0.1-1.9 0.6-2.4 0.6s-1.3-0.6-2.1-0.6c-1.1 0-2.1 0.6-2.6 1.6-1.1 1.9-0.3 4.8 0.8 6.3 0.5 0.8 1.2 1.6 2 1.6 0.8 0 1.1-0.5 2.1-0.5s1.2 0.5 2.1 0.5c0.9 0 1.4-0.8 1.9-1.5 0.6-0.9 0.9-1.7 0.9-1.8 0 0-1.7-0.7-1.7-2.6zM9.6 3.8c0.4-0.5 0.7-1.2 0.6-1.9-0.6 0-1.3 0.4-1.7 0.9-0.4 0.4-0.7 1.1-0.6 1.8 0.7 0 1.3-0.4 1.7-0.8z"/></svg>
+          Mac
+        </span>
+        <div class="device-frame">
+          <picture data-lang="ja">
+            <source srcset="src/mac/main-jp.webp" type="image/webp">
+            <img src="src/mac/main-jp.webp" alt="BridgeLite running on macOS">
+          </picture>
+          <picture data-lang="en">
+            <source srcset="src/mac/main-en.webp" type="image/webp">
+            <img src="src/mac/main-en.webp" alt="BridgeLite running on macOS">
+          </picture>
+        </div>
+      </div>
+      <!-- Windows -->
+      <div class="device device-win">
+        <span class="device-tag">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 2.3l6.5-0.9v6.3H0V2.3zM7.3 1.3L16 0v7.6H7.3V1.3zM0 8.5h6.5v6.3L0 13.9V8.5zM7.3 8.5H16V16l-8.7-1.2V8.5z"/></svg>
+          Windows
+        </span>
+        <div class="device-frame">
+          <picture data-lang="ja">
+            <source srcset="src/win/main-jp.webp" type="image/webp">
+            <img src="src/win/main-jp.webp" alt="BridgeLite running on Windows">
+          </picture>
+          <picture data-lang="en">
+            <source srcset="src/win/main-en.webp" type="image/webp">
+            <img src="src/win/main-en.webp" alt="BridgeLite running on Windows">
+          </picture>
+        </div>
+      </div>
+      <!-- iPhone -->
+      <div class="device device-ios">
+        <span class="device-tag">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="0.5" width="8" height="15" rx="2"/><rect x="5" y="2.2" width="6" height="10.2" fill="var(--bg)"/></svg>
+          iPhone
+        </span>
+        <div class="device-frame">
+          <picture data-lang="ja">
+            <source srcset="src/ios/main-jp.webp" type="image/webp">
+            <img src="src/ios/main-jp.webp" alt="BridgeLite running on iPhone">
+          </picture>
+          <picture data-lang="en">
+            <source srcset="src/ios/main-en.webp" type="image/webp">
+            <img src="src/ios/main-en.webp" alt="BridgeLite running on iPhone">
+          </picture>
+        </div>
+      </div>
+      <!-- iPad -->
+      <div class="device device-ipad">
+        <span class="device-tag">
+          <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="2.5" y="0.5" width="11" height="15" rx="1.8"/><rect x="3.6" y="2" width="8.8" height="11" fill="var(--bg)"/></svg>
+          iPad
+        </span>
+        <div class="device-frame">
+          <picture data-lang="ja">
+            <source srcset="src/ipad/main-jp.webp" type="image/webp">
+            <img src="src/ipad/main-jp.webp" alt="BridgeLite running on iPad">
+          </picture>
+          <picture data-lang="en">
+            <source srcset="src/ipad/main-en.webp" type="image/webp">
+            <img src="src/ipad/main-en.webp" alt="BridgeLite running on iPad">
+          </picture>
+        </div>
+      </div>
+    </div>
+    <!-- Page indicator: prev arrow + dots + next arrow -->
+    <div class="device-nav">
+      <button class="device-arrow device-prev" type="button" aria-label="Previous">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+      <div class="device-dots"></div>
+      <button class="device-arrow device-next" type="button" aria-label="Next">
+        <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+      </button>
+    </div>
+  </div>
+
   <div class="hero-content">
     <h1 data-lang="ja">現像済み・撮って出し・RAW。<br>混在するフォルダを、ひと目で把握。</h1>
     <h1 data-lang="en">Developed. Camera JPEG. RAW.<br>One folder, understood at a glance.</h1>
@@ -634,22 +971,12 @@
   </div>
 </section>
 
-<!-- ── Main screenshot ── -->
-<div class="screenshot-hero">
-  <div class="screenshot-box">
-    <picture>
-      <source srcset="src/ThumbnailGridView.webp" type="image/webp">
-      <img src="src/ThumbnailGridView.png" alt="bridge-lite thumbnail grid">
-    </picture>
-  </div>
-</div>
-
 <!-- ── Features heading ── -->
 <p class="features-heading" data-lang="ja">bridge-lite の特徴</p>
 <p class="features-heading" data-lang="en">Features</p>
 
 <!-- ── Feature 1: Three types ── -->
-<div class="feature-section">
+<div class="feature-section feature-section--carousel">
   <div class="feature-text">
     <p class="feature-label" data-lang="ja">グルーピング機能</p>
     <p class="feature-label" data-lang="en">Grouping</p>
@@ -658,18 +985,95 @@
     <p data-lang="ja">現像した結果が、いつも正解とは限りません。カメラ出力の方が素直に良かったり、現像を重ねるうちに元の色調を見失ってしまうことも。これらの過程を、ひとつのグループとして扱うことができます。</p>
     <p data-lang="en">Developed isn't always the right answer. Sometimes the camera JPEG is simply better, and sometimes repeated edits make you lose track of where you started. BridgeLite treats all three stages as one group.</p>
   </div>
-  <div class="feature-img">
-    <picture>
-      <source srcset="src/GroupCompareView.webp" type="image/webp">
-      <img src="src/GroupCompareView.png" alt="Three types comparison" loading="lazy">
-    </picture>
+  <div class="feature-img feature-carousel">
+    <div class="carousel">
+      <div class="device-stack" data-front="mac">
+        <!-- Mac -->
+        <div class="device device-mac">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M11.2 8.5c0-1.6 1.3-2.4 1.4-2.4-0.8-1.1-1.9-1.3-2.3-1.3-1-0.1-1.9 0.6-2.4 0.6s-1.3-0.6-2.1-0.6c-1.1 0-2.1 0.6-2.6 1.6-1.1 1.9-0.3 4.8 0.8 6.3 0.5 0.8 1.2 1.6 2 1.6 0.8 0 1.1-0.5 2.1-0.5s1.2 0.5 2.1 0.5c0.9 0 1.4-0.8 1.9-1.5 0.6-0.9 0.9-1.7 0.9-1.8 0 0-1.7-0.7-1.7-2.6zM9.6 3.8c0.4-0.5 0.7-1.2 0.6-1.9-0.6 0-1.3 0.4-1.7 0.9-0.4 0.4-0.7 1.1-0.6 1.8 0.7 0 1.3-0.4 1.7-0.8z"/></svg>
+            Mac
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja">
+              <source srcset="src/mac/comp-jp.webp" type="image/webp">
+              <img src="src/mac/comp-jp.webp" alt="Grouping on macOS" loading="lazy">
+            </picture>
+            <picture data-lang="en">
+              <source srcset="src/mac/comp-en.webp" type="image/webp">
+              <img src="src/mac/comp-en.webp" alt="Grouping on macOS" loading="lazy">
+            </picture>
+          </div>
+        </div>
+        <!-- Windows -->
+        <div class="device device-win">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 2.3l6.5-0.9v6.3H0V2.3zM7.3 1.3L16 0v7.6H7.3V1.3zM0 8.5h6.5v6.3L0 13.9V8.5zM7.3 8.5H16V16l-8.7-1.2V8.5z"/></svg>
+            Windows
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja">
+              <source srcset="src/win/comp-jp.webp" type="image/webp">
+              <img src="src/win/comp-jp.webp" alt="Grouping on Windows" loading="lazy">
+            </picture>
+            <picture data-lang="en">
+              <source srcset="src/win/comp-en.webp" type="image/webp">
+              <img src="src/win/comp-en.webp" alt="Grouping on Windows" loading="lazy">
+            </picture>
+          </div>
+        </div>
+        <!-- iPhone -->
+        <div class="device device-ios">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="0.5" width="8" height="15" rx="2"/><rect x="5" y="2.2" width="6" height="10.2" fill="var(--bg)"/></svg>
+            iPhone
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja">
+              <source srcset="src/ios/detail-jp.webp" type="image/webp">
+              <img src="src/ios/detail-jp.webp" alt="Grouping on iPhone" loading="lazy">
+            </picture>
+            <picture data-lang="en">
+              <source srcset="src/ios/detail-en.webp" type="image/webp">
+              <img src="src/ios/detail-en.webp" alt="Grouping on iPhone" loading="lazy">
+            </picture>
+          </div>
+        </div>
+        <!-- iPad -->
+        <div class="device device-ipad">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="2.5" y="0.5" width="11" height="15" rx="1.8"/><rect x="3.6" y="2" width="8.8" height="11" fill="var(--bg)"/></svg>
+            iPad
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja">
+              <source srcset="src/ipad/detail-jp.webp" type="image/webp">
+              <img src="src/ipad/detail-jp.webp" alt="Grouping on iPad" loading="lazy">
+            </picture>
+            <picture data-lang="en">
+              <source srcset="src/ipad/detail-en.webp" type="image/webp">
+              <img src="src/ipad/detail-en.webp" alt="Grouping on iPad" loading="lazy">
+            </picture>
+          </div>
+        </div>
+      </div>
+      <div class="device-nav">
+        <button class="device-arrow device-prev" type="button" aria-label="Previous">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+        <div class="device-dots"></div>
+        <button class="device-arrow device-next" type="button" aria-label="Next">
+          <svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+    </div>
   </div>
 </div>
 
 <div class="divider"></div>
 
 <!-- ── Feature 2: Evaluate ── -->
-<div class="feature-section reverse">
+<div class="feature-section reverse feature-section--carousel">
   <div class="feature-text">
     <p class="feature-label" data-lang="ja">閲覧・評価・比較</p>
     <p class="feature-label" data-lang="en">Browse. Evaluate. Compare.</p>
@@ -678,31 +1082,121 @@
     <p data-lang="ja">BridgeLite がやることは——写真を見る、評価する、比べるの3つだけです。現像やレタッチなどは、いつも使っているツールをご活用ください。評価はキーボードショートカットで高速に行えるので、大量の写真でもサクサク進みます。0〜5 星の評価は XMP サイドカーに書き込まれるため、Lightroom や Capture One にそのまま引き継げます。</p>
     <p data-lang="en">BridgeLite does just three things: browse, evaluate, and compare. For developing and retouching, keep using the tools you already know. Keyboard shortcuts let you rate photos quickly, so even large batches stay manageable. Ratings (0–5 stars) are written to XMP sidecars and carry over to Lightroom or Capture One as-is.</p>
   </div>
-  <div class="feature-img">
-    <picture>
-      <source srcset="src/ThumbnailGridView.webp" type="image/webp">
-      <img src="src/ThumbnailGridView.png" alt="Browse, evaluate and compare" loading="lazy">
-    </picture>
+  <div class="feature-img feature-carousel">
+    <div class="carousel">
+      <div class="device-stack" data-front="mac">
+        <div class="device device-mac">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M11.2 8.5c0-1.6 1.3-2.4 1.4-2.4-0.8-1.1-1.9-1.3-2.3-1.3-1-0.1-1.9 0.6-2.4 0.6s-1.3-0.6-2.1-0.6c-1.1 0-2.1 0.6-2.6 1.6-1.1 1.9-0.3 4.8 0.8 6.3 0.5 0.8 1.2 1.6 2 1.6 0.8 0 1.1-0.5 2.1-0.5s1.2 0.5 2.1 0.5c0.9 0 1.4-0.8 1.9-1.5 0.6-0.9 0.9-1.7 0.9-1.8 0 0-1.7-0.7-1.7-2.6zM9.6 3.8c0.4-0.5 0.7-1.2 0.6-1.9-0.6 0-1.3 0.4-1.7 0.9-0.4 0.4-0.7 1.1-0.6 1.8 0.7 0 1.3-0.4 1.7-0.8z"/></svg>
+            Mac
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja"><source srcset="src/mac/detail-jp.webp" type="image/webp"><img src="src/mac/detail-jp.webp" alt="Browse and evaluate on macOS" loading="lazy"></picture>
+            <picture data-lang="en"><source srcset="src/mac/detail-en.webp" type="image/webp"><img src="src/mac/detail-en.webp" alt="Browse and evaluate on macOS" loading="lazy"></picture>
+          </div>
+        </div>
+        <div class="device device-win">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 2.3l6.5-0.9v6.3H0V2.3zM7.3 1.3L16 0v7.6H7.3V1.3zM0 8.5h6.5v6.3L0 13.9V8.5zM7.3 8.5H16V16l-8.7-1.2V8.5z"/></svg>
+            Windows
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja"><source srcset="src/win/detail-jp.webp" type="image/webp"><img src="src/win/detail-jp.webp" alt="Browse and evaluate on Windows" loading="lazy"></picture>
+            <picture data-lang="en"><source srcset="src/win/detail-en.webp" type="image/webp"><img src="src/win/detail-en.webp" alt="Browse and evaluate on Windows" loading="lazy"></picture>
+          </div>
+        </div>
+        <div class="device device-ios">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="0.5" width="8" height="15" rx="2"/><rect x="5" y="2.2" width="6" height="10.2" fill="var(--bg)"/></svg>
+            iPhone
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja"><source srcset="src/ios/detail-jp.webp" type="image/webp"><img src="src/ios/detail-jp.webp" alt="Browse and evaluate on iPhone" loading="lazy"></picture>
+            <picture data-lang="en"><source srcset="src/ios/detail-en.webp" type="image/webp"><img src="src/ios/detail-en.webp" alt="Browse and evaluate on iPhone" loading="lazy"></picture>
+          </div>
+        </div>
+        <div class="device device-ipad">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="2.5" y="0.5" width="11" height="15" rx="1.8"/><rect x="3.6" y="2" width="8.8" height="11" fill="var(--bg)"/></svg>
+            iPad
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja"><source srcset="src/ipad/detail-jp.webp" type="image/webp"><img src="src/ipad/detail-jp.webp" alt="Browse and evaluate on iPad" loading="lazy"></picture>
+            <picture data-lang="en"><source srcset="src/ipad/detail-en.webp" type="image/webp"><img src="src/ipad/detail-en.webp" alt="Browse and evaluate on iPad" loading="lazy"></picture>
+          </div>
+        </div>
+      </div>
+      <div class="device-nav">
+        <button class="device-arrow device-prev" type="button" aria-label="Previous"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="device-dots"></div>
+        <button class="device-arrow device-next" type="button" aria-label="Next"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
   </div>
 </div>
 
 <div class="divider"></div>
 
-<!-- ── Feature 3: Single Source of Truth ── -->
-<div class="feature-section">
+<!-- ── Feature 3: Filtering ── -->
+<div class="feature-section feature-section--carousel">
   <div class="feature-text">
-    <p class="feature-label" data-lang="ja">可搬性のある設計</p>
-    <p class="feature-label" data-lang="en">Portable by design</p>
-    <h2 data-lang="ja">そこにあるファイルがすべて。</h2>
-    <h2 data-lang="en">The files are all that matter.</h2>
-    <p data-lang="ja">BridgeLite は独自のデータベースを持ちません。評価などの情報はすべて XMP サイドカーに書き込まれるため、Lightroom や Capture One など、どのソフトウェアからでも読み書きできます。BridgeLite を使わなくなっても、写真のデータはそのまま残ります。</p>
-    <p data-lang="en">bridge-lite has no proprietary database. All information — including ratings — is written to XMP sidecars, making it readable by any software, including Lightroom and Capture One. Even if you stop using bridge-lite, your photo data stays intact.</p>
+    <p class="feature-label" data-lang="ja">フィルタリング</p>
+    <p class="feature-label" data-lang="en">Filtering</p>
+    <h2 data-lang="ja">見たい写真だけを、瞬時に。</h2>
+    <h2 data-lang="en">Surface just the photos you want.</h2>
+    <p data-lang="ja">評価・ファイル種別（撮って出し／RAW／現像済み）・カメラやレンズ、さらに ISO・シャッター速度・絞りまで、豊富な条件で写真を絞り込めます。膨大なフォルダの中から「星3つ以上の RAW だけ」「あのレンズで撮った数枚」を、すぐに見つけ出せます。絞り込んだ写真はそのまま書き出して、クライアントや仲間に共有したり、Lightroom などの後続の現像・編集ワークフローへスムーズに引き渡せます。</p>
+    <p data-lang="en">Filter by rating, file type (camera JPEG / RAW / developed), camera and lens — even ISO, shutter speed, and aperture. From a huge folder, instantly narrow down to "RAW files rated three stars and up" or "the few shots from that one lens." From there, the filtered set can be exported to share with clients or collaborators, or handed straight to Lightroom and the rest of your editing workflow.</p>
   </div>
-  <div class="feature-img">
-    <picture>
-      <source srcset="src/ViewerView.webp" type="image/webp">
-      <img src="src/ViewerView.png" alt="Single Source of Truth" loading="lazy">
-    </picture>
+  <div class="feature-img feature-carousel">
+    <div class="carousel">
+      <div class="device-stack" data-front="mac">
+        <div class="device device-mac">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M11.2 8.5c0-1.6 1.3-2.4 1.4-2.4-0.8-1.1-1.9-1.3-2.3-1.3-1-0.1-1.9 0.6-2.4 0.6s-1.3-0.6-2.1-0.6c-1.1 0-2.1 0.6-2.6 1.6-1.1 1.9-0.3 4.8 0.8 6.3 0.5 0.8 1.2 1.6 2 1.6 0.8 0 1.1-0.5 2.1-0.5s1.2 0.5 2.1 0.5c0.9 0 1.4-0.8 1.9-1.5 0.6-0.9 0.9-1.7 0.9-1.8 0 0-1.7-0.7-1.7-2.6zM9.6 3.8c0.4-0.5 0.7-1.2 0.6-1.9-0.6 0-1.3 0.4-1.7 0.9-0.4 0.4-0.7 1.1-0.6 1.8 0.7 0 1.3-0.4 1.7-0.8z"/></svg>
+            Mac
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja"><source srcset="src/mac/filter-jp.webp" type="image/webp"><img src="src/mac/filter-jp.webp" alt="Filtering on macOS" loading="lazy"></picture>
+            <picture data-lang="en"><source srcset="src/mac/filter-en.webp" type="image/webp"><img src="src/mac/filter-en.webp" alt="Filtering on macOS" loading="lazy"></picture>
+          </div>
+        </div>
+        <div class="device device-win">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><path d="M0 2.3l6.5-0.9v6.3H0V2.3zM7.3 1.3L16 0v7.6H7.3V1.3zM0 8.5h6.5v6.3L0 13.9V8.5zM7.3 8.5H16V16l-8.7-1.2V8.5z"/></svg>
+            Windows
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja"><source srcset="src/win/filter-jp.webp" type="image/webp"><img src="src/win/filter-jp.webp" alt="Filtering on Windows" loading="lazy"></picture>
+            <picture data-lang="en"><source srcset="src/win/filter-en.webp" type="image/webp"><img src="src/win/filter-en.webp" alt="Filtering on Windows" loading="lazy"></picture>
+          </div>
+        </div>
+        <div class="device device-ios">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="4" y="0.5" width="8" height="15" rx="2"/><rect x="5" y="2.2" width="6" height="10.2" fill="var(--bg)"/></svg>
+            iPhone
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja"><source srcset="src/ios/filter-jp.webp" type="image/webp"><img src="src/ios/filter-jp.webp" alt="Filtering on iPhone" loading="lazy"></picture>
+            <picture data-lang="en"><source srcset="src/ios/filter-en.webp" type="image/webp"><img src="src/ios/filter-en.webp" alt="Filtering on iPhone" loading="lazy"></picture>
+          </div>
+        </div>
+        <div class="device device-ipad">
+          <span class="device-tag">
+            <svg width="11" height="11" viewBox="0 0 16 16" fill="currentColor"><rect x="2.5" y="0.5" width="11" height="15" rx="1.8"/><rect x="3.6" y="2" width="8.8" height="11" fill="var(--bg)"/></svg>
+            iPad
+          </span>
+          <div class="device-frame">
+            <picture data-lang="ja"><source srcset="src/ipad/filter-jp.webp" type="image/webp"><img src="src/ipad/filter-jp.webp" alt="Filtering on iPad" loading="lazy"></picture>
+            <picture data-lang="en"><source srcset="src/ipad/filter-en.webp" type="image/webp"><img src="src/ipad/filter-en.webp" alt="Filtering on iPad" loading="lazy"></picture>
+          </div>
+        </div>
+      </div>
+      <div class="device-nav">
+        <button class="device-arrow device-prev" type="button" aria-label="Previous"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M10 3L5 8l5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+        <div class="device-dots"></div>
+        <button class="device-arrow device-next" type="button" aria-label="Next"><svg width="14" height="14" viewBox="0 0 16 16" fill="none"><path d="M6 3l5 5-5 5" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
+      </div>
+    </div>
   </div>
 </div>
 
@@ -733,27 +1227,25 @@
           <svg width="14" height="14" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"/></svg>
           GitHub
         </a>
-        <span class="appstore-badge-soon" data-lang="ja">
-          <img src="src/Download_on_the_Mac_App_Store_JP.svg" alt="Download on the Mac App Store">
-          <span class="badge-soon-tag">近日公開</span>
-        </span>
-        <span class="appstore-badge-soon" data-lang="en">
-          <img src="src/Download_on_the_Mac_App_Store_EN.svg" alt="Download on the Mac App Store">
-          <span class="badge-soon-tag">Coming soon</span>
-        </span>
+        <a href="https://apps.apple.com/jp/app/bridgelite/id6770079643" class="appstore-badge" data-lang="ja" target="_blank" rel="noopener">
+          <img src="src/mac/Download_on_the_Mac_App_Store_JP.svg" alt="Download on the Mac App Store">
+        </a>
+        <a href="https://apps.apple.com/us/app/bridgelite/id6770079643" class="appstore-badge" data-lang="en" target="_blank" rel="noopener">
+          <img src="src/mac/Download_on_the_Mac_App_Store_EN.svg" alt="Download on the Mac App Store">
+        </a>
       </div>
     </div>
 
     <!-- iPhone -->
     <div class="platform-card">
-      <p class="platform-os">iPhone</p>
-      <p class="platform-req" data-lang="ja">iPhone 向け · 無料</p>
-      <p class="platform-req" data-lang="en">For iPhone · Free</p>
+      <p class="platform-os">iPhone / iPad</p>
+      <p class="platform-req" data-lang="ja">iPhone・iPad 向け · 無料</p>
+      <p class="platform-req" data-lang="en">For iPhone &amp; iPad · Free</p>
       <div class="platform-actions">
         <a href="https://apps.apple.com/jp/app/bridgelite/id6770079643" class="appstore-badge" data-lang="ja" target="_blank" rel="noopener">
           <img src="src/Download_on_the_App_Store_JP.svg" alt="Download on the App Store">
         </a>
-        <a href="https://apps.apple.com/jp/app/bridgelite/id6770079643" class="appstore-badge" data-lang="en" target="_blank" rel="noopener">
+        <a href="https://apps.apple.com/us/app/bridgelite/id6770079643" class="appstore-badge" data-lang="en" target="_blank" rel="noopener">
           <img src="src/Download_on_the_App_Store_EN.svg" alt="Download on the App Store">
         </a>
       </div>
@@ -777,12 +1269,12 @@
         </div>
         <div class="ms-dl-option">
           <span class="ms-badge-wrap" data-lang="ja">
-            <a href="https://apps.microsoft.com/detail/9N09TWGSDJ9P?referrer=appbadge&mode=full" class="ms-badge-link" target="_blank" rel="noopener noreferrer">
+            <a href="https://apps.microsoft.com/detail/9N09TWGSDJ9P?hl=ja-JP&gl=JP&referrer=appbadge&mode=full" class="ms-badge-link" target="_blank" rel="noopener noreferrer">
               <img src="src/MS_Store_JP.svg" alt="Microsoft Store から入手">
             </a><sup class="ms-fn">※2</sup>
           </span>
           <span class="ms-badge-wrap" data-lang="en">
-            <a href="https://apps.microsoft.com/detail/9N09TWGSDJ9P?referrer=appbadge&mode=full" class="ms-badge-link" target="_blank" rel="noopener noreferrer">
+            <a href="https://apps.microsoft.com/detail/9N09TWGSDJ9P?hl=en-US&gl=US&referrer=appbadge&mode=full" class="ms-badge-link" target="_blank" rel="noopener noreferrer">
               <img src="src/MS_Store_EN.svg" alt="Get it from Microsoft">
             </a><sup class="ms-fn">※2</sup>
           </span>
@@ -815,7 +1307,10 @@
       <li>対応言語は現在、日本語・英語のみです。他言語への対応は今後検討します。</li>
       <li>JPG と RAW の両方をコスト効率よく管理できるウェブサービスも開発予定です。</li>
       <li>ソースコードの公開は現在検討中です。</li>
-      <li>機能追加のご要望・不具合の報告は、<a href="mailto:itotsum128lab@gmail.com">itotsum128lab@gmail.com</a> までお気軽にどうぞ。</li>
+      <li>Android 版は、テスターを実施してくださる方がいれば、Google Play での配信を予定しています。</li>
+      <li><div>機能追加のご要望・不具合の報告は、お気軽にどうぞ。
+        <ul><li><a href="mailto:itotsum128lab@gmail.com">itotsum128lab@gmail.com</a></li></ul>
+      </div></li>
     </ul>
     <p class="roadmap-note">BridgeLite は開発者個人のプロジェクトです。最高のパフォーマンスを実現するため、UI には Mac では SwiftUI、Windows では WinUI 3 といったプラットフォーム固有のフレームワークを採用しています。一方、コア機能は Rust で共通開発しているため、両プラットフォームで同じ処理品質を保てるのが強みです。</p>
   </div>
@@ -826,7 +1321,10 @@
       <li>Currently available in Japanese and English only. Additional languages may be considered in the future.</li>
       <li>A web service for cost-efficient management of both JPG and RAW files is also in development.</li>
       <li>Open-sourcing the code is currently being considered.</li>
-      <li>Feature requests and bug reports are welcome at <a href="mailto:itotsum128lab@gmail.com">itotsum128lab@gmail.com</a>.</li>
+      <li>An Android version is planned for release on Google Play, provided we can find testers to help.</li>
+      <li><div>Feature requests and bug reports are welcome.
+        <ul><li><a href="mailto:itotsum128lab@gmail.com">itotsum128lab@gmail.com</a></li></ul>
+      </div></li>
     </ul>
     <p class="roadmap-note">BridgeLite is a personal project. Delivering the best experience means using platform-native UI frameworks — SwiftUI on Mac, WinUI 3 on Windows. The core functionality is built in Rust and shared across both, so you get the same processing quality on either platform.</p>
   </div>
@@ -848,6 +1346,12 @@
   </span>
 </footer>
 
+<!-- Lightbox for enlarged device screenshots -->
+<div class="lightbox" id="lightbox" role="dialog" aria-modal="true">
+  <button class="lightbox-close" id="lightboxClose" type="button" aria-label="Close">&times;</button>
+  <img id="lightboxImg" src="" alt="">
+</div>
+
 <script>
   function setLang(lang) {
     document.body.className = 'lang-' + lang;
@@ -865,6 +1369,198 @@
       lang = navigator.language.startsWith('ja') ? 'ja' : 'en';
     }
     setLang(lang);
+  })();
+
+  // ── Turntable device carousel + page indicator (multi-instance) ──
+  var DEVICE_LABELS = { mac: 'Mac', win: 'Windows', ipad: 'iPad', ios: 'iPhone' };
+  var AUTOPLAY_MS = 10000;
+
+  function reduceMotion() {
+    return window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  }
+
+  function createCarousel(root) {
+    var stack = root.querySelector('.device-stack');
+    if (!stack) return;
+    var deviceEls = Array.prototype.slice.call(stack.querySelectorAll('.device'));
+    var order = deviceEls.map(function (el) {
+      var m = el.className.match(/device-(mac|win|ipad|ios)\b/);
+      return m ? m[1] : null;
+    }).filter(Boolean);
+    var N = order.length;
+    if (!N) return;
+    var STEP = (2 * Math.PI) / N;
+
+    var dotsWrap = root.querySelector('.device-dots');
+    var prevBtn = root.querySelector('.device-prev');
+    var nextBtn = root.querySelector('.device-next');
+
+    var angle = 0, target = 0, rafId = null, autoTimer = null;
+
+    function render() {
+      var mobile = window.innerWidth <= 760;
+      var SWING = mobile ? 22 : 30;            // horizontal swing
+      var TOPAMP = mobile ? 20 : 18;           // vertical spread (steeper tilt → back peeks above)
+      order.forEach(function (d, i) {
+        var theta = i * STEP + angle;
+        var s = Math.sin(theta), c = Math.cos(theta);
+        var el = stack.querySelector('.device-' + d);
+        if (!el) return;
+        var left  = 50 + SWING * s;
+        var top   = 45 + TOPAMP * c;
+        var scale = 0.70 + 0.30 * c;           // bigger front (1.0), smaller back (0.40)
+        var rotY  = -s * 22;
+        var z     = Math.round(100 + 100 * c);
+        var isFront = c > 0.86;
+        el.style.left = left.toFixed(2) + '%';
+        el.style.top = top.toFixed(2) + '%';
+        el.style.transform = 'translate(-50%,-50%) scale(' + scale.toFixed(3) + ') rotateY(' + rotY.toFixed(1) + 'deg)';
+        el.style.zIndex = String(z);
+        el.style.filter = isFront ? 'none' : 'brightness(' + (0.82 + 0.18 * (c + 1) / 2).toFixed(3) + ')';
+        el.style.cursor = isFront ? 'default' : 'pointer';
+        el.classList.toggle('is-back', !isFront);
+      });
+      updateDots();
+    }
+
+    function frontIndex() {
+      var idx = Math.round(-angle / STEP);
+      return ((idx % N) + N) % N;
+    }
+
+    function animate() {
+      var diff = target - angle;
+      if (Math.abs(diff) < 0.0008) { angle = target; render(); rafId = null; return; }
+      angle += diff * 0.12;
+      render();
+      rafId = requestAnimationFrame(animate);
+    }
+
+    function rotateToIndex(j) {
+      var desired = -j * STEP;
+      var twoPi = 2 * Math.PI;
+      while (desired - angle > Math.PI) desired -= twoPi;
+      while (desired - angle < -Math.PI) desired += twoPi;
+      target = desired;
+      if (reduceMotion()) { angle = target; render(); return; }
+      if (!rafId) rafId = requestAnimationFrame(animate);
+    }
+
+    function scheduleAutoplay() {
+      if (autoTimer) clearTimeout(autoTimer);
+      if (reduceMotion()) return;
+      autoTimer = setTimeout(function () {
+        rotateToIndex((frontIndex() + 1) % N);   // forward, wraps last→first
+        scheduleAutoplay();
+      }, AUTOPLAY_MS);
+    }
+
+    function userNavigate(j) { rotateToIndex(j); scheduleAutoplay(); }
+
+    function buildDots() {
+      if (!dotsWrap) return;
+      dotsWrap.innerHTML = '';
+      order.forEach(function (d, i) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.setAttribute('aria-label', DEVICE_LABELS[d] || d);
+        b.addEventListener('click', function () { userNavigate(i); });
+        dotsWrap.appendChild(b);
+      });
+    }
+
+    function updateDots() {
+      if (!dotsWrap) return;
+      var fi = frontIndex();
+      Array.prototype.forEach.call(dotsWrap.children, function (b, i) {
+        b.classList.toggle('active', i === fi);
+      });
+    }
+
+    // Currently-visible image (matches the active language) of a device
+    function imgOf(el) {
+      var imgs = Array.prototype.slice.call(el.querySelectorAll('.device-frame img'));
+      return imgs.filter(function (im) { return im.offsetParent !== null; })[0] || imgs[0];
+    }
+    function enlarge(el) {
+      var im = imgOf(el);
+      if (im) openLightbox(im.currentSrc || im.src, im.alt);
+    }
+
+    var lastTapEl = null, lastTapAt = 0;
+    deviceEls.forEach(function (el, i) {
+      // Magnifier button (top-right) — visible only on the front device
+      var zoom = document.createElement('button');
+      zoom.type = 'button';
+      zoom.className = 'device-zoom';
+      zoom.setAttribute('aria-label', 'Enlarge');
+      zoom.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" fill="none"><circle cx="7" cy="7" r="4.5" stroke="currentColor" stroke-width="1.6"/><path d="M10.5 10.5L14 14" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/><path d="M7 5.2v3.6M5.2 7h3.6" stroke="currentColor" stroke-width="1.4" stroke-linecap="round"/></svg>';
+      zoom.addEventListener('click', function (e) { e.stopPropagation(); enlarge(el); });
+      el.appendChild(zoom);
+
+      // Tap/click: navigate to this device; double-tap the front one → enlarge
+      el.addEventListener('click', function () {
+        var now = Date.now();
+        var isFront = !el.classList.contains('is-back');
+        if (isFront && lastTapEl === el && (now - lastTapAt) < 320) {
+          lastTapEl = null; lastTapAt = 0;
+          enlarge(el);
+          return;
+        }
+        lastTapEl = el; lastTapAt = now;
+        userNavigate(i);
+      });
+    });
+    if (prevBtn) prevBtn.addEventListener('click', function () { userNavigate((frontIndex() - 1 + N) % N); });
+    if (nextBtn) nextBtn.addEventListener('click', function () { userNavigate((frontIndex() + 1) % N); });
+
+    // Feature-section carousels get a hint caption below the turntable
+    // (skip the hero carousel, which sits on the .hero-devices wrapper)
+    if (!root.classList.contains('hero-devices')) {
+      var hint = document.createElement('p');
+      hint.className = 'carousel-hint';
+      hint.innerHTML =
+        '<span class="hint-desktop">' +
+          '<span data-lang="ja">画像をダブルクリック、または 🔍 をクリックすると拡大表示できます</span>' +
+          '<span data-lang="en">Double-click an image — or click 🔍 — to enlarge it</span>' +
+        '</span>' +
+        '<span class="hint-mobile">' +
+          '<span data-lang="ja">画像をダブルタップ、または 🔍 をタップすると拡大表示できます</span>' +
+          '<span data-lang="en">Double-tap an image — or tap 🔍 — to enlarge it</span>' +
+        '</span>';
+      root.appendChild(hint);
+    }
+
+    buildDots();
+    render();
+    scheduleAutoplay();
+    window.addEventListener('resize', render);
+  }
+
+  document.querySelectorAll('.carousel').forEach(createCarousel);
+
+  // ── Lightbox ─────────────────────────────────────────────
+  function openLightbox(src, alt) {
+    var lb = document.getElementById('lightbox');
+    var im = document.getElementById('lightboxImg');
+    if (!lb || !im) return;
+    im.src = src;
+    im.alt = alt || '';
+    lb.classList.add('open');
+    document.body.style.overflow = 'hidden';
+  }
+  function closeLightbox() {
+    var lb = document.getElementById('lightbox');
+    if (!lb) return;
+    lb.classList.remove('open');
+    document.body.style.overflow = '';
+  }
+  (function () {
+    var lb = document.getElementById('lightbox');
+    var closeBtn = document.getElementById('lightboxClose');
+    if (lb) lb.addEventListener('click', function (e) { if (e.target === lb) closeLightbox(); });
+    if (closeBtn) closeBtn.addEventListener('click', closeLightbox);
+    document.addEventListener('keydown', function (e) { if (e.key === 'Escape') closeLightbox(); });
   })();
 
   fetch('https://api.github.com/repos/hoge128/bridge-lite/releases/latest')
