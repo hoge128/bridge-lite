@@ -1514,6 +1514,27 @@
     if (prevBtn) prevBtn.addEventListener('click', function () { userNavigate((frontIndex() - 1 + N) % N); });
     if (nextBtn) nextBtn.addEventListener('click', function () { userNavigate((frontIndex() + 1) % N); });
 
+    // Touch swipe (mobile): horizontal swipe steps to the next/previous image.
+    // Tap-to-front is handled by the per-device click handler above; here we only
+    // act on a clearly-horizontal drag so vertical page scrolling is unaffected.
+    var swStartX = 0, swStartY = 0, swActive = false;
+    stack.addEventListener('touchstart', function (e) {
+      if (e.touches.length !== 1) { swActive = false; return; }
+      swStartX = e.touches[0].clientX;
+      swStartY = e.touches[0].clientY;
+      swActive = true;
+    }, { passive: true });
+    stack.addEventListener('touchend', function (e) {
+      if (!swActive) return;
+      swActive = false;
+      var t = e.changedTouches[0];
+      var dx = t.clientX - swStartX;
+      var dy = t.clientY - swStartY;
+      if (Math.abs(dx) < 40 || Math.abs(dx) <= Math.abs(dy)) return;  // not a horizontal swipe
+      if (dx < 0) userNavigate((frontIndex() + 1) % N);   // swipe left  → next
+      else        userNavigate((frontIndex() - 1 + N) % N); // swipe right → previous
+    }, { passive: true });
+
     // Feature-section carousels get a hint caption below the turntable
     // (skip the hero carousel, which sits on the .hero-devices wrapper)
     if (!root.classList.contains('hero-devices')) {
