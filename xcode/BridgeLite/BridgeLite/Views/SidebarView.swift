@@ -441,13 +441,34 @@ struct ExifQuickBar: View {
     }
     private var fText: String { exif?.fnumber ?? "--" }
 
+    private static func fmtMm(_ mm: Double) -> String {
+        mm == mm.rounded() ? "\(Int(mm))mm" : String(format: "%.1fmm", mm)
+    }
+    private var focal35Text: String {
+        exif?.focalLength35mm.map { "\($0)mm" } ?? "--"
+    }
+    private var focalLensText: String {
+        exif?.focalLengthMm.map(Self.fmtMm) ?? "--"
+    }
+
     var body: some View {
-        HStack(spacing: 0) {
-            cell(label: "ISO", value: isoText, hasValue: exif?.iso != nil)
-            separator
-            cell(label: "SS", value: ssText, hasValue: exif?.exposureTime != nil)
-            separator
-            cell(label: "F", value: fText, hasValue: exif?.fnumber != nil)
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                cell(label: "ISO", value: isoText, hasValue: exif?.iso != nil)
+                separator
+                cell(label: "SS", value: ssText, hasValue: exif?.exposureTime != nil)
+                separator
+                cell(label: "F", value: fText, hasValue: exif?.fnumber != nil)
+            }
+            Rectangle()
+                .fill(Color.secondary.opacity(0.2))
+                .frame(height: 0.5)
+                .padding(.horizontal, 2)
+            HStack(spacing: 0) {
+                cell(label: "35mm", value: focal35Text, hasValue: exif?.focalLength35mm != nil)
+                separator
+                cell(label: "Lens", value: focalLensText, hasValue: exif?.focalLengthMm != nil)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 8)
