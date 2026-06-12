@@ -13,6 +13,15 @@ final class ThumbnailDecodeCache: NSObject, @unchecked Sendable {
     private let memoryPressureSource: DispatchSourceMemoryPressure
     private var baseLimitBytes: Int
 
+    // アイドル時メモリ解放: ユーザー入力（全アプリ対象）がこの秒数途絶えたら
+    // デコード済みビットマップを全解放する。各ストアの thumbnailBlobs (JPEG) は
+    // 残るため、復帰後はスクロールに応じて再デコードされるだけで損失はない。
+    // アプリ切替時の解放は LibraryStore.suspend() が担当し、ここは
+    // 「bridge-lite が前面のままユーザーが離席した」ケースを埋める。
+    private static let idleTrimThreshold: TimeInterval = 5 * 60
+    private let idleTrimTimer: DispatchSourceTimer
+    private var didIdleTrim = false
+
     // NSCache が cost 上限超過で自動 evict した回数。これが閾値を超える＝ワーキング
     // セットがキャッシュ上限を大きく超えており、再デコードが頻発している合図。
     // （removeAllObjects / removeObject では willEvictObject は呼ばれないので、
@@ -39,6 +48,9 @@ final class ThumbnailDecodeCache: NSObject, @unchecked Sendable {
         )
         memoryPressureSource = src
 
+        let idleTimer = DispatchSource.makeTimerSource(queue: .main)
+        idleTrimTimer = idleTimer
+
         super.init()
 
         cache.totalCostLimit = limit
@@ -60,6 +72,25 @@ final class ThumbnailDecodeCache: NSObject, @unchecked Sendable {
             }
         }
         src.resume()
+
+        idleTimer.schedule(deadline: .now() + 60, repeating: 60, leeway: .seconds(10))
+        idleTimer.setEventHandler { [weak self] in self?.idleTrimTick() }
+        idleTimer.resume()
+    }
+
+    /// 60 秒ごとにシステム全体の入力アイドル時間を確認し、閾値を超えたら一度だけ全解放する。
+    /// removeAllObjects は willEvictObject を呼ばないため、eviction カウント／ヒントには影響しない。
+    private func idleTrimTick() {
+        // kCGAnyInputEventType (~0): あらゆる入力イベントからの経過秒数
+        let anyInput = CGEventType(rawValue: UInt32.max) ?? .null
+        let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput)
+        if idle >= Self.idleTrimThreshold {
+            guard !didIdleTrim else { return }
+            didIdleTrim = true
+            cache.removeAllObjects()
+        } else {
+            didIdleTrim = false
+        }
     }
 
     @MainActor func updateLimit(mb: Int) {
