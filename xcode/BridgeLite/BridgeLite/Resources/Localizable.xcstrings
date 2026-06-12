@@ -162,6 +162,102 @@
         }
       }
     },
+    "hint.openGestureSwap.body": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "By default, double-click opens Compare and Space opens the Viewer. You can swap them in Settings → General → Viewer."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "既定ではダブルクリックが比較ビュー、Space が単体ビューを開きます。設定 → 一般 → 単体ビュー で入れ替えられます。"
+          }
+        }
+      }
+    },
+    "hint.openGestureSwap.title": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Double-click and Space are customizable"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ダブルクリックと Space の動作は変更できます"
+          }
+        }
+      }
+    },
+    "open_gesture.space_compare": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space → Compare / Double-click → Viewer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space → 比較ビュー / ダブルクリック → 単体ビュー"
+          }
+        }
+      }
+    },
+    "open_gesture.space_viewer": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space → Viewer / Double-click → Compare"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space → 単体ビュー / ダブルクリック → 比較ビュー"
+          }
+        }
+      }
+    },
+    "settings.open_gesture": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Open from grid"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "グリッドからの表示操作"
+          }
+        }
+      }
+    },
+    "settings.open_gesture.note": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Choose which view opens when you press Space or double-click a thumbnail."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Space キーとサムネイルのダブルクリックでどちらのビューを開くかを選べます。"
+          }
+        }
+      }
+    },
     "settings.viewer.section": {
       "localizations": {
         "en": {
@@ -238,6 +334,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "除外フラグ"
+          }
+        }
+      }
+    },
+    "thumbnail.context.move_to_compare.plain": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to Compare"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "比較ビューに移動"
+          }
+        }
+      }
+    },
+    "thumbnail.context.move_to_viewer.dblclick": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Move to Viewer (Double-click)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "単体ビューに移動（ダブルクリック）"
           }
         }
       }

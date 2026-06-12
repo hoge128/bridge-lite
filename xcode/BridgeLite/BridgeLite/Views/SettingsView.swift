@@ -107,6 +107,17 @@ struct SettingsView: View {
                             defaultValue: "Hides the buttons at the top of the single-image viewer after 1 second without mouse movement. Move the mouse to show them again."))
                     .font(.caption)
                     .foregroundStyle(.secondary)
+                Picker(String(localized: "settings.open_gesture", defaultValue: "Open from grid"),
+                       selection: $settings.gridOpenGesture) {
+                    ForEach(GridOpenGestureMode.allCases) { mode in
+                        Text(mode.localizedName).tag(mode)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                Text(String(localized: "settings.open_gesture.note",
+                            defaultValue: "Choose which view opens when you press Space or double-click a thumbnail."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             } header: {
                 Text(String(localized: "settings.viewer.section", defaultValue: "Viewer"))
             }

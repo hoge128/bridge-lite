@@ -87,6 +87,25 @@ enum RatingShortcutModifier: String, CaseIterable, Identifiable {
     }
 }
 
+/// サムネイルグリッドからビューを開く操作の割り当て。
+enum GridOpenGestureMode: String, CaseIterable, Identifiable {
+    case spaceViewer   // 既定: Space → 単体ビュー / ダブルクリック → 比較ビュー
+    case spaceCompare  // 入替: Space → 比較ビュー / ダブルクリック → 単体ビュー
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .spaceViewer:
+            return String(localized: "open_gesture.space_viewer",
+                          defaultValue: "Space → Viewer / Double-click → Compare")
+        case .spaceCompare:
+            return String(localized: "open_gesture.space_compare",
+                          defaultValue: "Space → Compare / Double-click → Viewer")
+        }
+    }
+}
+
 enum DeleteShortcutKey: String, CaseIterable, Identifiable {
     case delete
     case commandDelete
@@ -245,6 +264,10 @@ final class SettingsStore {
     /// 単体ビューの上部ボタンをマウス静止 1 秒で自動非表示にする（マウスを動かすと再表示）。
     var viewerAutoHideControls: Bool = bool("viewerAutoHideControls", default: true) {
         didSet { UserDefaults.standard.set(viewerAutoHideControls, forKey: "viewerAutoHideControls") }
+    }
+    var gridOpenGesture: GridOpenGestureMode = (UserDefaults.standard.string(forKey: "gridOpenGesture")
+                                                .flatMap(GridOpenGestureMode.init(rawValue:))) ?? .spaceViewer {
+        didSet { UserDefaults.standard.set(gridOpenGesture.rawValue, forKey: "gridOpenGesture") }
     }
     var calendarMaxMonths: Int = {
         let v = UserDefaults.standard.integer(forKey: "calendarMaxMonths")

@@ -31,6 +31,9 @@ final class HintCenter {
         /// サムネイルキャッシュの eviction が多発（= 大量読み込みでワーキングセットが
         /// キャッシュ上限を大きく超過）したときのヒント。
         case cacheThrashing
+        /// 初回ダブルクリック時に「Space とダブルクリックの割り当ては入替可能」と案内する。
+        /// fireOnce(_:) 経由で一度だけ表示する。
+        case openGestureSwap
 
         var id: String { rawValue }
 
@@ -39,6 +42,9 @@ final class HintCenter {
             case .cacheThrashing:
                 return String(localized: "hint.cacheThrashing.title",
                               defaultValue: "Loading a lot of files")
+            case .openGestureSwap:
+                return String(localized: "hint.openGestureSwap.title",
+                              defaultValue: "Double-click and Space are customizable")
             }
         }
 
@@ -47,6 +53,9 @@ final class HintCenter {
             case .cacheThrashing:
                 return String(localized: "hint.cacheThrashing.body",
                               defaultValue: "Raising the thumbnail memory cache makes scrolling smoother. Adjust it in Settings → Performance.")
+            case .openGestureSwap:
+                return String(localized: "hint.openGestureSwap.body",
+                              defaultValue: "By default, double-click opens Compare and Space opens the Viewer. You can swap them in Settings → General → Viewer.")
             }
         }
     }
@@ -69,6 +78,17 @@ final class HintCenter {
 
         shownThisLaunch.insert(hint.rawValue)
         UserDefaults.standard.set(now, forKey: key)
+        current = hint
+    }
+
+    /// 一度表示したら以後二度と出さないヒント（初回操作時の案内など）。
+    /// クールダウンではなく永続ラッチで管理する。
+    func fireOnce(_ hint: Hint) {
+        guard SettingsStore.shared.showHints else { return }
+        guard current == nil else { return }
+        let key = "hintShownOnce.\(hint.rawValue)"
+        guard !UserDefaults.standard.bool(forKey: key) else { return }
+        UserDefaults.standard.set(true, forKey: key)
         current = hint
     }
 

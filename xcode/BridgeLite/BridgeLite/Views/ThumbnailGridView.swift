@@ -16,8 +16,14 @@ struct ThumbnailGridView: View {
            last.id == id,
            Date().timeIntervalSince(last.time) < NSEvent.doubleClickInterval {
             store.selectEntry(id)
-            store.compareAnchorID = id
-            store.compareMode = true
+            if store.settings.gridOpenGesture == .spaceCompare {
+                store.viewerMode = true
+            } else {
+                store.compareAnchorID = id
+                store.compareMode = true
+            }
+            // 初回のダブルクリック時に、Space との入替設定があることを一度だけ案内する
+            HintCenter.shared.fireOnce(.openGestureSwap)
             lastTap = nil
             return
         }

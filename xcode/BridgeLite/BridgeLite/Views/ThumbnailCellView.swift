@@ -269,19 +269,42 @@ struct ThumbnailCellView: View {
 
         Divider()
 
-        Button(String(localized: "thumbnail.context.move_to_compare",
-                      defaultValue: "Move to Compare (Double-click)")) {
-            store.selectEntry(entry.id)
-            store.compareAnchorID = entry.id
-            store.compareMode = true
-        }
+        // gridOpenGesture 設定に応じて、メニューの (Double-click) 表記と Space ショートカット表示を入れ替える
+        let swapped = store.settings.gridOpenGesture == .spaceCompare
+        let compareTitle = swapped
+            ? String(localized: "thumbnail.context.move_to_compare.plain",
+                     defaultValue: "Move to Compare")
+            : String(localized: "thumbnail.context.move_to_compare",
+                     defaultValue: "Move to Compare (Double-click)")
+        let viewerTitle = swapped
+            ? String(localized: "thumbnail.context.move_to_viewer.dblclick",
+                     defaultValue: "Move to Viewer (Double-click)")
+            : String(localized: "thumbnail.context.move_to_viewer",
+                     defaultValue: "Move to Viewer")
 
-        Button(String(localized: "thumbnail.context.move_to_viewer",
-                      defaultValue: "Move to Viewer")) {
-            store.selectEntry(entry.id)
-            store.viewerMode = true
+        if swapped {
+            Button(compareTitle) {
+                store.selectEntry(entry.id)
+                store.compareAnchorID = entry.id
+                store.compareMode = true
+            }
+            .keyboardShortcut(.space, modifiers: [])
+            Button(viewerTitle) {
+                store.selectEntry(entry.id)
+                store.viewerMode = true
+            }
+        } else {
+            Button(compareTitle) {
+                store.selectEntry(entry.id)
+                store.compareAnchorID = entry.id
+                store.compareMode = true
+            }
+            Button(viewerTitle) {
+                store.selectEntry(entry.id)
+                store.viewerMode = true
+            }
+            .keyboardShortcut(.space, modifiers: [])
         }
-        .keyboardShortcut(.space, modifiers: [])
 
         Divider()
 

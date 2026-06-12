@@ -246,14 +246,19 @@ struct FolderView: View {
                 // 複数ウィンドウ環境で全モニタが同じイベントを受け取って二重発火するのを防ぐ。
                 // 自分のウィンドウ宛てでなければスルー。
                 guard event.window === ref.window else { return event }
-                // Space → viewer mode
+                // Space → viewer mode（設定で入替時は compare mode）
                 if event.keyCode == 49,
                    event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
                    !s.viewerMode, !s.compareMode,
-                   s.primaryID != nil {
-                    s.viewerMode = true
-                    if SettingsStore.shared.viewerSpaceFullscreen {
-                        ref.window?.toggleFullScreen(nil)
+                   let pid = s.primaryID {
+                    if SettingsStore.shared.gridOpenGesture == .spaceCompare {
+                        s.compareAnchorID = pid
+                        s.compareMode = true
+                    } else {
+                        s.viewerMode = true
+                        if SettingsStore.shared.viewerSpaceFullscreen {
+                            ref.window?.toggleFullScreen(nil)
+                        }
                     }
                     return nil
                 }
