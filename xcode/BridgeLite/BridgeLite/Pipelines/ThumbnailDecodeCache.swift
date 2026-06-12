@@ -109,6 +109,10 @@ extension ThumbnailDecodeCache: NSCacheDelegate {
         evictionLock.unlock()
         guard crossed else { return }
         Task { @MainActor in
+            // 設定上限 (物理 RAM の 10%) に既に達している場合、「キャッシュを増やすと
+            // 改善する」という案内は実行不能なので出さない。
+            let maxMB = Int(ProcessInfo.processInfo.physicalMemory / 10 / (1024 * 1024) / 100) * 100
+            guard SettingsStore.shared.thumbnailCacheMB < maxMB else { return }
             HintCenter.shared.fire(.cacheThrashing)
         }
     }
