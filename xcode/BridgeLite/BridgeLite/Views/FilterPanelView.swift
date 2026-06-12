@@ -13,6 +13,7 @@ struct FilterPanelView: View {
     @State private var flagExpanded = true
     @State private var isoExpanded = true
     @State private var focalExpanded = true
+    @State private var focal35Expanded = true
     @State private var shutterExpanded = true
     @State private var apertureExpanded = true
     @State private var dateExpanded = true
@@ -442,10 +443,25 @@ struct FilterPanelView: View {
                 DisclosureGroup(isExpanded: $focalExpanded) {
                     ExifHistogramView(bars: store.focalBuckets, isLoading: store.isLoading, minText: filter.focalMin, maxText: filter.focalMax)
                 } label: {
-                    sectionLabel("Focal Length", isExpanded: $focalExpanded,
-                                 help: "Filter by focal length (35mm equiv). Click bars to select range",
+                    sectionLabel("filter.section.focal_lens", isExpanded: $focalExpanded,
+                                 help: String(localized: "filter.focal_lens.help",
+                                              defaultValue: "Filter by actual lens focal length. Click bars to select range"),
                                  isActive: filter.wrappedValue.isFocalActive) {
                         var f = filter.wrappedValue; f.clearFocal(); filter.wrappedValue = f
+                    }
+                }
+            }
+
+        case .focal35:
+            GroupBox {
+                DisclosureGroup(isExpanded: $focal35Expanded) {
+                    ExifHistogramView(bars: store.focal35Buckets, isLoading: store.isLoading, minText: filter.focal35Min, maxText: filter.focal35Max)
+                } label: {
+                    sectionLabel("filter.section.focal_35mm", isExpanded: $focal35Expanded,
+                                 help: String(localized: "filter.focal_35mm.help",
+                                              defaultValue: "Filter by 35mm-equivalent focal length (EXIF 0xA405). Photos without the tag are not affected"),
+                                 isActive: filter.wrappedValue.isFocal35Active) {
+                        var f = filter.wrappedValue; f.clearFocal35(); filter.wrappedValue = f
                     }
                 }
             }

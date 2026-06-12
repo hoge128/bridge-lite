@@ -32,7 +32,12 @@ struct ExifData: Sendable, Equatable {
     // 35mm換算が取れればそれを、なければ実焦点距離をパース
     var effectiveFocalMm: Double? {
         if let mm = focalLength35mm { return Double(mm) }
-        return Self.parseRational(focalLength?.components(separatedBy: " ").first)
+        return focalLengthMm
+    }
+
+    // レンズ実焦点距離 ("50 mm" / "50/1 mm" → 50.0)。35mm換算とは明確に区別する
+    var focalLengthMm: Double? {
+        Self.parseRational(focalLength?.components(separatedBy: " ").first)
     }
 
     var fnumberValue: Double? {

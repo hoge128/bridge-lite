@@ -4,7 +4,7 @@ import SwiftUI
 
 enum FilterSection: String, CaseIterable, Codable, Identifiable {
     case fileType, camera, artist, lens, rating, label, flag
-    case iso, focal, shutter, aperture, date, luminance
+    case iso, focal, focal35, shutter, aperture, date, luminance
 
     var id: String { rawValue }
 
@@ -18,7 +18,10 @@ enum FilterSection: String, CaseIterable, Codable, Identifiable {
         case .label:      return String(localized: "Label")
         case .flag:       return String(localized: "Flag")
         case .iso:        return String(localized: "ISO")
-        case .focal:      return String(localized: "Focal Length")
+        case .focal:      return String(localized: "filter.section.focal_lens",
+                                        defaultValue: "Focal Length (Lens)")
+        case .focal35:    return String(localized: "filter.section.focal_35mm",
+                                        defaultValue: "Focal Length (35mm)")
         case .shutter:    return String(localized: "Shutter")
         case .aperture:   return String(localized: "Aperture")
         case .date:       return String(localized: "Date")

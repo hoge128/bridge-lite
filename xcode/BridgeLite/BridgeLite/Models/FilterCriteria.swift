@@ -10,8 +10,10 @@ struct FilterCriteria: Sendable, Equatable {
     var excludedArtists: Set<String> = []
     var isoMin: String = ""
     var isoMax: String = ""
-    var focalMin: String = ""
+    var focalMin: String = ""       // レンズ実焦点距離 (mm)
     var focalMax: String = ""
+    var focal35Min: String = ""     // 35mm換算焦点距離 (mm)
+    var focal35Max: String = ""
     var shutterMin: String = ""
     var shutterMax: String = ""
     var apertureMin: String = ""
@@ -35,6 +37,7 @@ struct FilterCriteria: Sendable, Equatable {
         !excludedCameras.isEmpty || !excludedLenses.isEmpty || !excludedArtists.isEmpty ||
         !isoMin.isEmpty || !isoMax.isEmpty ||
         !focalMin.isEmpty || !focalMax.isEmpty ||
+        !focal35Min.isEmpty || !focal35Max.isEmpty ||
         !shutterMin.isEmpty || !shutterMax.isEmpty ||
         !apertureMin.isEmpty || !apertureMax.isEmpty ||
         !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty ||
@@ -53,6 +56,7 @@ struct FilterCriteria: Sendable, Equatable {
     var isFlagActive: Bool     { !filterFlags.isEmpty }
     var isISOActive: Bool      { !isoMin.isEmpty || !isoMax.isEmpty }
     var isFocalActive: Bool    { !focalMin.isEmpty || !focalMax.isEmpty }
+    var isFocal35Active: Bool  { !focal35Min.isEmpty || !focal35Max.isEmpty }
     var isShutterActive: Bool  { !shutterMin.isEmpty || !shutterMax.isEmpty }
     var isApertureActive: Bool { !apertureMin.isEmpty || !apertureMax.isEmpty }
     var isDateActive: Bool     { !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty }
@@ -92,10 +96,15 @@ struct FilterCriteria: Sendable, Equatable {
             if let min = Int(isoMin), iso < min { return false }
             if let max = Int(isoMax), iso > max { return false }
         }
-        // Focal length filter (35mm換算優先)
-        if let focal = exif?.effectiveFocalMm {
+        // Focal length filter (レンズ実焦点距離)
+        if let focal = exif?.focalLengthMm {
             if let min = Double(focalMin), focal <= min { return false }
             if let max = Double(focalMax), focal > max { return false }
+        }
+        // Focal length filter (35mm換算 — EXIF 0xA405 を持つ写真のみ対象)
+        if let focal35 = exif?.focalLength35mm.map(Double.init) {
+            if let min = Double(focal35Min), focal35 <= min { return false }
+            if let max = Double(focal35Max), focal35 > max { return false }
         }
         // Shutter speed filter (秒単位: "1/200" or "0.005")
         if let shutter = exif?.shutterSeconds {
@@ -159,6 +168,7 @@ struct FilterCriteria: Sendable, Equatable {
     mutating func clearFlag()      { filterFlags = [] }
     mutating func clearISO()       { isoMin = ""; isoMax = "" }
     mutating func clearFocal()     { focalMin = ""; focalMax = "" }
+    mutating func clearFocal35()   { focal35Min = ""; focal35Max = "" }
     mutating func clearShutter()   { shutterMin = ""; shutterMax = "" }
     mutating func clearAperture()  { apertureMin = ""; apertureMax = "" }
     mutating func clearDate()      { dateMin = ""; dateMax = ""; dateAllowList = []; dateMode = .range }

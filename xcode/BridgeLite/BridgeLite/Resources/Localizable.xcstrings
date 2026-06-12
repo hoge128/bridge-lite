@@ -34,6 +34,70 @@
         }
       }
     },
+    "filter.focal_35mm.help": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filter by 35mm-equivalent focal length (EXIF 0xA405). Photos without the tag are not affected"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "35mm換算焦点距離 (EXIF 0xA405) で絞り込みます。タグを持たない写真は対象外"
+          }
+        }
+      }
+    },
+    "filter.focal_lens.help": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filter by actual lens focal length. Click bars to select range"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "レンズの実焦点距離で絞り込みます。バーをクリックで範囲選択"
+          }
+        }
+      }
+    },
+    "filter.section.focal_35mm": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focal Length (35mm)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "35mm換算焦点距離"
+          }
+        }
+      }
+    },
+    "filter.section.focal_lens": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Focal Length (Lens)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "レンズ焦点距離"
+          }
+        }
+      }
+    },
     "flag.pick": {
       "localizations": {
         "en": {

@@ -1558,7 +1558,10 @@ final class LibraryStore: ReindexedGroupSink {
             }
 
             let iso      = LibraryStore.buildISOBuckets(ids: filtered(.iso), exifData: exifSnap)
-            let focal    = LibraryStore.buildFocalBuckets(ids: filtered(.focal), exifData: exifSnap)
+            let focal    = LibraryStore.buildFocalBuckets(ids: filtered(.focal), exifData: exifSnap,
+                                                          value: { $0.focalLengthMm })
+            let focal35  = LibraryStore.buildFocalBuckets(ids: filtered(.focal35), exifData: exifSnap,
+                                                          value: { $0.focalLength35mm.map(Double.init) })
             let shutter  = LibraryStore.buildShutterBuckets(ids: filtered(.shutter), exifData: exifSnap)
             let aperture = LibraryStore.buildApertureBuckets(ids: filtered(.aperture), exifData: exifSnap)
             let date     = LibraryStore.buildDateBuckets(ids: filtered(.date), precomputedDates: precomputedDates)
@@ -1572,6 +1575,7 @@ final class LibraryStore: ReindexedGroupSink {
                 guard let self, gen == self.scanGeneration else { return }
                 self.isoBuckets      = iso
                 self.focalBuckets    = focal
+                self.focal35Buckets  = focal35
                 self.shutterBuckets  = shutter
                 self.apertureBuckets = aperture
                 self.dateBuckets     = date
@@ -1598,6 +1602,8 @@ final class LibraryStore: ReindexedGroupSink {
             old.isoMax       != new.isoMax       ||
             old.focalMin     != new.focalMin     ||
             old.focalMax     != new.focalMax     ||
+            old.focal35Min   != new.focal35Min   ||
+            old.focal35Max   != new.focal35Max   ||
             old.shutterMin   != new.shutterMin   ||
             old.shutterMax   != new.shutterMax   ||
             old.apertureMin  != new.apertureMin  ||
@@ -1703,7 +1709,8 @@ final class LibraryStore: ReindexedGroupSink {
     private(set) var availableLenses: [String] = []
     private(set) var availableArtists: [String] = []
     private(set) var isoBuckets: [ExifBucket] = []
-    private(set) var focalBuckets: [ExifBucket] = []
+    private(set) var focalBuckets: [ExifBucket] = []      // レンズ実焦点距離
+    private(set) var focal35Buckets: [ExifBucket] = []    // 35mm換算焦点距離
     private(set) var shutterBuckets: [ExifBucket] = []
     private(set) var apertureBuckets: [ExifBucket] = []
     private(set) var dateBuckets: [ExifBucket] = []
@@ -1778,7 +1785,7 @@ final class LibraryStore: ReindexedGroupSink {
 
     // MARK: - Aggregate cache
 
-    private enum HistogramAxis { case iso, focal, shutter, aperture, date, luminance }
+    private enum HistogramAxis { case iso, focal, focal35, shutter, aperture, date, luminance }
 
     private nonisolated static func filteredIDsExcluding(
         _ axis: HistogramAxis,
@@ -1793,6 +1800,7 @@ final class LibraryStore: ReindexedGroupSink {
         switch axis {
         case .iso:       f.isoMin = "";       f.isoMax = ""
         case .focal:     f.focalMin = "";     f.focalMax = ""
+        case .focal35:   f.focal35Min = "";   f.focal35Max = ""
         case .shutter:   f.shutterMin = "";   f.shutterMax = ""
         case .aperture:  f.apertureMin = "";  f.apertureMax = ""
         case .date:      f.dateMin = "";      f.dateMax = "";    f.dateAllowList = []
@@ -1857,7 +1865,12 @@ final class LibraryStore: ReindexedGroupSink {
         }
     }
 
-    private nonisolated static func buildFocalBuckets(ids: [UInt64], exifData: [UInt64: ExifData]) -> [ExifBucket] {
+    /// 焦点距離ヒストグラム。`value` でレンズ実焦点距離と 35mm 換算を切り替える。
+    private nonisolated static func buildFocalBuckets(
+        ids: [UInt64],
+        exifData: [UInt64: ExifData],
+        value: (ExifData) -> Double?
+    ) -> [ExifBucket] {
         typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
         let specs: [Spec] = [
             ("≤24",   24,       "",    "24"),
@@ -1870,7 +1883,7 @@ final class LibraryStore: ReindexedGroupSink {
         ]
         var counts = Array(repeating: 0, count: specs.count)
         for id in ids {
-            guard let mm = exifData[id]?.effectiveFocalMm else { continue }
+            guard let exif = exifData[id], let mm = value(exif) else { continue }
             for (i, spec) in specs.enumerated() { if mm <= spec.upTo { counts[i] += 1; break } }
         }
         return specs.enumerated().map { i, spec in
@@ -2276,6 +2289,7 @@ final class LibraryStore: ReindexedGroupSink {
         availableArtists    = []
         isoBuckets          = []
         focalBuckets        = []
+        focal35Buckets      = []
         shutterBuckets      = []
         apertureBuckets     = []
         dateBuckets         = []
