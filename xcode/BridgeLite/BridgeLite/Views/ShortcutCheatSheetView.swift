@@ -156,6 +156,8 @@ struct ShortcutCheatSheetView: View {
                     ShortcutSection(title: "shortcut.section.rating") {
                         ShortcutRow(keys: ratingKeys,        description: "shortcut.rating_stars")
                         ShortcutRow(keys: labelKeys,         description: "shortcut.rating_label")
+                        ShortcutRow(keys: ["P"],             description: "shortcut.flag_pick")
+                        ShortcutRow(keys: ["X"],             description: "shortcut.flag_reject")
                     }
 
                     Divider().padding(.vertical, 10)

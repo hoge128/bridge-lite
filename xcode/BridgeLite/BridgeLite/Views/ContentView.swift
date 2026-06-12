@@ -274,6 +274,13 @@ struct FolderView: View {
                         return nil
                     }
                 }
+                // P / X → Pick / Reject フラグ（rating キー同様、全モードで有効）
+                if !(fr0 is NSTextView), !(fr0 is NSTextField),
+                   event.modifierFlags.intersection([.shift, .command, .control, .option]).isEmpty,
+                   let ch = event.charactersIgnoringModifiers?.lowercased() {
+                    if ch == "p" { s.applyFlag(XmpFlag.pick.rawValue); return nil }
+                    if ch == "x" { s.applyFlag(XmpFlag.reject.rawValue); return nil }
+                }
                 // Arrow keys — text view がフォーカスを持っている場合はスルー
                 let fr1 = NSApp.keyWindow?.firstResponder
                 guard !(fr1 is NSTextView), !(fr1 is NSTextField),

@@ -3,7 +3,7 @@ import Foundation
 import SwiftUI
 
 enum FilterSection: String, CaseIterable, Codable, Identifiable {
-    case fileType, camera, artist, lens, rating, label
+    case fileType, camera, artist, lens, rating, label, flag
     case iso, focal, shutter, aperture, date, luminance
 
     var id: String { rawValue }
@@ -16,6 +16,7 @@ enum FilterSection: String, CaseIterable, Codable, Identifiable {
         case .lens:       return String(localized: "Lens")
         case .rating:     return String(localized: "Rating")
         case .label:      return String(localized: "Label")
+        case .flag:       return String(localized: "Flag")
         case .iso:        return String(localized: "ISO")
         case .focal:      return String(localized: "Focal Length")
         case .shutter:    return String(localized: "Shutter")
@@ -253,7 +254,15 @@ final class SettingsStore {
               let saved = try? JSONDecoder().decode([FilterSection].self, from: data),
               !saved.isEmpty else { return FilterSection.allCases }
         var result = saved.filter { FilterSection.allCases.contains($0) }
-        for s in FilterSection.allCases where !result.contains(s) { result.append(s) }
+        // 保存済み並び順に無い新セクションは、allCases 上の直前セクションの後ろに挿入する
+        // （例: 後から追加された .flag は .label の直後に並ぶ）。
+        for (i, s) in FilterSection.allCases.enumerated() where !result.contains(s) {
+            if i > 0, let idx = result.firstIndex(of: FilterSection.allCases[i - 1]) {
+                result.insert(s, at: idx + 1)
+            } else {
+                result.append(s)
+            }
+        }
         return result
     }() {
         didSet {

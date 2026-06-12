@@ -298,6 +298,12 @@ struct ViewerView: View {
                     store.clearLabel()
                 }
             }
+            Menu(String(localized: "Flag")) {
+                Button(XmpFlag.pick.name)   { store.applyFlag(XmpFlag.pick.rawValue) }
+                    .keyboardShortcut("p", modifiers: [])
+                Button(XmpFlag.reject.name) { store.applyFlag(XmpFlag.reject.rawValue) }
+                    .keyboardShortcut("x", modifiers: [])
+            }
 
             Divider()
 

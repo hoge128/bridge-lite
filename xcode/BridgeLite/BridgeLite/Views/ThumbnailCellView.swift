@@ -90,6 +90,17 @@ struct ThumbnailCellView: View {
                 .opacity(store.filter.flatten ? 0 : (photoKind == .sooc ? (isHovered ? 1 : 0) : 1))
                 .animation(.easeInOut(duration: 0.15), value: isHovered)
         }
+        .overlay(alignment: .topLeading) {
+            if let flag = xmp?.flag {
+                Image(systemName: flag.systemImage)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(3)
+                    .background(Circle().fill(flag.color.opacity(0.9)))
+                    .padding(4)
+                    .help(flag.name)
+            }
+        }
         .overlay { selectionStroke(cornerRadius: 6) }
         .onAppear { loadCell() }
         .onReceive(store.thumbnailDidUpdate.filter { $0 == self.entry.id }) { _ in
@@ -247,6 +258,13 @@ struct ThumbnailCellView: View {
             Button("Clear Label") {
                 store.clearLabel()
             }
+        }
+
+        Menu(String(localized: "Flag")) {
+            Button(XmpFlag.pick.name)   { store.applyFlag(XmpFlag.pick.rawValue) }
+                .keyboardShortcut("p", modifiers: [])
+            Button(XmpFlag.reject.name) { store.applyFlag(XmpFlag.reject.rawValue) }
+                .keyboardShortcut("x", modifiers: [])
         }
 
         Divider()

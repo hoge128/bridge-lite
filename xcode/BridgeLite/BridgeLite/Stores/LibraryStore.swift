@@ -1215,6 +1215,56 @@ final class LibraryStore: ReindexedGroupSink {
         }
     }
 
+    /// Pick/Reject フラグをトグル適用する。primary が既に同じフラグなら解除（ラベルと同じピボット方式）。
+    func applyFlag(_ flagRaw: UInt8) {
+        guard !selectedIDs.isEmpty, let db = database,
+              let flag = XmpFlag(rawValue: flagRaw) else { return }
+        let pivot = primaryID.flatMap { xmpData[$0]?.flag }
+        let newFlag: XmpFlag? = pivot == flag ? nil : flag
+        var allTargets: [(entry: PhotoEntry, old: XmpFlag?)] = []
+        var writeList:  [(entry: PhotoEntry, xmp: XmpData)] = []
+        for id in selectedIDs {
+            guard let entry = entries[id] else { continue }
+            let targets: [UInt64] = filter.flatten ? [id] : groupTargets(for: id, entry: entry)
+            for targetID in targets {
+                guard let te = entries[targetID] else { continue }
+                allTargets.append((entry: te, old: xmpData[targetID]?.flag))
+                var current = xmpData[targetID] ?? XmpData()
+                current.flag = newFlag
+                xmpData[targetID] = current
+                xmpDidUpdate.send(targetID)
+                writeList.append((te, current))
+            }
+        }
+        recomputeVisible()
+        undoManager.beginUndoGrouping()
+        undoManager.setActionName(String(localized: "Flag Change"))
+        undoManager.registerUndo(withTarget: self) { [allTargets] target in
+            guard let db = target.database else { return }
+            for (te, old) in allTargets {
+                guard target.entries[te.id] != nil else { continue }
+                var current = target.xmpData[te.id] ?? XmpData()
+                current.flag = old
+                target.xmpData[te.id] = current
+                target.xmpDidUpdate.send(te.id)
+                let x = current; let url = te.url
+                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: target.settings.jpgWriteMode) }
+            }
+            target.recomputeVisible()
+        }
+        let mode = settings.jpgWriteMode
+        let policy = settings.jpgSidecarConflictPolicy
+        Task {
+            for (te, x) in writeList {
+                _ = await BridgeCore.writeXmp(url: te.url, xmp: x, db: db, jpgWriteMode: mode)
+            }
+            if mode == .sidecar {
+                await self.checkAndHandleEmbedConflict(writeList: writeList, db: db, policy: policy)
+            }
+            self.undoManager.endUndoGrouping()
+        }
+    }
+
     func applyCaption(_ caption: String?) {
         guard !selectedIDs.isEmpty, let db = database else { return }
         let newCaption: String? = (caption?.isEmpty == true) ? nil : caption

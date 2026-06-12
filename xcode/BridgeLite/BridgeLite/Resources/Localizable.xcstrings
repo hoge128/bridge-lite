@@ -2,6 +2,102 @@
   "sourceLanguage": "ja",
   "strings": {
     "": {},
+    "Flag Change": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Flag Change"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フラグ変更"
+          }
+        }
+      }
+    },
+    "filter.flag.help": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show only flagged photos (Pick / Reject). Nothing checked = show all"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フラグ付きの写真のみ表示します（採用 / 除外）。未チェック = すべて表示"
+          }
+        }
+      }
+    },
+    "flag.pick": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "採用"
+          }
+        }
+      }
+    },
+    "flag.pick.help": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick (P)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "採用 (P)"
+          }
+        }
+      }
+    },
+    "flag.reject": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reject"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "除外"
+          }
+        }
+      }
+    },
+    "flag.reject.help": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reject (X)"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "除外 (X)"
+          }
+        }
+      }
+    },
     "settings.viewer.section": {
       "localizations": {
         "en": {
@@ -46,6 +142,38 @@
           "stringUnit": {
             "state": "translated",
             "value": "単体ビュー上部のボタンを、マウスを 1 秒動かさないと自動で隠します。マウスを動かすと再表示されます。"
+          }
+        }
+      }
+    },
+    "shortcut.flag_pick": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pick flag"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "採用フラグ"
+          }
+        }
+      }
+    },
+    "shortcut.flag_reject": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reject flag"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "除外フラグ"
           }
         }
       }
@@ -3074,7 +3202,6 @@
       }
     },
     "Flag": {
-      "extractionState": "stale",
       "localizations": {
         "en": {
           "stringUnit": {

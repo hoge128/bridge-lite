@@ -888,6 +888,30 @@ struct XmpSectionView: View {
                     }
                 }
 
+                // Pick / Reject フラグ（P / X キーと同じトグル挙動）
+                HStack(spacing: 10) {
+                    ForEach(XmpFlag.allCases, id: \.rawValue) { flag in
+                        let isOn = xmp?.flag == flag
+                        HStack(spacing: 4) {
+                            Image(systemName: flag.systemImage)
+                                .font(.system(size: 12, weight: .semibold))
+                            Text(flag.name)
+                                .font(.caption)
+                        }
+                        .foregroundStyle(isOn ? Color.white : flag.color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule().fill(isOn ? flag.color : flag.color.opacity(0.12))
+                        )
+                        .contentShape(Capsule())
+                        .onTapGesture { store.applyFlag(flag.rawValue) }
+                        .help(flag == .pick
+                              ? String(localized: "flag.pick.help",   defaultValue: "Pick (P)")
+                              : String(localized: "flag.reject.help", defaultValue: "Reject (X)"))
+                    }
+                }
+
                 Divider()
 
                 VStack(alignment: .leading, spacing: 4) {

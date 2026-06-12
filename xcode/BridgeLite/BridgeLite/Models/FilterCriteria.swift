@@ -24,6 +24,7 @@ struct FilterCriteria: Sendable, Equatable {
     var luminanceMax: String = ""
     var filterRatings: Set<Int> = []
     var filterLabels: Set<XmpLabel> = []
+    var filterFlags: Set<XmpFlag> = []
     var filterKinds: Set<PhotoKind> = []
     var cameraOnly: Bool = false
     var flatten: Bool = false
@@ -38,7 +39,7 @@ struct FilterCriteria: Sendable, Equatable {
         !apertureMin.isEmpty || !apertureMax.isEmpty ||
         !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty ||
         !luminanceMin.isEmpty || !luminanceMax.isEmpty ||
-        !filterRatings.isEmpty || !filterLabels.isEmpty ||
+        !filterRatings.isEmpty || !filterLabels.isEmpty || !filterFlags.isEmpty ||
         !filterKinds.isEmpty || cameraOnly || flatten || !excludedExtensions.isEmpty ||
         !nameSearch.isEmpty
     }
@@ -49,6 +50,7 @@ struct FilterCriteria: Sendable, Equatable {
     var isLensActive: Bool     { !excludedLenses.isEmpty }
     var isRatingActive: Bool   { !filterRatings.isEmpty }
     var isLabelActive: Bool    { !filterLabels.isEmpty }
+    var isFlagActive: Bool     { !filterFlags.isEmpty }
     var isISOActive: Bool      { !isoMin.isEmpty || !isoMax.isEmpty }
     var isFocalActive: Bool    { !focalMin.isEmpty || !focalMax.isEmpty }
     var isShutterActive: Bool  { !shutterMin.isEmpty || !shutterMax.isEmpty }
@@ -134,6 +136,10 @@ struct FilterCriteria: Sendable, Equatable {
         if !filterLabels.isEmpty {
             guard let label = xmp?.label, filterLabels.contains(label) else { return false }
         }
+        // Flag filter (Pick / Reject のみ検知。未フラグは常に除外)
+        if !filterFlags.isEmpty {
+            guard let flag = xmp?.flag, filterFlags.contains(flag) else { return false }
+        }
         // Luminance filter
         if let lum = luminance {
             if let min = Int(luminanceMin), lum < min { return false }
@@ -150,6 +156,7 @@ struct FilterCriteria: Sendable, Equatable {
     mutating func clearLens()      { excludedLenses = [] }
     mutating func clearRating()    { filterRatings = [] }
     mutating func clearLabel()     { filterLabels = [] }
+    mutating func clearFlag()      { filterFlags = [] }
     mutating func clearISO()       { isoMin = ""; isoMax = "" }
     mutating func clearFocal()     { focalMin = ""; focalMax = "" }
     mutating func clearShutter()   { shutterMin = ""; shutterMax = "" }

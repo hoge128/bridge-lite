@@ -10,6 +10,7 @@ struct FilterPanelView: View {
     @State private var lensExpanded = true
     @State private var ratingExpanded = true
     @State private var labelExpanded = true
+    @State private var flagExpanded = true
     @State private var isoExpanded = true
     @State private var focalExpanded = true
     @State private var shutterExpanded = true
@@ -380,6 +381,41 @@ struct FilterPanelView: View {
                                  help: "Click to filter by label color. Multiple selection supported",
                                  isActive: filter.wrappedValue.isLabelActive) {
                         var f = filter.wrappedValue; f.clearLabel(); filter.wrappedValue = f
+                    }
+                }
+            }
+
+        case .flag:
+            GroupBox {
+                DisclosureGroup(isExpanded: $flagExpanded) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(XmpFlag.allCases, id: \.rawValue) { flag in
+                            Toggle(isOn: Binding(
+                                get: { filter.wrappedValue.filterFlags.contains(flag) },
+                                set: { on in
+                                    var f = filter.wrappedValue
+                                    if on { f.filterFlags.insert(flag) } else { f.filterFlags.remove(flag) }
+                                    filter.wrappedValue = f
+                                }
+                            )) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: flag.systemImage)
+                                        .font(.caption2)
+                                        .foregroundStyle(flag.color)
+                                    Text(flag.name).font(.caption)
+                                }
+                            }
+                            .toggleStyle(.checkbox)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+                } label: {
+                    sectionLabel("Flag", isExpanded: $flagExpanded,
+                                 help: String(localized: "filter.flag.help",
+                                              defaultValue: "Show only flagged photos (Pick / Reject). Nothing checked = show all"),
+                                 isActive: filter.wrappedValue.isFlagActive) {
+                        var f = filter.wrappedValue; f.clearFlag(); filter.wrappedValue = f
                     }
                 }
             }

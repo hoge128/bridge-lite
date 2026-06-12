@@ -187,6 +187,7 @@ enum BridgeCore {
             return XmpData(
                 rating:    ratingRaw >= 0 ? ratingRaw : nil,
                 label:     XmpLabel(rawValue: ffi_xmp_label(r)),
+                flag:      XmpFlag(rawValue: ffi_xmp_flag(r)),
                 developed: ffi_xmp_developed(r),
                 caption:   ffi_xmp_caption(r).toString().nonEmpty
             )
@@ -214,7 +215,7 @@ enum BridgeCore {
                 url.path,
                 Int32(xmp.rating ?? -1),
                 xmp.label?.rawValue ?? 0,
-                0,
+                xmp.flag?.rawValue ?? 0,
                 captionStr,
                 captionPresent,
                 jpgUseSidecar
