@@ -443,11 +443,20 @@ private struct ViewerMetaOverlay: View {
     private var isoText: String? { exif?.iso.map { "ISO \($0)" } }
     private var hasTier1: Bool { fText != nil || ssText != nil || isoText != nil }
 
-    // Tier 2 – Focal length (35mm equiv preferred)
+    // Tier 2 – Focal length: 35mm換算を A、レンズ実焦点距離を B として "A (B)" 表記。
+    // 片方しか取れない場合はその値のみ、両者が同値（フルサイズ等）なら 1 つに畳む。
     private var focalText: String? {
-        guard let mm = exif?.effectiveFocalMm else { return nil }
-        let v = mm == mm.rounded() ? "\(Int(mm))" : String(format: "%.1f", mm)
-        return "\(v) mm"
+        func fmt(_ mm: Double) -> String {
+            mm == mm.rounded() ? "\(Int(mm))" : String(format: "%.1f", mm)
+        }
+        let equiv = exif?.focalLength35mm.map(Double.init)
+        let lens  = exif?.focalLengthMm
+        switch (equiv, lens) {
+        case let (e?, l?) where e != l: return "\(fmt(e)) mm (\(fmt(l)) mm)"
+        case let (e?, _):               return "\(fmt(e)) mm"
+        case let (nil, l?):             return "\(fmt(l)) mm"
+        case (nil, nil):                return nil
+        }
     }
 
     // Tier 3 – Camera / Lens
