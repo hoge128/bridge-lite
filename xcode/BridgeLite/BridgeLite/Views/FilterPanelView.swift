@@ -109,10 +109,14 @@ struct FilterPanelView: View {
             .help(help)
             Spacer()
             if isActive {
-                Button(String(localized: "filter.clear", defaultValue: "Clear"), action: onClear)
-                    .buttonStyle(.plain)
-                    .font(.caption2)
-                    .foregroundStyle(.red)
+                Button(String(localized: "filter.clear", defaultValue: "Clear")) {
+                    onClear()
+                    // クリアで表示件数が増えても、選択中サムネイルが画面内に残るようスクロールを復元
+                    store.noteFilterSectionCleared()
+                }
+                .buttonStyle(.plain)
+                .font(.caption2)
+                .foregroundStyle(.red)
             }
         }
     }

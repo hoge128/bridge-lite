@@ -293,6 +293,7 @@ struct ThumbnailGridView: View {
                 .onChange(of: cols) { _, newCols in store.gridColumnCount = newCols }
                 .onChange(of: store.viewerMode)  { _, isOn in if !isOn { scrollToPrimary(proxy) } }
                 .onChange(of: store.compareMode) { _, isOn in if !isOn { scrollToPrimary(proxy) } }
+                .onReceive(store.filterDidClear) { _ in scrollToPrimary(proxy) }
             }
         }
         .id(store.scanGeneration)
@@ -340,6 +341,7 @@ struct ThumbnailGridView: View {
                 .onChange(of: cols) { _, c in store.gridColumnCount = c }
                 .onChange(of: store.viewerMode)  { _, isOn in if !isOn { scrollToPrimary(proxy) } }
                 .onChange(of: store.compareMode) { _, isOn in if !isOn { scrollToPrimary(proxy) } }
+                .onReceive(store.filterDidClear) { _ in scrollToPrimary(proxy) }
             }
         }
         .id(store.scanGeneration)

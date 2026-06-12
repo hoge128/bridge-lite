@@ -100,6 +100,8 @@ final class LibraryStore: ReindexedGroupSink {
     let thumbnailDidUpdate = PassthroughSubject<UInt64, Never>()
     let exifDidUpdate = PassthroughSubject<UInt64, Never>()
     let xmpDidUpdate = PassthroughSubject<UInt64, Never>()
+    // フィルタの Reset / 個別 Clear 時に発火。グリッドが選択位置へスクロールを復元する
+    let filterDidClear = PassthroughSubject<Void, Never>()
 
     // フォルダ切替時にキャンセルする fire-and-forget タスク
     private var exifLoadTask: Task<Void, Never>?
@@ -170,6 +172,13 @@ final class LibraryStore: ReindexedGroupSink {
     func resetFilter() {
         preSearchFlatten = nil
         filter.reset()
+        filterDidClear.send()
+    }
+
+    /// フィルタパネルの個別 Clear ボタンから呼ばれる。
+    /// グリッドが選択中サムネイルへスクロールを戻すためのシグナル。
+    func noteFilterSectionCleared() {
+        filterDidClear.send()
     }
 
     func requestOpenFolder() {
