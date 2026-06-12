@@ -238,6 +238,10 @@ final class SettingsStore {
     var viewerSpaceFullscreen: Bool = (UserDefaults.standard.object(forKey: "viewerSpaceFullscreen") as? Bool) ?? false {
         didSet { UserDefaults.standard.set(viewerSpaceFullscreen, forKey: "viewerSpaceFullscreen") }
     }
+    /// 単体ビューの上部ボタンをマウス静止 1 秒で自動非表示にする（マウスを動かすと再表示）。
+    var viewerAutoHideControls: Bool = bool("viewerAutoHideControls", default: true) {
+        didSet { UserDefaults.standard.set(viewerAutoHideControls, forKey: "viewerAutoHideControls") }
+    }
     var calendarMaxMonths: Int = {
         let v = UserDefaults.standard.integer(forKey: "calendarMaxMonths")
         return v > 0 ? v : 5

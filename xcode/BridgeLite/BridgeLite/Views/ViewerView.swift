@@ -16,6 +16,10 @@ struct ViewerView: View {
     @State private var magnifyMonitor: Any?
     @State private var clickMonitor: Any?
     @State private var windowRef = WindowRef()
+    // 上部ボタンの自動非表示（マウス静止 1 秒で非表示、動かすと再表示）
+    @State private var controlsVisible = true
+    @State private var controlsIdle = ControlsIdleState()
+    @State private var isPointerOverControls = false
 
     private var selectedEntry: PhotoEntry? {
         store.selectedID.flatMap { store.entries[$0] }
@@ -99,6 +103,10 @@ struct ViewerView: View {
                     }
                     .padding()
                 }
+                .opacity(controlsVisible ? 1 : 0)
+                .allowsHitTesting(controlsVisible)
+                .animation(.easeInOut(duration: 0.2), value: controlsVisible)
+                .onHover { isPointerOverControls = $0 }
                 Spacer()
 
                 HStack(alignment: .bottom) {
@@ -114,6 +122,13 @@ struct ViewerView: View {
             }
         }
         .contextMenu { viewerContextMenu }
+        .onContinuousHover { phase in
+            guard SettingsStore.shared.viewerAutoHideControls else { return }
+            guard case .active = phase else { return }
+            controlsIdle.lastMove = Date()
+            if !controlsVisible { controlsVisible = true }
+            ensureControlsHideLoop()
+        }
         .animation(.easeInOut(duration: 0.15), value: store.viewerShowsMeta)
         .background(WindowAccessor(window: Binding(
             get: { windowRef.window },
@@ -122,6 +137,10 @@ struct ViewerView: View {
         .onAppear {
             xmp = store.selectedID.flatMap { store.xmpData[$0] }
             store.viewerShowsMeta = hasRatingOrLabel
+            if SettingsStore.shared.viewerAutoHideControls {
+                controlsIdle.lastMove = Date()
+                ensureControlsHideLoop()
+            }
             let s = store
             let z = zoom
             let ref = windowRef
@@ -201,6 +220,8 @@ struct ViewerView: View {
             if let m = scrollMonitor  { NSEvent.removeMonitor(m); scrollMonitor  = nil }
             if let m = magnifyMonitor { NSEvent.removeMonitor(m); magnifyMonitor = nil }
             if let m = clickMonitor   { NSEvent.removeMonitor(m); clickMonitor   = nil }
+            controlsIdle.hideTask?.cancel()
+            controlsIdle.hideTask = nil
             store.viewerCompareGroupMembers = nil
         }
         .onReceive(store.xmpDidUpdate) { id in
@@ -342,6 +363,26 @@ struct ViewerView: View {
         }
     }
 
+    /// マウス静止 1 秒で上部ボタンを隠す監視ループ。
+    /// onContinuousHover は移動のたびに高頻度で呼ばれるため、Task の作り直しではなく
+    /// 参照型 ControlsIdleState 上の lastMove を更新し、単一ループが期限を再計算する。
+    private func ensureControlsHideLoop() {
+        guard controlsIdle.hideTask == nil else { return }
+        let idle = controlsIdle
+        controlsIdle.hideTask = Task { @MainActor in
+            defer { idle.hideTask = nil }
+            while !Task.isCancelled {
+                let remaining = 1.0 - Date().timeIntervalSince(idle.lastMove)
+                if remaining <= 0 {
+                    // ボタン上にカーソルが乗っている間は隠さない（次の移動で再判定）
+                    if !isPointerOverControls { controlsVisible = false }
+                    return
+                }
+                try? await Task.sleep(for: .seconds(remaining))
+            }
+        }
+    }
+
     private func loadFullRes(entry: PhotoEntry) async -> (CGImage, Image.Orientation)? {
         if entry.isRaw,
            let data = await BridgeCore.extractRawJpeg(url: entry.url, quality: .full) {
@@ -352,6 +393,14 @@ struct ViewerView: View {
         // Non-RAW path, or RAW fallback when IFD2 JPEG is absent (e.g. DxO PureRAW DNG)
         return await LargeImageDecoder.decodeFromURL(entry.url)
     }
+}
+
+// 自動非表示用の可変状態ホルダー。@State の値型だと onContinuousHover の高頻度書き込みが
+// ビュー無効化を誘発しうるため、参照型に逃がして body 再評価を避ける。
+@MainActor
+final class ControlsIdleState {
+    var lastMove = Date()
+    var hideTask: Task<Void, Never>?
 }
 
 // Returns cursor position relative to the window content view center (SwiftUI coordinate: Y-down).

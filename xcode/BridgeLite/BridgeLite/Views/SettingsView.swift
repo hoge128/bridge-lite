@@ -99,6 +99,18 @@ struct SettingsView: View {
                 Text(String(localized: "settings.shortcut.section", defaultValue: "Keyboard Shortcuts"))
             }
             Section {
+                Toggle(isOn: $settings.viewerAutoHideControls) {
+                    Text(String(localized: "settings.viewer_auto_hide_controls",
+                                defaultValue: "Auto-hide viewer buttons"))
+                }
+                Text(String(localized: "settings.viewer_auto_hide_controls.note",
+                            defaultValue: "Hides the buttons at the top of the single-image viewer after 1 second without mouse movement. Move the mouse to show them again."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text(String(localized: "settings.viewer.section", defaultValue: "Viewer"))
+            }
+            Section {
                 scopeGrid
             } header: {
                 Text("Group Scope")
