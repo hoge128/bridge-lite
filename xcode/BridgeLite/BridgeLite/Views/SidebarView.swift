@@ -450,6 +450,11 @@ struct ExifQuickBar: View {
     private var focalLensText: String {
         exif?.focalLengthMm.map(Self.fmtMm) ?? "--"
     }
+    // "+1.0 EV" → "+1.0"（ラベル側に EV と書くため単位を省く）
+    private var evText: String {
+        guard let s = exif?.exposureBias else { return "--" }
+        return s.components(separatedBy: " ").first ?? s
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -468,6 +473,8 @@ struct ExifQuickBar: View {
                 cell(label: "35mm", value: focal35Text, hasValue: exif?.focalLength35mm != nil)
                 separator
                 cell(label: "Lens", value: focalLensText, hasValue: exif?.focalLengthMm != nil)
+                separator
+                cell(label: "EV", value: evText, hasValue: exif?.exposureBias != nil)
             }
         }
         .frame(maxWidth: .infinity)
