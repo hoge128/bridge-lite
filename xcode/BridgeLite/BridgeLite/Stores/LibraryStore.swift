@@ -1561,7 +1561,7 @@ final class LibraryStore: ReindexedGroupSink {
             let focal    = LibraryStore.buildFocalBuckets(ids: filtered(.focal), exifData: exifSnap,
                                                           value: { $0.focalLengthMm })
             let focal35  = LibraryStore.buildFocalBuckets(ids: filtered(.focal35), exifData: exifSnap,
-                                                          value: { $0.focalLength35mm.map(Double.init) })
+                                                          value: { $0.focalLength35mmEffective.map(Double.init) })
             let shutter  = LibraryStore.buildShutterBuckets(ids: filtered(.shutter), exifData: exifSnap)
             let aperture = LibraryStore.buildApertureBuckets(ids: filtered(.aperture), exifData: exifSnap)
             let date     = LibraryStore.buildDateBuckets(ids: filtered(.date), precomputedDates: precomputedDates)

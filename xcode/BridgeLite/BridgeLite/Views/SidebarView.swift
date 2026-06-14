@@ -444,8 +444,11 @@ struct ExifQuickBar: View {
     private static func fmtMm(_ mm: Double) -> String {
         mm == mm.rounded() ? "\(Int(mm))mm" : String(format: "%.1fmm", mm)
     }
+    // 記録値が無く Make から算出した補完値のときは "≈" を付ける
     private var focal35Text: String {
-        exif?.focalLength35mm.map { "\($0)mm" } ?? "--"
+        guard let mm = exif?.focalLength35mmEffective else { return "--" }
+        let approx = exif?.focalLength35mmIsComputed == true ? "≈" : ""
+        return "\(approx)\(mm)mm"
     }
     private var focalLensText: String {
         exif?.focalLengthMm.map(Self.fmtMm) ?? "--"
@@ -470,7 +473,7 @@ struct ExifQuickBar: View {
                 .frame(height: 0.5)
                 .padding(.horizontal, 2)
             HStack(spacing: 0) {
-                cell(label: "35mm", value: focal35Text, hasValue: exif?.focalLength35mm != nil)
+                cell(label: "35mm", value: focal35Text, hasValue: exif?.focalLength35mmEffective != nil)
                 separator
                 cell(label: "Lens", value: focalLensText, hasValue: exif?.focalLengthMm != nil)
                 separator
@@ -791,8 +794,10 @@ struct ExifSectionView: View {
                     if let fl = exif.focalLength {
                         MetaRow(key: "Focal", value: fl)
                     }
-                    if let fl35 = exif.focalLength35mm {
-                        MetaRow(key: "Focal (35mm)", value: "\(fl35) mm")
+                    if let fl35 = exif.focalLength35mmEffective {
+                        // 記録値が無く Make から算出した補完値のときは "≈" を付ける
+                        let approx = exif.focalLength35mmIsComputed ? "≈" : ""
+                        MetaRow(key: "Focal (35mm)", value: "\(approx)\(fl35) mm")
                     }
                     if let ev = exif.exposureBias {
                         MetaRow(key: "Exp. Bias", value: ev)

@@ -101,8 +101,8 @@ struct FilterCriteria: Sendable, Equatable {
             if let min = Double(focalMin), focal <= min { return false }
             if let max = Double(focalMax), focal > max { return false }
         }
-        // Focal length filter (35mm換算 — EXIF 0xA405 を持つ写真のみ対象)
-        if let focal35 = exif?.focalLength35mm.map(Double.init) {
+        // Focal length filter (35mm換算 — EXIF 0xA405、無ければ Make から算出した補完値)
+        if let focal35 = exif?.focalLength35mmEffective.map(Double.init) {
             if let min = Double(focal35Min), focal35 <= min { return false }
             if let max = Double(focal35Max), focal35 > max { return false }
         }

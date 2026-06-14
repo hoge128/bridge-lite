@@ -485,15 +485,17 @@ private struct ViewerMetaOverlay: View {
 
     // Tier 2 – Focal length: 35mm換算を A、レンズ実焦点距離を B として "A (B)" 表記。
     // 片方しか取れない場合はその値のみ、両者が同値（フルサイズ等）なら 1 つに畳む。
+    // 35mm換算が記録値でなく Make から算出した補完値のときは先頭に "≈" を付ける。
     private var focalText: String? {
         func fmt(_ mm: Double) -> String {
             mm == mm.rounded() ? "\(Int(mm))" : String(format: "%.1f", mm)
         }
-        let equiv = exif?.focalLength35mm.map(Double.init)
+        let equiv = exif?.focalLength35mmEffective.map(Double.init)
         let lens  = exif?.focalLengthMm
+        let approx = exif?.focalLength35mmIsComputed == true ? "≈" : ""
         switch (equiv, lens) {
-        case let (e?, l?) where e != l: return "\(fmt(e)) mm (\(fmt(l)) mm)"
-        case let (e?, _):               return "\(fmt(e)) mm"
+        case let (e?, l?) where e != l: return "\(approx)\(fmt(e)) mm (\(fmt(l)) mm)"
+        case let (e?, _):               return "\(approx)\(fmt(e)) mm"
         case let (nil, l?):             return "\(fmt(l)) mm"
         case (nil, nil):                return nil
         }

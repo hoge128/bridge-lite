@@ -31,13 +31,49 @@ struct ExifData: Sendable, Equatable {
 
     // 35mm換算が取れればそれを、なければ実焦点距離をパース
     var effectiveFocalMm: Double? {
-        if let mm = focalLength35mm { return Double(mm) }
+        if let mm = focalLength35mmEffective { return Double(mm) }
         return focalLengthMm
     }
 
     // レンズ実焦点距離 ("50 mm" / "50/1 mm" → 50.0)。35mm換算とは明確に区別する
     var focalLengthMm: Double? {
         Self.parseRational(focalLength?.components(separatedBy: " ").first)
+    }
+
+    // MARK: - 35mm換算焦点距離（記録値 + 計算による補完）
+    //
+    // OM System / Olympus 等のマイクロフォーサーズ機は標準 EXIF に
+    // FocalLengthIn35mmFilm (0xA405) を書かない。記録値が無い場合のみ、
+    // Make から判定したクロップファクタ × 実焦点距離で換算値を「実行時に算出」する。
+    // 画像ファイルにもキャッシュにも一切書き込まない純粋な派生値。
+
+    /// 記録値が無いときだけ算出される 35mm換算焦点距離。算出不能なら nil。
+    var focalLength35mmComputed: Int? {
+        guard focalLength35mm == nil,
+              let mm = focalLengthMm,
+              let crop = Self.cropFactor(make: make) else { return nil }
+        return Int((mm * crop).rounded())
+    }
+
+    /// フィルタ・表示で使う実効値（記録値優先、無ければ計算値）。
+    var focalLength35mmEffective: Int? {
+        focalLength35mm ?? focalLength35mmComputed
+    }
+
+    /// 実効値が計算による補完か（true のとき表示に "≈" を付ける）。
+    var focalLength35mmIsComputed: Bool {
+        focalLength35mm == nil && focalLength35mmComputed != nil
+    }
+
+    /// Make からクロップファクタを引く。交換レンズ機が全て同一センサーで
+    /// 曖昧さの無いベンダーのみ対応する（将来 Make+Model 単位に拡張可能）。
+    /// - マイクロフォーサーズ (OLYMPUS / OM Digital Solutions) → 2.0
+    /// Panasonic は FF(S) と MFT(G) が混在し Make だけでは判別できないため対象外
+    /// （かつ Panasonic は 0xA405 を記録するので補完不要）。
+    static func cropFactor(make: String?) -> Double? {
+        guard let m = make?.uppercased() else { return nil }
+        if m.contains("OM DIGITAL") || m.contains("OLYMPUS") { return 2.0 }
+        return nil
     }
 
     var fnumberValue: Double? {
