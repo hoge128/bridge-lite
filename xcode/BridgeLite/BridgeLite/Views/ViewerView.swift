@@ -39,7 +39,7 @@ struct ViewerView: View {
     }
 
     private var hasRatingOrLabel: Bool {
-        (xmp?.rating ?? 0) > 0 || xmp?.label != nil
+        (xmp?.rating ?? 0) > 0 || xmp?.label != nil || xmp?.flag != nil
     }
 
     private var displayPair: (CGImage, Image.Orientation)? {
@@ -228,7 +228,7 @@ struct ViewerView: View {
             guard id == store.selectedID else { return }
             let newXmp = store.xmpData[id]
             xmp = newXmp
-            if (newXmp?.rating ?? 0) > 0 || newXmp?.label != nil {
+            if (newXmp?.rating ?? 0) > 0 || newXmp?.label != nil || newXmp?.flag != nil {
                 store.viewerShowsMeta = true
             }
         }
@@ -434,6 +434,46 @@ private struct ViewerMetaOverlay: View {
         xmp?.label?.color.opacity(0.45) ?? Color(white: 0.08, opacity: 0.72)
     }
 
+    // MARK: - Pick / Reject フラグの装飾（背景色はラベル専用なので塗らない）
+
+    // 枠線色: フラグなしは既存の白 0.12。Pick=緑、Reject=明るい赤で「枠＋レジェンド」表現。
+    private var flagBorderColor: Color {
+        switch xmp?.flag {
+        case .pick:   return XmpFlag.pick.color.opacity(0.95)
+        case .reject: return XmpFlag.reject.color
+        default:      return Color.white.opacity(0.12)
+        }
+    }
+
+    private var flagBorderWidth: CGFloat {
+        switch xmp?.flag {
+        case .reject: return 2     // Reject は太枠で警告感
+        case .pick:   return 1.5
+        default:      return 1
+        }
+    }
+
+    // 枠線の上に重ねるレジェンドタブ（"PICK" / "✕ REJECT"）
+    @ViewBuilder
+    private func flagLegendTab(_ flag: XmpFlag) -> some View {
+        HStack(spacing: 3) {
+            if flag == .reject {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .heavy))
+            }
+            Text(flag.name)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .textCase(.uppercase)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 1)
+        .background(
+            Capsule().fill(flag == .reject ? XmpFlag.reject.color : XmpFlag.pick.color.opacity(0.95))
+        )
+        .overlay(Capsule().stroke(Color.white.opacity(0.25), lineWidth: 0.5))
+    }
+
     // Tier 1 – Exposure
     private var fText: String? { exif?.fnumber }
     private var ssText: String? {
@@ -615,9 +655,23 @@ private struct ViewerMetaOverlay: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 6)
         .background(bgColor, in: RoundedRectangle(cornerRadius: 7))
+        // Reject はカード全体を僅かに減光して「除外候補」を示す（背景の塗りつぶしはしない）
+        .overlay {
+            if xmp?.flag == .reject {
+                RoundedRectangle(cornerRadius: 7).fill(Color.black.opacity(0.18))
+            }
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 7)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                .stroke(flagBorderColor, lineWidth: flagBorderWidth)
         )
+        // Pick / Reject のレジェンドタブを枠線の上に重ねる
+        .overlay(alignment: .topLeading) {
+            if let flag = xmp?.flag {
+                flagLegendTab(flag)
+                    .padding(.leading, 10)
+                    .offset(y: -8)
+            }
+        }
     }
 }
