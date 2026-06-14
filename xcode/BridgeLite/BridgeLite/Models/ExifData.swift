@@ -21,6 +21,61 @@ struct ExifData: Sendable, Equatable {
     var imageDescription: String?  // EXIF tag 0x010E, read-only
     var userComment: String?       // EXIF tag 0x9286, read-only
 
+    // MARK: - 焦点距離の派生値（EXIF ロード時に一度だけ算出してストア）
+    //
+    // フィルタ・ヒストグラム・表示で頻繁に読まれるため、毎回の文字列パースや
+    // クロップ算出を避け、init（= スキャン/索引フェーズの EXIF ロード時）で
+    // 一度だけ確定させる。画像ファイルにもキャッシュにも書き込まない、
+    // メモリ内のみの純粋な派生値（生成のたびに raw から再計算される）。
+
+    /// レンズ実焦点距離 (mm)。"50 mm" / "50/1 mm" → 50.0
+    let focalLengthMm: Double?
+    /// 35mm換算の実効値（記録値 0xA405 優先、無ければ Make から算出した補完値）。
+    let focalLength35mmEffective: Int?
+    /// 実効値が計算による補完か（true のとき表示に "≈" を付ける）。
+    let focalLength35mmIsComputed: Bool
+
+    init(
+        make: String? = nil, model: String? = nil, datetime: String? = nil,
+        subsec: String? = nil, exposureTime: String? = nil, fnumber: String? = nil,
+        iso: Int? = nil, focalLength: String? = nil, focalLength35mm: Int? = nil,
+        lensName: String? = nil, width: Int? = nil, height: Int? = nil,
+        software: String? = nil, artist: String? = nil, exposureBias: String? = nil,
+        flash: String? = nil, whiteBalance: String? = nil,
+        imageDescription: String? = nil, userComment: String? = nil
+    ) {
+        self.make = make
+        self.model = model
+        self.datetime = datetime
+        self.subsec = subsec
+        self.exposureTime = exposureTime
+        self.fnumber = fnumber
+        self.iso = iso
+        self.focalLength = focalLength
+        self.focalLength35mm = focalLength35mm
+        self.lensName = lensName
+        self.width = width
+        self.height = height
+        self.software = software
+        self.artist = artist
+        self.exposureBias = exposureBias
+        self.flash = flash
+        self.whiteBalance = whiteBalance
+        self.imageDescription = imageDescription
+        self.userComment = userComment
+
+        // 派生値を一度だけ算出（以後の読み出しはストアド参照で O(1)）
+        let mm = Self.parseRational(focalLength?.components(separatedBy: " ").first)
+        self.focalLengthMm = mm
+        let computed: Int? = {
+            guard focalLength35mm == nil, let mm,
+                  let crop = Self.cropFactor(make: make) else { return nil }
+            return Int((mm * crop).rounded())
+        }()
+        self.focalLength35mmEffective = focalLength35mm ?? computed
+        self.focalLength35mmIsComputed = (focalLength35mm == nil && computed != nil)
+    }
+
     var cameraName: String? {
         guard let model = model else { return make }
         if let make = make, !model.hasPrefix(make) {
@@ -29,41 +84,17 @@ struct ExifData: Sendable, Equatable {
         return model
     }
 
-    // 35mm換算が取れればそれを、なければ実焦点距離をパース
+    // 35mm換算が取れればそれを、なければ実焦点距離
     var effectiveFocalMm: Double? {
         if let mm = focalLength35mmEffective { return Double(mm) }
         return focalLengthMm
     }
 
-    // レンズ実焦点距離 ("50 mm" / "50/1 mm" → 50.0)。35mm換算とは明確に区別する
-    var focalLengthMm: Double? {
-        Self.parseRational(focalLength?.components(separatedBy: " ").first)
-    }
-
-    // MARK: - 35mm換算焦点距離（記録値 + 計算による補完）
+    // MARK: - クロップファクタ
     //
     // OM System / Olympus 等のマイクロフォーサーズ機は標準 EXIF に
-    // FocalLengthIn35mmFilm (0xA405) を書かない。記録値が無い場合のみ、
-    // Make から判定したクロップファクタ × 実焦点距離で換算値を「実行時に算出」する。
-    // 画像ファイルにもキャッシュにも一切書き込まない純粋な派生値。
-
-    /// 記録値が無いときだけ算出される 35mm換算焦点距離。算出不能なら nil。
-    var focalLength35mmComputed: Int? {
-        guard focalLength35mm == nil,
-              let mm = focalLengthMm,
-              let crop = Self.cropFactor(make: make) else { return nil }
-        return Int((mm * crop).rounded())
-    }
-
-    /// フィルタ・表示で使う実効値（記録値優先、無ければ計算値）。
-    var focalLength35mmEffective: Int? {
-        focalLength35mm ?? focalLength35mmComputed
-    }
-
-    /// 実効値が計算による補完か（true のとき表示に "≈" を付ける）。
-    var focalLength35mmIsComputed: Bool {
-        focalLength35mm == nil && focalLength35mmComputed != nil
-    }
+    // FocalLengthIn35mmFilm (0xA405) を書かない。記録値が無い場合のみ、init で
+    // Make から判定したクロップファクタ × 実焦点距離で 35mm換算を補完する。
 
     /// Make からクロップファクタを引く。交換レンズ機が全て同一センサーで
     /// 曖昧さの無いベンダーのみ対応する（将来 Make+Model 単位に拡張可能）。
