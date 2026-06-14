@@ -14,9 +14,11 @@ struct ThumbnailCellView: View {
     @State private var thumbnailOrientation: Image.Orientation = .up
     @State private var xmp: XmpData? = nil
     @State private var exif: ExifData? = nil
+    // 選択状態は body で store.selectedIDs を読まず、@State + selectionDidUpdate で
+    // 自セルだけ更新する（選択変更時に全可視セルが再評価されるのを回避）。
+    @State private var isSelected = false
 
     private var cellSize: CGFloat { store.settings.thumbnailSize }
-    private var isSelected: Bool { store.selectedIDs.contains(entry.id) }
 
     private var photoKind: PhotoKind {
         if entry.isRaw { return .raw }
@@ -123,6 +125,9 @@ struct ThumbnailCellView: View {
         .onReceive(store.xmpDidUpdate.filter { $0 == self.entry.id }) { _ in
             xmp = store.xmpData[entry.id]
         }
+        .onReceive(store.selectionDidUpdate.filter { $0.contains(self.entry.id) }) { _ in
+            isSelected = store.selectedIDs.contains(entry.id)
+        }
         .onHover { isHovered = $0 }
         .contextMenu { cellContextMenu }
         .overlay {
@@ -158,6 +163,8 @@ struct ThumbnailCellView: View {
         thumbnailOrientation = .up
         xmp = nil
         exif = nil
+        // 出現時に現在の選択状態へ同期（以後の変化は selectionDidUpdate で更新）
+        isSelected = store.selectedIDs.contains(entry.id)
         let id = entry.id
         let url = entry.url
         thumbnailOrientation = entry.isRaw ? (store.thumbnailOrientations[id] ?? .up) : .up

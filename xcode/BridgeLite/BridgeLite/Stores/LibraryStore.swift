@@ -26,7 +26,15 @@ final class LibraryStore: ReindexedGroupSink {
     private var phashPipeline = PHashPipeline()
 
     // UI 状態 — 選択
-    private(set) var selectedIDs: Set<UInt64> = []
+    private(set) var selectedIDs: Set<UInt64> = [] {
+        didSet {
+            // 選択状態が変わった id（旧⊕新）だけを通知。各サムネイルセルは自分の id を
+            // 購読して @State isSelected を更新するため、選択変更で全可視セルが再評価
+            // されない（body 内で store.selectedIDs を読まなくなる）。
+            let changed = oldValue.symmetricDifference(selectedIDs)
+            if !changed.isEmpty { selectionDidUpdate.send(changed) }
+        }
+    }
     private(set) var primaryID: UInt64?       // サイドバー/ビュワーで表示する「主」選択
     private var anchorID: UInt64?             // Shift+Click の始点
     var selectedID: UInt64? { primaryID }     // ViewerView 互換
@@ -100,6 +108,8 @@ final class LibraryStore: ReindexedGroupSink {
     let thumbnailDidUpdate = PassthroughSubject<UInt64, Never>()
     let exifDidUpdate = PassthroughSubject<UInt64, Never>()
     let xmpDidUpdate = PassthroughSubject<UInt64, Never>()
+    // 選択変更時に「状態が変わった id 群」を通知（per-cell @State 更新用）。
+    let selectionDidUpdate = PassthroughSubject<Set<UInt64>, Never>()
     // フィルタの Reset / 個別 Clear 時に発火。グリッドが選択位置へスクロールを復元する
     let filterDidClear = PassthroughSubject<Void, Never>()
 
