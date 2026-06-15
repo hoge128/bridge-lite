@@ -92,10 +92,14 @@ struct GroupCompareView: View {
                     if navMode == .memberFirst { navigatePrev() } else { navigateMemberPrev() }
                 }
                 .keyboardShortcut(.tab, modifiers: [.control, .shift])
+                // i: 各メンバーの info カード表示をトグル（ビューアと同一ショートカット）
+                Button("") { store.viewerShowsMeta.toggle() }
+                    .keyboardShortcut("i", modifiers: [])
             }
             .opacity(0)
             .allowsHitTesting(false)
         }
+        .animation(.easeInOut(duration: 0.15), value: store.viewerShowsMeta)
         .onAppear {
             resolveRepAndFocus()
         }
@@ -336,6 +340,15 @@ private struct CompareMemberColumn: View {
         VStack(spacing: 6) {
             imageArea
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottomLeading) {
+                    if store.viewerShowsMeta, let entry {
+                        ViewerMetaOverlay(entry: entry, exif: exif, xmp: xmp) {
+                            store.viewerShowsMeta = false
+                        }
+                        .padding(8)
+                        .transition(.opacity)
+                    }
+                }
 
             Text(entry?.filename ?? "")
                 .font(.callout)
@@ -426,6 +439,15 @@ private struct CompareMemberColumn: View {
                     store.clearLabel()
                 }
             }
+
+            Divider()
+
+            Button(store.viewerShowsMeta
+                   ? String(localized: "viewer.context.hide_details", defaultValue: "Hide Details")
+                   : String(localized: "viewer.context.show_details", defaultValue: "Show Details")) {
+                store.viewerShowsMeta.toggle()
+            }
+            .keyboardShortcut("i", modifiers: [])
 
             Divider()
 

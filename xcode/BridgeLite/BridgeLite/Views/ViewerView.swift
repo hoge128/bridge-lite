@@ -418,7 +418,8 @@ private func viewerCursorFromCenter(_ event: NSEvent) -> CGPoint {
 
 // MARK: - Metadata overlay
 
-private struct ViewerMetaOverlay: View {
+// 比較ビュー（GroupCompareView）からも再利用するため internal 公開。
+struct ViewerMetaOverlay: View {
     let entry: PhotoEntry
     let exif: ExifData?
     let xmp: XmpData?
@@ -573,6 +574,10 @@ private struct ViewerMetaOverlay: View {
                                             dragRating = max(0, min(5, dragStartRating + delta))
                                         }
                                         .onEnded { value in
+                                            // 比較ビューでは複数カードが同時表示されるため、
+                                            // applyRating の対象を自カードの entry に固定する。
+                                            // ビューアでは選択中＝この entry なので無害。
+                                            store.selectEntry(entry.id)
                                             let dx = value.translation.width
                                             let dy = value.translation.height
                                             if abs(dx) < 4 && abs(dy) < 4 {
