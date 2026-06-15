@@ -221,6 +221,12 @@ struct BridgeLiteCommands: Commands {
             }
             .keyboardShortcut("/", modifiers: .command)
             Divider()
+            Toggle("Filters", isOn: Binding(
+                get: { store?.columnVisibility != .detailOnly },
+                set: { store?.columnVisibility = $0 ? .all : .detailOnly }
+            ))
+            .keyboardShortcut("s", modifiers: [.command, .control])
+            .disabled(store == nil)
             Toggle("Metadata", isOn: Binding(
                 get: { store?.showSidebar ?? false },
                 set: { store?.showSidebar = $0 }

@@ -2,6 +2,38 @@
   "sourceLanguage": "ja",
   "strings": {
     "": {},
+    "shortcut.toggle_filters": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show/Hide Filters"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フィルターバーの表示切替"
+          }
+        }
+      }
+    },
+    "shortcut.toggle_metadata": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Show/Hide Metadata"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "メタデータバーの表示切替"
+          }
+        }
+      }
+    },
     "Filmstrip": {
       "localizations": {
         "en": {

@@ -122,6 +122,8 @@ struct ShortcutCheatSheetView: View {
                         ShortcutRow(keys: ["Tab"],           description: "shortcut.cycle_variant")
                         ShortcutRow(keys: ["⇧", "Tab"],      description: "shortcut.cycle_variant_reverse")
                         ShortcutRow(keys: ["Esc"],           description: "shortcut.exit_mode")
+                        ShortcutRow(keys: ["F"],             description: "shortcut.toggle_filters")
+                        ShortcutRow(keys: ["I"],             description: "shortcut.toggle_metadata")
                     }
 
                     Divider().padding(.vertical, 10)

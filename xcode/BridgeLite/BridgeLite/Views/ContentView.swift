@@ -291,6 +291,20 @@ struct FolderView: View {
                     if ch == "p" { s.applyFlag(XmpFlag.pick.rawValue); return nil }
                     if ch == "x" { s.applyFlag(XmpFlag.reject.rawValue); return nil }
                 }
+                // F / M → フィルターバー / メタデータバーの表示トグル（グリッド表示時のみ・修飾キー無し）
+                if !(fr0 is NSTextView), !(fr0 is NSTextField),
+                   !s.viewerMode, !s.compareMode, !s.filmstripMode,
+                   event.modifierFlags.intersection([.shift, .command, .control, .option]).isEmpty,
+                   let ch = event.charactersIgnoringModifiers?.lowercased() {
+                    if ch == "f" {
+                        s.columnVisibility = (s.columnVisibility == .detailOnly) ? .all : .detailOnly
+                        return nil
+                    }
+                    if ch == "i" {
+                        s.showSidebar.toggle()
+                        return nil
+                    }
+                }
                 // Arrow keys — text view がフォーカスを持っている場合はスルー
                 let fr1 = NSApp.keyWindow?.firstResponder
                 guard !(fr1 is NSTextView), !(fr1 is NSTextField),
