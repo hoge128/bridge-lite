@@ -222,6 +222,11 @@ struct FolderView: View {
                 StatusBarView()
             } // VStack
 
+            if store.filmstripMode {
+                FilmstripView()
+                    .environment(store)
+            }
+
             if store.compareMode, let anchorID = store.compareAnchorID {
                 GroupCompareView(initialID: anchorID)
                     .environment(store)

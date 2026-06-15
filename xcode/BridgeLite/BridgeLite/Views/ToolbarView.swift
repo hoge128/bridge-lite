@@ -206,6 +206,18 @@ struct ToolbarView: ToolbarContent {
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .transition(.opacity)
+            } else if !store.viewerMode && !store.compareMode {
+                Picker("", selection: Binding(
+                    get: { store.filmstripMode },
+                    set: { store.filmstripMode = $0 }
+                )) {
+                    Text(String(localized: "Library")).tag(false)
+                    Text(String(localized: "Filmstrip")).tag(true)
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+                .help(String(localized: "filmstrip.toggle.help",
+                             defaultValue: "Switch between the library grid and filmstrip comparison"))
             }
         }
 

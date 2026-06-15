@@ -2,6 +2,86 @@
   "sourceLanguage": "ja",
   "strings": {
     "": {},
+    "Filmstrip": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Filmstrip"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "フィルムストリップ"
+          }
+        }
+      }
+    },
+    "Library": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Library"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブラリ"
+          }
+        }
+      }
+    },
+    "filmstrip.empty": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Select 2–4 photos to compare"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "比較する写真を2〜4枚選択"
+          }
+        }
+      }
+    },
+    "filmstrip.hint.max": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Up to 4 photos can be compared"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "最大4枚まで比較できます"
+          }
+        }
+      }
+    },
+    "filmstrip.toggle.help": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Switch between the library grid and filmstrip comparison"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブラリグリッドとフィルムストリップ比較を切り替え"
+          }
+        }
+      }
+    },
     "Flag Change": {
       "localizations": {
         "en": {

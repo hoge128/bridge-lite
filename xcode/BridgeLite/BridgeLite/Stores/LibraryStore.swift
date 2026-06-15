@@ -43,6 +43,9 @@ final class LibraryStore: ReindexedGroupSink {
     var viewerMode: Bool = false
     var viewerShowsMeta: Bool = false
     var compareMode: Bool = false
+    // フィルムストリップ（任意の2〜4枚を並べて比較する独立ビュー）。
+    // 永続化しない transient フラグ。ViewMode(.all/.daily) とは別概念。
+    var filmstripMode: Bool = false
     var compareAnchorID: UInt64? = nil
     // When ViewerView is entered from CompareMode, restricts arrow-key navigation to this list.
     var viewerCompareGroupMembers: [UInt64]? = nil

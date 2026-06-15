@@ -291,7 +291,7 @@ struct GroupCompareView: View {
 
 // MARK: - Column
 
-private struct CompareMemberColumn: View {
+struct CompareMemberColumn: View {
     let memberID: UInt64
     let isFocused: Bool
     @Environment(LibraryStore.self) private var store
