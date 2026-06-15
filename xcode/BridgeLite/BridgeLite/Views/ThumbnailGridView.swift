@@ -5,14 +5,14 @@ import UniformTypeIdentifiers
 struct ThumbnailGridView: View {
     @Environment(LibraryStore.self) private var store
     @State private var isDropTargeted = false
-    @State private var lastTap: (id: UInt64, time: Date)?
+    @State private var lastDailyTap: (id: UInt64, time: Date)?
     @State private var rubberBandStart: CGPoint? = nil
     @State private var rubberBandEnd: CGPoint? = nil
     private var cellSize: CGFloat { store.settings.thumbnailSize }
 
-    private func handleTap(id: UInt64) {
+    private func handleDailyTap(id: UInt64) {
         NSApp.keyWindow?.makeFirstResponder(nil)
-        if let last = lastTap,
+        if let last = lastDailyTap,
            last.id == id,
            Date().timeIntervalSince(last.time) < NSEvent.doubleClickInterval {
             store.selectEntry(id)
@@ -22,13 +22,11 @@ struct ThumbnailGridView: View {
                 store.compareAnchorID = id
                 store.compareMode = true
             }
-            // 初回のダブルクリック時に、Space との入替設定があることを一度だけ案内する
             HintCenter.shared.fireOnce(.openGestureSwap)
-            lastTap = nil
+            lastDailyTap = nil
             return
         }
-        lastTap = (id: id, time: Date())
-
+        lastDailyTap = (id, Date())
         let flags = NSEvent.modifierFlags
         if flags.contains(.command) {
             store.toggleSelect(id)
@@ -249,6 +247,8 @@ struct ThumbnailGridView: View {
         GeometryReader { geo in
             let cols = max(2, Int(geo.size.width / (cellSize + 8)))
             let columns = Array(repeating: GridItem(.fixed(cellSize), spacing: 8), count: cols)
+            let rows = max(1, Int(ceil(Double(store.visibleIDs.count) / Double(cols))))
+            let contentHeight = CGFloat(rows) * cellSize + CGFloat(max(0, rows - 1)) * 8 + 16
             ScrollViewReader { proxy in
                 ScrollView {
                     ZStack(alignment: .topLeading) {
@@ -256,12 +256,22 @@ struct ThumbnailGridView: View {
                             ForEach(store.visibleIDs, id: \.self) { id in
                                 if let entry = store.entries[id] {
                                     ThumbnailCellView(entry: entry)
-                                        .onTapGesture { handleTap(id: id) }
                                         .id(id)
                                 }
                             }
                         }
                         .padding(8)
+
+                        GridInteractionView(
+                            store: store,
+                            visibleIDs: store.visibleIDs,
+                            columns: cols,
+                            cellSize: cellSize,
+                            rubberBandStart: $rubberBandStart,
+                            rubberBandEnd: $rubberBandEnd
+                        )
+                        .frame(maxWidth: .infinity)
+                        .frame(height: contentHeight)
 
                         if let start = rubberBandStart, let end = rubberBandEnd {
                             let rect = rubberBandRect(from: start, to: end)
@@ -274,26 +284,6 @@ struct ThumbnailGridView: View {
                         }
                     }
                     .clipped()
-                    .contentShape(Rectangle())
-                    .onTapGesture { store.deselectAll() }
-                    .gesture(
-                        DragGesture(minimumDistance: 4, coordinateSpace: .local)
-                            .onChanged { value in
-                                if rubberBandStart == nil {
-                                    if !NSEvent.modifierFlags.contains(.shift),
-                                       !NSEvent.modifierFlags.contains(.command) {
-                                        store.deselectAll()
-                                    }
-                                    rubberBandStart = value.startLocation
-                                }
-                                rubberBandEnd = value.location
-                                updateRubberBandSelection(cols: cols)
-                            }
-                            .onEnded { _ in
-                                rubberBandStart = nil
-                                rubberBandEnd = nil
-                            }
-                    )
                 }
                 .onAppear { store.gridColumnCount = cols }
                 .onChange(of: cols) { _, newCols in store.gridColumnCount = newCols }
@@ -328,7 +318,7 @@ struct ThumbnailGridView: View {
                                 ForEach(group.ids, id: \.self) { id in
                                     if let entry = store.entries[id] {
                                         ThumbnailCellView(entry: entry)
-                                            .onTapGesture { handleTap(id: id) }
+                                            .onTapGesture { handleDailyTap(id: id) }
                                             .id(id)
                                     }
                                 }
@@ -358,26 +348,6 @@ struct ThumbnailGridView: View {
                width: abs(end.x - start.x), height: abs(end.y - start.y))
     }
 
-    private func updateRubberBandSelection(cols: Int) {
-        guard let start = rubberBandStart, let end = rubberBandEnd else { return }
-        let rect = rubberBandRect(from: start, to: end)
-        let pad: CGFloat = 8
-        let sp: CGFloat = 8
-        var hits: Set<UInt64> = []
-        for (i, id) in store.visibleIDs.enumerated() {
-            let col = CGFloat(i % cols)
-            let row = CGFloat(i / cols)
-            let thumbRect = CGRect(
-                x: pad + col * (cellSize + sp),
-                y: pad + row * (cellSize + sp),
-                width: cellSize,
-                height: cellSize
-            )
-            if rect.intersects(thumbRect) { hits.insert(id) }
-        }
-        store.rubberBandSelect(hits)
-    }
-
     private func scrollToPrimary(_ proxy: ScrollViewProxy) {
         guard let id = store.primaryID else { return }
         DispatchQueue.main.async {
@@ -387,6 +357,505 @@ struct ThumbnailGridView: View {
         }
     }
 
+}
+
+// MARK: - Grid interaction layer
+
+private struct GridInteractionView: NSViewRepresentable {
+    let store: LibraryStore
+    let visibleIDs: [UInt64]
+    let columns: Int
+    let cellSize: CGFloat
+    @Binding var rubberBandStart: CGPoint?
+    @Binding var rubberBandEnd: CGPoint?
+
+    func makeNSView(context: Context) -> GridInteractionNSView {
+        let view = GridInteractionNSView()
+        update(view)
+        return view
+    }
+
+    func updateNSView(_ nsView: GridInteractionNSView, context: Context) {
+        update(nsView)
+    }
+
+    private func update(_ view: GridInteractionNSView) {
+        view.store = store
+        view.visibleIDs = visibleIDs
+        view.columns = columns
+        view.cellSize = cellSize
+        view.onRubberBandChanged = { start, end in
+            rubberBandStart = start
+            rubberBandEnd = end
+        }
+    }
+}
+
+@MainActor
+private final class GridInteractionNSView: NSView {
+    weak var store: LibraryStore?
+    var visibleIDs: [UInt64] = []
+    var columns = 1
+    var cellSize: CGFloat = 120
+    var onRubberBandChanged: ((CGPoint?, CGPoint?) -> Void)?
+
+    private let dragSource = CellDragSource()
+    private var mouseDownPoint: CGPoint?
+    private var mouseDownID: UInt64?
+    private var isDragging = false
+    private var isRubberBanding = false
+    private var suppressMouseUp = false
+    private var lastClick: (id: UInt64, timestamp: TimeInterval)?
+
+    override var isFlipped: Bool { true }
+    override var acceptsFirstResponder: Bool { true }
+
+    override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    override func mouseDown(with event: NSEvent) {
+        if event.modifierFlags.contains(.control) {
+            suppressMouseUp = true
+            showContextMenu(for: event)
+            return
+        }
+
+        suppressMouseUp = false
+        let point = convert(event.locationInWindow, from: nil)
+        mouseDownPoint = point
+        mouseDownID = cellID(at: point)
+        isDragging = false
+        isRubberBanding = false
+    }
+
+    override func mouseDragged(with event: NSEvent) {
+        guard let start = mouseDownPoint else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        guard hypot(point.x - start.x, point.y - start.y) >= 4 else { return }
+
+        if let id = mouseDownID {
+            guard !isDragging else { return }
+            isDragging = true
+            beginFileDrag(id: id, event: event)
+        } else {
+            if !isRubberBanding {
+                isRubberBanding = true
+                if !event.modifierFlags.contains(.shift),
+                   !event.modifierFlags.contains(.command) {
+                    store?.deselectAll()
+                }
+            }
+            updateRubberBand(from: start, to: point)
+        }
+    }
+
+    override func mouseUp(with event: NSEvent) {
+        defer { resetPointerState() }
+        guard !suppressMouseUp else { return }
+        if isRubberBanding {
+            onRubberBandChanged?(nil, nil)
+            return
+        }
+        guard !isDragging, let start = mouseDownPoint else { return }
+
+        let point = convert(event.locationInWindow, from: nil)
+        guard hypot(point.x - start.x, point.y - start.y) < 4 else { return }
+        guard let id = cellID(at: point), id == mouseDownID else {
+            store?.deselectAll()
+            return
+        }
+        handleClick(id: id, event: event)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        showContextMenu(for: event)
+    }
+
+    private func resetPointerState() {
+        mouseDownPoint = nil
+        mouseDownID = nil
+        isDragging = false
+        isRubberBanding = false
+        suppressMouseUp = false
+    }
+
+    private func cellID(at point: CGPoint) -> UInt64? {
+        let pad: CGFloat = 8
+        let spacing: CGFloat = 8
+        guard point.x >= pad, point.y >= pad else { return nil }
+        let col = Int((point.x - pad) / (cellSize + spacing))
+        let row = Int((point.y - pad) / (cellSize + spacing))
+        guard col >= 0, col < columns, row >= 0 else { return nil }
+
+        let cellOrigin = CGPoint(
+            x: pad + CGFloat(col) * (cellSize + spacing),
+            y: pad + CGFloat(row) * (cellSize + spacing)
+        )
+        let cellRect = CGRect(origin: cellOrigin, size: CGSize(width: cellSize, height: cellSize))
+        let index = row * columns + col
+        guard cellRect.contains(point), index < visibleIDs.count else { return nil }
+        return visibleIDs[index]
+    }
+
+    private func handleClick(id: UInt64, event: NSEvent) {
+        guard let store else { return }
+        NSApp.keyWindow?.makeFirstResponder(nil)
+
+        if let lastClick,
+           lastClick.id == id,
+           event.timestamp - lastClick.timestamp < NSEvent.doubleClickInterval {
+            store.selectEntry(id)
+            if store.settings.gridOpenGesture == .spaceCompare {
+                store.viewerMode = true
+            } else {
+                store.compareAnchorID = id
+                store.compareMode = true
+            }
+            HintCenter.shared.fireOnce(.openGestureSwap)
+            self.lastClick = nil
+            return
+        }
+        lastClick = (id, event.timestamp)
+
+        if event.modifierFlags.contains(.command) {
+            store.toggleSelect(id)
+        } else if event.modifierFlags.contains(.shift) {
+            store.rangeSelect(to: id)
+        } else {
+            store.selectEntry(id)
+        }
+    }
+
+    private func beginFileDrag(id: UInt64, event: NSEvent) {
+        guard let store, let entry = store.entries[id] else { return }
+        var ids = store.selectedIDs
+        ids.insert(id)
+        let scope = resolveDndScope(store: store, flags: event.modifierFlags)
+        let urls = store.urlsFor(ids: ids, scope: scope)
+        let image = ThumbnailDecodeCache.shared.peek(url: entry.url)
+            ?? ThumbnailDecodeCache.shared.decode(url: entry.url, blob: store.thumbnailBlobs[id])
+        let preview = image.map {
+            NSImage(cgImage: $0, size: NSSize(width: cellSize, height: cellSize))
+        }
+        dragSource.begin(
+            from: self,
+            event: event,
+            urls: urls,
+            cellSize: cellSize,
+            preview: preview
+        )
+    }
+
+    private func resolveDndScope(store: LibraryStore, flags: NSEvent.ModifierFlags) -> GroupScopeMode {
+        let base: GroupScopeMode =
+            store.settings.dndScopeMode == .allInGroup ? .allInGroup : .representative
+        guard flags.contains(.option) else { return base }
+        return base == .representative ? .allInGroup : .representative
+    }
+
+    private func updateRubberBand(from start: CGPoint, to end: CGPoint) {
+        guard let store else { return }
+        onRubberBandChanged?(start, end)
+        let rect = CGRect(
+            x: min(start.x, end.x),
+            y: min(start.y, end.y),
+            width: abs(end.x - start.x),
+            height: abs(end.y - start.y)
+        )
+        let pad: CGFloat = 8
+        let spacing: CGFloat = 8
+        var hits: Set<UInt64> = []
+        for (index, id) in visibleIDs.enumerated() {
+            let col = CGFloat(index % columns)
+            let row = CGFloat(index / columns)
+            let cellRect = CGRect(
+                x: pad + col * (cellSize + spacing),
+                y: pad + row * (cellSize + spacing),
+                width: cellSize,
+                height: cellSize
+            )
+            if rect.intersects(cellRect) { hits.insert(id) }
+        }
+        store.rubberBandSelect(hits)
+    }
+
+    private func showContextMenu(for event: NSEvent) {
+        guard let store else { return }
+        let point = convert(event.locationInWindow, from: nil)
+        guard let id = cellID(at: point), let entry = store.entries[id] else {
+            store.deselectAll()
+            return
+        }
+        if !store.selectedIDs.contains(id) {
+            store.selectEntry(id)
+        }
+        let menu = makeContextMenu(entry: entry, id: id, store: store)
+        menu.popUp(positioning: nil, at: point, in: self)
+    }
+
+    private func makeContextMenu(entry: PhotoEntry, id: UInt64, store: LibraryStore) -> NSMenu {
+        let menu = NSMenu()
+        menu.addItem(actionItem("Copy", action: #selector(copySelection)))
+        menu.addItem(actionItem("Show in Finder", action: #selector(showInFinder(_:)),
+                                representedObject: entry.url as NSURL))
+
+        let targetURLs = store.selectedIDs.compactMap { store.entries[$0]?.url }
+        let primaryURL = store.entries[store.primaryID ?? id]?.url ?? entry.url
+        let openWith = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
+        openWith.submenu = makeOpenWithMenu(targetURLs: targetURLs, primaryURL: primaryURL)
+        menu.addItem(openWith)
+        menu.addItem(.separator())
+
+        let rating = NSMenuItem(title: "Rating", action: nil, keyEquivalent: "")
+        let ratingMenu = NSMenu()
+        let ratingModifiers = store.settings.ratingShortcutModifier.nsEventModifierFlags
+        ratingMenu.addItem(actionItem("No Rating", action: #selector(applyRating(_:)),
+                                      representedObject: NSNumber(value: 0),
+                                      keyEquivalent: "0",
+                                      modifiers: ratingModifiers))
+        for value in 1...5 {
+            ratingMenu.addItem(actionItem(
+                String(repeating: "★", count: value),
+                action: #selector(applyRating(_:)),
+                representedObject: NSNumber(value: value),
+                keyEquivalent: String(value),
+                modifiers: ratingModifiers
+            ))
+        }
+        rating.submenu = ratingMenu
+        menu.addItem(rating)
+
+        let label = NSMenuItem(title: "Label", action: nil, keyEquivalent: "")
+        let labelMenu = NSMenu()
+        for value in [XmpLabel.red, .yellow, .green, .blue, .purple] {
+            labelMenu.addItem(actionItem(
+                value.name,
+                action: #selector(applyLabel(_:)),
+                representedObject: NSNumber(value: value.rawValue),
+                keyEquivalent: value == .purple ? "" : String(Int(value.rawValue) + 5),
+                modifiers: ratingModifiers
+            ))
+        }
+        labelMenu.addItem(.separator())
+        labelMenu.addItem(actionItem("Clear Label", action: #selector(clearLabel)))
+        label.submenu = labelMenu
+        menu.addItem(label)
+
+        let flag = NSMenuItem(title: String(localized: "Flag"), action: nil, keyEquivalent: "")
+        let flagMenu = NSMenu()
+        for value in [XmpFlag.pick, .reject] {
+            flagMenu.addItem(actionItem(
+                value.name,
+                action: #selector(applyFlag(_:)),
+                representedObject: NSNumber(value: value.rawValue),
+                keyEquivalent: value == .pick ? "p" : "x"
+            ))
+        }
+        flag.submenu = flagMenu
+        menu.addItem(flag)
+        menu.addItem(.separator())
+
+        let swapped = store.settings.gridOpenGesture == .spaceCompare
+        let compareTitle = swapped
+            ? String(localized: "thumbnail.context.move_to_compare.plain",
+                     defaultValue: "Move to Compare")
+            : String(localized: "thumbnail.context.move_to_compare",
+                     defaultValue: "Move to Compare (Double-click)")
+        let viewerTitle = swapped
+            ? String(localized: "thumbnail.context.move_to_viewer.dblclick",
+                     defaultValue: "Move to Viewer (Double-click)")
+            : String(localized: "thumbnail.context.move_to_viewer",
+                     defaultValue: "Move to Viewer")
+        menu.addItem(actionItem(
+            compareTitle,
+            action: #selector(moveToCompare(_:)),
+            representedObject: NSNumber(value: id),
+            keyEquivalent: swapped ? " " : ""
+        ))
+        menu.addItem(actionItem(
+            viewerTitle,
+            action: #selector(moveToViewer(_:)),
+            representedObject: NSNumber(value: id),
+            keyEquivalent: swapped ? "" : " "
+        ))
+        menu.addItem(.separator())
+        menu.addItem(actionItem(
+            "Move to Trash",
+            action: #selector(moveToTrash),
+            keyEquivalent: "\u{8}",
+            modifiers: store.settings.deleteShortcutKey == .delete ? [] : .command
+        ))
+        return menu
+    }
+
+    private func makeOpenWithMenu(targetURLs: [URL], primaryURL: URL) -> NSMenu {
+        let menu = NSMenu()
+        let defaultApp = OpenWithService.defaultApplicationURL(for: primaryURL)
+        if let defaultApp {
+            let title = String(
+                format: String(localized: "%@ (Default)"),
+                OpenWithService.applicationName(at: defaultApp)
+            )
+            menu.addItem(openWithItem(title: title, appURL: defaultApp, targetURLs: targetURLs))
+            menu.addItem(.separator())
+        }
+
+        let favorites = SettingsStore.shared.favoriteApps
+            .filter { FileManager.default.fileExists(atPath: $0.path) }
+            .filter { $0 != defaultApp }
+        for appURL in favorites {
+            menu.addItem(openWithItem(
+                title: OpenWithService.applicationName(at: appURL),
+                appURL: appURL,
+                targetURLs: targetURLs
+            ))
+        }
+        if !favorites.isEmpty { menu.addItem(.separator()) }
+        menu.addItem(actionItem("Add Application…", action: #selector(addOpenWithApplication)))
+        menu.addItem(actionItem("Manage Applications…", action: #selector(manageOpenWithApplications)))
+        return menu
+    }
+
+    private func actionItem(
+        _ title: String,
+        action: Selector,
+        representedObject: Any? = nil,
+        keyEquivalent: String = "",
+        modifiers: NSEvent.ModifierFlags = []
+    ) -> NSMenuItem {
+        let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
+        item.target = self
+        item.representedObject = representedObject
+        item.keyEquivalentModifierMask = modifiers
+        return item
+    }
+
+    private func openWithItem(title: String, appURL: URL, targetURLs: [URL]) -> NSMenuItem {
+        let item = actionItem(title, action: #selector(openWith(_:)))
+        item.image = OpenWithService.applicationIcon(at: appURL)
+        item.representedObject = OpenWithAction(appURL: appURL, targetURLs: targetURLs)
+        return item
+    }
+
+    @objc private func copySelection() {
+        store?.triggerCopy()
+    }
+
+    @objc private func showInFinder(_ sender: NSMenuItem) {
+        guard let url = sender.representedObject as? NSURL else { return }
+        NSWorkspace.shared.activateFileViewerSelecting([url as URL])
+    }
+
+    @objc private func applyRating(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? NSNumber else { return }
+        store?.triggerRating(value.intValue)
+    }
+
+    @objc private func applyLabel(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? NSNumber else { return }
+        store?.applyLabel(value.uint8Value)
+    }
+
+    @objc private func clearLabel() {
+        store?.clearLabel()
+    }
+
+    @objc private func applyFlag(_ sender: NSMenuItem) {
+        guard let value = sender.representedObject as? NSNumber else { return }
+        store?.applyFlag(value.uint8Value)
+    }
+
+    @objc private func moveToCompare(_ sender: NSMenuItem) {
+        guard let store, let value = sender.representedObject as? NSNumber else { return }
+        let id = value.uint64Value
+        store.selectEntry(id)
+        store.compareAnchorID = id
+        store.compareMode = true
+    }
+
+    @objc private func moveToViewer(_ sender: NSMenuItem) {
+        guard let store, let value = sender.representedObject as? NSNumber else { return }
+        store.selectEntry(value.uint64Value)
+        store.viewerMode = true
+    }
+
+    @objc private func moveToTrash() {
+        store?.triggerDelete()
+    }
+
+    @objc private func openWith(_ sender: NSMenuItem) {
+        guard let action = sender.representedObject as? OpenWithAction else { return }
+        OpenWithService.open(action.targetURLs, with: action.appURL)
+    }
+
+    @objc private func addOpenWithApplication() {
+        guard let app = OpenWithService.presentAddApplicationPanel(),
+              !SettingsStore.shared.favoriteApps.contains(app) else { return }
+        SettingsStore.shared.favoriteApps.append(app)
+    }
+
+    @objc private func manageOpenWithApplications() {
+        NotificationCenter.default.post(name: .bridgeLiteOpenManageApplications, object: nil)
+    }
+}
+
+private final class OpenWithAction: NSObject {
+    let appURL: URL
+    let targetURLs: [URL]
+
+    init(appURL: URL, targetURLs: [URL]) {
+        self.appURL = appURL
+        self.targetURLs = targetURLs
+    }
+}
+
+@MainActor
+private final class CellDragSource: NSObject, NSDraggingSource {
+    nonisolated func draggingSession(
+        _ session: NSDraggingSession,
+        sourceOperationMaskFor context: NSDraggingContext
+    ) -> NSDragOperation {
+        .copy
+    }
+
+    func begin(
+        from view: NSView,
+        event: NSEvent,
+        urls: [URL],
+        cellSize: CGFloat,
+        preview: NSImage?
+    ) {
+        guard !urls.isEmpty else { return }
+        let dragSize = cellSize * 0.4
+        let frame = NSRect(origin: .zero, size: CGSize(width: dragSize, height: dragSize))
+        let contents = preview.map { borderedPreview($0, size: dragSize) }
+        let items = urls.map { url -> NSDraggingItem in
+            let item = NSDraggingItem(pasteboardWriter: url as NSURL)
+            item.setDraggingFrame(frame, contents: contents)
+            return item
+        }
+        view.beginDraggingSession(with: items, event: event, source: self)
+    }
+
+    private func borderedPreview(_ image: NSImage, size: CGFloat) -> NSImage {
+        let result = NSImage(size: NSSize(width: size, height: size))
+        result.lockFocus()
+        image.draw(
+            in: NSRect(origin: .zero, size: NSSize(width: size, height: size)),
+            from: .zero,
+            operation: .copy,
+            fraction: 1
+        )
+        let path = NSBezierPath(
+            roundedRect: NSRect(x: 1, y: 1, width: size - 2, height: size - 2),
+            xRadius: 6,
+            yRadius: 6
+        )
+        path.lineWidth = 2
+        NSColor.white.setStroke()
+        path.stroke()
+        result.unlockFocus()
+        return result
+    }
 }
 
 // MARK: - Daily group header
