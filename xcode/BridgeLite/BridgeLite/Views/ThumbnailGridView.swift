@@ -526,23 +526,29 @@ private final class GridInteractionNSView: NSView {
     }
 
     private func beginFileDrag(id: UInt64, event: NSEvent) {
-        guard let store, let entry = store.entries[id] else { return }
-        var ids = store.selectedIDs
-        ids.insert(id)
+        guard let store, store.entries[id] != nil else { return }
+        // 標準挙動(Finder 等): 未選択セルからドラッグ開始 → 他の選択をクリアして
+        // そのセルだけを選択し直す。選択済みセルからなら選択全部をドラッグ。
+        if !store.selectedIDs.contains(id) {
+            store.selectEntry(id)
+        }
+        let ids = store.selectedIDs
         let scope = resolveDndScope(store: store, flags: event.modifierFlags)
         let urls = store.urlsFor(ids: ids, scope: scope)
-        let image = ThumbnailDecodeCache.shared.peek(url: entry.url)
-            ?? ThumbnailDecodeCache.shared.decode(url: entry.url, blob: store.thumbnailBlobs[id])
-        let preview = image.map {
-            NSImage(cgImage: $0, size: NSSize(width: cellSize, height: cellSize))
+        // スタックプレビュー用に先頭最大5枚のサムネを集める（先頭=ドラッグ中のセル、以降は可視順）
+        var previewIDs: [UInt64] = [id]
+        for vid in store.visibleIDs where vid != id && ids.contains(vid) {
+            previewIDs.append(vid)
+            if previewIDs.count >= 5 { break }
         }
-        dragSource.begin(
-            from: self,
-            event: event,
-            urls: urls,
-            cellSize: cellSize,
-            preview: preview
-        )
+        let images: [CGImage] = previewIDs.compactMap { pid in
+            guard let url = store.entries[pid]?.url else { return nil }
+            return ThumbnailDecodeCache.shared.peek(url: url)
+                ?? ThumbnailDecodeCache.shared.decode(url: url, blob: store.thumbnailBlobs[pid])
+        }
+        let dragPoint = mouseDownPoint ?? convert(event.locationInWindow, from: nil)
+        dragSource.begin(from: self, event: event, at: dragPoint,
+                         urls: urls, cellSize: cellSize, images: images)
     }
 
     private func resolveDndScope(store: LibraryStore, flags: NSEvent.ModifierFlags) -> GroupScopeMode {
@@ -820,41 +826,91 @@ private final class CellDragSource: NSObject, NSDraggingSource {
     func begin(
         from view: NSView,
         event: NSEvent,
+        at point: NSPoint,
         urls: [URL],
         cellSize: CGFloat,
-        preview: NSImage?
+        images: [CGImage]
     ) {
         guard !urls.isEmpty else { return }
-        let dragSize = cellSize * 0.4
-        let frame = NSRect(origin: .zero, size: CGSize(width: dragSize, height: dragSize))
-        let contents = preview.map { borderedPreview($0, size: dragSize) }
+        let preview = makeStackPreview(images: images, cellSize: cellSize)
+        // ドラッグ開始地点にプレビュー中心を置く（画面左上からスライドして来るのを防ぐ）。
+        let origin = NSPoint(x: point.x - preview.size.width / 2,
+                             y: point.y - preview.size.height / 2)
+        let frame = NSRect(origin: origin, size: preview.size)
         let items = urls.map { url -> NSDraggingItem in
             let item = NSDraggingItem(pasteboardWriter: url as NSURL)
-            item.setDraggingFrame(frame, contents: contents)
+            item.setDraggingFrame(frame, contents: preview)
             return item
         }
-        view.beginDraggingSession(with: items, event: event, source: self)
+        let session = view.beginDraggingSession(with: items, event: event, source: self)
+        // 解除/失敗時に元位置へ戻すアニメーション（スナップバック/フェードアウト）を無効化＝即消える。
+        session.animatesToStartingPositionsOnCancelOrFail = false
     }
 
-    private func borderedPreview(_ image: NSImage, size: CGFloat) -> NSImage {
-        let result = NSImage(size: NSSize(width: size, height: size))
+    /// ドラッグプレビュー: 先頭最大5枚の「実サムネ」を背後にずらして重ねたカード。
+    /// 先頭(最前面)=ドラッグ中のセル、以降は可視順。数字バッジに加えて複数枚ドラッグ中だと
+    /// 一目で分かる。カードサイズは先頭画像のアスペクト比基準で統一し、各カードは自分の
+    /// 画像をアスペクトフィル（クロップ）で描く。
+    private func makeStackPreview(images: [CGImage], cellSize: CGFloat) -> NSImage {
+        let cards = max(min(images.count, 5), 1)   // 1〜5 枚
+        let base = cellSize * 0.5
+        var cardW = base
+        var cardH = base * 0.66
+        if let first = images.first, first.width > 0, first.height > 0 {
+            let ar = CGFloat(first.width) / CGFloat(first.height)
+            if ar >= 1 { cardW = base; cardH = base / ar } else { cardH = base; cardW = base * ar }
+        }
+        let layers = cards - 1
+        let off: CGFloat = 5                       // 1枚ごとのずらし量
+        let totalW = cardW + CGFloat(layers) * off
+        let totalH = cardH + CGFloat(layers) * off
+        let nsImages: [NSImage?] = (0..<cards).map { idx in
+            idx < images.count
+                ? NSImage(cgImage: images[idx], size: NSSize(width: images[idx].width, height: images[idx].height))
+                : nil
+        }
+        let result = NSImage(size: NSSize(width: totalW, height: totalH))
         result.lockFocus()
-        image.draw(
-            in: NSRect(origin: .zero, size: NSSize(width: size, height: size)),
-            from: .zero,
-            operation: .copy,
-            fraction: 1
-        )
-        let path = NSBezierPath(
-            roundedRect: NSRect(x: 1, y: 1, width: size - 2, height: size - 2),
-            xRadius: 6,
-            yRadius: 6
-        )
-        path.lineWidth = 2
-        NSColor.white.setStroke()
-        path.stroke()
+        // 奥（大きい i）から手前（i=0＝左上＝ドラッグ中のセル）へ。bottom-left 原点。
+        for i in stride(from: layers, through: 0, by: -1) {
+            let rect = NSRect(
+                x: CGFloat(i) * off,
+                y: totalH - cardH - CGFloat(i) * off,
+                width: cardW, height: cardH
+            )
+            drawCard(in: rect, image: nsImages[i])
+        }
         result.unlockFocus()
         return result
+    }
+
+    private func drawCard(in rect: NSRect, image: NSImage?) {
+        NSGraphicsContext.saveGraphicsState()
+        let clip = NSBezierPath(roundedRect: rect, xRadius: 5, yRadius: 5)
+        NSColor(white: 0.15, alpha: 1).setFill()
+        clip.fill()
+        clip.addClip()
+        if let image {
+            image.draw(in: aspectFillRect(imageSize: image.size, in: rect),
+                       from: .zero, operation: .copy, fraction: 1)
+        }
+        NSGraphicsContext.restoreGraphicsState()
+        let border = NSBezierPath(
+            roundedRect: rect.insetBy(dx: 0.75, dy: 0.75),
+            xRadius: 5, yRadius: 5
+        )
+        NSColor.white.setStroke()
+        border.lineWidth = 1.5
+        border.stroke()
+    }
+
+    /// rect を覆うようにアスペクトフィル（はみ出しは clip でクロップ）した描画矩形。
+    private func aspectFillRect(imageSize: NSSize, in rect: NSRect) -> NSRect {
+        guard imageSize.width > 0, imageSize.height > 0 else { return rect }
+        let scale = max(rect.width / imageSize.width, rect.height / imageSize.height)
+        let w = imageSize.width * scale
+        let h = imageSize.height * scale
+        return NSRect(x: rect.midX - w / 2, y: rect.midY - h / 2, width: w, height: h)
     }
 }
 
