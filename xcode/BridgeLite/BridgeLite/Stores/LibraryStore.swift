@@ -78,6 +78,8 @@ final class LibraryStore: ReindexedGroupSink {
     private(set) var ratingCounts: [Int: Int] = [0:0, 1:0, 2:0, 3:0, 4:0, 5:0]
     var statusMessage: String = ""
     var isLoading: Bool = false
+    /// フィルタ適用をデバウンス中（結果未反映）。グリッドのシマー表示に使う。
+    private(set) var isFilterPending: Bool = false
     var depthExceeded: Bool = false
 
     enum ScanPhase { case idle, scanning, loading }
@@ -109,6 +111,7 @@ final class LibraryStore: ReindexedGroupSink {
     private var pendingXmp: [UInt64: XmpData] = [:]
     private var metaFlushTask: Task<Void, Never>?
     private var pendingRecomputeTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingFilterApplyTask: Task<Void, Never>?
     @ObservationIgnored private var pendingAggregatesTask: Task<Void, Never>?
 
     // Pipeline stage cache — @ObservationIgnored で UI 観測を回避
@@ -1769,11 +1772,35 @@ final class LibraryStore: ReindexedGroupSink {
         return FilterChangeShape(repsAffected: repsAffected, isTextInput: isTextInput)
     }
 
-    // filter.didSet から呼ばれる。PR1 では shape を計算するのみで挙動は従来と同一。
-    // 後続 PR で shape / isTextInput を利用して dirty フラグや coalesce を制御する。
+    // filter.didSet から呼ばれる。変更種別に応じてパイプラインの再計算範囲とタイミングを変える。
     private func onFilterChanged(from old: FilterCriteria) {
-        _ = classifyFilterChange(from: old, to: filter)
-        recomputeVisible()
+        let shape = classifyFilterChange(from: old, to: filter)
+        if shape.repsAffected {
+            // flatten / filterKinds の変化は代表選定(S1)から作り直す必要がある（即時）。
+            pendingFilterApplyTask?.cancel(); pendingFilterApplyTask = nil
+            isFilterPending = false
+            recomputeVisible()
+        } else {
+            // ヒストグラム範囲・レーティング等の単純フィルタ。
+            // 操作感を最優先し、重い再計算(S2 以降)はデバウンスして非同期適用する。
+            // ドラッグのジェスチャ更新を main スレッドでブロックしないのでハンドルが追従する。
+            // 結果が出るまでは isFilterPending=true でグリッドにシマーを流す。
+            mark(filtered: true)
+            isFilterPending = true
+            scheduleFilterApply()
+        }
+    }
+
+    /// 単純フィルタ変更のデバウンス適用。連続操作中は最後の1回だけ走らせる。
+    private func scheduleFilterApply(coalesceMs: Int = 200) {
+        pendingFilterApplyTask?.cancel()
+        pendingFilterApplyTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(coalesceMs))
+            guard let self, !Task.isCancelled else { return }
+            self.pendingFilterApplyTask = nil
+            self.runDirtyStages()
+            self.isFilterPending = false
+        }
     }
 
     private func scheduleRecomputeVisible(coalesceMs: Int = 400) {

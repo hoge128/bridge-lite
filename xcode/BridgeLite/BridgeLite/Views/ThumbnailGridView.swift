@@ -74,6 +74,8 @@ struct ThumbnailGridView: View {
             // 横一列は内容（＝1行）にフィット。バナーは上に積まれ高さを取り合わない＝ヘッダーと被らない。
             .frame(maxWidth: .infinity, maxHeight: isPickerRow ? nil : .infinity)
             .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
+            // フィルタ適用をデバウンス中（結果未反映）はシマーを流して「更新中」を示す。
+            .shimmer(when: store.isFilterPending)
             // background に置くことでクリックは前面 SwiftUI ビューへ直行し、
             // ドラッグは登録型(.fileURL)を探す AppKit drag system が背後のビューも見つけてくれる
             .background {
