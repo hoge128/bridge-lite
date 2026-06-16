@@ -290,7 +290,8 @@
   <thead><tr><th>呼称</th><th>フラグ／値</th><th>意味</th></tr></thead>
   <tbody>
     <tr><td>フィルムストリップ表示中</td><td><code>store.filmstripMode</code></td><td>このビューの ON/OFF</td></tr>
-    <tr><td>メタデータバー表示</td><td><code>store.filmstripShowMeta</code></td><td>右バーの表示（デフォルト OFF）</td></tr>
+    <tr><td>メタデータバー表示</td><td><code>store.filmstripShowMeta</code></td><td>右バーの表示（デフォルト OFF）。ショートカット <code>Shift+I</code></td></tr>
+    <tr><td>info card 表示</td><td><code>store.viewerShowsMeta</code></td><td>プレビュー上の情報カード（<code>ViewerMetaOverlay</code>）。フィルムストリップでは <b>plain <code>I</code></b> でトグル（ピッカー/ビュワーどちらのフォーカスでも有効）</td></tr>
     <tr><td>比較対象</td><td><code>store.selectedIDs</code></td><td>選択中（表示順の先頭 <code>maxCompare</code>=20 枚をプレビュー）</td></tr>
     <tr><td>ピッカーのフォーカス</td><td><code>store.primaryID</code></td><td>ピッカー内の主選択（メタデータ対象）</td></tr>
     <tr><td>プレビューのフォーカス</td><td><code>store.filmstripFocusID</code></td><td>プレビュー領域内の濃い青枠（primary）。<b>ピッカーとは独立</b></td></tr>
@@ -303,6 +304,7 @@
 
 <h2>変更履歴</h2>
 <ul class="changelog">
+  <li><b>2026-06-16 (20)</b> — フィルムストリップで <b>plain <code>I</code> が info card（<code>viewerShowsMeta</code>）の表示/非表示トグル</b>になるよう修正（以前は無効だった）。ピッカー/ビュワーどちらにフォーカスがあっても有効（focus 非依存の大域キーハンドラ）。<code>Shift+I</code> はメタデータバー表示のまま。</li>
   <li><b>2026-06-16 (19)</b> — メタデータバー（<code>SidebarView</code>）を<b>複数選択中はクリア</b>（単一写真のメタデータを出さず「N枚を選択中」表示）。判定はアクティブ選択集合 <code>activeSelectionCount</code>（ライブラリ＝<code>selectedIDs</code> / フィルムストリッププレビュー＝<code>filmstripPreviewSelectedIDs</code>）。i18n: <code>sidebar.multiple_selected</code>。</li>
   <li><b>2026-06-16 (18)</b> — フィルムストリップでプレビュー面がアクティブのとき、<b>Space で「注目中の写真（<code>filmstripFocusID</code>）」の単体ビューを開く</b>ように修正（従来は常にピッカーの <code>primaryID</code>＝最初に選んだ写真を開いていた）。単体ビューの<b>前後送り（←/→）はプレビューの並び <code>filmstripCompareIDs</code></b> で行い、比較セット（<code>selectedIDs</code>）は壊さない（<code>enterFilmstripPreviewViewer</code> / <code>advanceViewerWithinMembers</code>）。ピッカー面アクティブ時・非フィルムストリップ時は従来どおり <code>primaryID</code>。</li>
   <li><b>2026-06-16 (17)</b> — 横一列ピッカーの<b>水平スクロールバーがステータスバーに被って見切れる不具合を修正</b>。<code>singleRowGrid</code> の <code>ScrollView</code> 高さを「1行＋スクロールバー帯（14pt）」にし、バーが 1 行の下に収まるようにした。</li>

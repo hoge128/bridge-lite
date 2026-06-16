@@ -303,8 +303,9 @@ struct FolderView: View {
                     if ch == "x" { s.applyFlag(XmpFlag.reject.rawValue); return nil }
                 }
                 // F → フィルターバー（修飾なし・ライブラリ／フィルムストリップ両方）
-                // メタデータバー: ライブラリは I（修飾なし）、フィルムストリップは Shift+I
-                //   （plain i はビュワーの詳細表示と被るため、フィルムストリップでは Shift+I に分離）
+                // I（修飾なし）: ライブラリ＝メタデータバー / フィルムストリップ＝info card 表示切替
+                //   （ピッカー・ビュワーどちらにフォーカスがあっても有効。focus 非依存の大域ハンドラ）
+                // Shift+I: フィルムストリップのメタデータバー表示切替
                 let metaMods = event.modifierFlags.intersection([.shift, .command, .control, .option])
                 if !(fr0 is NSTextView), !(fr0 is NSTextField),
                    !s.viewerMode, !s.compareMode,
@@ -316,6 +317,7 @@ struct FolderView: View {
                     if ch == "i" {
                         if s.filmstripMode {
                             if metaMods == .shift { s.filmstripShowMeta.toggle(); return nil }
+                            if metaMods.isEmpty { s.viewerShowsMeta.toggle(); return nil }
                         } else if metaMods.isEmpty {
                             s.showSidebar.toggle()
                             return nil
