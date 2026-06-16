@@ -17,6 +17,8 @@ struct FilterPanelView: View {
     @State private var shutterExpanded = true
     @State private var apertureExpanded = true
     @State private var dateExpanded = true
+    @State private var timeOfDayExpanded = true
+    @State private var showTimeHelp = false
     @State private var luminanceExpanded = true
 
     // MARK: - Body
@@ -502,6 +504,55 @@ struct FilterPanelView: View {
                                  help: "Filter by shooting date. Click presets or tap calendar days to select a range or individual dates.",
                                  isActive: filter.wrappedValue.isDateActive) {
                         var f = filter.wrappedValue; f.clearDate(); filter.wrappedValue = f
+                    }
+                }
+            }
+
+        case .timeOfDay:
+            GroupBox {
+                DisclosureGroup(isExpanded: $timeOfDayExpanded) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Toggle(isOn: Binding(
+                                get: { filter.wrappedValue.timeSpanMidnight },
+                                set: { newVal in
+                                    var f = filter.wrappedValue
+                                    f.timeSpanMidnight = newVal
+                                    f.clearTime()   // モード切替で選択をクリア（表示の整合のため）
+                                    filter.wrappedValue = f
+                                }
+                            )) {
+                                Text(String(localized: "filter.time.span_midnight",
+                                            defaultValue: "Midnight pivot"))
+                                    .font(.caption2)
+                            }
+                            .toggleStyle(.checkbox)
+                            .controlSize(.mini)
+
+                            Button { showTimeHelp.toggle() } label: {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .popover(isPresented: $showTimeHelp, arrowEdge: .bottom) {
+                                Text(String(localized: "filter.time.span_midnight.help",
+                                            defaultValue: "Puts midnight at the center of the axis (12 → 11) so you can pick a time range that crosses midnight in a single drag. Use it to filter photos shot overnight — e.g. dusk-to-dawn night scenes, concerts or parties that ran past midnight, New Year countdowns, or astrophotography (say 22:00–02:00)."))
+                                    .font(.caption)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(12)
+                                    .frame(width: 240)
+                            }
+                            Spacer()
+                        }
+                        ExifHistogramView(bars: store.timeBuckets, isLoading: store.isLoading, minText: filter.timeMin, maxText: filter.timeMax)
+                    }
+                } label: {
+                    sectionLabel("filter.section.time_of_day", isExpanded: $timeOfDayExpanded,
+                                 help: String(localized: "filter.help.time_of_day",
+                                              defaultValue: "Filter by time of day (EXIF capture time, 24h, date ignored). Select e.g. morning hours."),
+                                 isActive: filter.wrappedValue.isTimeActive) {
+                        var f = filter.wrappedValue; f.clearTime(); filter.wrappedValue = f
                     }
                 }
             }

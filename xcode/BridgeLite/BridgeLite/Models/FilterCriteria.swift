@@ -24,6 +24,11 @@ struct FilterCriteria: Sendable, Equatable {
     var dateAllowList: Set<String> = []   // ISO yyyy-MM-dd (Multi モード時のみ)
     var luminanceMin: String = ""
     var luminanceMax: String = ""
+    // 時刻フィルタ（日付無視・24h）。EXIF 撮影時刻の「時」を 0.0〜24.0 で表す文字列。空 = 無効。
+    var timeMin: String = ""
+    var timeMax: String = ""
+    // 時刻ヒストグラムの原点を 12 時に回し（12→11）日跨ぎ選択を可能にする表示モード（matches では未使用）。
+    var timeSpanMidnight: Bool = false
     var filterRatings: Set<Int> = []
     var filterLabels: Set<XmpLabel> = []
     var filterFlags: Set<XmpFlag> = []
@@ -42,6 +47,7 @@ struct FilterCriteria: Sendable, Equatable {
         !apertureMin.isEmpty || !apertureMax.isEmpty ||
         !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty ||
         !luminanceMin.isEmpty || !luminanceMax.isEmpty ||
+        !timeMin.isEmpty || !timeMax.isEmpty ||
         !filterRatings.isEmpty || !filterLabels.isEmpty || !filterFlags.isEmpty ||
         !filterKinds.isEmpty || cameraOnly || flatten || !excludedExtensions.isEmpty ||
         !nameSearch.isEmpty
@@ -61,6 +67,7 @@ struct FilterCriteria: Sendable, Equatable {
     var isApertureActive: Bool { !apertureMin.isEmpty || !apertureMax.isEmpty }
     var isDateActive: Bool     { !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty }
     var isLuminanceActive: Bool { !luminanceMin.isEmpty || !luminanceMax.isEmpty }
+    var isTimeActive: Bool     { !timeMin.isEmpty || !timeMax.isEmpty }
 
     func matches(entry: PhotoEntry, exif: ExifData?, xmp: XmpData?, luminance: Int? = nil) -> Bool {
         // Filename / caption search filter (OR match)
@@ -136,6 +143,27 @@ struct FilterCriteria: Sendable, Equatable {
                 if !dateAllowList.contains(Self.isoDateFormatter.string(from: date)) { return false }
             }
         }
+        // Time-of-day filter — 日付を無視し、撮影時刻(EXIF→作成日時)の「時」(0..<24) を円環の弧で判定。
+        //   lo<hi: 通常区間 [lo,hi) ／ lo>hi: 日跨ぎ（hour>=lo または hour<hi）／ lo==hi: 全周＝常に一致
+        //   片方のみ: 半開区間。EXIF 撮影時刻が無ければ作成日時にフォールバック（日付フィルタと同方針）。
+        if !timeMin.isEmpty || !timeMax.isEmpty {
+            let captureDate: Date? = exif?.datetime.flatMap(parseExifDate) ?? entry.createdDate
+            if let date = captureDate {
+                let hour = Self.hourOfDay(date)
+                switch (Double(timeMin), Double(timeMax)) {
+                case let (lo?, hi?):
+                    if lo < hi { if hour < lo || hour >= hi { return false } }
+                    else if lo > hi { if !(hour >= lo || hour < hi) { return false } }
+                    // lo == hi は全周のため常に一致
+                case let (lo?, nil):
+                    if hour < lo { return false }
+                case let (nil, hi?):
+                    if hour >= hi { return false }
+                case (nil, nil):
+                    break
+                }
+            }
+        }
         // Rating filter
         if !filterRatings.isEmpty {
             let rating = xmp?.rating ?? 0
@@ -173,6 +201,13 @@ struct FilterCriteria: Sendable, Equatable {
     mutating func clearAperture()  { apertureMin = ""; apertureMax = "" }
     mutating func clearDate()      { dateMin = ""; dateMax = ""; dateAllowList = []; dateMode = .range }
     mutating func clearLuminance() { luminanceMin = ""; luminanceMax = "" }
+    mutating func clearTime()      { timeMin = ""; timeMax = "" }
+
+    /// 日付の「時刻のみ」を 0.0〜24.0 の連続値で返す（分・秒を端数に含める）。ローカル時刻基準。
+    static func hourOfDay(_ date: Date) -> Double {
+        let c = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
+        return Double(c.hour ?? 0) + Double(c.minute ?? 0) / 60 + Double(c.second ?? 0) / 3600
+    }
 
     // MARK: - Private helpers
 

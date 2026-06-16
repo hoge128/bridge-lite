@@ -665,6 +665,23 @@ struct VariationThumbView: View {
 
         OpenWithMenu(targetURLs: [entry.url], primaryURL: entry.url)
 
+        if store.canMakeRepresentative(entry.id) {
+            Divider()
+            Button {
+                store.makeRepresentative(entry.id)
+            } label: {
+                if store.isCurrentRepresentative(entry.id) {
+                    Label(String(localized: "representative.make",
+                                 defaultValue: "Make This the Representative"),
+                          systemImage: "checkmark")
+                } else {
+                    Text(String(localized: "representative.make",
+                                defaultValue: "Make This the Representative"))
+                }
+            }
+            .disabled(store.isCurrentRepresentative(entry.id))
+        }
+
         Divider()
 
         Menu("Rating") {

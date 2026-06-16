@@ -421,6 +421,23 @@ struct CompareMemberColumn: View {
             }
             OpenWithMenu(targetURLs: [entry.url], primaryURL: entry.url)
 
+            if store.canMakeRepresentative(memberID) {
+                Divider()
+                Button {
+                    store.makeRepresentative(memberID)
+                } label: {
+                    if store.isCurrentRepresentative(memberID) {
+                        Label(String(localized: "representative.make",
+                                     defaultValue: "Make This the Representative"),
+                              systemImage: "checkmark")
+                    } else {
+                        Text(String(localized: "representative.make",
+                                    defaultValue: "Make This the Representative"))
+                    }
+                }
+                .disabled(store.isCurrentRepresentative(memberID))
+            }
+
             Divider()
 
             Menu(String(localized: "Rating")) {

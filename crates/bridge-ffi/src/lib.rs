@@ -227,6 +227,7 @@ pub struct FfiXmpResult {
     pub flag: u8,
     pub developed: bool,
     pub caption: String,
+    pub representative: bool,
 }
 
 impl FfiXmpResult {
@@ -238,6 +239,7 @@ impl FfiXmpResult {
             flag: 0,
             developed: false,
             caption: String::new(),
+            representative: false,
         }
     }
 
@@ -268,6 +270,7 @@ impl FfiXmpResult {
             flag: flag_u8,
             developed: d.developed,
             caption: d.caption.clone().unwrap_or_default(),
+            representative: d.representative,
         }
     }
 }
@@ -422,6 +425,7 @@ mod ffi {
         fn ffi_xmp_flag(r: &FfiXmpResult) -> u8;
         fn ffi_xmp_developed(r: &FfiXmpResult) -> bool;
         fn ffi_xmp_caption(r: &FfiXmpResult) -> String;
+        fn ffi_xmp_representative(r: &FfiXmpResult) -> bool;
         fn bridge_write_xmp(
             db: &BridgeDatabase,
             path: &str,
@@ -432,6 +436,8 @@ mod ffi {
             caption_present: bool,
             jpg_use_sidecar: bool,
         ) -> bool;
+        // 代表マーカー(bl:Representative)だけを set/delete する。通常の write_xmp とは独立。
+        fn bridge_set_representative(path: &str, value: bool, jpg_use_sidecar: bool) -> bool;
         fn bridge_jpg_has_rated_embedded_xmp(path: &str) -> bool;
 
         // pHash API
@@ -777,6 +783,9 @@ fn ffi_xmp_developed(r: &FfiXmpResult) -> bool {
 fn ffi_xmp_caption(r: &FfiXmpResult) -> String {
     r.caption.clone()
 }
+fn ffi_xmp_representative(r: &FfiXmpResult) -> bool {
+    r.representative
+}
 
 fn bridge_write_xmp(
     db: &BridgeDatabase,
@@ -808,6 +817,7 @@ fn bridge_write_xmp(
         flag: flag_from_u8(flag),
         developed: false,
         caption: caption_value,
+        representative: false,
     };
     let ok = bridge_core::xmp::write_metadata(p, &data, jpg_use_sidecar).is_ok();
     if ok {
@@ -815,6 +825,11 @@ fn bridge_write_xmp(
         bridge_core::db::update_xmp(p, &conn, &data);
     }
     ok
+}
+
+/// 代表マーカー(bl:Representative)だけを書き換える。rating 等の通常メタデータには触れない。
+fn bridge_set_representative(path: &str, value: bool, jpg_use_sidecar: bool) -> bool {
+    bridge_core::xmp::set_representative(Path::new(path), value, jpg_use_sidecar).is_ok()
 }
 
 // ── pHash API impl ─────────────────────────────────────────────────────────

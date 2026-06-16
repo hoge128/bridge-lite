@@ -6,6 +6,7 @@ struct XmpData: Sendable, Equatable {
     var flag: XmpFlag?     // Pick / Reject (nil = unflagged)
     var developed: Bool = false
     var caption: String?   // dc:description (nil = unset, "" = clear on write)
+    var representative: Bool = false   // bridge-lite 独自 bl:Representative（現像済みの代表マーカー・読み取り専用）
 }
 
 /// Pick/Reject フラグ。rawValue は FFI の flag u8 (0 = none, 1 = pick, 2 = reject) と一致。

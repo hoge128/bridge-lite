@@ -1715,6 +1715,9 @@ final class LibraryStore: ReindexedGroupSink {
             let shutter  = LibraryStore.buildShutterBuckets(ids: filtered(.shutter), exifData: exifSnap)
             let aperture = LibraryStore.buildApertureBuckets(ids: filtered(.aperture), exifData: exifSnap)
             let date     = LibraryStore.buildDateBuckets(ids: filtered(.date), precomputedDates: precomputedDates)
+            let timeOfDay = LibraryStore.buildTimeOfDayBuckets(ids: filtered(.timeOfDay),
+                                                               precomputedDates: precomputedDates, entries: entrySnap,
+                                                               spanMidnight: filterSnap.timeSpanMidnight)
             let lum      = LibraryStore.buildLuminanceBuckets(ids: filtered(.luminance), luminanceScores: lumSnap)
             let (ppd, di) = LibraryStore.buildCalendarData(filteredIDs: filtered(.date), allIDs: allIDs,
                                                            precomputedDates: precomputedDates, entries: entrySnap)
@@ -1729,6 +1732,7 @@ final class LibraryStore: ReindexedGroupSink {
                 self.shutterBuckets  = shutter
                 self.apertureBuckets = aperture
                 self.dateBuckets     = date
+                self.timeBuckets     = timeOfDay
                 self.luminanceBuckets = lum
                 if ppd != self.photosPerDay { self.photosPerDay = ppd }
                 if di != self.datasetInterval { self.datasetInterval = di }
@@ -1864,6 +1868,7 @@ final class LibraryStore: ReindexedGroupSink {
     private(set) var shutterBuckets: [ExifBucket] = []
     private(set) var apertureBuckets: [ExifBucket] = []
     private(set) var dateBuckets: [ExifBucket] = []
+    private(set) var timeBuckets: [ExifBucket] = []       // 時刻（日付無視・24h）
     private(set) var luminanceBuckets: [ExifBucket] = []
     private(set) var photosPerDay: [Date: Int] = [:]      // startOfDay → count (カレンダー表示用)
     private(set) var datasetInterval: DateInterval?       // 全エントリの最古〜最新撮影日
@@ -1935,7 +1940,7 @@ final class LibraryStore: ReindexedGroupSink {
 
     // MARK: - Aggregate cache
 
-    private enum HistogramAxis { case iso, focal, focal35, shutter, aperture, date, luminance }
+    private enum HistogramAxis { case iso, focal, focal35, shutter, aperture, date, timeOfDay, luminance }
 
     private nonisolated static func filteredIDsExcluding(
         _ axis: HistogramAxis,
@@ -1954,6 +1959,7 @@ final class LibraryStore: ReindexedGroupSink {
         case .shutter:   f.shutterMin = "";   f.shutterMax = ""
         case .aperture:  f.apertureMin = "";  f.apertureMax = ""
         case .date:      f.dateMin = "";      f.dateMax = "";    f.dateAllowList = []
+        case .timeOfDay: f.timeMin = "";      f.timeMax = ""
         case .luminance: f.luminanceMin = ""; f.luminanceMax = ""
         }
         guard f.isActive else { return reps }
@@ -2171,6 +2177,40 @@ final class LibraryStore: ReindexedGroupSink {
         return specs.enumerated().map { i, spec in
             ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
                        lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    /// 時刻ヒストグラム（日付無視・24h・各 1 時間）。撮影時刻（EXIF→作成日時フォールバック）の「時」で集計。
+    /// 通常: 0..23（両端は開区間＝全選択でフィルタ無効）。
+    /// spanMidnight: 原点を 12 時に回し 12,13,…,23,0,…,11 の順（深夜が中央）。実時刻境界を持たせ、
+    ///   22→2 のような日跨ぎ選択を 1 ドラッグで作れるようにする（matches 側が lo>hi を OR 判定）。
+    private nonisolated static func buildTimeOfDayBuckets(
+        ids: [UInt64],
+        precomputedDates: [UInt64: Date],
+        entries: [UInt64: PhotoEntry],
+        spanMidnight: Bool
+    ) -> [ExifBucket] {
+        var counts = Array(repeating: 0, count: 24)   // index = hour
+        for id in ids {
+            let d = precomputedDates[id] ?? entries[id]?.createdDate ?? .distantPast
+            guard d != .distantPast else { continue }
+            counts[max(0, min(23, Int(FilterCriteria.hourOfDay(d))))] += 1
+        }
+        func bucket(hour: Int, openLower: Bool, openUpper: Bool) -> ExifBucket {
+            ExifBucket(
+                label: hour % 3 == 0 ? "\(hour)" : "",          // 3 時間ごとにラベル
+                count: counts[hour],
+                minText: openLower ? "" : "\(hour)",
+                maxText: openUpper ? "" : "\(hour + 1)",
+                lowerBound: Double(hour),
+                upperBound: Double(hour + 1)
+            )
+        }
+        if spanMidnight {
+            // 回転表示。端を開区間にせず実時刻境界（全選択は matches の lo==hi で全一致扱い）。
+            return (0..<24).map { d in bucket(hour: (12 + d) % 24, openLower: false, openUpper: false) }
+        } else {
+            return (0..<24).map { h in bucket(hour: h, openLower: h == 0, openUpper: h == 23) }
         }
     }
 
@@ -2443,6 +2483,7 @@ final class LibraryStore: ReindexedGroupSink {
         shutterBuckets      = []
         apertureBuckets     = []
         dateBuckets         = []
+        timeBuckets         = []
         luminanceBuckets    = []
         photosPerDay        = [:]
         datasetInterval     = nil
@@ -2489,6 +2530,68 @@ final class LibraryStore: ReindexedGroupSink {
         return (exif.make ?? "").isEmpty && (exif.model ?? "").isEmpty
     }
 
+    // MARK: - 現像済みの代表選出（複数現像済みグループ向け）
+
+    /// 現像済みメンバー群から代表を1つ選ぶ。bl:Representative マーカー付きを優先し、
+    /// 無ければ（デフォルト方針）作成日時が最新のものを採用する。
+    private func pickRepresentative(among devs: [UInt64], entries: [UInt64: PhotoEntry]) -> UInt64? {
+        guard !devs.isEmpty else { return nil }
+        let marked = devs.filter { xmpData[$0]?.representative == true }
+        let pool = marked.isEmpty ? devs : marked
+        return pool.max {
+            (entries[$0]?.createdDate ?? .distantPast) < (entries[$1]?.createdDate ?? .distantPast)
+        } ?? pool.first
+    }
+
+    /// 指定 ID と同じショットグループ内の現像済み（非RAW）メンバー一覧。
+    func developedMembers(inGroupOf id: UInt64) -> [UInt64] {
+        guard let entry = entries[id], let members = shotGroups[entry.shotId] else { return [] }
+        let groupMinDate = members.compactMap { entries[$0]?.createdDate }.min()
+        return members.filter { entries[$0]?.isRaw == false && isDevelopedMember($0, groupMinDate: groupMinDate) }
+    }
+
+    /// 「この画像を代表にする」を提示してよいか。現像済み かつ グループ内に現像済みが2枚以上。
+    func canMakeRepresentative(_ id: UInt64) -> Bool {
+        let devs = developedMembers(inGroupOf: id)
+        return devs.count >= 2 && devs.contains(id)
+    }
+
+    /// 指定 ID が現在そのグループの（現像済み）代表か。
+    func isCurrentRepresentative(_ id: UInt64) -> Bool {
+        let devs = developedMembers(inGroupOf: id)
+        guard devs.contains(id) else { return false }
+        return pickRepresentative(among: devs, entries: entries) == id
+    }
+
+    /// 指定 ID をグループの代表に設定する。当該現像済みへ bl:Representative=true、
+    /// 同グループの他の現像済みは false にして XMP に書き込む（jpgWriteMode 継承）。
+    func makeRepresentative(_ id: UInt64) {
+        let devs = developedMembers(inGroupOf: id)
+        guard devs.count >= 2, devs.contains(id) else { return }
+        let mode = settings.jpgWriteMode
+
+        // 変更が必要なファイルだけを抽出しつつ、メモリ状態は楽観的に更新。
+        var writes: [(url: URL, value: Bool)] = []
+        for mid in devs {
+            let newVal = (mid == id)
+            let oldVal = xmpData[mid]?.representative ?? false
+            if newVal != oldVal, let url = entries[mid]?.url {
+                writes.append((url, newVal))
+            }
+            var x = xmpData[mid] ?? XmpData()
+            x.representative = newVal
+            xmpData[mid] = x
+        }
+        recomputeVisible()
+
+        guard !writes.isEmpty else { return }
+        Task.detached(priority: .utility) {
+            for w in writes {
+                _ = await BridgeCore.setRepresentative(url: w.url, value: w.value, jpgWriteMode: mode)
+            }
+        }
+    }
+
     private func computeRepresentativesForKinds(
         _ kinds: Set<PhotoKind>,
         groups: [UInt64: [UInt64]],
@@ -2521,7 +2624,7 @@ final class LibraryStore: ReindexedGroupSink {
 
             // 現像済み: developed かつ SOOC が同グループに存在する場合のみ
             if kinds.contains(.developed), !devMembers.isEmpty, !soocMembers.isEmpty {
-                reps.insert(devMembers[0])
+                reps.insert(pickRepresentative(among: devMembers, entries: entries) ?? devMembers[0])
             // カメラ出力: SOOC が存在するグループ
             } else if kinds.contains(.sooc), !soocMembers.isEmpty {
                 reps.insert(soocMembers[0])
@@ -2573,7 +2676,8 @@ final class LibraryStore: ReindexedGroupSink {
                 }()
                 return suffixHit || xmpHit || exifHit || tsHit
             }
-            if let rep = devs.first { reps.insert(rep); continue }
+            // 複数の現像済みがある場合: bl:Representative マーカー付きを優先、無ければ作成日時が最新。
+            if let rep = pickRepresentative(among: devs, entries: entries) { reps.insert(rep); continue }
 
             // Tier 2: JPEG (non-RAW)
             let jpgs = members.filter { entries[$0]?.isRaw == false }

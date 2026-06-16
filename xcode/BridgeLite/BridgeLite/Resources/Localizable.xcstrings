@@ -3151,6 +3151,70 @@
         }
       }
     },
+    "filter.help.time_of_day" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Filter by time of day (EXIF capture time, 24h, date ignored). Select e.g. morning hours."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時刻で絞り込み（EXIF撮影時刻・24時間・日付は無視）。例：朝方の時間帯だけを選択。"
+          }
+        }
+      }
+    },
+    "filter.section.time_of_day" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Time of Day"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "時刻"
+          }
+        }
+      }
+    },
+    "filter.time.span_midnight" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Midnight pivot"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Midnight pivot"
+          }
+        }
+      }
+    },
+    "filter.time.span_midnight.help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Puts midnight at the center of the axis (12 → 11) so you can pick a time range that crosses midnight in a single drag. Use it to filter photos shot overnight — e.g. dusk-to-dawn night scenes, concerts or parties that ran past midnight, New Year countdowns, or astrophotography (say 22:00–02:00)."
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "軸の中央に深夜0時を置き（12→11）、日付をまたぐ時間帯をひと続きのドラッグで選べるようにします。夜通し撮影した写真を絞り込むときに使います。例：夕暮れ〜夜明けの夜景、深夜まで続いたライブやパーティー、年越しカウントダウン、星景・天体撮影（22:00〜02:00 など）。"
+          }
+        }
+      }
+    },
     "filter.title" : {
       "localizations" : {
         "en" : {
@@ -5732,6 +5796,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "\"%@\" を検索中"
+          }
+        }
+      }
+    },
+    "representative.make" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Make This the Representative"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "この画像を代表にする"
           }
         }
       }

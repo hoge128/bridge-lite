@@ -189,8 +189,17 @@ enum BridgeCore {
                 label:     XmpLabel(rawValue: ffi_xmp_label(r)),
                 flag:      XmpFlag(rawValue: ffi_xmp_flag(r)),
                 developed: ffi_xmp_developed(r),
-                caption:   ffi_xmp_caption(r).toString().nonEmpty
+                caption:   ffi_xmp_caption(r).toString().nonEmpty,
+                representative: ffi_xmp_representative(r)
             )
+        }.value
+    }
+
+    /// 代表マーカー(bl:Representative)だけを書き換える（rating 等には触れない）。
+    static func setRepresentative(url: URL, value: Bool, jpgWriteMode: JpgWriteMode) async -> Bool {
+        let jpgUseSidecar = jpgWriteMode == .sidecar
+        return await Task.detached(priority: .utility) {
+            bridge_set_representative(url.path, value, jpgUseSidecar)
         }.value
     }
 

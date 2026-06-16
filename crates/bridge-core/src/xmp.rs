@@ -15,6 +15,11 @@ const NS_DXO: &str = "http://ns.dxo.com/framework/1.0/";
 /// xmpDM (Dynamic Media) — Lightroom Classic 13.2+ writes pick/reject flags here
 /// as `xmpDM:pick` (1 / 0 / -1) + `xmpDM:good` (True / False).
 const NS_XMP_DM: &str = "http://ns.adobe.com/xmp/1.0/DynamicMedia/";
+/// bridge-lite 独自名前空間。現像済みが複数あるグループでユーザーが選んだ「代表」を記録する。
+/// 他アプリは解釈しない非標準タグ。書き込みは現像済み(非RAW)のみ・専用の `set_representative` 経由。
+const NS_BRIDGE_LITE: &str = "http://ns.bridge-lite.io/1.0/";
+const BL_PREFIX: &str = "bridgelite";
+const BL_REPRESENTATIVE: &str = "Representative";
 
 #[derive(Debug, Clone, Default)]
 pub struct XmpData {
@@ -27,6 +32,9 @@ pub struct XmpData {
     /// dc:description (LangAlt, x-default) / tiff:ImageDescription fallback.
     /// Empty string on write = delete both properties (clear caption).
     pub caption:   Option<String>,
+    /// bridge-lite 独自の「代表」マーカー（bl:Representative）。読み取り専用。
+    /// 通常の write_metadata では一切触らず、`set_representative` でのみ更新する。
+    pub representative: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -164,6 +172,96 @@ pub fn write_metadata(image_path: &Path, data: &XmpData, jpg_use_sidecar: bool) 
     }
 }
 
+// ── Representative marker (bridge-lite custom tag) ────────────────────────────
+
+fn register_bridge_lite_ns() {
+    // 冪等。カスタム名前空間での property/set_property/delete_property の前に必要。
+    let _ = XmpMeta::register_namespace(NS_BRIDGE_LITE, BL_PREFIX);
+}
+
+/// bl:Representative == "True" を読む（不在/その他は false）。
+fn read_representative(meta: &XmpMeta) -> bool {
+    register_bridge_lite_ns();
+    if let Some(v) = meta.property_bool(NS_BRIDGE_LITE, BL_REPRESENTATIVE) {
+        return v.value;
+    }
+    if let Some(v) = meta.property(NS_BRIDGE_LITE, BL_REPRESENTATIVE) {
+        return v.value.eq_ignore_ascii_case("true");
+    }
+    false
+}
+
+/// 既存 XMP を保ったまま bl:Representative のみ set/delete する read-modify-write。
+/// jpg_use_sidecar / RAW 判定・btime 保存は通常の書き込み経路と同じ規約を踏襲する。
+pub fn set_representative(image_path: &Path, value: bool, jpg_use_sidecar: bool) -> io::Result<()> {
+    if crate::scanner::is_raw(image_path) || jpg_use_sidecar {
+        set_representative_sidecar(image_path, value)
+    } else {
+        set_representative_embedded(image_path, value)
+    }
+}
+
+fn apply_representative(meta: &mut XmpMeta, value: bool) -> io::Result<()> {
+    register_bridge_lite_ns();
+    if value {
+        meta.set_property_bool(NS_BRIDGE_LITE, BL_REPRESENTATIVE, &XmpValue::new(true))
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+    } else {
+        let _ = meta.delete_property(NS_BRIDGE_LITE, BL_REPRESENTATIVE);
+    }
+    Ok(())
+}
+
+fn set_representative_embedded(image_path: &Path, value: bool) -> io::Result<()> {
+    crate::btime::preserve_btime(image_path, || {
+        let mut xf = XmpFile::new()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        xf.open_file(
+            image_path,
+            OpenFileOptions::default().for_update().use_smart_handler(),
+        )
+        .or_else(|_| {
+            xf.open_file(
+                image_path,
+                OpenFileOptions::default().for_update().use_packet_scanning(),
+            )
+        })
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+
+        let mut meta = xf.xmp().unwrap_or_else(|| XmpMeta::new().expect("XMP init failed"));
+        apply_representative(&mut meta, value)?;
+
+        if !xf.can_put_xmp(&meta) {
+            return Err(io::Error::new(io::ErrorKind::Other, "can_put_xmp returned false"));
+        }
+        xf.put_xmp(&meta)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        xf.try_close()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        Ok(())
+    })
+}
+
+fn set_representative_sidecar(image_path: &Path, value: bool) -> io::Result<()> {
+    let xmp_path = sidecar_path(image_path);
+    debug_assert!(
+        xmp_path.extension().map(|e| e.eq_ignore_ascii_case("xmp")).unwrap_or(false),
+        "set_representative_sidecar: target must have .xmp extension, got {:?}", xmp_path,
+    );
+    let mut meta = if xmp_path.exists() {
+        let xml = std::fs::read_to_string(&xmp_path)?;
+        XmpMeta::from_str(&xml).unwrap_or_else(|_| XmpMeta::new().expect("XMP init failed"))
+    } else {
+        XmpMeta::new().expect("XMP init failed")
+    };
+    apply_representative(&mut meta, value)?;
+    let xml_out = meta.to_string();
+    let tmp_path = xmp_path.with_extension("xmp.tmp");
+    std::fs::write(&tmp_path, xml_out.as_bytes())?;
+    crate::btime::preserve_btime(&xmp_path, || std::fs::rename(&tmp_path, &xmp_path))?;
+    Ok(())
+}
+
 // ── Internal: shared XmpMeta ↔ XmpData helpers ───────────────────────────────
 
 /// Returns true if the XMP contains fingerprints of a RAW developer:
@@ -264,6 +362,7 @@ fn parse_xmp_data(meta: &XmpMeta) -> XmpData {
 
     data.developed = detect_developed(meta);
     data.caption = read_caption(meta);
+    data.representative = read_representative(meta);
 
     data
 }
