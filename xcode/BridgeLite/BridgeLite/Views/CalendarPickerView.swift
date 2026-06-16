@@ -226,13 +226,9 @@ struct CalendarPickerView: View {
             return
         }
         let cal = Calendar.current
-        // 写真がある月を (year * 100 + month) の整数セットで管理
-        let monthsWithPhotos: Set<Int> = Set(store.photosPerDay.keys.compactMap { date in
-            let c = cal.dateComponents([.year, .month], from: date)
-            guard let y = c.year, let m = c.month else { return nil }
-            return y * 100 + m
-        })
-        // 期間内の月初日リスト → 写真がある月だけ残す
+        // データセット全体（フィルタ非依存の datasetInterval）の全月を描画する。
+        // 他フィルタで件数 0 になった月も消さず、0 件セル（淡色）として残すことで、
+        // カレンダーの月数＝描画高さが変わらず、下のフィルタの描画位置がズレない。
         let allMonthStarts = cal.generateDates(
             inside: DateInterval(start: cal.startOfDay(for: interval.start),
                                  end: interval.end.addingTimeInterval(1)),
@@ -240,11 +236,8 @@ struct CalendarPickerView: View {
         )
         // 月ごとの日付グリッド（週境界で padding）
         var result: [Date: [Date]] = [:]
-        var filteredMonths: [Date] = []
+        var allMonths: [Date] = []
         for month in allMonthStarts {
-            let c = cal.dateComponents([.year, .month], from: month)
-            guard let y = c.year, let m = c.month,
-                  monthsWithPhotos.contains(y * 100 + m) else { continue }
             guard let monthInterval = cal.dateInterval(of: .month, for: month),
                   let firstWeek = cal.dateInterval(of: .weekOfMonth, for: monthInterval.start),
                   let lastWeek = cal.dateInterval(of: .weekOfMonth, for: monthInterval.end)
@@ -253,9 +246,9 @@ struct CalendarPickerView: View {
                 inside: DateInterval(start: firstWeek.start, end: lastWeek.end),
                 matching: DateComponents(hour: 0, minute: 0, second: 0)
             )
-            filteredMonths.append(month)
+            allMonths.append(month)
         }
-        months = filteredMonths
+        months = allMonths
         daysPerMonth = result
     }
 
