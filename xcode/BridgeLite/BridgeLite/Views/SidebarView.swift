@@ -101,9 +101,28 @@ struct SidebarView: View {
         selectedEntry?.url.pathExtension.lowercased() == "cr2"
     }
 
+    /// 複数選択中の表示（単一写真のメタデータは出さない）。
+    @ViewBuilder
+    private func multipleSelectionPlaceholder(count: Int) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "photo.on.rectangle.angled")
+                .font(.system(size: 32))
+                .foregroundStyle(.tertiary)
+            Text(String(localized: "sidebar.multiple_selected",
+                        defaultValue: "\(count) photos selected"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     var body: some View {
         Group {
-            if let entry = selectedEntry {
+            if store.activeSelectionCount > 1 {
+                // 複数選択中は単一写真のメタデータを出さずクリアする。
+                multipleSelectionPlaceholder(count: store.activeSelectionCount)
+            } else if let entry = selectedEntry {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         let displayPreview: CGImage? = (showRendered ? rawRendered : nil) ?? highResPreview ?? store.thumbnailImage(for: entry.id)

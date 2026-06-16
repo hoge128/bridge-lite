@@ -3,6 +3,12 @@ import Combine
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// フィルムストリップのピッカー（下グリッド）レイアウト。
+enum FilmstripPickerLayout: Hashable {
+    case grid   // 通常のサムネイルグリッド（デフォルト）
+    case row    // 横一列（水平スクロール）
+}
+
 @Observable @MainActor
 final class LibraryStore: ReindexedGroupSink {
     // エントリ一覧
@@ -55,6 +61,8 @@ final class LibraryStore: ReindexedGroupSink {
     var filmstripPreviewSelectedIDs: Set<UInt64> = []
     var filmstripPreviewAnchor: UInt64? = nil
     var filmstripPreviewCols: Int = 1                   // 上下矢印ナビ用に FilmstripView が反映
+    // フィルムストリップのピッカー（下グリッド）レイアウト。grid=通常グリッド / row=横一列。
+    var filmstripPickerLayout: FilmstripPickerLayout = .grid
     var compareAnchorID: UInt64? = nil
     // When ViewerView is entered from CompareMode, restricts arrow-key navigation to this list.
     var viewerCompareGroupMembers: [UInt64]? = nil
@@ -591,7 +599,7 @@ final class LibraryStore: ReindexedGroupSink {
     func navigateViewerNext() {
         if let members = viewerCompareGroupMembers {
             guard let id = primaryID, let idx = members.firstIndex(of: id), idx + 1 < members.count else { return }
-            selectEntry(members[idx + 1])
+            advanceViewerWithinMembers(to: members[idx + 1])
         } else {
             navigateNext()
         }
@@ -600,10 +608,39 @@ final class LibraryStore: ReindexedGroupSink {
     func navigateViewerPrev() {
         if let members = viewerCompareGroupMembers {
             guard let id = primaryID, let idx = members.firstIndex(of: id), idx > 0 else { return }
-            selectEntry(members[idx - 1])
+            advanceViewerWithinMembers(to: members[idx - 1])
         } else {
             navigatePrev()
         }
+    }
+
+    /// viewerCompareGroupMembers での前後送り。フィルムストリップ由来のときは比較セット
+    /// (selectedIDs) を壊さず primaryID とプレビューのフォーカス/選択だけ更新する。
+    private func advanceViewerWithinMembers(to id: UInt64) {
+        if filmstripMode {
+            setFilmstripViewerPrimary(id)
+        } else {
+            selectEntry(id)
+        }
+    }
+
+    /// フィルムストリップのプレビュー由来ビュワーで「表示中の1枚」を切り替える。
+    /// 比較セット (selectedIDs) は保持し、primaryID とプレビューのフォーカス/選択を同期する。
+    private func setFilmstripViewerPrimary(_ id: UInt64) {
+        primaryID = id
+        filmstripFocusID = id
+        filmstripPreviewSelectedIDs = [id]
+        filmstripPreviewAnchor = id
+    }
+
+    /// プレビュー面で注目中の写真を単体ビュワーで開く。前後送りはプレビューの並びで行う。
+    func enterFilmstripPreviewViewer() {
+        let target = filmstripFocusID ?? filmstripPreviewSelectedIDs.first ?? filmstripCompareIDs.first
+        guard let id = target else { return }
+        primaryID = id
+        filmstripFocusID = id
+        viewerCompareGroupMembers = filmstripCompareIDs   // 前後送りをプレビューの並びに限定
+        viewerMode = true
     }
 
     func navigateUp() {
@@ -689,6 +726,9 @@ final class LibraryStore: ReindexedGroupSink {
     private var effectiveSelectedIDs: Set<UInt64> {
         (filmstripMode && filmstripPreviewActive) ? filmstripPreviewSelectedIDs : selectedIDs
     }
+
+    /// アクティブな選択集合の件数。メタデータバーは複数選択時に情報をクリアする判定に使う。
+    var activeSelectionCount: Int { effectiveSelectedIDs.count }
 
     func previewSelect(_ id: UInt64) {
         filmstripPreviewActive = true

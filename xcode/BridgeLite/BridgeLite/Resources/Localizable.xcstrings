@@ -2570,6 +2570,54 @@
         }
       }
     },
+    "filmstrip.layout.grid" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Thumbnail grid"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "サムネイルグリッド"
+          }
+        }
+      }
+    },
+    "filmstrip.layout.help" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Picker layout: grid or single row"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "ピッカーの表示：グリッド／横一列"
+          }
+        }
+      }
+    },
+    "filmstrip.layout.row" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Single row"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "横一列"
+          }
+        }
+      }
+    },
     "filmstrip.pane.picker" : {
       "localizations" : {
         "en" : {
@@ -5700,6 +5748,22 @@
           "stringUnit" : {
             "state" : "translated",
             "value" : "写真を選択してください"
+          }
+        }
+      }
+    },
+    "sidebar.multiple_selected" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld photos selected"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "%lld枚を選択中"
           }
         }
       }

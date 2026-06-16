@@ -254,7 +254,12 @@
   <div class="region status">
     <span class="label">ステータスバー <span class="sublabel">StatusBarView</span></span>
     <span>120 items, 3 selected</span>
-    <span>📷 <span class="slider" style="display:inline-block;vertical-align:middle"></span> 📷</span>
+    <span style="display:inline-flex;align-items:center;gap:10px">
+      <span class="seg" title="ピッカーのレイアウト切替（フィルムストリップ時のみ・排他）">
+        <span class="on" title="サムネイルグリッド（既定）">▦</span><span title="横一列">▭</span>
+      </span>
+      📷 <span class="slider" style="display:inline-block;vertical-align:middle"></span> 📷
+    </span>
   </div>
 
 </div>
@@ -270,12 +275,13 @@
     <tr><td>ピッカーヘッダー</td><td><code>FilmstripView.pickerHeader</code></td><td>◯（フォーカスドット）＋「ピッカー」＋<b>表示中サムネイルの総数</b>（<code>store.visibleIDs.count</code>＝フィルタ済み）。クリックでピッカーにフォーカス</td></tr>
     <tr><td>フォーカスドット ◯</td><td><code>FilmstripView.paneDot</code></td><td>各ヘッダー先頭。<b>アクティブ＝青塗り（accentColor）／非アクティブ＝灰</b></td></tr>
     <tr><td>プレビュー領域</td><td><code>FilmstripView.previewArea</code></td><td>白背景・選択中の<b>全枚数（最大20）を領域内にフィット表示</b>（スクロールなし）</td></tr>
-    <tr><td>プレビューセル</td><td><code>CompareMemberColumn</code><br>(<code>compact + downsampleMaxPixels:2048</code>)</td><td><b>高品質ダウンサンプル画像</b>＋ファイル名＋種別バッジ＋フォーカス/選択枠＋★Nバッジ。クリック=選択（Shift範囲/⌘トグル）、独立した操作面</td></tr>
+    <tr><td>プレビューセル</td><td><code>CompareMemberColumn</code><br>(<code>compact + downsampleMaxPixels:2048</code>)</td><td><b>高品質ダウンサンプル画像</b>＋ファイル名＋種別バッジ＋フォーカス/選択枠＋★Nバッジ。クリック=選択（Shift範囲/⌘トグル）、<b>空白からのドラッグで矩形選択（ラバーバンド・Shift/⌘で追加）</b>、独立した操作面</td></tr>
     <tr><td>空状態プレースホルダ</td><td><code>filmstrip.empty</code></td><td>未選択時の「比較する写真を選択」表示</td></tr>
     <tr><td>リサイズ仕切り</td><td><code>FilmstripView.resizeDivider</code></td><td><b>ピッカー／ビュワーのどちらにも属さない独立帯</b>（背景なし＝窓背景が透ける余白に横バーを浮かせる）。ドラッグ（<code>.global</code> 座標で 1:1）で <code>pickerHeight</code>（グリッド高さ）を拡縮。可動方向の限界は<b>標準カーソル（<code>resizeUpDown</code>／<code>resizeUp</code>／<code>resizeDown</code>）</b>で表現</td></tr>
     <tr><td>ピッカー（サムネイルグリッド）</td><td><code>ThumbnailGridView</code></td><td>下部・写真を選ぶグリッド（identity 維持のため外側 VStack 最下段に固定）</td></tr>
     <tr><td>メタデータバー</td><td><code>SidebarView</code></td><td>右・任意表示（デフォルト OFF）</td></tr>
-    <tr><td>ステータスバー</td><td><code>StatusBarView</code></td><td>最下部・件数＋サムネサイズスライダ</td></tr>
+    <tr><td>ステータスバー</td><td><code>StatusBarView</code></td><td>最下部・件数＋（フィルムストリップ時）ピッカーのレイアウト排他トグル＋サムネサイズスライダ</td></tr>
+    <tr><td>ピッカー レイアウトトグル</td><td><code>StatusBarView</code> 内 <code>Picker(.segmented)</code></td><td>サムネサイズの左。<b>グリッド ▦ / 横一列 ▭</b> をいずれか1つだけ選択。フィルムストリップ時のみ表示</td></tr>
   </tbody>
 </table>
 
@@ -289,13 +295,23 @@
     <tr><td>ピッカーのフォーカス</td><td><code>store.primaryID</code></td><td>ピッカー内の主選択（メタデータ対象）</td></tr>
     <tr><td>プレビューのフォーカス</td><td><code>store.filmstripFocusID</code></td><td>プレビュー領域内の濃い青枠（primary）。<b>ピッカーとは独立</b></td></tr>
     <tr><td>プレビューの複数選択</td><td><code>store.filmstripPreviewSelectedIDs</code></td><td>プレビュー内の選択集合。⌘A 全選択・Shift＋クリック/矢印で範囲・⌘クリックでトグル。0–9・P/X はこの集合に適用（コピー/削除は対象外）</td></tr>
-    <tr><td>アクティブ面</td><td><code>store.filmstripPreviewActive</code></td><td>true=ビュワー / false=ピッカー。<b>アクティブ側を奥行き（elevation＝影）で手前に浮かせ</b>、ヘッダーの◯で示す（青=アクティブ/灰=非アクティブ）。灰色減光・青いフォーカス枠/線は廃止。切替＝プレビューセル/ピッカーgrid のクリック、または各ヘッダーのクリック</td></tr>
+    <tr><td>アクティブ面</td><td><code>store.filmstripPreviewActive</code></td><td>true=ビュワー / false=ピッカー。<b>アクティブ側を奥行き（elevation＝影）で手前に浮かせ</b>、ヘッダーの◯で示す（青=アクティブ/灰=非アクティブ）。灰色減光・青いフォーカス枠/線は廃止。切替＝プレビューセル/ピッカーgrid のクリック、または各ヘッダーのクリック。<b>ビュワーは空白領域をクリックしてもフォーカス（アクティブ面）を保持</b>し、空クリックはグリッド同様に選択解除（<code>previewDeselectAll</code>）</td></tr>
     <tr><td>ピッカー高さ</td><td><code>pickerHeight</code> (140–600)</td><td>リサイズ仕切りの現在値</td></tr>
+    <tr><td>ピッカーのレイアウト</td><td><code>store.filmstripPickerLayout</code> (.grid / .row)</td><td>ステータスバーの排他トグルで切替。<code>.grid</code>=通常グリッド（既定）／<code>.row</code>=横一列（<code>ThumbnailGridView</code> が <code>LazyHGrid</code> 1行＋水平スクロールで描画。操作層は columns=全件数で単一行整合）。<b>横一列時はグリッド領域を 1 行分（<code>thumbnailSize+16</code>）に固定し、それ以上は伸ばせない（リサイズ分割線も非表示）。バナー（フラット化等）はその上に自然な高さで積まれ、ヘッダーと被らない</b></td></tr>
   </tbody>
 </table>
 
 <h2>変更履歴</h2>
 <ul class="changelog">
+  <li><b>2026-06-16 (19)</b> — メタデータバー（<code>SidebarView</code>）を<b>複数選択中はクリア</b>（単一写真のメタデータを出さず「N枚を選択中」表示）。判定はアクティブ選択集合 <code>activeSelectionCount</code>（ライブラリ＝<code>selectedIDs</code> / フィルムストリッププレビュー＝<code>filmstripPreviewSelectedIDs</code>）。i18n: <code>sidebar.multiple_selected</code>。</li>
+  <li><b>2026-06-16 (18)</b> — フィルムストリップでプレビュー面がアクティブのとき、<b>Space で「注目中の写真（<code>filmstripFocusID</code>）」の単体ビューを開く</b>ように修正（従来は常にピッカーの <code>primaryID</code>＝最初に選んだ写真を開いていた）。単体ビューの<b>前後送り（←/→）はプレビューの並び <code>filmstripCompareIDs</code></b> で行い、比較セット（<code>selectedIDs</code>）は壊さない（<code>enterFilmstripPreviewViewer</code> / <code>advanceViewerWithinMembers</code>）。ピッカー面アクティブ時・非フィルムストリップ時は従来どおり <code>primaryID</code>。</li>
+  <li><b>2026-06-16 (17)</b> — 横一列ピッカーの<b>水平スクロールバーがステータスバーに被って見切れる不具合を修正</b>。<code>singleRowGrid</code> の <code>ScrollView</code> 高さを「1行＋スクロールバー帯（14pt）」にし、バーが 1 行の下に収まるようにした。</li>
+  <li><b>2026-06-16 (16)</b> — 横一列ピッカーで<b>フラット化等のバナーがピッカーヘッダーと被る不具合を修正</b>。グリッド領域を 1 行分の高さに固定（<code>singleRowGrid</code> の <code>ScrollView</code> を <code>rowHeight</code> 固定＋body の ZStack を内容フィット）し、ピッカー区画を「バナー＋1行」の内容高さにフィットさせる（高さ固定値で見込まず、バナーは上に積まれる）。</li>
+  <li><b>2026-06-16 (15)</b> — フィルムストリップで<b>ビューアの裏にピッカー/グリッドの当たり判定が残る不具合を修正</b>。SwiftUI <code>ScrollView</code> に埋め込んだ AppKit 操作層（<code>GridInteractionNSView</code>・<code>contentHeight</code> 全面サイズ）はビューポート外でもヒットテストが残り、ピッカーをスクロールすると隠れた部分がビューア領域に被ってクリックを横取りしていた。<code>hitTest</code> を override し<b>可視範囲外は素通り</b>させて解消（水平スクロールの横一列にも有効）。</li>
+  <li><b>2026-06-16 (14)</b> — サムネイルグリッド／ピッカー（グリッド表示）の<b>左右余白からドラッグできない不具合を修正</b>。<code>LazyVGrid</code> の中央寄せで生じる余白が col0 セルとして誤判定され、ファイルドラッグが始まっていた。操作層に実際の左インセット（<code>leadingInset</code>）を渡し、余白を「セル外＝ラバーバンド可／クリックで選択解除」に正しく扱うよう修正。</li>
+  <li><b>2026-06-16 (13)</b> — ビュワー（プレビュー）に<b>ドラッグ矩形選択（ラバーバンド）</b>を追加。空白からのドラッグで範囲選択、Shift/⌘ で追加選択。プレビューは小規模・非スクロールのため SwiftUI <code>DragGesture</code> で実装（セル単クリックは <code>minimumDistance</code> でタップと区別し従来どおり）。</li>
+  <li><b>2026-06-16 (12)</b> — ビュワー（プレビュー）の<b>空白領域クリックでもフォーカス（アクティブ面）を失わない</b>ように。背景クリックは <code>filmstripPreviewActive=true</code> を保持しつつ、グリッド同様に選択解除（<code>previewDeselectAll</code>）。セルのクリック/Shift範囲/⌘トグルは従来どおり（セル側 onTapGesture 優先）。</li>
+  <li><b>2026-06-16 (11)</b> — ステータスバー（フィルムストリップ時）にピッカーの<b>レイアウト排他トグル</b>を追加（サムネサイズの左）。<b>グリッド ▦（既定）／横一列 ▭</b>。横一列は <code>ThumbnailGridView</code> の <code>LazyHGrid</code> 1行＋水平スクロールで描画し、操作層（<code>GridInteractionView</code>）は columns=全件数で単一行として整合。<b>横一列時はピッカー高さを「サムネ高さ＋マージン」に固定（それ以上伸ばせない・リサイズ分割線は非表示）</b>。状態は <code>store.filmstripPickerLayout</code>。i18n: <code>filmstrip.layout.grid/row/help</code>。</li>
   <li><b>2026-06-16 (10)</b> — リサイズカーソルを自作三角から<b>標準 <code>NSCursor</code>（<code>resizeUpDown</code>／<code>resizeUp</code>／<code>resizeDown</code>）に変更</b>（システムのカーソルサイズ/コントラスト設定に自動追従）。可動方向で出し分ける挙動（中間＝上下／下限＝上のみ／上限＝下のみ）は維持。</li>
   <li><b>2026-06-16 (9)</b> — リサイズ仕切りのハンドルを<b>横バー（カプセル）に戻し</b>、仕切りを<b>ピッカー／ビュワーのどちらにも属さない独立帯</b>として描画（背景を敷かず窓背景が透ける余白に横バーを浮かせて完全分離）。可動方向の限界表示はマウスカーソル（▲▼／▲／▼）に一本化（ハンドル上の白抜き三角は廃止）。</li>
   <li><b>2026-06-16 (8)</b> — リサイズ仕切りの<b>マウスカーソルを VSCode 風の三角リサイズカーソル</b>（自前 <code>NSCursor</code>・黒塗り＋白フチ）に変更。可動方向に応じて出し分け：両方可＝<b>▲▼</b>／下限（プレビュー最大）＝<b>▲</b>のみ／上限（グリッド最大）＝<b>▼</b>のみ。ホバー時・ドラッグ中の両方で限界をまたぐと方向が切り替わる。仕切り内の ▲▼ ハンドル（塗り/白抜き）は従来どおり。</li>

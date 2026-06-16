@@ -9,6 +9,8 @@ struct ThumbnailGridView: View {
     @State private var rubberBandStart: CGPoint? = nil
     @State private var rubberBandEnd: CGPoint? = nil
     private var cellSize: CGFloat { store.settings.thumbnailSize }
+    /// フィルムストリップの横一列ピッカーか（グリッド領域を 1 行分の高さに固定する）。
+    private var isPickerRow: Bool { store.filmstripMode && store.filmstripPickerLayout == .row }
 
     private func handleDailyTap(id: UInt64) {
         NSApp.keyWindow?.makeFirstResponder(nil)
@@ -57,6 +59,8 @@ struct ThumbnailGridView: View {
                     searchEmptyState
                 } else if store.settings.viewMode == .daily {
                     dailyGrid
+                } else if store.filmstripMode && store.filmstripPickerLayout == .row {
+                    singleRowGrid
                 } else {
                     strictGrid
                 }
@@ -67,7 +71,8 @@ struct ThumbnailGridView: View {
                 }
 
             }
-            .frame(maxWidth: .infinity, maxHeight: .infinity)
+            // 横一列は内容（＝1行）にフィット。バナーは上に積まれ高さを取り合わない＝ヘッダーと被らない。
+            .frame(maxWidth: .infinity, maxHeight: isPickerRow ? nil : .infinity)
             .animation(.easeInOut(duration: 0.15), value: isDropTargeted)
             // background に置くことでクリックは前面 SwiftUI ビューへ直行し、
             // ドラッグは登録型(.fileURL)を探す AppKit drag system が背後のビューも見つけてくれる
@@ -249,6 +254,10 @@ struct ThumbnailGridView: View {
             let columns = Array(repeating: GridItem(.fixed(cellSize), spacing: 8), count: cols)
             let rows = max(1, Int(ceil(Double(store.visibleIDs.count) / Double(cols))))
             let contentHeight = CGFloat(rows) * cellSize + CGFloat(max(0, rows - 1)) * 8 + 16
+            // LazyVGrid は固定幅カラムを中央寄せするため、col0 の左端は中央寄せオフセット分ずれる。
+            // 操作層へ実際の左インセットを渡し、左右余白を「セル外＝ラバーバンド可」に正しく扱う。
+            let gridWidth = CGFloat(cols) * cellSize + CGFloat(max(0, cols - 1)) * 8
+            let leadingInset = (geo.size.width - gridWidth) / 2
             ScrollViewReader { proxy in
                 ScrollView {
                     ZStack(alignment: .topLeading) {
@@ -267,6 +276,7 @@ struct ThumbnailGridView: View {
                             visibleIDs: store.visibleIDs,
                             columns: cols,
                             cellSize: cellSize,
+                            leadingInset: leadingInset,
                             rubberBandStart: $rubberBandStart,
                             rubberBandEnd: $rubberBandEnd
                         )
@@ -291,6 +301,65 @@ struct ThumbnailGridView: View {
                 .onChange(of: store.compareMode) { _, isOn in if !isOn { scrollToPrimary(proxy) } }
                 .onReceive(store.filterDidClear) { _ in scrollToPrimary(proxy) }
             }
+        }
+        .id(store.scanGeneration)
+    }
+
+    // MARK: - Single row (filmstrip picker, horizontal LazyHGrid)
+    //
+    // 全件を 1 行で横スクロール表示する。マウス操作の GridInteractionView は
+    // columns = 全件数 を渡すことで「row=0 固定・index=col」の単一行として整合する
+    // （cellID(at:) / updateRubberBand の row*columns+col 計算がそのまま成立）。
+
+    private var singleRowGrid: some View {
+        let count = store.visibleIDs.count
+        let contentWidth = CGFloat(count) * cellSize + CGFloat(max(0, count - 1)) * 8 + 16
+        let rowHeight = cellSize + 16
+        // 水平スクロールバー用の帯。1 行の下に確保し、ステータスバーに被って見切れるのを防ぐ。
+        let scrollbarBand: CGFloat = 14
+        return ScrollViewReader { proxy in
+            ScrollView(.horizontal) {
+                ZStack(alignment: .topLeading) {
+                    LazyHGrid(rows: [GridItem(.fixed(cellSize), spacing: 8)], spacing: 8) {
+                        ForEach(store.visibleIDs, id: \.self) { id in
+                            if let entry = store.entries[id] {
+                                ThumbnailCellView(entry: entry)
+                                    .id(id)
+                            }
+                        }
+                    }
+                    .padding(8)
+
+                    GridInteractionView(
+                        store: store,
+                        visibleIDs: store.visibleIDs,
+                        columns: max(1, count),   // 単一行＝全件が 1 行（index = col, row = 0）
+                        cellSize: cellSize,
+                        rubberBandStart: $rubberBandStart,
+                        rubberBandEnd: $rubberBandEnd
+                    )
+                    .frame(width: contentWidth, height: rowHeight)
+
+                    if let start = rubberBandStart, let end = rubberBandEnd {
+                        let rect = rubberBandRect(from: start, to: end)
+                        Rectangle()
+                            .fill(Color.accentColor.opacity(0.12))
+                            .overlay(Rectangle().stroke(Color.accentColor.opacity(0.5), lineWidth: 1))
+                            .frame(width: max(1, rect.width), height: max(1, rect.height))
+                            .offset(x: rect.minX, y: rect.minY)
+                            .allowsHitTesting(false)
+                    }
+                }
+                .frame(height: rowHeight, alignment: .topLeading)
+                .clipped()
+            }
+            // 1 行分＋スクロールバー帯に固定（縦に伸びない＝バナーと取り合わない／バーが見切れない）。
+            .frame(height: rowHeight + scrollbarBand)
+            .onAppear { store.gridColumnCount = max(1, count) }
+            .onChange(of: count) { _, c in store.gridColumnCount = max(1, c) }
+            .onChange(of: store.viewerMode)  { _, isOn in if !isOn { scrollToPrimary(proxy) } }
+            .onChange(of: store.compareMode) { _, isOn in if !isOn { scrollToPrimary(proxy) } }
+            .onReceive(store.filterDidClear) { _ in scrollToPrimary(proxy) }
         }
         .id(store.scanGeneration)
     }
@@ -366,6 +435,7 @@ private struct GridInteractionView: NSViewRepresentable {
     let visibleIDs: [UInt64]
     let columns: Int
     let cellSize: CGFloat
+    var leadingInset: CGFloat = 8    // セル col0 の左端（LazyVGrid の中央寄せオフセットを反映）
     @Binding var rubberBandStart: CGPoint?
     @Binding var rubberBandEnd: CGPoint?
 
@@ -384,6 +454,7 @@ private struct GridInteractionView: NSViewRepresentable {
         view.visibleIDs = visibleIDs
         view.columns = columns
         view.cellSize = cellSize
+        view.leadingInset = leadingInset
         view.onRubberBandChanged = { start, end in
             rubberBandStart = start
             rubberBandEnd = end
@@ -397,6 +468,7 @@ private final class GridInteractionNSView: NSView {
     var visibleIDs: [UInt64] = []
     var columns = 1
     var cellSize: CGFloat = 120
+    var leadingInset: CGFloat = 8
     var onRubberBandChanged: ((CGPoint?, CGPoint?) -> Void)?
 
     private let dragSource = CellDragSource()
@@ -411,6 +483,15 @@ private final class GridInteractionNSView: NSView {
     override var acceptsFirstResponder: Bool { true }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    // SwiftUI の ScrollView に埋め込んだ AppKit ビューは、ビューポート外（スクロールで隠れた領域）でも
+    // ヒットテストが残る。この NSView は contentHeight 全面サイズのため、ピッカーをスクロールすると
+    // 隠れた部分がビューア領域の裏に被り、クリックを横取りしてしまう。可視範囲外は素通りさせて防ぐ。
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        let local = convert(point, from: superview)
+        guard visibleRect.contains(local) else { return nil }
+        return super.hitTest(point)
+    }
 
     override func mouseDown(with event: NSEvent) {
         // フィルムストリップ中にピッカーを操作したら、アクティブ面をピッカーへ戻す
@@ -481,15 +562,16 @@ private final class GridInteractionNSView: NSView {
     }
 
     private func cellID(at point: CGPoint) -> UInt64? {
-        let pad: CGFloat = 8
+        let pad: CGFloat = 8       // 縦（行）の起点
         let spacing: CGFloat = 8
-        guard point.x >= pad, point.y >= pad else { return nil }
-        let col = Int((point.x - pad) / (cellSize + spacing))
+        // 横は leadingInset 起点（中央寄せの左右余白はセル外＝nil になりラバーバンド可）。
+        guard point.x >= leadingInset, point.y >= pad else { return nil }
+        let col = Int((point.x - leadingInset) / (cellSize + spacing))
         let row = Int((point.y - pad) / (cellSize + spacing))
         guard col >= 0, col < columns, row >= 0 else { return nil }
 
         let cellOrigin = CGPoint(
-            x: pad + CGFloat(col) * (cellSize + spacing),
+            x: leadingInset + CGFloat(col) * (cellSize + spacing),
             y: pad + CGFloat(row) * (cellSize + spacing)
         )
         let cellRect = CGRect(origin: cellOrigin, size: CGSize(width: cellSize, height: cellSize))
@@ -576,7 +658,7 @@ private final class GridInteractionNSView: NSView {
             let col = CGFloat(index % columns)
             let row = CGFloat(index / columns)
             let cellRect = CGRect(
-                x: pad + col * (cellSize + spacing),
+                x: leadingInset + col * (cellSize + spacing),
                 y: pad + row * (cellSize + spacing),
                 width: cellSize,
                 height: cellSize

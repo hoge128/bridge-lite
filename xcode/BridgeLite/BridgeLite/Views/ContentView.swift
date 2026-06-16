@@ -256,8 +256,17 @@ struct FolderView: View {
                 // Space → viewer mode（設定で入替時は compare mode）
                 if event.keyCode == 49,
                    event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
-                   !s.viewerMode, !s.compareMode,
-                   let pid = s.primaryID {
+                   !s.viewerMode, !s.compareMode {
+                    // フィルムストリップでプレビュー面がアクティブなら、注目中の写真を単体ビューで開く。
+                    // 前後送りはプレビューの並び（filmstripCompareIDs）で行い、比較セットは壊さない。
+                    if s.filmstripMode && s.filmstripPreviewActive {
+                        s.enterFilmstripPreviewViewer()
+                        if s.viewerMode, SettingsStore.shared.viewerSpaceFullscreen {
+                            ref.window?.toggleFullScreen(nil)
+                        }
+                        return nil
+                    }
+                    guard let pid = s.primaryID else { return event }
                     if SettingsStore.shared.gridOpenGesture == .spaceCompare {
                         s.compareAnchorID = pid
                         s.compareMode = true
@@ -380,6 +389,7 @@ private struct StatusBarView: View {
 
     var body: some View {
         @Bindable var settings = store.settings
+        @Bindable var store = store
         HStack(spacing: 8) {
             if store.isLoading {
                 Text(store.statusMessage)
@@ -422,6 +432,28 @@ private struct StatusBarView: View {
             }
 
             Spacer()
+
+            // フィルムストリップ時のみ：ピッカーのレイアウト切替（いずれか1つだけ有効）。
+            if store.filmstripMode && store.currentDirectoryURL != nil {
+                Picker("", selection: $store.filmstripPickerLayout) {
+                    Image(systemName: "square.grid.2x2")
+                        .accessibilityLabel(Text(String(localized: "filmstrip.layout.grid",
+                                                         defaultValue: "Thumbnail grid")))
+                        .tag(FilmstripPickerLayout.grid)
+                    Image(systemName: "rectangle.split.3x1")
+                        .accessibilityLabel(Text(String(localized: "filmstrip.layout.row",
+                                                         defaultValue: "Single row")))
+                        .tag(FilmstripPickerLayout.row)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 76)
+                .controlSize(.small)
+                .help(String(localized: "filmstrip.layout.help",
+                             defaultValue: "Picker layout: grid or single row"))
+
+                Divider().frame(height: 14)
+            }
 
             Image(systemName: "photo")
                 .font(.system(size: 10))

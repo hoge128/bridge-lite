@@ -28,6 +28,12 @@ struct FilmstripView: View {
     @State private var pushedDir: ResizeDir? = nil
     // 仕切りの上にポインタがあるか（ドラッグ終了時にカーソルを正しく戻すために保持）。
     @State private var dividerHovering = false
+
+    // ビュワー（プレビュー）のドラッグ矩形選択（ラバーバンド）。座標は previewArea ローカル。
+    @State private var previewBandActive = false
+    @State private var previewBandStart: CGPoint? = nil
+    @State private var previewBandCurrent: CGPoint? = nil
+    @State private var previewBandBase: Set<UInt64> = []   // Shift/⌘ 併用時の元選択
     private let pickerMinHeight: CGFloat = 140   // ここまで縮めるとプレビュー最大（＝上限）
     private let pickerMaxHeight: CGFloat = 600
 
@@ -38,6 +44,19 @@ struct FilmstripView: View {
 
     /// フィルムストリップ表示中か（welcome＝フォルダ未読込時は false でライブラリ表示）。
     private var inFilmstrip: Bool { store.filmstripMode && store.currentDirectoryURL != nil }
+
+    /// ピッカーが横一列レイアウトか。
+    private var pickerRowMode: Bool { inFilmstrip && store.filmstripPickerLayout == .row }
+    // ピッカー（グリッド）の高さ制約。
+    // ・ライブラリ: 下限なし／上限 .infinity（フル高さ）
+    // ・フィルムストリップ・グリッド: pickerHeight 固定（リサイズ可）
+    // ・フィルムストリップ・横一列: 制約なし＝ThumbnailGridView 側が「バナー＋1行」の内容高さに
+    //   フィット（伸びない／フラット化バナーが上に積まれてもヘッダーと被らない）。
+    private var pickerMinHeightFrame: CGFloat? { (inFilmstrip && !pickerRowMode) ? pickerHeight : nil }
+    private var pickerMaxHeightFrame: CGFloat? {
+        guard inFilmstrip else { return .infinity }
+        return pickerRowMode ? nil : pickerHeight
+    }
 
     var body: some View {
         HStack(spacing: 0) {
@@ -56,7 +75,8 @@ struct FilmstripView: View {
                     .zIndex(store.filmstripPreviewActive ? 1 : 0)
 
                     // ビュワーとピッカーの境界＝リサイズ分割線。
-                    resizeDivider
+                    // 横一列時はピッカー高さが固定なのでリサイズ不可＝分割線は隠す。
+                    if !pickerRowMode { resizeDivider }
 
                     // ピッカーのヘッダー。グリッドは identity 維持のため外側 VStack 最下段に保つので、
                     // ピッカー側の「浮き」は境界に接するこのヘッダー（上辺へ向けた影）で表現する。
@@ -67,10 +87,9 @@ struct FilmstripView: View {
 
                 ThumbnailGridView()
                     .frame(maxWidth: .infinity)
-                    // フィルムストリップ時は pickerHeight 固定、ライブラリ時はフル高さ。
-                    // 同一の .frame に条件値を渡すことで View の identity を保つ（再生成しない）。
-                    .frame(minHeight: inFilmstrip ? pickerHeight : nil,
-                           maxHeight: inFilmstrip ? pickerHeight : .infinity)
+                    // 高さ制約は pickerMin/MaxHeightFrame に集約（横一列は内容フィット）。
+                    // 同一の .frame に条件値を渡すことで identity を保つ（再生成しない）。
+                    .frame(minHeight: pickerMinHeightFrame, maxHeight: pickerMaxHeightFrame)
                     .zIndex(inFilmstrip && !store.filmstripPreviewActive ? 1 : 0)
             }
 
@@ -181,29 +200,36 @@ struct FilmstripView: View {
     @ViewBuilder
     private var previewArea: some View {
         let ids = compareIDs
-        ZStack {
-            // 写真は常に純白背景で正確に提示する（フォーカス信号は奥行き＋ディバイダーのバーに集約）。
-            Color.white
+        GeometryReader { geo in
+            // 全枚数を領域内にフィット（スクロールなし・行列でぴったり割り付け）。
+            let n = ids.count
+            let (rows, cols) = optimalGrid(memberCount: n, viewportSize: geo.size)
+            let spacing: CGFloat = 8
+            let cellW = max(40, (geo.size.width - spacing * CGFloat(cols + 1)) / CGFloat(cols))
+            let cellH = max(40, (geo.size.height - spacing * CGFloat(rows + 1)) / CGFloat(rows))
 
-            if ids.isEmpty {
-                VStack(spacing: 10) {
-                    Image(systemName: "rectangle.split.2x1")
-                        .font(.system(size: 40))
-                        .foregroundStyle(.tertiary)
-                    Text(String(localized: "filmstrip.empty",
-                                defaultValue: "Select photos to compare"))
-                        .foregroundStyle(.secondary)
-                }
-                .frame(maxWidth: .infinity, maxHeight: .infinity)
-            } else {
-                // 全枚数を領域内にフィット（スクロールなし・行列でぴったり割り付け）。
-                GeometryReader { geo in
-                    let n = ids.count
-                    let (rows, cols) = optimalGrid(memberCount: n, viewportSize: geo.size)
-                    let spacing: CGFloat = 8
-                    let cellW = max(40, (geo.size.width - spacing * CGFloat(cols + 1)) / CGFloat(cols))
-                    let cellH = max(40, (geo.size.height - spacing * CGFloat(rows + 1)) / CGFloat(rows))
+            ZStack(alignment: .topLeading) {
+                // 写真は常に純白背景で正確に提示する（フォーカス信号は奥行き＋ディバイダーのバーに集約）。
+                // 背景（＝セル以外の空白）クリックでもフォーカス（アクティブ面）はビュワーに保持し、
+                // グリッド同様に空クリックは選択解除する。セルのタップはセル側 onTapGesture が優先。
+                Color.white
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        store.filmstripPreviewActive = true
+                        store.previewDeselectAll()
+                    }
 
+                if ids.isEmpty {
+                    VStack(spacing: 10) {
+                        Image(systemName: "rectangle.split.2x1")
+                            .font(.system(size: 40))
+                            .foregroundStyle(.tertiary)
+                        Text(String(localized: "filmstrip.empty",
+                                    defaultValue: "Select photos to compare"))
+                            .foregroundStyle(.secondary)
+                    }
+                    .frame(maxWidth: .infinity, maxHeight: .infinity)
+                } else {
                     VStack(spacing: spacing) {
                         ForEach(Array(0..<rows), id: \.self) { r in
                             HStack(spacing: spacing) {
@@ -239,11 +265,60 @@ struct FilmstripView: View {
                     // 上下矢印ナビ用に現在の列数を store へ反映
                     .onAppear { store.filmstripPreviewCols = cols }
                     .onChange(of: cols) { _, newCols in store.filmstripPreviewCols = newCols }
+
+                    // ドラッグ矩形選択（ラバーバンド）のバンド表示。
+                    if previewBandActive, let s = previewBandStart, let e = previewBandCurrent {
+                        let rect = rectFrom(s, e)
+                        Rectangle()
+                            .fill(Color.accentColor.opacity(0.12))
+                            .overlay(Rectangle().stroke(Color.accentColor.opacity(0.5), lineWidth: 1))
+                            .frame(width: max(1, rect.width), height: max(1, rect.height))
+                            .offset(x: rect.minX, y: rect.minY)
+                            .allowsHitTesting(false)
+                    }
                 }
             }
+            // ドラッグ矩形選択。空白からのドラッグで範囲選択、Shift/⌘ で追加選択。
+            // セルの単クリック選択はセル側 onTapGesture が優先（minimumDistance でタップと区別）。
+            .gesture(
+                DragGesture(minimumDistance: 4)
+                    .onChanged { v in
+                        guard !ids.isEmpty else { return }
+                        store.filmstripPreviewActive = true
+                        if !previewBandActive {
+                            previewBandActive = true
+                            previewBandStart = v.startLocation
+                            let m = NSEvent.modifierFlags
+                            previewBandBase = (m.contains(.shift) || m.contains(.command))
+                                ? store.filmstripPreviewSelectedIDs : []
+                        }
+                        previewBandCurrent = v.location
+                        let band = rectFrom(previewBandStart ?? v.startLocation, v.location)
+                        var hits = previewBandBase
+                        for idx in 0..<n {
+                            let r = idx / cols, c = idx % cols
+                            let cr = CGRect(x: spacing + CGFloat(c) * (cellW + spacing),
+                                            y: spacing + CGFloat(r) * (cellH + spacing),
+                                            width: cellW, height: cellH)
+                            if band.intersects(cr) { hits.insert(ids[idx]) }
+                        }
+                        store.filmstripPreviewSelectedIDs = hits
+                    }
+                    .onEnded { _ in
+                        previewBandActive = false
+                        previewBandStart = nil
+                        previewBandCurrent = nil
+                        previewBandBase = []
+                    }
+            )
         }
         // 白背景に合わせて常にライト配色（アプリがダークでも文字が黒で見えるように）
         .environment(\.colorScheme, .light)
+    }
+
+    /// 2 点から正規化した矩形を作る（ラバーバンド用）。
+    private func rectFrom(_ a: CGPoint, _ b: CGPoint) -> CGRect {
+        CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
     }
 
     // MARK: - Resizable divider（プレビュー領域を上限まで拡大縮小）
