@@ -148,24 +148,9 @@ struct FolderView: View {
                     FilterPanelView()
                         .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
                 } detail: {
-                    // welcome 時（フォルダ未読込）はフィルムストリップを出さず
-                    // 常にライブラリ（emptyStateContent）を表示する。
-                    if store.filmstripMode && store.currentDirectoryURL != nil {
-                        FilmstripView()
-                    } else {
-                        HStack(spacing: 0) {
-                            ThumbnailGridView()
-
-                            if store.showSidebar {
-                                Divider()
-                                SidebarView()
-                                    .frame(minWidth: 260, idealWidth: 300, maxWidth: 360)
-                                    .background(Color(.windowBackgroundColor))
-                                    .transition(.move(edge: .trailing))
-                            }
-                        }
-                        .animation(.easeInOut(duration: 0.2), value: store.showSidebar)
-                    }
+                    // ライブラリ/フィルムストリップ共通の detail。グリッドは常駐し、モード切替で
+                    // 破棄/再生成されない（FilmstripView 内でグリッドの上にプレビューを差し込む＝案A）。
+                    FilmstripView()
                 }
                 .toolbar {
                     ToolbarView()
