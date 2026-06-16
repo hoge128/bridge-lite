@@ -40,4 +40,44 @@ enum LargeImageDecoder {
             }.value
         }
     }
+
+    /// Decode an image from a URL **downsampled** to `maxPixels` (memory-safe; ImageIO does the
+    /// scaling and the shared limiter serializes decodes so many cells don't exhaust IOSurface).
+    /// Orientation is baked in via transform → returns `.up`.
+    static func decodeDownsampledURL(_ url: URL, maxPixels: Int) async -> (CGImage, Image.Orientation)? {
+        try? await limiter.run {
+            await Task.detached(priority: .userInitiated) {
+                let srcOpts = [kCGImageSourceShouldCache: false] as CFDictionary
+                let thumbOpts: [CFString: Any] = [
+                    kCGImageSourceShouldCache: false,
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceCreateThumbnailWithTransform: true,
+                    kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+                ]
+                guard let src = CGImageSourceCreateWithURL(url as CFURL, srcOpts),
+                      let img = CGImageSourceCreateThumbnailAtIndex(src, 0, thumbOpts as CFDictionary) else { return nil }
+                return (img, .up)
+            }.value
+        }
+    }
+
+    /// Decode **downsampled** from pre-fetched (RAW embedded) JPEG data. Orientation supplied by caller
+    /// (no transform applied), matching `decodeFromData`.
+    static func decodeDownsampledData(
+        _ data: Data, orientation: Image.Orientation, maxPixels: Int
+    ) async -> (CGImage, Image.Orientation)? {
+        try? await limiter.run {
+            await Task.detached(priority: .userInitiated) {
+                let srcOpts = [kCGImageSourceShouldCache: false] as CFDictionary
+                let thumbOpts: [CFString: Any] = [
+                    kCGImageSourceShouldCache: false,
+                    kCGImageSourceCreateThumbnailFromImageAlways: true,
+                    kCGImageSourceThumbnailMaxPixelSize: maxPixels,
+                ]
+                guard let src = CGImageSourceCreateWithData(data as CFData, srcOpts),
+                      let img = CGImageSourceCreateThumbnailAtIndex(src, 0, thumbOpts as CFDictionary) else { return nil }
+                return (img, orientation)
+            }.value
+        }
+    }
 }

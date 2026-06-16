@@ -413,6 +413,8 @@ private final class GridInteractionNSView: NSView {
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
 
     override func mouseDown(with event: NSEvent) {
+        // フィルムストリップ中にピッカーを操作したら、アクティブ面をピッカーへ戻す
+        if store?.filmstripMode == true { store?.filmstripPreviewActive = false }
         if event.modifierFlags.contains(.control) {
             suppressMouseUp = true
             showContextMenu(for: event)

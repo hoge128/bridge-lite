@@ -71,13 +71,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Select 2–4 photos to compare"
+            "value": "Select photos to compare"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "比較する写真を2〜4枚選択"
+            "value": "比較する写真を選択"
           }
         }
       }
@@ -87,13 +87,13 @@
         "en": {
           "stringUnit": {
             "state": "translated",
-            "value": "Up to 4 photos can be compared"
+            "value": "Up to %lld photos can be compared"
           }
         },
         "ja": {
           "stringUnit": {
             "state": "translated",
-            "value": "最大4枚まで比較できます"
+            "value": "最大%lld枚まで比較できます"
           }
         }
       }

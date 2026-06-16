@@ -148,18 +148,24 @@ struct FolderView: View {
                     FilterPanelView()
                         .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
                 } detail: {
-                    HStack(spacing: 0) {
-                        ThumbnailGridView()
+                    // welcome 時（フォルダ未読込）はフィルムストリップを出さず
+                    // 常にライブラリ（emptyStateContent）を表示する。
+                    if store.filmstripMode && store.currentDirectoryURL != nil {
+                        FilmstripView()
+                    } else {
+                        HStack(spacing: 0) {
+                            ThumbnailGridView()
 
-                        if store.showSidebar {
-                            Divider()
-                            SidebarView()
-                                .frame(minWidth: 260, idealWidth: 300, maxWidth: 360)
-                                .background(Color(.windowBackgroundColor))
-                                .transition(.move(edge: .trailing))
+                            if store.showSidebar {
+                                Divider()
+                                SidebarView()
+                                    .frame(minWidth: 260, idealWidth: 300, maxWidth: 360)
+                                    .background(Color(.windowBackgroundColor))
+                                    .transition(.move(edge: .trailing))
+                            }
                         }
+                        .animation(.easeInOut(duration: 0.2), value: store.showSidebar)
                     }
-                    .animation(.easeInOut(duration: 0.2), value: store.showSidebar)
                 }
                 .toolbar {
                     ToolbarView()
@@ -174,11 +180,19 @@ struct FolderView: View {
                     Group {
                         Button("") {
                             guard !isTextFieldActive() else { return }
-                            store.selectAll()
+                            if store.filmstripMode && store.filmstripPreviewActive {
+                                store.previewSelectAll()
+                            } else {
+                                store.selectAll()
+                            }
                         }
                         .keyboardShortcut("a", modifiers: .command)
                         Button("") {
                             guard !isTextFieldActive() else { return }
+                            if store.filmstripMode && store.filmstripPreviewActive {
+                                store.previewDeselectAll()
+                                return
+                            }
                             store.deselectAll()
                         }
                         .keyboardShortcut("a", modifiers: [.command, .option])
@@ -222,11 +236,6 @@ struct FolderView: View {
                 StatusBarView()
             } // VStack
 
-            if store.filmstripMode {
-                FilmstripView()
-                    .environment(store)
-            }
-
             if store.compareMode, let anchorID = store.compareAnchorID {
                 GroupCompareView(initialID: anchorID)
                     .environment(store)
@@ -243,6 +252,14 @@ struct FolderView: View {
         )))
         .onChange(of: store.viewerMode) { _, _ in updateToolbarVisibility() }
         .onChange(of: store.compareMode) { _, _ in updateToolbarVisibility() }
+        .onChange(of: store.currentDirectoryURL) { _, newURL in
+            // フォルダを閉じた（welcome に戻った）らフィルムストリップを解除
+            if newURL == nil { store.filmstripMode = false }
+        }
+        .onChange(of: store.filmstripMode) { _, _ in
+            // フィルムストリップへ入退場するたび、アクティブ面はピッカーから開始
+            store.filmstripPreviewActive = false
+        }
         .onAppear {
             guard spaceKeyMonitor == nil else { return }
             let s = store
@@ -291,18 +308,24 @@ struct FolderView: View {
                     if ch == "p" { s.applyFlag(XmpFlag.pick.rawValue); return nil }
                     if ch == "x" { s.applyFlag(XmpFlag.reject.rawValue); return nil }
                 }
-                // F / M → フィルターバー / メタデータバーの表示トグル（グリッド表示時のみ・修飾キー無し）
+                // F → フィルターバー（修飾なし・ライブラリ／フィルムストリップ両方）
+                // メタデータバー: ライブラリは I（修飾なし）、フィルムストリップは Shift+I
+                //   （plain i はビュワーの詳細表示と被るため、フィルムストリップでは Shift+I に分離）
+                let metaMods = event.modifierFlags.intersection([.shift, .command, .control, .option])
                 if !(fr0 is NSTextView), !(fr0 is NSTextField),
-                   !s.viewerMode, !s.compareMode, !s.filmstripMode,
-                   event.modifierFlags.intersection([.shift, .command, .control, .option]).isEmpty,
+                   !s.viewerMode, !s.compareMode,
                    let ch = event.charactersIgnoringModifiers?.lowercased() {
-                    if ch == "f" {
+                    if ch == "f", metaMods.isEmpty {
                         s.columnVisibility = (s.columnVisibility == .detailOnly) ? .all : .detailOnly
                         return nil
                     }
                     if ch == "i" {
-                        s.showSidebar.toggle()
-                        return nil
+                        if s.filmstripMode {
+                            if metaMods == .shift { s.filmstripShowMeta.toggle(); return nil }
+                        } else if metaMods.isEmpty {
+                            s.showSidebar.toggle()
+                            return nil
+                        }
                     }
                 }
                 // Arrow keys — text view がフォーカスを持っている場合はスルー
@@ -314,6 +337,20 @@ struct FolderView: View {
                 let shift = mods.contains(.shift)
                 let cmd   = mods.contains(.command)
                 guard mods.subtracting([.shift, .command]).isEmpty else { return event }
+                // フィルムストリップのプレビューがアクティブなら、矢印はプレビューのナビゲーションへ
+                if s.filmstripMode && s.filmstripPreviewActive {
+                    guard !cmd else { return event }
+                    let dx: Int, dy: Int
+                    switch event.keyCode {
+                    case 123: dx = -1; dy = 0   // ←
+                    case 124: dx = 1;  dy = 0   // →
+                    case 126: dx = 0;  dy = -1  // ↑
+                    case 125: dx = 0;  dy = 1   // ↓
+                    default: return event
+                    }
+                    shift ? s.previewRangeNavigate(dx: dx, dy: dy) : s.previewNavigate(dx: dx, dy: dy)
+                    return nil
+                }
                 switch event.keyCode {
                 case 123: // ←
                     guard !cmd else { return event }

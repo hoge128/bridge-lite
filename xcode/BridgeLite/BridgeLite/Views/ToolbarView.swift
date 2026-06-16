@@ -192,16 +192,7 @@ struct ToolbarView: ToolbarContent {
         }
 
         ToolbarItemGroup(placement: .principal) {
-            if settings.boostNoticeVisible {
-                HStack(spacing: 5) {
-                    Image(systemName: "bolt.fill")
-                        .foregroundStyle(.orange)
-                    Text("Boost Mode active")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                }
-                .transition(.opacity)
-            } else if let msg = store.undoMessage {
+            if let msg = store.undoMessage {
                 Text(msg)
                     .font(.caption)
                     .foregroundStyle(.orange)
@@ -216,30 +207,22 @@ struct ToolbarView: ToolbarContent {
                 }
                 .pickerStyle(.segmented)
                 .fixedSize()
+                .disabled(store.currentDirectoryURL == nil)
                 .help(String(localized: "filmstrip.toggle.help",
                              defaultValue: "Switch between the library grid and filmstrip comparison"))
             }
         }
 
-        ToolbarItemGroup(placement: .primaryAction) {
-            Button(action: {
-                settings.burstMode.toggle()
-                if settings.burstMode {
-                    settings.showBoostNotice()
-                } else {
-                    settings.hideBoostNotice()
-                }
-            }) {
-                Image(systemName: settings.burstMode ? "bolt.fill" : "bolt")
-                    .foregroundStyle(settings.burstMode ? Color.orange : Color.primary)
-            }
-            .help(String(localized: "Boost Mode"))
-
-            if !store.viewerMode && !store.compareMode {
+        // グループ1: 検索 — ライブラリのみ（フィルムストリップ/ビューア/比較では非表示）
+        if !store.viewerMode && !store.compareMode && !store.filmstripMode {
+            ToolbarItemGroup(placement: .primaryAction) {
                 SearchFieldContainer()
             }
+        }
 
-            if !store.viewerMode && !store.compareMode {
+        // グループ2: 並び替え + 昇順降順
+        if !store.viewerMode && !store.compareMode {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Menu {
                     Picker("", selection: $settings.sortKey) {
                         Text(SortKey.filename.localizedName).tag(SortKey.filename)
@@ -262,8 +245,17 @@ struct ToolbarView: ToolbarContent {
                       ? String(localized: "Ascending")
                       : String(localized: "Descending"))
                 .onChange(of: settings.sortAscending) { store.applyOrder() }
+            }
+        }
 
-                Toggle(isOn: $store.showSidebar) {
+        // グループ3: メタデータ + キーボードショートカット
+        if !store.viewerMode && !store.compareMode {
+            ToolbarItemGroup(placement: .primaryAction) {
+                // メタデータ — ライブラリは showSidebar、フィルムストリップは専用フラグ（デフォルト OFF）
+                Toggle(isOn: store.filmstripMode
+                       ? Binding(get: { store.filmstripShowMeta },
+                                 set: { store.filmstripShowMeta = $0 })
+                       : $store.showSidebar) {
                     Label("Metadata", systemImage: "sidebar.right")
                 }
 
@@ -278,4 +270,3 @@ struct ToolbarView: ToolbarContent {
         }
     }
 }
-

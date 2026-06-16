@@ -46,6 +46,15 @@ final class LibraryStore: ReindexedGroupSink {
     // フィルムストリップ（任意の2〜4枚を並べて比較する独立ビュー）。
     // 永続化しない transient フラグ。ViewMode(.all/.daily) とは別概念。
     var filmstripMode: Bool = false
+    // フィルムストリップ専用のメタデータバー表示（ライブラリの showSidebar とは独立、デフォルト OFF）。
+    var filmstripShowMeta: Bool = false
+    // フィルムストリップのプレビュー領域内フォーカス。ピッカーの primaryID/selectedIDs とは独立。
+    var filmstripFocusID: UInt64? = nil
+    // フィルムストリップ プレビュー操作面（ピッカーとは独立した選択システム）
+    var filmstripPreviewActive: Bool = false           // アクティブ面（false=ピッカー / true=プレビュー）
+    var filmstripPreviewSelectedIDs: Set<UInt64> = []
+    var filmstripPreviewAnchor: UInt64? = nil
+    var filmstripPreviewCols: Int = 1                   // 上下矢印ナビ用に FilmstripView が反映
     var compareAnchorID: UInt64? = nil
     // When ViewerView is entered from CompareMode, restricts arrow-key navigation to this list.
     var viewerCompareGroupMembers: [UInt64]? = nil
@@ -665,6 +674,90 @@ final class LibraryStore: ReindexedGroupSink {
         rangeSelect(to: visibleIDs[visibleIDs.count - 1])
     }
 
+    // MARK: - フィルムストリップ プレビュー選択（ピッカーとは独立した操作面）
+
+    static let filmstripMaxCompare = 20
+
+    /// プレビューに並べる比較対象（表示順の先頭 maxCompare 枚）。
+    var filmstripCompareIDs: [UInt64] {
+        visibleIDs.filter { selectedIDs.contains($0) }
+            .prefix(Self.filmstripMaxCompare)
+            .map { $0 }
+    }
+
+    /// レーティング/フラグ等の対象集合。プレビューがアクティブなら preview 選択を使う（グリッド時は selectedIDs と同値）。
+    private var effectiveSelectedIDs: Set<UInt64> {
+        (filmstripMode && filmstripPreviewActive) ? filmstripPreviewSelectedIDs : selectedIDs
+    }
+
+    func previewSelect(_ id: UInt64) {
+        filmstripPreviewActive = true
+        filmstripPreviewSelectedIDs = [id]
+        filmstripFocusID = id
+        filmstripPreviewAnchor = id
+    }
+
+    func previewToggle(_ id: UInt64) {
+        filmstripPreviewActive = true
+        if filmstripPreviewSelectedIDs.contains(id) {
+            filmstripPreviewSelectedIDs.remove(id)
+            if filmstripFocusID == id { filmstripFocusID = filmstripPreviewSelectedIDs.first }
+        } else {
+            filmstripPreviewSelectedIDs.insert(id)
+            filmstripFocusID = id
+            filmstripPreviewAnchor = id
+        }
+    }
+
+    func previewRangeSelect(to id: UInt64) {
+        filmstripPreviewActive = true
+        let ids = filmstripCompareIDs
+        guard let anchor = filmstripPreviewAnchor,
+              let a = ids.firstIndex(of: anchor),
+              let t = ids.firstIndex(of: id) else { previewSelect(id); return }
+        let lo = min(a, t), hi = max(a, t)
+        filmstripPreviewSelectedIDs = Set(ids[lo...hi])
+        filmstripFocusID = id
+    }
+
+    func previewSelectAll() {
+        filmstripPreviewActive = true
+        let ids = filmstripCompareIDs
+        filmstripPreviewSelectedIDs = Set(ids)
+        filmstripFocusID = ids.last
+        filmstripPreviewAnchor = ids.first
+    }
+
+    func previewDeselectAll() {
+        filmstripPreviewSelectedIDs = []
+        filmstripFocusID = nil
+        filmstripPreviewAnchor = nil
+    }
+
+    /// dx=±1 横移動 / dy=±1 縦移動（列数 filmstripPreviewCols 基準）。
+    private func previewMoveTarget(dx: Int, dy: Int) -> UInt64? {
+        let ids = filmstripCompareIDs
+        guard !ids.isEmpty else { return nil }
+        let cols = max(1, filmstripPreviewCols)
+        guard let cur = filmstripFocusID, let idx = ids.firstIndex(of: cur) else { return ids.first }
+        let next = min(max(idx + dx + dy * cols, 0), ids.count - 1)
+        return ids[next]
+    }
+
+    func previewNavigate(dx: Int, dy: Int) {
+        filmstripPreviewActive = true
+        guard let target = previewMoveTarget(dx: dx, dy: dy) else { return }
+        filmstripPreviewSelectedIDs = [target]
+        filmstripFocusID = target
+        filmstripPreviewAnchor = target
+    }
+
+    func previewRangeNavigate(dx: Int, dy: Int) {
+        filmstripPreviewActive = true
+        guard let target = previewMoveTarget(dx: dx, dy: dy) else { return }
+        previewRangeSelect(to: target)
+    }
+
     func cyclePairVariant(reverse: Bool) {
         guard let id = primaryID,
               let entry = entries[id],
@@ -1053,6 +1146,7 @@ final class LibraryStore: ReindexedGroupSink {
     // MARK: - 一括評価トリガー
 
     func triggerRating(_ stars: Int) {
+        let selectedIDs = effectiveSelectedIDs   // フィルムストリップのプレビューがアクティブなら preview 選択を対象
         guard !selectedIDs.isEmpty else { return }
         if settings.jpgWriteMode == .embed && !settings.hasShownJpgEmbedWarning {
             let hasJpg = selectedIDs.contains { id in
@@ -1094,6 +1188,7 @@ final class LibraryStore: ReindexedGroupSink {
     }
 
     func applyRating(_ stars: Int) {
+        let selectedIDs = effectiveSelectedIDs
         guard !selectedIDs.isEmpty, let db = database else { return }
         var allTargets: [(entry: PhotoEntry, old: Int?)] = []
         var writeList:  [(entry: PhotoEntry, xmp: XmpData)] = []
@@ -1143,6 +1238,7 @@ final class LibraryStore: ReindexedGroupSink {
     }
 
     func applyLabel(_ labelRaw: UInt8) {
+        let selectedIDs = effectiveSelectedIDs
         guard !selectedIDs.isEmpty, let db = database,
               let label = XmpLabel(rawValue: labelRaw) else { return }
         let pivot = primaryID.flatMap { xmpData[$0]?.label }
@@ -1239,6 +1335,7 @@ final class LibraryStore: ReindexedGroupSink {
 
     /// Pick/Reject フラグをトグル適用する。primary が既に同じフラグなら解除（ラベルと同じピボット方式）。
     func applyFlag(_ flagRaw: UInt8) {
+        let selectedIDs = effectiveSelectedIDs
         guard !selectedIDs.isEmpty, let db = database,
               let flag = XmpFlag(rawValue: flagRaw) else { return }
         let pivot = primaryID.flatMap { xmpData[$0]?.flag }
