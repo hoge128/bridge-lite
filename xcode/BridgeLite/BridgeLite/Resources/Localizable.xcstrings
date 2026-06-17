@@ -5800,6 +5800,12 @@
         }
       }
     },
+    "status.reloading_thumbnails" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Reloading thumbnails… %lld" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "サムネイル再読込中… %lld" } }
+      }
+    },
     "settings.show_tachometer" : {
       "localizations" : {
         "en" : { "stringUnit" : { "state" : "translated", "value" : "Show decode tachometer in toolbar" } },

@@ -102,13 +102,6 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
                 store.suspend()
             }
-            #if DEBUG
-            .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteDebugSimulateAppSwitch)) { _ in
-                // 診断: 実際にアプリ切替せず path B（blob 解放→全件再ロード）を再現・計測する。
-                store.suspend()
-                store.resume()
-            }
-            #endif
             .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteCacheCleared)) { _ in
                 store.cancelLoading()
             }
@@ -438,6 +431,19 @@ private struct StatusBarView: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
+            }
+
+            // 復帰時のサムネイル全件再ロード(path B)を可視化する。
+            if store.isReloadingThumbnails {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .controlSize(.mini)
+                Text(String(localized: "status.reloading_thumbnails",
+                            defaultValue: "Reloading thumbnails… \(store.reloadingCount)"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .monospacedDigit()
             }
 
             Spacer()
