@@ -2440,11 +2440,14 @@ final class LibraryStore: ReindexedGroupSink {
         let entriesToLoad = orderedIDs.compactMap { entries[$0] }
         let capturedPhash = phashPipeline
         let gen = scanGeneration
+        // imageList を渡して初回スキャンと同じ「SQLite 一括プリフェッチ」経路を使う。
+        // これが無いと loadOne が 1 枚ずつ個別 SQLite クエリになり、復帰が著しく遅くなる。
+        let capturedList = lastImageList
         // path B（アプリ切替復帰）の全件再ロード。進行中はステータスバーに件数を表示する。
         isReloadingThumbnails = true
         reloadingCount = entriesToLoad.count
         Task {
-            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash, generation: gen)
+            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash, generation: gen, imageList: capturedList)
             isReloadingThumbnails = false
         }
     }
