@@ -421,6 +421,9 @@ struct ThumbnailGridView: View {
 
     private func scrollToPrimary(_ proxy: ScrollViewProxy) {
         guard let id = store.primaryID else { return }
+        // 遷移前のスクロール位置のまま戻るため、この時点の可視範囲＝遷移前の描画範囲。
+        // primaryID のセルが既に完全に描画されているなら動かさない。範囲外のときだけ中央へ寄せる。
+        if store.isPrimaryCellVisible?(id) == true { return }
         DispatchQueue.main.async {
             var t = Transaction()
             t.disablesAnimations = true
@@ -460,6 +463,10 @@ private struct GridInteractionView: NSViewRepresentable {
         view.onRubberBandChanged = { start, end in
             rubberBandStart = start
             rubberBandEnd = end
+        }
+        // 戻り時のスクロール判定用に、NSView の可視範囲問い合わせを store へ橋渡しする。
+        store.isPrimaryCellVisible = { [weak view] id in
+            view?.isCellFullyVisible(id: id) ?? false
         }
     }
 }
@@ -561,6 +568,23 @@ private final class GridInteractionNSView: NSView {
         isDragging = false
         isRubberBanding = false
         suppressMouseUp = false
+    }
+
+    /// 指定 id のセルが、いまグリッドの可視範囲に「完全に」収まって描画されているか。
+    /// cellID(at:) の逆変換（index→矩形）。strictGrid（縦）も singleRowGrid（columns=全件で
+    /// row=0 固定）も同じ式で成立する。visibleRect は hitTest と同じく自分の座標系の可視部分。
+    func isCellFullyVisible(id: UInt64) -> Bool {
+        guard let index = visibleIDs.firstIndex(of: id), columns > 0 else { return false }
+        let pad: CGFloat = 8
+        let spacing: CGFloat = 8
+        let col = index % columns
+        let row = index / columns
+        let cellRect = CGRect(
+            x: leadingInset + CGFloat(col) * (cellSize + spacing),
+            y: pad + CGFloat(row) * (cellSize + spacing),
+            width: cellSize, height: cellSize
+        )
+        return visibleRect.contains(cellRect)
     }
 
     private func cellID(at point: CGPoint) -> UInt64? {

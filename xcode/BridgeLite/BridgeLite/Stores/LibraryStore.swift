@@ -43,6 +43,11 @@ final class LibraryStore: ReindexedGroupSink {
     }
     private(set) var primaryID: UInt64?       // サイドバー/ビュワーで表示する「主」選択
     private var anchorID: UInt64?             // Shift+Click の始点
+    // ビュワー/比較を閉じて戻るとき、primaryID のセルが既にグリッド可視範囲へ
+    // 完全に描画されているかを問い合わせるクロージャ。GridInteractionView が
+    // 自分の NSView を弱参照キャプチャして差し込む（NSView は visibleRect を持つ）。
+    // observation を起こさないよう @ObservationIgnored。
+    @ObservationIgnored var isPrimaryCellVisible: ((UInt64) -> Bool)?
     var selectedID: UInt64? { primaryID }     // ViewerView 互換
 
     var columnVisibility: NavigationSplitViewVisibility = .all
