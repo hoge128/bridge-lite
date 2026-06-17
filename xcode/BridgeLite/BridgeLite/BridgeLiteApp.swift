@@ -54,6 +54,8 @@ extension NSNotification.Name {
     static let bridgeLiteFocusSearch = NSNotification.Name("BridgeLiteFocusSearch")
     static let bridgeLiteCacheCleared = NSNotification.Name("BridgeLiteCacheCleared")
     static let bridgeLiteShowShortcuts = NSNotification.Name("BridgeLiteShowShortcuts")
+    // 診断用（DEBUG）: path B（アプリ切替復帰）を疑似再現する。
+    static let bridgeLiteDebugSimulateAppSwitch = NSNotification.Name("BridgeLiteDebugSimulateAppSwitch")
 }
 
 // MARK: - Window state monitor

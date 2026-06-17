@@ -67,6 +67,14 @@ struct SettingsView: View {
                     guard old != new else { return }
                     showRestartAlert = true
                 }
+                Toggle(isOn: $settings.showDecodeTachometer) {
+                    Text(String(localized: "settings.show_tachometer",
+                                defaultValue: "Show decode tachometer in toolbar"))
+                }
+                Text(String(localized: "settings.show_tachometer.note",
+                            defaultValue: "A small gauge that revs up while thumbnails are decoded (e.g. when they come back after idle)."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section {
                 Picker(String(localized: "settings.shortcut.rating_keys", defaultValue: "Rating / Label Keys"),
@@ -288,6 +296,19 @@ struct SettingsView: View {
                 }
                 .disabled(cacheSize <= 0)
             }
+            #if DEBUG
+            Section("Diagnostics (Debug)") {
+                Button("Path A: evict decoded bitmaps (keep blobs)") {
+                    ThumbnailDecodeCache.shared.debugEvictDecoded()
+                }
+                Button("Path B: simulate app switch (suspend + resume)") {
+                    NotificationCenter.default.post(name: .bridgeLiteDebugSimulateAppSwitch, object: nil)
+                }
+                Text("Open Console.app and filter category “recovery”. Path B logs the full reload time; the toolbar tachometer shows path-A re-decode rate (scroll after A).")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+            #endif
         }
         .formStyle(.grouped)
     }

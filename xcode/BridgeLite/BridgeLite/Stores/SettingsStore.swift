@@ -228,6 +228,11 @@ final class SettingsStore {
     var showHints: Bool = UserDefaults.standard.object(forKey: "showHints") as? Bool ?? true {
         didSet { UserDefaults.standard.set(showHints, forKey: "showHints") }
     }
+
+    /// ツールバーのデコード・タコメーター表示（既定 OFF）。
+    var showDecodeTachometer: Bool = UserDefaults.standard.bool(forKey: "showDecodeTachometer") {
+        didSet { UserDefaults.standard.set(showDecodeTachometer, forKey: "showDecodeTachometer") }
+    }
     // [BETA DISABLED] UserDefaults を読まず常に .all で起動する。
     // 再有効化時は下記に戻す:
     // (UserDefaults.standard.string(forKey: "viewMode").flatMap(ViewMode.init(rawValue:))) ?? .all

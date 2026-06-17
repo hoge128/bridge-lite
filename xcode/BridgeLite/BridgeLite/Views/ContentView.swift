@@ -102,6 +102,13 @@ struct ContentView: View {
             .onReceive(NotificationCenter.default.publisher(for: NSApplication.didResignActiveNotification)) { _ in
                 store.suspend()
             }
+            #if DEBUG
+            .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteDebugSimulateAppSwitch)) { _ in
+                // 診断: 実際にアプリ切替せず path B（blob 解放→全件再ロード）を再現・計測する。
+                store.suspend()
+                store.resume()
+            }
+            #endif
             .onReceive(NotificationCenter.default.publisher(for: .bridgeLiteCacheCleared)) { _ in
                 store.cancelLoading()
             }

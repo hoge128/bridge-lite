@@ -2,6 +2,7 @@ import AppKit
 import Combine
 import SwiftUI
 import UniformTypeIdentifiers
+import os
 
 /// フィルムストリップのピッカー（下グリッド）レイアウト。
 enum FilmstripPickerLayout: Hashable {
@@ -2437,8 +2438,15 @@ final class LibraryStore: ReindexedGroupSink {
         let entriesToLoad = orderedIDs.compactMap { entries[$0] }
         let capturedPhash = phashPipeline
         let gen = scanGeneration
+        // path B（アプリ切替復帰）の所要を計測。全件 SQLite 再ロードのコストがここに出る。
+        let n = entriesToLoad.count
+        let t0 = DispatchTime.now()
+        let sp = ThumbnailDecodeCache.signposter.beginInterval("resume-reload")
         Task {
             await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash, generation: gen)
+            ThumbnailDecodeCache.signposter.endInterval("resume-reload", sp)
+            let ms = Double(DispatchTime.now().uptimeNanoseconds &- t0.uptimeNanoseconds) / 1_000_000
+            ThumbnailDecodeCache.recoveryLog.notice("[B] resume reload: \(n, privacy: .public) entries in \(ms, format: .fixed(precision: 1), privacy: .public) ms")
         }
     }
 

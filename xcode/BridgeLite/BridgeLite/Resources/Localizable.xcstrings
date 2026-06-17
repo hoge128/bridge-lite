@@ -5800,6 +5800,30 @@
         }
       }
     },
+    "settings.show_tachometer" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Show decode tachometer in toolbar" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "ツールバーにデコード・タコメーターを表示" } }
+      }
+    },
+    "settings.show_tachometer.note" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "A small gauge that revs up while thumbnails are decoded (e.g. when they come back after idle)." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "サムネイルのデコード中（アイドル後の復帰など）に針が上がる小さなメーターです。" } }
+      }
+    },
+    "tacho.label" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Thumbnail decode activity" } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "サムネイルのデコード処理量" } }
+      }
+    },
+    "tacho.help" : {
+      "localizations" : {
+        "en" : { "stringUnit" : { "state" : "translated", "value" : "Thumbnail decode tachometer. Revs up while thumbnails are (re)decoded — e.g. after memory was reclaimed during idle." } },
+        "ja" : { "stringUnit" : { "state" : "translated", "value" : "サムネイルのデコード処理量を回転数で表示。メモリ解放後の再デコード中などに針が上がります。" } }
+      }
+    },
     "representative.make" : {
       "localizations" : {
         "en" : {

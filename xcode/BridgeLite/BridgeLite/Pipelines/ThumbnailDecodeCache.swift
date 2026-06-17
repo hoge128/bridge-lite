@@ -1,5 +1,6 @@
 import CoreGraphics
 import Foundation
+import os
 
 /// LRU cache for decoded CGImages backed by NSCache so the OS can evict entries
 /// under memory pressure. Only off-screen (destroyed) cells benefit from the
@@ -106,9 +107,41 @@ final class ThumbnailDecodeCache: NSObject, @unchecked Sendable {
         guard let blob else { return nil }
         let key = url.absoluteString as NSString
         if let cached = cache.object(forKey: key) { return cached }
-        guard let img = CGImage.fromJPEGData(blob) else { return nil }
+        // 実デコード区間を signpost 計測（Instruments の recovery レーンに1デコード=1区間で出る）
+        let sp = Self.signposter.beginInterval("decode")
+        let decoded = CGImage.fromJPEGData(blob)
+        Self.signposter.endInterval("decode", sp)
+        guard let img = decoded else { return nil }
         cache.setObject(img, forKey: key, cost: img.bytesPerRow * img.height)
+        noteDecode()   // 実デコード（キャッシュミス）のみ計上 → タコメーターの回転数源
         return img
+    }
+
+    // MARK: - 診断（計測 / 疑似メモリ退避）
+
+    static let recoveryLog = Logger(subsystem: "io.github.bridge-lite", category: "recovery")
+    static let signposter = OSSignposter(subsystem: "io.github.bridge-lite", category: "recovery")
+
+    /// (診断用) デコード済みビットマップを全消去し「OS圧迫/アイドル解放」(path A) を疑似再現する。
+    /// blob は残るので、復帰はスクロールに応じた再デコードのみ（速い側）。
+    func debugEvictDecoded() {
+        cache.removeAllObjects()
+        Self.recoveryLog.notice("[A] evicted decoded bitmaps (blobs kept). Scroll to measure re-decode.")
+    }
+
+    // MARK: - デコード計測（タコメーター用）
+
+    private let decodeCountLock = NSLock()
+    private var decodeTotal: Int = 0
+
+    private func noteDecode() {
+        decodeCountLock.lock(); decodeTotal += 1; decodeCountLock.unlock()
+    }
+
+    /// 起動以降に実デコードした累計枚数。タコメーターが一定間隔の差分でレート(枚/秒)を算出する。
+    var totalDecodes: Int {
+        decodeCountLock.lock(); defer { decodeCountLock.unlock() }
+        return decodeTotal
     }
 
     func store(url: URL, image: CGImage) {
