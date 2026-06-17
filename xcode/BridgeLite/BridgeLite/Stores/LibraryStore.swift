@@ -141,8 +141,10 @@ final class LibraryStore: ReindexedGroupSink {
     let xmpDidUpdate = PassthroughSubject<UInt64, Never>()
     // 選択変更時に「状態が変わった id 群」を通知（per-cell @State 更新用）。
     let selectionDidUpdate = PassthroughSubject<Set<UInt64>, Never>()
-    // フィルタの Reset / 個別 Clear 時に発火。グリッドが選択位置へスクロールを復元する
-    let filterDidClear = PassthroughSubject<Void, Never>()
+    // フィルタの Reset / 個別 Clear / 適用、および並べ替えで visibleIDs を再構成したあとに発火。
+    // グリッドはこれを受けて、フォーカス中サムネイル(primaryID)が画面外なら可視範囲へ戻す
+    // （既に見えていれば動かさない＝scrollToPrimary の可視判定に委ねる）。
+    let revealPrimaryRequest = PassthroughSubject<Void, Never>()
 
     // フォルダ切替時にキャンセルする fire-and-forget タスク
     private var exifLoadTask: Task<Void, Never>?
@@ -213,13 +215,13 @@ final class LibraryStore: ReindexedGroupSink {
     func resetFilter() {
         preSearchFlatten = nil
         filter.reset()
-        filterDidClear.send()
+        revealPrimaryRequest.send()
     }
 
     /// フィルタパネルの個別 Clear ボタンから呼ばれる。
     /// グリッドが選択中サムネイルへスクロールを戻すためのシグナル。
     func noteFilterSectionCleared() {
-        filterDidClear.send()
+        revealPrimaryRequest.send()
     }
 
     func requestOpenFolder() {
@@ -1788,6 +1790,8 @@ final class LibraryStore: ReindexedGroupSink {
             pendingFilterApplyTask?.cancel(); pendingFilterApplyTask = nil
             isFilterPending = false
             recomputeVisible()
+            // 代表集合が入れ替わりフォーカスが画面外へ出ることがあるため可視範囲へ戻す。
+            revealPrimaryRequest.send()
         } else {
             // ヒストグラム範囲・レーティング等の単純フィルタ。
             // 操作感を最優先し、重い再計算(S2 以降)はデバウンスして非同期適用する。
@@ -1808,6 +1812,8 @@ final class LibraryStore: ReindexedGroupSink {
             self.pendingFilterApplyTask = nil
             self.runDirtyStages()
             self.isFilterPending = false
+            // フィルタ適用で件数・順序が変わるため、フォーカスが画面外なら可視範囲へ戻す。
+            self.revealPrimaryRequest.send()
         }
     }
 
@@ -1834,6 +1840,8 @@ final class LibraryStore: ReindexedGroupSink {
         // reps / filtered / aggregates の再計算は不要。
         mark(sorted: true)
         runDirtyStages()
+        // 並べ替えでフォーカス中サムネイルの位置が変わるため、画面外なら可視範囲へ戻す。
+        revealPrimaryRequest.send()
     }
 
     private func filteredIDs(using customFilter: FilterCriteria) -> [UInt64] {
