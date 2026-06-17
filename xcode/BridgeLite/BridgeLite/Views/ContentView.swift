@@ -347,6 +347,20 @@ struct FolderView: View {
                     shift ? s.previewRangeNavigate(dx: dx, dy: dy) : s.previewNavigate(dx: dx, dy: dy)
                     return nil
                 }
+                // 選択モードのピッカー: 矢印はフォーカスカーソル移動のみ（選択集合は不変）、
+                // Shift で範囲を加算。粘着選択を矢印で壊さない。
+                if s.filmstripMode && s.filmstripSelectionMode {
+                    let dir: FocusDir
+                    switch event.keyCode {
+                    case 123: if cmd { return event }; dir = .prev   // ←
+                    case 124: if cmd { return event }; dir = .next   // →
+                    case 126: dir = cmd ? .first : .up               // ↑
+                    case 125: dir = cmd ? .last : .down              // ↓
+                    default: return event
+                    }
+                    shift ? s.extendSelection(dir) : s.moveFocus(dir)
+                    return nil
+                }
                 switch event.keyCode {
                 case 123: // ←
                     guard !cmd else { return event }

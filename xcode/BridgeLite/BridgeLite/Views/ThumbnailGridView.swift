@@ -485,6 +485,7 @@ private final class GridInteractionNSView: NSView {
     private var mouseDownID: UInt64?
     private var isDragging = false
     private var isRubberBanding = false
+    private var rubberBandBase: Set<UInt64> = []   // 選択モードのラバーバンド加算の起点選択
     private var suppressMouseUp = false
     private var lastClick: (id: UInt64, timestamp: TimeInterval)?
 
@@ -495,10 +496,17 @@ private final class GridInteractionNSView: NSView {
 
     // SwiftUI の ScrollView に埋め込んだ AppKit ビューは、ビューポート外（スクロールで隠れた領域）でも
     // ヒットテストが残る。この NSView は contentHeight 全面サイズのため、ピッカーをスクロールすると
-    // 隠れた部分がビューア領域の裏に被り、クリックを横取りしてしまう。可視範囲外は素通りさせて防ぐ。
+    // 隠れた部分がビューア領域・ステータスバーの上に被り、クリックを横取りしてしまう。
+    // （フィルムストリップの ZStack/zIndex 入れ子では `visibleRect` が contentHeight 全面を返して
+    // 効かないため、エンクロージング NSScrollView の可視内容矩形＝実際の画面上ビューポートで厳密に絞る。）
     override func hitTest(_ point: NSPoint) -> NSView? {
         let local = convert(point, from: superview)
-        guard visibleRect.contains(local) else { return nil }
+        if let scrollView = enclosingScrollView, let docView = scrollView.documentView {
+            let viewport = convert(scrollView.documentVisibleRect, from: docView)
+            guard viewport.contains(local) else { return nil }
+        } else {
+            guard visibleRect.contains(local) else { return nil }
+        }
         return super.hitTest(point)
     }
 
@@ -531,9 +539,15 @@ private final class GridInteractionNSView: NSView {
         } else {
             if !isRubberBanding {
                 isRubberBanding = true
-                if !event.modifierFlags.contains(.shift),
-                   !event.modifierFlags.contains(.command) {
+                // 選択モードは常に加算（既存選択を保持してドラッグ範囲を足す）。
+                if store?.isSelectionModeActive == true {
+                    rubberBandBase = store?.selectedIDs ?? []
+                } else if !event.modifierFlags.contains(.shift),
+                          !event.modifierFlags.contains(.command) {
+                    rubberBandBase = []
                     store?.deselectAll()
+                } else {
+                    rubberBandBase = []
                 }
             }
             updateRubberBand(from: start, to: point)
@@ -552,7 +566,8 @@ private final class GridInteractionNSView: NSView {
         let point = convert(event.locationInWindow, from: nil)
         guard hypot(point.x - start.x, point.y - start.y) < 4 else { return }
         guard let id = cellID(at: point), id == mouseDownID else {
-            store?.deselectAll()
+            // 選択モードはセル外クリックで解除しない（クリアはボタンのみ）。
+            if store?.isSelectionModeActive != true { store?.deselectAll() }
             return
         }
         handleClick(id: id, event: event)
@@ -567,6 +582,7 @@ private final class GridInteractionNSView: NSView {
         mouseDownID = nil
         isDragging = false
         isRubberBanding = false
+        rubberBandBase = []
         suppressMouseUp = false
     }
 
@@ -610,6 +626,18 @@ private final class GridInteractionNSView: NSView {
         guard let store else { return }
         NSApp.keyWindow?.makeFirstResponder(nil)
 
+        // 選択モード: 粘着トグル選択。ダブルクリック起動は無効化し（再クリックで確実に解除）、
+        // Shift は範囲を「加算」、Cmd は単クリックと同義（どちらもトグル）に揃える。
+        if store.isSelectionModeActive {
+            if event.modifierFlags.contains(.shift) {
+                store.rangeSelectAdditive(to: id)
+            } else {
+                store.toggleSelect(id)
+            }
+            lastClick = nil
+            return
+        }
+
         if let lastClick,
            lastClick.id == id,
            event.timestamp - lastClick.timestamp < NSEvent.doubleClickInterval {
@@ -639,8 +667,10 @@ private final class GridInteractionNSView: NSView {
         guard let store, store.entries[id] != nil else { return }
         // 標準挙動(Finder 等): 未選択セルからドラッグ開始 → 他の選択をクリアして
         // そのセルだけを選択し直す。選択済みセルからなら選択全部をドラッグ。
+        // 選択モードでは粘着選択を壊さないよう、置換ではなく「追加」する。
         if !store.selectedIDs.contains(id) {
-            store.selectEntry(id)
+            if store.isSelectionModeActive { store.toggleSelect(id) }
+            else { store.selectEntry(id) }
         }
         let ids = store.selectedIDs
         let scope = resolveDndScope(store: store, flags: event.modifierFlags)
@@ -691,18 +721,24 @@ private final class GridInteractionNSView: NSView {
             )
             if rect.intersects(cellRect) { hits.insert(id) }
         }
-        store.rubberBandSelect(hits)
+        if store.isSelectionModeActive {
+            store.rubberBandSelect(hits, additiveBase: rubberBandBase)
+        } else {
+            store.rubberBandSelect(hits)
+        }
     }
 
     private func showContextMenu(for event: NSEvent) {
         guard let store else { return }
         let point = convert(event.locationInWindow, from: nil)
         guard let id = cellID(at: point), let entry = store.entries[id] else {
-            store.deselectAll()
+            // 選択モードはセル外の操作で選択を解除しない。
+            if !store.isSelectionModeActive { store.deselectAll() }
             return
         }
         if !store.selectedIDs.contains(id) {
-            store.selectEntry(id)
+            if store.isSelectionModeActive { store.toggleSelect(id) }
+            else { store.selectEntry(id) }
         }
         let menu = makeContextMenu(entry: entry, id: id, store: store)
         menu.popUp(positioning: nil, at: point, in: self)

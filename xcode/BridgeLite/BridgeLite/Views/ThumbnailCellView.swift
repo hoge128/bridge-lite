@@ -13,6 +13,8 @@ struct ThumbnailCellView: View {
     // 選択状態は body で store.selectedIDs を読まず、@State + selectionDidUpdate で
     // 自セルだけ更新する（選択変更時に全可視セルが再評価されるのを回避）。
     @State private var isSelected = false
+    // プレビュー生成不可（CRW・MOS 等）。読込シマーと区別してプレースホルダを出す。
+    @State private var previewUnavailable = false
 
     private var cellSize: CGFloat { store.settings.thumbnailSize }
 
@@ -66,7 +68,8 @@ struct ThumbnailCellView: View {
         ZStack {
             Color.secondary.opacity(0.08)
             VStack(spacing: 0) {
-                ThumbnailImageView(cgImage: thumbnail, orientation: thumbnailOrientation)
+                ThumbnailImageView(cgImage: thumbnail, orientation: thumbnailOrientation,
+                                   unavailable: previewUnavailable)
                     .frame(width: cellSize, height: cellSize - Self.infoStripHeight)
                 // カラーラベル帯：サムネイル画像の直下
                 Group {
@@ -112,7 +115,11 @@ struct ThumbnailCellView: View {
                 }.value
                 thumbnail = decoded
                 if isRaw { thumbnailOrientation = orient }
+                if decoded != nil { previewUnavailable = false }
             }
+        }
+        .onReceive(store.previewUnavailableDidUpdate.filter { $0 == self.entry.id }) { _ in
+            if thumbnail == nil { previewUnavailable = true }
         }
         .onReceive(store.exifDidUpdate.filter { $0 == self.entry.id }) { _ in
             exif = store.exifData[entry.id]
@@ -134,6 +141,7 @@ struct ThumbnailCellView: View {
         exif = nil
         // 出現時に現在の選択状態へ同期（以後の変化は selectionDidUpdate で更新）
         isSelected = store.selectedIDs.contains(entry.id)
+        previewUnavailable = store.isPreviewUnavailable(entry.id)
         let id = entry.id
         let url = entry.url
         thumbnailOrientation = entry.isRaw ? (store.thumbnailOrientations[id] ?? .up) : .up
@@ -186,16 +194,27 @@ struct ThumbnailCellView: View {
     }
 
     private func selectionStroke(cornerRadius: CGFloat) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .stroke(
-                    isSelected ? Color.accentColor : Color.clear,
-                    lineWidth: isSelected ? 3.0 : 1.0
-                )
-            if isSelected {
-                RoundedRectangle(cornerRadius: max(0, cornerRadius - 1.5))
-                    .stroke(Color.white.opacity(0.55), lineWidth: 1.0)
-                    .padding(1.5)
+        // 選択モード中は通常の枠線ではなく、全体を半透明の青ベタ塗りで「フォーカス」を示す
+        // （通常選択と視覚的に区別する）。store.filmstripSelectionMode の購読はモード切替時
+        // （まれ）のみ再評価を起こすため、選択変更ごとの全可視セル再評価には影響しない。
+        let pickMode = store.isSelectionModeActive
+        return ZStack {
+            if pickMode {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color.accentColor.opacity(isSelected ? 0.38 : 0.0))
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: isSelected ? 2.0 : 1.0)
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(
+                        isSelected ? Color.accentColor : Color.clear,
+                        lineWidth: isSelected ? 3.0 : 1.0
+                    )
+                if isSelected {
+                    RoundedRectangle(cornerRadius: max(0, cornerRadius - 1.5))
+                        .stroke(Color.white.opacity(0.55), lineWidth: 1.0)
+                        .padding(1.5)
+                }
             }
         }
         .animation(.easeInOut(duration: 0.08), value: isSelected)
@@ -205,6 +224,8 @@ struct ThumbnailCellView: View {
 struct ThumbnailImageView: View {
     let cgImage: CGImage?
     var orientation: Image.Orientation = .up
+    /// プレビューを生成できない RAW。true のとき読込シマーではなく「不可」プレースホルダを出す。
+    var unavailable: Bool = false
 
     var body: some View {
         if let img = cgImage {
@@ -212,6 +233,8 @@ struct ThumbnailImageView: View {
                 .resizable()
                 .scaledToFit() // Fill ではなく Fit: タイル内で写真を見切れさせない
                 .transition(.opacity)
+        } else if unavailable {
+            UnavailablePreviewView(compact: true)
         } else {
             Rectangle()
                 .fill(Color.secondary.opacity(0.15))
@@ -221,6 +244,36 @@ struct ThumbnailImageView: View {
                         .font(.title2)
                 )
                 .shimmer()
+        }
+    }
+}
+
+/// プレビューを表示できない RAW（CIFF CRW・Leaf MOS 等）の共通プレースホルダ。
+/// グリッド（compact）・単体ビュワー・比較ビューで共有する。
+struct UnavailablePreviewView: View {
+    var compact: Bool = false
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(Color.secondary.opacity(0.12))
+            VStack(spacing: compact ? 4 : 10) {
+                Image(systemName: "photo.badge.exclamationmark")
+                    .font(.system(size: compact ? 24 : 52, weight: .light))
+                    .foregroundStyle(.secondary)
+                Text(String(localized: "preview.unavailable", defaultValue: "No preview"))
+                    .font(compact ? .caption2 : .callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                if !compact {
+                    Text(String(localized: "preview.unavailable.detail",
+                                defaultValue: "This RAW has no embedded preview to display."))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+            }
+            .padding(compact ? 4 : 12)
         }
     }
 }

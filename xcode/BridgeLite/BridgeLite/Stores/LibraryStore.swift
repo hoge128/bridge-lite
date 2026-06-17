@@ -9,6 +9,9 @@ enum FilmstripPickerLayout: Hashable {
     case row    // 横一列（水平スクロール）
 }
 
+/// 選択モードのフォーカスカーソル移動方向（矢印キー）。
+enum FocusDir { case next, prev, up, down, first, last }
+
 @Observable @MainActor
 final class LibraryStore: ReindexedGroupSink {
     // エントリ一覧
@@ -68,6 +71,12 @@ final class LibraryStore: ReindexedGroupSink {
     var filmstripPreviewCols: Int = 1                   // 上下矢印ナビ用に FilmstripView が反映
     // フィルムストリップのピッカー（下グリッド）レイアウト。grid=通常グリッド / row=横一列。
     var filmstripPickerLayout: FilmstripPickerLayout = .grid
+    // フィルムストリップ ピッカーの「選択モード」。ON のとき単クリック＝粘着トグル選択
+    // （セル外クリックで解除しない／ダブルクリック起動は無効／再クリックで解除）。
+    // 集合は selectedIDs を流用する（＝比較プレビューを直接キュレーションする）。transient。
+    var filmstripSelectionMode: Bool = false
+    /// 選択モードが実効中か。同じグリッドはライブラリでも使うため、フィルムストリップ時のみ有効。
+    var isSelectionModeActive: Bool { filmstripMode && filmstripSelectionMode }
     var compareAnchorID: UInt64? = nil
     // When ViewerView is entered from CompareMode, restricts arrow-key navigation to this list.
     var viewerCompareGroupMembers: [UInt64]? = nil
@@ -139,6 +148,11 @@ final class LibraryStore: ReindexedGroupSink {
     let thumbnailDidUpdate = PassthroughSubject<UInt64, Never>()
     let exifDidUpdate = PassthroughSubject<UInt64, Never>()
     let xmpDidUpdate = PassthroughSubject<UInt64, Never>()
+    // プレビューを生成できなかった RAW（CIFF CRW・Leaf MOS 等）。グリッド/ビュワー/比較で
+    // 「読込中シマー」ではなく「プレビュー不可」プレースホルダを出すために記録する。
+    // selectionDidUpdate 同様、変化した id のみ通知してセルの全再評価を避ける。
+    private(set) var previewUnavailableIDs: Set<UInt64> = []
+    let previewUnavailableDidUpdate = PassthroughSubject<UInt64, Never>()
     // 選択変更時に「状態が変わった id 群」を通知（per-cell @State 更新用）。
     let selectionDidUpdate = PassthroughSubject<Set<UInt64>, Never>()
     // フィルタの Reset / 個別 Clear / 適用、および並べ替えで visibleIDs を再構成したあとに発火。
@@ -513,6 +527,16 @@ final class LibraryStore: ReindexedGroupSink {
 
     // MARK: - サムネイル進捗
 
+    func isPreviewUnavailable(_ id: UInt64) -> Bool { previewUnavailableIDs.contains(id) }
+
+    /// プレビュー（埋込 JPEG / RGB）を取り出せなかった RAW を記録する。
+    /// グリッド/ビュワー/比較が「プレビュー不可」プレースホルダへ切り替えるためのフラグ。
+    func notePreviewUnavailable(id: UInt64, generation: Int) {
+        guard generation == scanGeneration else { return }
+        guard previewUnavailableIDs.insert(id).inserted else { return }
+        previewUnavailableDidUpdate.send(id)
+    }
+
     /// サムネイル生成の試行完了を記録（成功・失敗問わず呼ぶこと）。
     /// scanPhase == .loading のときのみカウントし、resume() 時の二重カウントを防ぐ。
     func noteThumbnailAttemptFinished(generation: Int) {
@@ -586,10 +610,52 @@ final class LibraryStore: ReindexedGroupSink {
         anchorID = nil
     }
 
-    func rubberBandSelect(_ ids: Set<UInt64>) {
-        selectedIDs = ids
-        primaryID = ids.isEmpty ? nil : visibleIDs.first(where: { ids.contains($0) })
+    func rubberBandSelect(_ ids: Set<UInt64>, additiveBase: Set<UInt64>? = nil) {
+        let final = additiveBase.map { $0.union(ids) } ?? ids
+        selectedIDs = final
+        primaryID = final.isEmpty ? nil : visibleIDs.first(where: { final.contains($0) })
         anchorID = primaryID
+    }
+
+    /// 選択モードの Shift 範囲：anchor〜target の範囲を既存選択に「加算」する（置換しない）。
+    func rangeSelectAdditive(to id: UInt64) {
+        guard let anchor = anchorID,
+              let a = visibleIDs.firstIndex(of: anchor),
+              let t = visibleIDs.firstIndex(of: id) else {
+            toggleSelect(id); return
+        }
+        let lo = min(a, t), hi = max(a, t)
+        selectedIDs.formUnion(visibleIDs[lo...hi])
+        primaryID = id
+        anchorID = id
+    }
+
+    /// 選択モードのフォーカスカーソル移動。選択集合 (selectedIDs) は変えず primaryID だけ動かす。
+    func moveFocus(_ dir: FocusDir) {
+        guard let i = focusTargetIndex(dir) else { return }
+        primaryID = visibleIDs[i]
+        revealPrimaryRequest.send()
+    }
+
+    /// 選択モードの Shift+矢印：フォーカス移動先まで範囲を加算選択する。
+    func extendSelection(_ dir: FocusDir) {
+        guard let i = focusTargetIndex(dir) else { return }
+        rangeSelectAdditive(to: visibleIDs[i])
+        revealPrimaryRequest.send()
+    }
+
+    private func focusTargetIndex(_ dir: FocusDir) -> Int? {
+        guard !visibleIDs.isEmpty else { return nil }
+        guard let id = primaryID, let idx = visibleIDs.firstIndex(of: id) else { return 0 }
+        let last = visibleIDs.count - 1
+        switch dir {
+        case .next:  return min(last, idx + 1)
+        case .prev:  return max(0, idx - 1)
+        case .up:    return max(0, idx - gridColumnCount)
+        case .down:  return min(last, idx + gridColumnCount)
+        case .first: return 0
+        case .last:  return last
+        }
     }
 
     func navigateNext() {
@@ -2479,6 +2545,7 @@ final class LibraryStore: ReindexedGroupSink {
         shotGroups = [:]
         thumbnailBlobs = [:]
         thumbnailOrientations = [:]
+        previewUnavailableIDs = []
         luminanceScores = [:]
         ThumbnailDecodeCache.shared.evict(urls: urlsToEvict)
         exifData = [:]

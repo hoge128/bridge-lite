@@ -8,8 +8,10 @@ pub const SUPPORTED_EXTENSIONS: &[&str] = &[
 ];
 
 pub const RAW_EXTENSIONS: &[&str] = &[
-    "arw", "cr2", "cr3", "nef", "orf", "rw2", "dng", "raf", "3fr", "fff", "iiq", "mos", "mrw",
-    "nrw", "pef", "srw", "x3f",
+    "arw", "cr2", "cr3", "crw", "nef", "orf", "rw2", "rwl", "dng", "raf",
+    "3fr", "fff", "iiq", "mos", "nrw", "pef", "srw",
+    // 非対応（サンプル未入手でパーサ検証不能）: x3f (Sigma Foveon) / mrw (Minolta)。
+    // スキャン対象から除外＝壊れたサムネで一覧に出さない。対応時はここに戻す。
 ];
 
 #[derive(Debug, Clone)]

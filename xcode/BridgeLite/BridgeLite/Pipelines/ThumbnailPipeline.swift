@@ -136,25 +136,30 @@ enum ThumbnailPipeline {
             // 3. RAW: extract preview JPEG from IFD, scale to targetPixels, re-encode for cache.
             //    Use .preview (mid-size IFD JPEG) instead of .thumbnail to ensure Retina sharpness.
             //    向きとプレビュー抽出を同一 Task で実行してファイルオープンを 1 回に削減する。
-            if entry.isRaw,
-               let rawJpeg = await BridgeCore.extractRawJpeg(url: entry.url, quality: .preview),
-               let rawImg = CGImage.fromJPEGData(rawJpeg) {
-                let url = entry.url
-                let (orient, cgOrientRaw) = await Task.detached(priority: BridgeQoS.thumbnail) {
-                    guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else {
-                        return (Image.Orientation.up, UInt8(0))
-                    }
-                    let cgOrient = readOrientation(src)
-                    return (Image.Orientation(cgOrient), UInt8(cgOrient.rawValue))
-                }.value
-                let scaled = rawImg.scaledToFit(maxPixels: targetPixels) ?? rawImg
-                guard let jpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
-                await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
-                await store.setThumbnailOrientation(id: entry.id, orientation: orient, generation: generation)
-                // スケール済み CGImage をそのまま NSCache に格納 — スクロール時の再デコードを省く
-                ThumbnailDecodeCache.shared.store(url: entry.url, image: scaled)
-                await writeBuffer.enqueue(url: entry.url, data: jpeg, rawOrientation: cgOrientRaw)
-                await phashPipeline.enqueue(entry: entry, source: scaled, db: db)
+            if entry.isRaw {
+                if let rawJpeg = await BridgeCore.extractRawJpeg(url: entry.url, quality: .preview),
+                   let rawImg = CGImage.fromJPEGData(rawJpeg) {
+                    let url = entry.url
+                    let (orient, cgOrientRaw) = await Task.detached(priority: BridgeQoS.thumbnail) {
+                        guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else {
+                            return (Image.Orientation.up, UInt8(0))
+                        }
+                        let cgOrient = readOrientation(src)
+                        return (Image.Orientation(cgOrient), UInt8(cgOrient.rawValue))
+                    }.value
+                    let scaled = rawImg.scaledToFit(maxPixels: targetPixels) ?? rawImg
+                    guard let jpeg = scaled.jpegData(compressionQuality: 0.85) else { return }
+                    await store.setThumbnail(id: entry.id, jpeg: jpeg, generation: generation)
+                    await store.setThumbnailOrientation(id: entry.id, orientation: orient, generation: generation)
+                    // スケール済み CGImage をそのまま NSCache に格納 — スクロール時の再デコードを省く
+                    ThumbnailDecodeCache.shared.store(url: entry.url, image: scaled)
+                    await writeBuffer.enqueue(url: entry.url, data: jpeg, rawOrientation: cgOrientRaw)
+                    await phashPipeline.enqueue(entry: entry, source: scaled, db: db)
+                } else {
+                    // プレビュー（埋込 JPEG / RGB）を取り出せない RAW（CIFF CRW・Leaf MOS 等）。
+                    // 永久シマーではなく「プレビュー不可」プレースホルダを出すため記録する。
+                    await store.notePreviewUnavailable(id: entry.id, generation: generation)
+                }
             }
         }
         // 成功・失敗・スキップに関わらず試行完了を通知（進捗バーが 99% 止まりになるのを防ぐ）

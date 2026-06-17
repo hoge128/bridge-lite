@@ -62,6 +62,8 @@ struct ViewerView: View {
                     .scaledToFit()
                     .blur(radius: isLoadingFullRes ? 24 : 0)
                     .opacity(isLoadingFullRes ? 0.35 : 1.0)
+            } else if let entry = selectedEntry, entry.isRaw, store.isPreviewUnavailable(entry.id) {
+                UnavailablePreviewView()
             } else {
                 Image(systemName: "photo")
                     .font(.system(size: 80))
@@ -243,6 +245,10 @@ struct ViewerView: View {
             isLoadingFullRes = true
             defer { isLoadingFullRes = false }
             fullRes = await loadFullRes(entry: entry)
+            // フル解像度もサムネも得られない RAW はプレビュー不可として記録（プレースホルダ表示）。
+            if fullRes == nil, entry.isRaw, thumbnail == nil {
+                store.notePreviewUnavailable(id: entry.id, generation: store.scanGeneration)
+            }
         }
     }
 

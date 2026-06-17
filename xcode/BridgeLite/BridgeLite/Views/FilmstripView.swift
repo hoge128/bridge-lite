@@ -28,6 +28,8 @@ struct FilmstripView: View {
     @State private var pushedDir: ResizeDir? = nil
     // 仕切りの上にポインタがあるか（ドラッグ終了時にカーソルを正しく戻すために保持）。
     @State private var dividerHovering = false
+    // 選択モードの説明ポップオーバー。
+    @State private var showSelectionHelp = false
 
     // ビュワー（プレビュー）のドラッグ矩形選択（ラバーバンド）。座標は previewArea ローカル。
     @State private var previewBandActive = false
@@ -81,6 +83,9 @@ struct FilmstripView: View {
                     // ピッカーのヘッダー。グリッドは identity 維持のため外側 VStack 最下段に保つので、
                     // ピッカー側の「浮き」は境界に接するこのヘッダー（上辺へ向けた影）で表現する。
                     pickerHeader
+                        // 一度平面化してから影を落とす＝内部要素（選択モードのスイッチ／クリア等）
+                        // に個別の影が乗らず、浮きはヘッダー外枠のみが表現する。
+                        .compositingGroup()
                         .elevation(active: !store.filmstripPreviewActive, towardBottom: false)
                         .zIndex(!store.filmstripPreviewActive ? 1 : 0)
                 }
@@ -173,11 +178,46 @@ struct FilmstripView: View {
     /// ピッカー（グリッド）のヘッダー。現在フィルタ済み＝表示中サムネイルの総数を表示。
     private var pickerHeader: some View {
         let active = !store.filmstripPreviewActive
+        let selectionMode = Binding(
+            get: { store.filmstripSelectionMode },
+            set: { store.filmstripSelectionMode = $0 }
+        )
         return HStack(spacing: 10) {
             paneDot(active: active)
             Text(String(localized: "filmstrip.pane.picker", defaultValue: "Picker"))
                 .font(.callout.weight(.medium))
                 .foregroundStyle(active ? .primary : .secondary)
+
+            Divider().frame(height: 14)
+
+            // 選択モード ON/OFF（トグルスイッチ）
+            Toggle(isOn: selectionMode) {
+                Text(String(localized: "filmstrip.selectmode.toggle", defaultValue: "Selection Mode"))
+            }
+            .toggleStyle(.switch)
+            .controlSize(.small)
+            .help(String(localized: "filmstrip.selectmode.toggle.help",
+                         defaultValue: "Sticky multi-select for building the compare set"))
+
+            // モード説明（はてなボタン）
+            Button { showSelectionHelp.toggle() } label: {
+                Image(systemName: "questionmark.circle")
+            }
+            .buttonStyle(.borderless)
+            .help(String(localized: "filmstrip.selectmode.help.button",
+                         defaultValue: "What is Selection Mode?"))
+            .popover(isPresented: $showSelectionHelp, arrowEdge: .bottom) {
+                selectionModeHelp
+            }
+
+            // ON のときだけクリアボタン
+            if store.filmstripSelectionMode {
+                Button(String(localized: "filmstrip.selectmode.clear", defaultValue: "Clear")) {
+                    store.deselectAll()
+                }
+                .controlSize(.small)
+                .disabled(store.selectedIDs.isEmpty)
+            }
 
             Spacer()
 
@@ -193,6 +233,32 @@ struct FilmstripView: View {
         .contentShape(Rectangle())
         .onTapGesture { store.filmstripPreviewActive = false }
         .overlay(alignment: .bottom) { Divider() }
+    }
+
+    /// 選択モードを有効にしたときの挙動説明（はてなボタンのポップオーバー）。
+    private var selectionModeHelp: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Label(String(localized: "filmstrip.selectmode.toggle", defaultValue: "Selection Mode"),
+                  systemImage: "checkmark.circle")
+                .font(.headline)
+            VStack(alignment: .leading, spacing: 6) {
+                Text(String(localized: "filmstrip.selectmode.help.1",
+                            defaultValue: "Click a thumbnail to focus it; clicking empty space does not clear your selection."))
+                Text(String(localized: "filmstrip.selectmode.help.2",
+                            defaultValue: "Click a focused thumbnail again to remove it."))
+                Text(String(localized: "filmstrip.selectmode.help.3",
+                            defaultValue: "Focused photos are shown with a translucent blue fill — distinct from normal selection."))
+                Text(String(localized: "filmstrip.selectmode.help.4",
+                            defaultValue: "Drag to add a range; Shift-click extends the range. Double-click to open is disabled."))
+                Text(String(localized: "filmstrip.selectmode.help.5",
+                            defaultValue: "Use Clear to deselect everything at once."))
+            }
+            .font(.callout)
+            .foregroundStyle(.secondary)
+            .fixedSize(horizontal: false, vertical: true)
+        }
+        .padding(16)
+        .frame(width: 320)
     }
 
     // MARK: - Preview area（フィルムストリップ専用の白背景）

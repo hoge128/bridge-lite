@@ -388,11 +388,13 @@ struct CompareMemberColumn: View {
                 isLoadingPreview = true
                 previewImage = await loadDownsampled(entry: entry, maxPixels: maxPx)
                 isLoadingPreview = false
+                markUnavailableIfNeeded(entry)
                 return
             }
             isLoadingPreview = true
             previewImage = await loadPreview(entry: entry)
             isLoadingPreview = false
+            markUnavailableIfNeeded(entry)
             // Auto-render for RAW: show embedded first, then replace.
             // Skip for formats with no full-res JPEG (e.g. CR2) since CIRAWFilter will return nil.
             if entry.isRaw,
@@ -540,6 +542,13 @@ struct CompareMemberColumn: View {
         return await LargeImageDecoder.decodeDownsampledURL(entry.url, maxPixels: maxPixels)
     }
 
+    /// プレビューもサムネも得られない RAW を「プレビュー不可」として記録する。
+    private func markUnavailableIfNeeded(_ entry: PhotoEntry) {
+        if previewImage == nil, entry.isRaw, thumbnail == nil {
+            store.notePreviewUnavailable(id: memberID, generation: store.scanGeneration)
+        }
+    }
+
     private var imageArea: some View {
         ZStack(alignment: .topTrailing) {
             Group {
@@ -550,6 +559,9 @@ struct CompareMemberColumn: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .blur(radius: isLoadingPreview && previewImage == nil ? 8 : 0)
                         .animation(.easeOut(duration: 0.2), value: previewImage == nil)
+                } else if let entry = entry, entry.isRaw, store.isPreviewUnavailable(entry.id) {
+                    UnavailablePreviewView(compact: compact)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     Rectangle()
                         .fill(placeholderFill)

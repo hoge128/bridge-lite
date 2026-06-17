@@ -71,25 +71,36 @@ pub fn extract(path: &Path, quality: Quality) -> Option<Vec<u8>> {
             //   ARW  – IFD1=small JPEG;           SubIFDs=large previews
             //   NEF  – IFD1=small JPEG;           SubIFDs=large previews
             //
-            // Quality::Preview should return the best-quality JPEG available:
-            //   1. In::PRIMARY (IFD0) — standard EXIF
-            //   2. In(2)             — PEF IFD2 large preview
-            //   3. In::THUMBNAIL     — CR2/PEF IFD1 small thumbnail (last resort)
-            //   4. SubIFD walk       — NEF/DNG/ARW
+            // Quality::Preview / Full should return the *largest* JPEG available.
+            //
+            // `extract_tiff_subifd` now walks the entire IFD tree (main chain + SubIFDs)
+            // and selects by size, so it is a superset of the kamadak-exif IFD0/IFD1/IFD2
+            // lookups. We therefore run it FIRST for Preview/Full: otherwise a small IFD0
+            // JPEG (e.g. Nikon Z6 III's 160×120 in IFD0) short-circuits the chain and the
+            // real large preview in a SubIFD is never reached. kamadak-exif stays as a
+            // fallback for any layout the manual walk happens to miss.
+            //
+            // Thumbnail keeps kamadak's IFD1 lookup first (cheapest path to a small JPEG).
+            // Final fallback `extract_tiff_rgb_preview`: medium-format backs (Hasselblad
+            // 3FR/FFF, Phase One IIQ) embed no JPEG — only an uncompressed RGB preview.
+            // It runs last so it never overrides a real embedded JPEG.
             match quality {
                 Quality::Thumbnail =>
                     extract_from_ifd(path, In::THUMBNAIL)
-                        .or_else(|| extract_tiff_subifd(path, is_le, quality)),
+                        .or_else(|| extract_tiff_subifd(path, is_le, quality))
+                        .or_else(|| extract_tiff_rgb_preview(path, is_le)),
                 Quality::Preview =>
-                    extract_from_ifd(path, In::PRIMARY)
+                    extract_tiff_subifd(path, is_le, quality)
+                        .or_else(|| extract_from_ifd(path, In::PRIMARY))
                         .or_else(|| extract_from_ifd(path, In(2)))
                         .or_else(|| extract_from_ifd(path, In::THUMBNAIL))
-                        .or_else(|| extract_tiff_subifd(path, is_le, quality)),
+                        .or_else(|| extract_tiff_rgb_preview(path, is_le)),
                 Quality::Full =>
-                    extract_from_ifd(path, In(2))
+                    extract_tiff_subifd(path, is_le, quality)
+                        .or_else(|| extract_from_ifd(path, In(2)))
                         .or_else(|| extract_from_ifd(path, In::PRIMARY))
                         .or_else(|| extract_from_ifd(path, In::THUMBNAIL))
-                        .or_else(|| extract_tiff_subifd(path, is_le, quality)),
+                        .or_else(|| extract_tiff_rgb_preview(path, is_le)),
             }
         }
         _ => None,
@@ -134,17 +145,24 @@ fn extract_from_ifd(path: &Path, ifd: In) -> Option<Vec<u8>> {
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// SubIFD fallback (NEF / DNG)
+// TIFF IFD-tree walk (NEF / DNG / Apple ProRAW / Samsung …)
 // ─────────────────────────────────────────────────────────────────────────────
 //
-// Nikon NEF stores JPEG previews in SubIFDs (tag 0x014A) with standard
-// JPEGInterchangeFormat / JPEGInterchangeFormatLength tags.
+// kamadak-exif only checks the standard IFD0 + IFD1 chain via JPEGInterchangeFormat,
+// so it misses previews stored elsewhere. We walk the entire IFD tree manually:
 //
-// DNG stores JPEG previews in SubIFDs with Compression=7 (JPEG) and the
-// offset/length via StripOffsets / StripByteCounts instead.
+//   • main IFD chain (IFD0 → IFD1 → … via NextIFD pointers)
+//   • every SubIFD referenced from those IFDs (tag 0x014A)
 //
-// kamadak-exif only checks the standard IFD chain (IFD0 + IFD1), so SubIFDs
-// are invisible to it. We walk them manually.
+// and in each IFD collect a JPEG candidate via either:
+//
+//   • JPEGInterchangeFormat (0x0201) + JPEGInterchangeFormatLength (0x0202)   ← NEF
+//   • Compression (0x0103) == 7 (JPEG) + StripOffsets (0x0111) + StripByteCounts (0x0117)
+//        ← DNG SubIFD (Leica) AND Apple ProRAW / iPhone DNG, where the preview JPEG
+//          lives in the *main* IFD chain rather than a SubIFD (single-strip).
+//
+// Each candidate is verified to actually begin with a JPEG SOI before being kept,
+// so non-JPEG strips (raw sensor data) can never be selected by mistake.
 
 fn extract_tiff_subifd(path: &Path, is_le: bool, quality: Quality) -> Option<Vec<u8>> {
     use std::io::{BufReader, Read, Seek, SeekFrom};
@@ -163,86 +181,127 @@ fn extract_tiff_subifd(path: &Path, is_le: bool, quality: Quality) -> Option<Vec
         let mut b = [0u8; 4]; f.read_exact(&mut b).ok()?;
         Some(if le { u32::from_le_bytes(b) } else { u32::from_be_bytes(b) })
     }
+    // Read a count==1 scalar tag value honoring its TIFF type. Critical for big-endian
+    // (MM) files: a SHORT (type 3) is left-justified in the 4-byte value field, so reading
+    // it as a u32 yields `value << 16` (e.g. Compression 7 → 0x00070000). Apple ProRAW /
+    // iPhone DNG are big-endian, which is why `compression == 7` silently failed before.
+    fn tag_scalar(buf: &[u8], base: usize, le: bool) -> u64 {
+        let typ = r16(&buf[base + 2..], le);
+        match typ {
+            3 => r16(&buf[base + 8..], le) as u64,  // SHORT
+            1 => buf[base + 8] as u64,              // BYTE
+            _ => r32(&buf[base + 8..], le) as u64,  // LONG / offsets / fallback
+        }
+    }
+    // Read an IFD: returns (entries_buf, next_ifd_offset). File position lands after entries.
+    fn read_ifd(f: &mut BufReader<std::fs::File>, off: u64, le: bool) -> Option<(Vec<u8>, u64)> {
+        f.seek(SeekFrom::Start(off)).ok()?;
+        let count = read16(f, le)?.min(1000) as usize;
+        let mut buf = vec![0u8; count * 12];
+        f.read_exact(&mut buf).ok()?;
+        let next = read32(f, le).unwrap_or(0) as u64;
+        Some((buf, next))
+    }
+    // Does the file contain a JPEG SOI (FF D8) at `off`?
+    fn is_jpeg_at(f: &mut BufReader<std::fs::File>, off: u64) -> bool {
+        if f.seek(SeekFrom::Start(off)).is_err() { return false; }
+        let mut b = [0u8; 2];
+        f.read_exact(&mut b).is_ok() && b == [0xFF, 0xD8]
+    }
 
     let file = std::fs::File::open(path).ok()?;
     let file_len = file.metadata().ok()?.len();
     let mut f = BufReader::with_capacity(65536, file);
 
-    // Read IFD0 offset from TIFF header
+    // Read IFD0 offset from TIFF header.
     f.seek(SeekFrom::Start(4)).ok()?;
     let ifd0_off = read32(&mut f, is_le)? as u64;
 
-    // Read IFD0 entry count + all entries as a block
-    f.seek(SeekFrom::Start(ifd0_off)).ok()?;
-    let entry_count = read16(&mut f, is_le)?.min(1000) as usize;
-    let mut ifd0_buf = vec![0u8; entry_count * 12];
-    f.read_exact(&mut ifd0_buf).ok()?;
+    // Build the list of IFD offsets to inspect: main chain + their SubIFDs.
+    let mut ifd_offsets: Vec<u64> = Vec::new();
+    let mut seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut next = ifd0_off;
+    let mut guard = 0;
+    while next != 0 && next < file_len && seen.insert(next) && guard < 32 {
+        guard += 1;
+        let Some((buf, next_ifd)) = read_ifd(&mut f, next, is_le) else { break };
+        ifd_offsets.push(next);
 
-    // Find SubIFDs tag (0x014A) in IFD0
-    let mut subifd_offsets: Vec<u64> = Vec::new();
-    for i in 0..entry_count {
-        let base = i * 12;
-        if base + 12 > ifd0_buf.len() { break; }
-        if r16(&ifd0_buf[base..], is_le) == 0x014A {
-            let count = r32(&ifd0_buf[base + 4..], is_le) as usize;
-            let val   = r32(&ifd0_buf[base + 8..], is_le) as u64;
-            if count * 4 > 4 {
-                f.seek(SeekFrom::Start(val)).ok()?;
-                for _ in 0..count.min(32) {
-                    if let Some(sub) = read32(&mut f, is_le) {
-                        subifd_offsets.push(sub as u64);
+        // Collect SubIFDs (0x014A) referenced from this IFD.
+        let count = buf.len() / 12;
+        for i in 0..count {
+            let base = i * 12;
+            if r16(&buf[base..], is_le) != 0x014A { continue; }
+            let cnt = r32(&buf[base + 4..], is_le) as usize;
+            let val = r32(&buf[base + 8..], is_le) as u64;
+            if cnt * 4 > 4 {
+                if f.seek(SeekFrom::Start(val)).is_ok() {
+                    for _ in 0..cnt.min(32) {
+                        if let Some(sub) = read32(&mut f, is_le) {
+                            let sub = sub as u64;
+                            if sub != 0 && sub < file_len && seen.insert(sub) { ifd_offsets.push(sub); }
+                        }
                     }
                 }
-            } else {
-                subifd_offsets.push(val);
+            } else if val != 0 && val < file_len && seen.insert(val) {
+                ifd_offsets.push(val);
             }
-            break;
         }
+        next = next_ifd;
     }
 
+    // Scan each IFD for a JPEG candidate (verified to begin with SOI).
     let mut candidates: Vec<(u64, usize)> = Vec::new();
-
-    for sub_off in subifd_offsets {
-        f.seek(SeekFrom::Start(sub_off)).ok()?;
-        let sub_count = read16(&mut f, is_le).unwrap_or(0).min(500) as usize;
-        if sub_count == 0 { continue; }
-
-        let mut sub_buf = vec![0u8; sub_count * 12];
-        if f.read_exact(&mut sub_buf).is_err() { continue; }
+    for off in ifd_offsets {
+        let Some((buf, _)) = read_ifd(&mut f, off, is_le) else { continue };
+        let count = buf.len() / 12;
 
         let mut jpeg_off: Option<u64> = None;
         let mut jpeg_len: Option<usize> = None;
         let mut strip_off: Option<u64> = None;
         let mut strip_len: Option<usize> = None;
-        let mut compression: u32 = 1;
+        let mut compression: u64 = 1;
+        let mut photometric: u64 = 0;
 
-        for i in 0..sub_count {
+        for i in 0..count {
             let base = i * 12;
-            if base + 12 > sub_buf.len() { break; }
-            let tag = r16(&sub_buf[base..], is_le);
-            let val = r32(&sub_buf[base + 8..], is_le) as u64;
+            let tag = r16(&buf[base..], is_le);
+            let val = tag_scalar(&buf, base, is_le);
             match tag {
-                0x0201 => jpeg_off  = Some(val),
-                0x0202 => jpeg_len  = Some(val as usize),
-                0x0111 => strip_off = Some(val),
-                0x0117 => strip_len = Some(val as usize),
-                0x0103 => compression = val as u32,
+                0x0201 => jpeg_off    = Some(val),
+                0x0202 => jpeg_len    = Some(val as usize),
+                0x0111 => strip_off   = Some(val),
+                0x0117 => strip_len   = Some(val as usize),
+                0x0103 => compression = val,
+                0x0106 => photometric = val,
                 _ => {}
             }
         }
 
-        if let (Some(off), Some(len)) = (jpeg_off, jpeg_len) {
-            if len >= 10 && off + len as u64 <= file_len { candidates.push((off, len)); }
+        // JPEGInterchangeFormat is by definition an embedded JPEG (never raw sensor data),
+        // so accept unconditionally once the SOI is verified. (NEF / ARW / CR2 thumbnails.)
+        if let (Some(o), Some(l)) = (jpeg_off, jpeg_len) {
+            if l >= 10 && o + l as u64 <= file_len && is_jpeg_at(&mut f, o) {
+                candidates.push((o, l));
+            }
         }
-        if compression == 7 {
-            if let (Some(off), Some(len)) = (strip_off, strip_len) {
-                if len >= 10 && off + len as u64 <= file_len { candidates.push((off, len)); }
+        // Compression==7 (JPEG) stored via strips — covers DNG SubIFD previews (Leica) AND
+        // Apple ProRAW / iPhone DNG where the preview lives in the main IFD chain.
+        // Gate on PhotometricInterpretation ∈ {RGB(2), YCbCr(6)} so the actual raw image
+        // (CFA / LinearRaw, which is *also* a lossless-JPEG strip starting with FF D8) is
+        // never mistaken for a displayable preview. Single-strip assumption (count==1).
+        if compression == 7 && (photometric == 2 || photometric == 6) {
+            if let (Some(o), Some(l)) = (strip_off, strip_len) {
+                if l >= 10 && o + l as u64 <= file_len && is_jpeg_at(&mut f, o) {
+                    candidates.push((o, l));
+                }
             }
         }
     }
 
     if candidates.is_empty() { return None; }
     candidates.sort_by_key(|&(_, len)| len);
+    candidates.dedup();
 
     let (off, len) = match quality {
         Quality::Thumbnail => candidates[0],
@@ -254,6 +313,115 @@ fn extract_tiff_subifd(path: &Path, is_le: bool, quality: Quality) -> Option<Vec
     let mut buf = vec![0u8; len];
     f.read_exact(&mut buf).ok()?;
     if buf.starts_with(&[0xFF, 0xD8]) { Some(buf) } else { None }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Uncompressed-RGB preview → JPEG (medium format: Hasselblad 3FR/FFF, Phase One IIQ)
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// These backs embed NO JPEG preview — only an uncompressed, interleaved 8-bit RGB image
+// (PhotometricInterpretation=RGB, Compression=1) in a TIFF IFD, alongside the CFA raw.
+// We read the largest such RGB strip and JPEG-encode it so the rest of the pipeline
+// (which expects JPEG bytes) can display it.
+//
+// 8-bit chunky only: validated via `strip_len == width*height*3` and PlanarConfiguration,
+// so 16-bit / planar / unexpected layouts are skipped rather than mis-decoded. This runs
+// only as a last resort after the JPEG paths return None, so it never overrides a real
+// embedded JPEG preview.
+fn extract_tiff_rgb_preview(path: &Path, is_le: bool) -> Option<Vec<u8>> {
+    use std::io::{BufReader, Read, Seek, SeekFrom};
+    fn r16(b: &[u8], le: bool) -> u16 { if le { u16::from_le_bytes([b[0], b[1]]) } else { u16::from_be_bytes([b[0], b[1]]) } }
+    fn r32(b: &[u8], le: bool) -> u32 { if le { u32::from_le_bytes([b[0], b[1], b[2], b[3]]) } else { u32::from_be_bytes([b[0], b[1], b[2], b[3]]) } }
+    fn read16(f: &mut impl Read, le: bool) -> Option<u16> { let mut b = [0u8; 2]; f.read_exact(&mut b).ok()?; Some(if le { u16::from_le_bytes(b) } else { u16::from_be_bytes(b) }) }
+    fn read32(f: &mut impl Read, le: bool) -> Option<u32> { let mut b = [0u8; 4]; f.read_exact(&mut b).ok()?; Some(if le { u32::from_le_bytes(b) } else { u32::from_be_bytes(b) }) }
+    fn tag_scalar(buf: &[u8], base: usize, le: bool) -> u64 {
+        match r16(&buf[base + 2..], le) { 3 => r16(&buf[base + 8..], le) as u64, 1 => buf[base + 8] as u64, _ => r32(&buf[base + 8..], le) as u64 }
+    }
+    fn read_ifd(f: &mut BufReader<std::fs::File>, off: u64, le: bool) -> Option<(Vec<u8>, u64)> {
+        f.seek(SeekFrom::Start(off)).ok()?;
+        let c = read16(f, le)?.min(1000) as usize;
+        let mut buf = vec![0u8; c * 12];
+        f.read_exact(&mut buf).ok()?;
+        let next = read32(f, le).unwrap_or(0) as u64;
+        Some((buf, next))
+    }
+
+    let file = std::fs::File::open(path).ok()?;
+    let file_len = file.metadata().ok()?.len();
+    let mut f = BufReader::with_capacity(65536, file);
+    f.seek(SeekFrom::Start(4)).ok()?;
+    let ifd0 = read32(&mut f, is_le)? as u64;
+
+    // Collect main IFD chain + SubIFDs.
+    let mut offs: Vec<u64> = Vec::new();
+    let mut seen: std::collections::HashSet<u64> = std::collections::HashSet::new();
+    let mut next = ifd0;
+    let mut guard = 0;
+    while next != 0 && next < file_len && seen.insert(next) && guard < 32 {
+        guard += 1;
+        let Some((buf, nx)) = read_ifd(&mut f, next, is_le) else { break };
+        offs.push(next);
+        let c = buf.len() / 12;
+        for i in 0..c {
+            let b = i * 12;
+            if r16(&buf[b..], is_le) != 0x014A { continue; }
+            let cnt = r32(&buf[b + 4..], is_le) as usize;
+            let val = r32(&buf[b + 8..], is_le) as u64;
+            if cnt * 4 > 4 {
+                if f.seek(SeekFrom::Start(val)).is_ok() {
+                    for _ in 0..cnt.min(32) {
+                        if let Some(s) = read32(&mut f, is_le) {
+                            let s = s as u64;
+                            if s != 0 && s < file_len && seen.insert(s) { offs.push(s); }
+                        }
+                    }
+                }
+            } else if val != 0 && val < file_len && seen.insert(val) { offs.push(val); }
+        }
+        next = nx;
+    }
+
+    // Pick the largest interleaved 8-bit RGB image.
+    let mut best: Option<(u64, usize, u32, u32)> = None; // (off, len, w, h)
+    for off in offs {
+        let Some((buf, _)) = read_ifd(&mut f, off, is_le) else { continue };
+        let c = buf.len() / 12;
+        let (mut w, mut h, mut spp, mut comp, mut pi, mut planar, mut so, mut sl) =
+            (0u64, 0u64, 1u64, 1u64, 0u64, 1u64, 0u64, 0u64);
+        for i in 0..c {
+            let b = i * 12;
+            match r16(&buf[b..], is_le) {
+                0x0100 => w      = tag_scalar(&buf, b, is_le),
+                0x0101 => h      = tag_scalar(&buf, b, is_le),
+                0x0115 => spp    = tag_scalar(&buf, b, is_le),
+                0x0103 => comp   = tag_scalar(&buf, b, is_le),
+                0x0106 => pi     = tag_scalar(&buf, b, is_le),
+                0x011C => planar = tag_scalar(&buf, b, is_le),
+                0x0111 => so     = tag_scalar(&buf, b, is_le),
+                0x0117 => sl     = tag_scalar(&buf, b, is_le),
+                _ => {}
+            }
+        }
+        // RGB, uncompressed, 3 chunky 8-bit samples (len == w*h*3), single strip in-bounds.
+        if pi == 2 && comp == 1 && spp == 3 && planar == 1
+            && w > 0 && h > 0 && w <= 10000 && h <= 10000
+            && sl == w * h * 3 && so + sl <= file_len
+        {
+            if best.map_or(true, |(_, _, bw, bh)| w * h > bw as u64 * bh as u64) {
+                best = Some((so, sl as usize, w as u32, h as u32));
+            }
+        }
+    }
+
+    let (off, len, w, h) = best?;
+    f.seek(SeekFrom::Start(off)).ok()?;
+    let mut rgb = vec![0u8; len];
+    f.read_exact(&mut rgb).ok()?;
+
+    let mut out = Vec::new();
+    let encoder = jpeg_encoder::Encoder::new(&mut out, 85);
+    encoder.encode(&rgb, w as u16, h as u16, jpeg_encoder::ColorType::Rgb).ok()?;
+    if out.starts_with(&[0xFF, 0xD8]) { Some(out) } else { None }
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
@@ -477,7 +645,11 @@ fn collect_jpegs(data: &[u8]) -> Vec<(usize, usize)> {
     let mut results = Vec::new();
     let mut i = 0;
     while i + 3 < data.len() {
-        if data[i] == 0xFF && data[i + 1] == 0xD8 && data[i + 2] == 0xFF {
+        // SOI (FF D8) の直後は必ず正規マーカー (FF C0..=FE: APPn / DQT / DHT / SOF / COM …) が来る。
+        // 4 バイト目を検証しないと、RAW センサーデータ中の偶発的な FF D8 FF 列を JPEG と誤検出する。
+        // 例: OM-5 MarkII の ORF はオフセット 27053 が "FF D8 FF 2A" で、これを拾うと本物のプレビュー
+        // (52224, 3200x2400) を巻き込んだ非デコード塊を返し、ORF だけサムネが表示されなくなる。
+        if data[i] == 0xFF && data[i + 1] == 0xD8 && data[i + 2] == 0xFF && data[i + 3] >= 0xC0 {
             if let Some(eoi) = find_jpeg_eoi(data, i) {
                 let size = eoi - i + 2;
                 if size > 512 {
