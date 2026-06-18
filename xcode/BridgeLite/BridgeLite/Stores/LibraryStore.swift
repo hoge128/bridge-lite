@@ -193,17 +193,22 @@ final class LibraryStore: ReindexedGroupSink {
     }
 
     private func setupUndoNotifications() {
-        func subscribe(_ name: NSNotification.Name, handler: @escaping (Notification) -> Void) -> NSObjectProtocol {
+        // using: は @Sendable クロージャ。queue: .main 配信なので本体は MainActor 上で動く。
+        func subscribe(_ name: NSNotification.Name, handler: @escaping @Sendable (Notification) -> Void) -> NSObjectProtocol {
             NotificationCenter.default.addObserver(forName: name, object: undoManager, queue: .main, using: handler)
         }
         undoObservers = [
             subscribe(.NSUndoManagerDidUndoChange) { [weak self] _ in
-                guard let self else { return }
-                self.undoVersion &+= 1
-                let name = self.undoManager.redoActionName
-                if !name.isEmpty { self.showUndoMessage(String(localized: "Undid: \(name)")) }
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.undoVersion &+= 1
+                    let name = self.undoManager.redoActionName
+                    if !name.isEmpty { self.showUndoMessage(String(localized: "Undid: \(name)")) }
+                }
             },
-            subscribe(.NSUndoManagerDidCloseUndoGroup) { [weak self] _ in self?.undoVersion &+= 1 }
+            subscribe(.NSUndoManagerDidCloseUndoGroup) { [weak self] _ in
+                MainActor.assumeIsolated { self?.undoVersion &+= 1 }
+            }
         ]
     }
 
@@ -2123,14 +2128,14 @@ final class LibraryStore: ReindexedGroupSink {
         return f
     }()
 
-    private nonisolated(unsafe) static let isoDateFormatter: DateFormatter = {
+    private nonisolated static let isoDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
         return f
     }()
 
-    private nonisolated(unsafe) static let monthLabelFormatter: DateFormatter = {
+    private nonisolated static let monthLabelFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "MMM"

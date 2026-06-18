@@ -421,6 +421,9 @@ final class ControlsIdleState {
 }
 
 // Returns cursor position relative to the window content view center (SwiftUI coordinate: Y-down).
+// NSEvent モニタ（MainActor 文脈）から呼ばれるため @MainActor。assumeIsolated だと非Sendable な
+// `event` を別ドメインへ送ることになり data race 警告が出るので、関数自体を MainActor に置く。
+@MainActor
 private func viewerCursorFromCenter(_ event: NSEvent) -> CGPoint {
     guard let window = event.window, let cv = window.contentView else { return .zero }
     let loc = event.locationInWindow

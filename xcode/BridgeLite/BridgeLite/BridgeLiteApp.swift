@@ -58,15 +58,18 @@ extension NSNotification.Name {
 
 // MARK: - Window state monitor
 
+@MainActor
 final class WindowStateMonitor: ObservableObject {
     @Published var isFullScreen = false
 
     init() {
+        // queue: .main で配信されるため本体は MainActor 上。@Sendable クロージャ内の
+        // MainActor プロパティアクセスを assumeIsolated で明示する。
         NotificationCenter.default.addObserver(forName: NSWindow.didEnterFullScreenNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.isFullScreen = true
+            MainActor.assumeIsolated { self?.isFullScreen = true }
         }
         NotificationCenter.default.addObserver(forName: NSWindow.didExitFullScreenNotification, object: nil, queue: .main) { [weak self] _ in
-            self?.isFullScreen = false
+            MainActor.assumeIsolated { self?.isFullScreen = false }
         }
     }
 }
@@ -168,7 +171,7 @@ struct BridgeLiteCommands: Commands {
             Button(store?.undoActionTitle ?? String(localized: "Undo")) {
                 let fr = NSApp.keyWindow?.firstResponder
                 if fr is NSTextView || fr is NSTextField {
-                    NSApp.sendAction(Selector("undo:"), to: nil, from: nil)
+                    NSApp.sendAction(NSSelectorFromString("undo:"), to: nil, from: nil)
                 } else {
                     store?.undoManager.undo()
                 }

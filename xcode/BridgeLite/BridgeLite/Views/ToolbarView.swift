@@ -119,9 +119,13 @@ private struct NativeSearchField: NSViewRepresentable {
         }
 
         @objc func focusSearch(_ notification: Notification) {
-            guard let window = NSApp.keyWindow else { return }
-            if let sf = window.contentView?.findFirstSearchField() {
-                window.makeFirstResponder(sf)
+            // UI 通知は main スレッド配信。NSObject Coordinator は nonisolated のため
+            // MainActor の AppKit API アクセスを assumeIsolated で明示する。
+            MainActor.assumeIsolated {
+                guard let window = NSApp.keyWindow else { return }
+                if let sf = window.contentView?.findFirstSearchField() {
+                    window.makeFirstResponder(sf)
+                }
             }
         }
 
