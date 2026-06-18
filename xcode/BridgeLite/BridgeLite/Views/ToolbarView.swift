@@ -213,8 +213,9 @@ struct ToolbarView: ToolbarContent {
             }
         }
 
-        // グループ1: 検索 — ライブラリのみ（フィルムストリップ/ビューア/比較では非表示）
-        if !store.viewerMode && !store.compareMode && !store.filmstripMode {
+        // グループ1: 検索 — ライブラリ／フィルムストリップで表示（ビューア/比較では非表示）。
+        // フィルムストリップでもファイル名フィルタを使えるようピッカーに適用する。
+        if !store.viewerMode && !store.compareMode {
             ToolbarItemGroup(placement: .primaryAction) {
                 SearchFieldContainer()
             }

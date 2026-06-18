@@ -761,21 +761,21 @@ private final class GridInteractionNSView: NSView {
 
     private func makeContextMenu(entry: PhotoEntry, id: UInt64, store: LibraryStore) -> NSMenu {
         let menu = NSMenu()
-        menu.addItem(actionItem("Copy", action: #selector(copySelection)))
-        menu.addItem(actionItem("Show in Finder", action: #selector(showInFinder(_:)),
+        menu.addItem(actionItem(String(localized: "Copy"), action: #selector(copySelection)))
+        menu.addItem(actionItem(String(localized: "Show in Finder"), action: #selector(showInFinder(_:)),
                                 representedObject: entry.url as NSURL))
 
         let targetURLs = store.selectedIDs.compactMap { store.entries[$0]?.url }
         let primaryURL = store.entries[store.primaryID ?? id]?.url ?? entry.url
-        let openWith = NSMenuItem(title: "Open With", action: nil, keyEquivalent: "")
+        let openWith = NSMenuItem(title: String(localized: "Open With"), action: nil, keyEquivalent: "")
         openWith.submenu = makeOpenWithMenu(targetURLs: targetURLs, primaryURL: primaryURL)
         menu.addItem(openWith)
         menu.addItem(.separator())
 
-        let rating = NSMenuItem(title: "Rating", action: nil, keyEquivalent: "")
+        let rating = NSMenuItem(title: String(localized: "Rating"), action: nil, keyEquivalent: "")
         let ratingMenu = NSMenu()
         let ratingModifiers = store.settings.ratingShortcutModifier.nsEventModifierFlags
-        ratingMenu.addItem(actionItem("No Rating", action: #selector(applyRating(_:)),
+        ratingMenu.addItem(actionItem(String(localized: "No Rating"), action: #selector(applyRating(_:)),
                                       representedObject: NSNumber(value: 0),
                                       keyEquivalent: "0",
                                       modifiers: ratingModifiers))
@@ -791,7 +791,7 @@ private final class GridInteractionNSView: NSView {
         rating.submenu = ratingMenu
         menu.addItem(rating)
 
-        let label = NSMenuItem(title: "Label", action: nil, keyEquivalent: "")
+        let label = NSMenuItem(title: String(localized: "Label"), action: nil, keyEquivalent: "")
         let labelMenu = NSMenu()
         for value in [XmpLabel.red, .yellow, .green, .blue, .purple] {
             labelMenu.addItem(actionItem(
@@ -803,7 +803,7 @@ private final class GridInteractionNSView: NSView {
             ))
         }
         labelMenu.addItem(.separator())
-        labelMenu.addItem(actionItem("Clear Label", action: #selector(clearLabel)))
+        labelMenu.addItem(actionItem(String(localized: "Clear Label"), action: #selector(clearLabel)))
         label.submenu = labelMenu
         menu.addItem(label)
 
@@ -846,7 +846,7 @@ private final class GridInteractionNSView: NSView {
         ))
         menu.addItem(.separator())
         menu.addItem(actionItem(
-            "Move to Trash",
+            String(localized: "Move to Trash"),
             action: #selector(moveToTrash),
             keyEquivalent: "\u{8}",
             modifiers: store.settings.deleteShortcutKey == .delete ? [] : .command
@@ -877,8 +877,8 @@ private final class GridInteractionNSView: NSView {
             ))
         }
         if !favorites.isEmpty { menu.addItem(.separator()) }
-        menu.addItem(actionItem("Add Application…", action: #selector(addOpenWithApplication)))
-        menu.addItem(actionItem("Manage Applications…", action: #selector(manageOpenWithApplications)))
+        menu.addItem(actionItem(String(localized: "Add Application…"), action: #selector(addOpenWithApplication)))
+        menu.addItem(actionItem(String(localized: "Manage Applications…"), action: #selector(manageOpenWithApplications)))
         return menu
     }
 

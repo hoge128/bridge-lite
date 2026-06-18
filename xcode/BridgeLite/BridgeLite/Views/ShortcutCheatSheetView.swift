@@ -136,6 +136,27 @@ struct ShortcutCheatSheetView: View {
 
                     Divider().padding(.vertical, 10)
 
+                    // Filmstrip (preview active)
+                    ShortcutSection(title: "shortcut.section.filmstrip") {
+                        ShortcutRow(keys: ["←", "→", "↑", "↓"], description: "shortcut.filmstrip.move_focus")
+                        ShortcutRow(keys: ["⇧", "←↑→↓"],        description: "shortcut.filmstrip.range")
+                        ShortcutRow(keys: ["Tab"],              description: "shortcut.filmstrip.cycle_variant")
+                    }
+
+                    Divider().padding(.vertical, 10)
+
+                    // Filmstrip · Selection mode (behavior changes dynamically)
+                    ShortcutSection(title: "shortcut.section.filmstrip_select") {
+                        ShortcutRow(keys: ["Click"],            description: "shortcut.filmstrip.sel_toggle")
+                        ShortcutRow(keys: ["⇧", "Click"],       description: "shortcut.filmstrip.sel_range")
+                        ShortcutRow(keys: ["Drag"],             description: "shortcut.filmstrip.sel_drag")
+                        ShortcutRow(keys: ["Double-click"],     description: "shortcut.filmstrip.sel_dblclick")
+                        ShortcutRow(keys: ["←", "→", "↑", "↓"], description: "shortcut.filmstrip.sel_arrows")
+                        ShortcutRow(keys: ["⌘", "↑", "↓"],      description: "shortcut.filmstrip.sel_first_last")
+                    }
+
+                    Divider().padding(.vertical, 10)
+
                     // Navigation
                     ShortcutSection(title: "shortcut.section.navigation") {
                         ShortcutRow(keys: ["←", "→"],        description: "shortcut.nav_prev_next")
