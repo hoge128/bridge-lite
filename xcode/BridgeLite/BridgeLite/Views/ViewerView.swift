@@ -235,6 +235,7 @@ struct ViewerView: View {
             }
         }
         .task(id: store.selectedID) {
+            let gen = store.scanGeneration
             xmp = store.selectedID.flatMap { store.xmpData[$0] }
             fullRes = nil
             rawRendered = nil
@@ -244,7 +245,11 @@ struct ViewerView: View {
                   let entry = store.entries[id] else { return }
             isLoadingFullRes = true
             defer { isLoadingFullRes = false }
-            fullRes = await loadFullRes(entry: entry)
+            let loaded = await loadFullRes(entry: entry)
+            // フォルダ切替（世代変化）や選択変更が await 中に割り込んだら、前フォルダの
+            // 画像で現在表示を上書きしない。ID 一意化と二重の安全策。
+            guard gen == store.scanGeneration, store.selectedID == id else { return }
+            fullRes = loaded
             // フル解像度もサムネも得られない RAW はプレビュー不可として記録（プレースホルダ表示）。
             if fullRes == nil, entry.isRaw, thumbnail == nil {
                 store.notePreviewUnavailable(id: entry.id, generation: store.scanGeneration)
