@@ -608,6 +608,7 @@ final class LibraryStore: ReindexedGroupSink {
         selectedIDs = []
         primaryID = nil
         anchorID = nil
+        filmstripDroppedIDs = []   // フィルムストリップの「ドロップ追加分」も一緒にクリア
     }
 
     func rubberBandSelect(_ ids: Set<UInt64>, additiveBase: Set<UInt64>? = nil) {
@@ -703,6 +704,33 @@ final class LibraryStore: ReindexedGroupSink {
         }
     }
 
+    /// メタデータバーのバリエーションをクリックしたとき、ビュワーの「注目中の1枚」だけ移す。
+    /// ピッカーの選択/代表 (selectedIDs / primaryID) は一切変更しない（コロコロ防止）。
+    /// これによりビュワーのメタデータバーからグループメンバー間を移動できる。
+    func focusFilmstripVariation(_ id: UInt64) {
+        filmstripDraggingMemberID = nil   // 取りこぼしたドラッグ状態の保険クリア
+        guard entries[id] != nil else { return }
+        filmstripPreviewActive = true
+        filmstripFocusID = id
+        filmstripPreviewSelectedIDs = [id]
+        filmstripPreviewAnchor = id
+    }
+
+    /// ビュワーのフォーカスタイルの×ボタン：その1枚だけビュワー（比較セット）から外し、
+    /// ピッカーのフォーカス/選択も解除する（selectedIDs から除外し primaryID を移す）。
+    func removeFromFilmstripCompare(_ id: UInt64) {
+        filmstripDroppedIDs.removeAll { $0 == id }
+        if selectedIDs.contains(id) {
+            selectedIDs.remove(id)
+            if primaryID == id { primaryID = selectedIDs.first }
+            if anchorID == id { anchorID = primaryID }
+        }
+        filmstripPreviewSelectedIDs.remove(id)
+        if filmstripFocusID == id {
+            filmstripFocusID = filmstripCompareIDs.first
+        }
+    }
+
     /// フィルムストリップのプレビュー由来ビュワーで「表示中の1枚」を切り替える。
     /// 比較セット (selectedIDs) は保持し、primaryID とプレビューのフォーカス/選択を同期する。
     private func setFilmstripViewerPrimary(_ id: UInt64) {
@@ -793,12 +821,66 @@ final class LibraryStore: ReindexedGroupSink {
     // MARK: - フィルムストリップ プレビュー選択（ピッカーとは独立した操作面）
 
     static let filmstripMaxCompare = 20
+    /// メタデータバーのバリエーション → ビュワーへのアプリ内ドラッグで使う独自ペイロード型。
+    static let filmstripPhotoDragType = "io.github.bridge-lite.photo-id"
 
-    /// プレビューに並べる比較対象（表示順の先頭 maxCompare 枚）。
+    /// メタデータバーのバリエーションからビュワーへドラッグして「明示追加」した写真。
+    /// 同一グループの隠れメンバー（visibleIDs に出ない RAW/JPG/現像など）も保持できる。transient。
+    private(set) var filmstripDroppedIDs: [UInt64] = []
+    /// メタデータバーからドラッグ中のメンバー ID（アプリ内ドラッグのペイロードをストア経由で渡す）。
+    /// SwiftUI .onDrag の独自タイプは AppKit 側で同期取得しづらいため、ペイロードはここで保持する。
+    var filmstripDraggingMemberID: UInt64? = nil
+    /// ドラッグ中か。true の間、ビュワーに「ここへドロップ」促進エリアを出す。
+    var filmstripMemberDragActive: Bool { filmstripDraggingMemberID != nil }
+    /// ビュワー内でドラッグして決めた明示的な並び順（空＝ライブラリ/既定順）。transient。
+    private(set) var filmstripCompareOrder: [UInt64] = []
+    /// 既定（ライブラリ）順から並べ替えているか。リセットボタンの活性判定に使う。
+    var filmstripHasCustomOrder: Bool { !filmstripCompareOrder.isEmpty }
+
+    /// プレビューに並べる比較対象：可視の選択 ＋ ドロップで明示追加した分（重複排除・上限 maxCompare）。
+    /// ユーザーが並べ替えていれば filmstripCompareOrder を被せる（新規メンバーは末尾に追加）。
     var filmstripCompareIDs: [UInt64] {
-        visibleIDs.filter { selectedIDs.contains($0) }
-            .prefix(Self.filmstripMaxCompare)
-            .map { $0 }
+        var base = visibleIDs.filter { selectedIDs.contains($0) }
+        for id in filmstripDroppedIDs where entries[id] != nil && !base.contains(id) {
+            base.append(id)
+        }
+        base = Array(base.prefix(Self.filmstripMaxCompare))
+        guard !filmstripCompareOrder.isEmpty else { return base }
+        let set = Set(base)
+        var ordered = filmstripCompareOrder.filter { set.contains($0) }
+        for id in base where !ordered.contains(id) { ordered.append(id) }
+        return ordered
+    }
+
+    /// ビュワーのドラッグ並べ替えで新しい順序を確定する。
+    func setFilmstripCompareOrder(_ order: [UInt64]) { filmstripCompareOrder = order }
+    /// 並び順をライブラリ/既定順へ戻す（リセットボタン）。
+    func resetFilmstripCompareOrder() { filmstripCompareOrder = [] }
+
+    /// バリエーションをビュワーへドロップしたとき呼ぶ：比較セットへ追加し、その1枚へフォーカス。
+    /// ピッカーの選択 (selectedIDs) は変更しない（＝代表を動かさない）。
+    /// 同名ファイルが既に比較セットにある場合は追加しない（同じ写真の比較はしない）。
+    func addToFilmstripCompare(_ id: UInt64) {
+        filmstripDraggingMemberID = nil
+        guard let entry = entries[id] else { return }
+        // 同名ファイルが既にビュワーにあるなら追加しない（重複比較を避ける）。
+        let name = entry.filename.lowercased()
+        let existingNames = Set(filmstripCompareIDs.compactMap { entries[$0]?.filename.lowercased() })
+        if existingNames.contains(name) {
+            // 既にある同名の1枚へフォーカスだけ移す。
+            if let same = filmstripCompareIDs.first(where: { entries[$0]?.filename.lowercased() == name }) {
+                filmstripFocusID = same
+            }
+            return
+        }
+        if !filmstripDroppedIDs.contains(id) {
+            filmstripDroppedIDs.append(id)
+            let maxN = Self.filmstripMaxCompare
+            if filmstripDroppedIDs.count > maxN {
+                filmstripDroppedIDs.removeFirst(filmstripDroppedIDs.count - maxN)
+            }
+        }
+        filmstripFocusID = id
     }
 
     /// レーティング/フラグ等の対象集合。プレビューがアクティブなら preview 選択を使う（グリッド時は selectedIDs と同値）。
@@ -810,6 +892,9 @@ final class LibraryStore: ReindexedGroupSink {
     var activeSelectionCount: Int { effectiveSelectedIDs.count }
 
     func previewSelect(_ id: UInt64) {
+        // ビュワーに並ぶ写真以外は無視（×ボタンでの除去直後に同タップが届いても
+        // 除去済み id を再フォーカスしないための保険）。
+        guard filmstripCompareIDs.contains(id) else { return }
         filmstripPreviewActive = true
         filmstripPreviewSelectedIDs = [id]
         filmstripFocusID = id
@@ -2546,6 +2631,9 @@ final class LibraryStore: ReindexedGroupSink {
         thumbnailBlobs = [:]
         thumbnailOrientations = [:]
         previewUnavailableIDs = []
+        filmstripDroppedIDs = []
+        filmstripDraggingMemberID = nil
+        filmstripCompareOrder = []
         luminanceScores = [:]
         ThumbnailDecodeCache.shared.evict(urls: urlsToEvict)
         exifData = [:]

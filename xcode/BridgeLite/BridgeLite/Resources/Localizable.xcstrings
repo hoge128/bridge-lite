@@ -4562,6 +4562,22 @@
         }
       }
     },
+    "filmstrip.drop.prompt": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drop here to add to comparison"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ここにドロップして比較に追加"
+          }
+        }
+      }
+    },
     "filmstrip.empty": {
       "localizations": {
         "en": {
@@ -4642,6 +4658,38 @@
         }
       }
     },
+    "filmstrip.order.reset": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Reset order"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "並び順をリセット"
+          }
+        }
+      }
+    },
+    "filmstrip.order.reset.help": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Restore the library order"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ライブラリの並び順に戻す"
+          }
+        }
+      }
+    },
     "filmstrip.pane.picker": {
       "localizations": {
         "en": {
@@ -4686,6 +4734,22 @@
           "stringUnit": {
             "state": "translated",
             "value": "%lld枚"
+          }
+        }
+      }
+    },
+    "filmstrip.remove.from.compare": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Remove from comparison"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "比較から外す"
           }
         }
       }
@@ -4846,6 +4910,70 @@
           "stringUnit": {
             "state": "translated",
             "value": "ライブラリグリッドとフィルムストリップ比較を切り替え"
+          }
+        }
+      }
+    },
+    "filmstrip.variations.help.1": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Same-shot variations (RAW / JPG / retouched) of the focused photo."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "注目中の写真と同じショットのバリエーション（RAW / JPG / 現像済）です。"
+          }
+        }
+      }
+    },
+    "filmstrip.variations.help.2": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Drag one onto the viewer to add it to the comparison. Clicking here does not change the picker selection."
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "ビュワーへドラッグすると比較に追加されます。ここをクリックしてもピッカーの選択は変わりません。"
+          }
+        }
+      }
+    },
+    "filmstrip.variations.help.button": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "How to add a variation to the viewer"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バリエーションをビュワーに追加する方法"
+          }
+        }
+      }
+    },
+    "filmstrip.variations.label": {
+      "localizations": {
+        "en": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Variations"
+          }
+        },
+        "ja": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "バリエーション"
           }
         }
       }

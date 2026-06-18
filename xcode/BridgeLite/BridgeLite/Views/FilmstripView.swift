@@ -36,6 +36,10 @@ struct FilmstripView: View {
     @State private var previewBandStart: CGPoint? = nil
     @State private var previewBandCurrent: CGPoint? = nil
     @State private var previewBandBase: Set<UInt64> = []   // Shift/⌘ 併用時の元選択
+    @State private var previewDropTargeted = false          // バリエーションのドロップ受け中ハイライト
+    @State private var reorderingID: UInt64? = nil           // ビュワー内ドラッグ並べ替えで持ち上げ中のタイル
+    @State private var reorderDragLocation: CGPoint? = nil    // 追従中の掴んだタイルの中心座標（previewGrid 空間）
+    @State private var reorderStartCenter: CGPoint? = nil     // ドラッグ開始時のタイル中心（掴みズレを防ぐ基準）
     private let pickerMinHeight: CGFloat = 140   // ここまで縮めるとプレビュー最大（＝上限）
     private let pickerMaxHeight: CGFloat = 600
 
@@ -157,6 +161,22 @@ struct FilmstripView: View {
 
             Spacer()
 
+            // 並べ替えをライブラリ/既定順へ戻す。並べ替え中のみ表示。
+            if store.filmstripHasCustomOrder {
+                Button {
+                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                        store.resetFilmstripCompareOrder()
+                    }
+                } label: {
+                    Label(String(localized: "filmstrip.order.reset", defaultValue: "Reset order"),
+                          systemImage: "arrow.uturn.backward")
+                }
+                .buttonStyle(.borderless)
+                .controlSize(.small)
+                .help(String(localized: "filmstrip.order.reset.help",
+                             defaultValue: "Restore the library order"))
+            }
+
             if selectedCount > 0 {
                 Text("\(min(selectedCount, maxCompare)) / \(maxCompare)")
                     .font(.caption)
@@ -268,8 +288,12 @@ struct FilmstripView: View {
         let ids = compareIDs
         GeometryReader { geo in
             // 全枚数を領域内にフィット（スクロールなし・行列でぴったり割り付け）。
+            // ドラッグ中は「追加後（n+1 枚）」のレイアウトで割り付け、末尾に追加先スロット
+            //（次に描画される写真と同じ大きさ）の D&D 促進エリアを置く。
             let n = ids.count
-            let (rows, cols) = optimalGrid(memberCount: n, viewportSize: geo.size)
+            let dragging = store.filmstripMemberDragActive
+            let slotCount = max(1, n + (dragging ? 1 : 0))
+            let (rows, cols) = optimalGrid(memberCount: slotCount, viewportSize: geo.size)
             let spacing: CGFloat = 8
             let cellW = max(40, (geo.size.width - spacing * CGFloat(cols + 1)) / CGFloat(cols))
             let cellH = max(40, (geo.size.height - spacing * CGFloat(rows + 1)) / CGFloat(rows))
@@ -285,7 +309,18 @@ struct FilmstripView: View {
                         store.previewDeselectAll()
                     }
 
-                if ids.isEmpty {
+                // タイルの中心座標（行列を領域中央に割り付け）。並べ替え/バンド選択/ドロップ先で共用。
+                let gridW = CGFloat(cols) * cellW + CGFloat(max(0, cols - 1)) * spacing
+                let gridH = CGFloat(rows) * cellH + CGFloat(max(0, rows - 1)) * spacing
+                let originX = (geo.size.width - gridW) / 2
+                let originY = (geo.size.height - gridH) / 2
+                let centerAt: (Int) -> CGPoint = { i in
+                    let r = i / cols, c = i % cols
+                    return CGPoint(x: originX + CGFloat(c) * (cellW + spacing) + cellW / 2,
+                                   y: originY + CGFloat(r) * (cellH + spacing) + cellH / 2)
+                }
+
+                if ids.isEmpty && !dragging {
                     VStack(spacing: 10) {
                         Image(systemName: "rectangle.split.2x1")
                             .font(.system(size: 40))
@@ -296,41 +331,61 @@ struct FilmstripView: View {
                     }
                     .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
-                    VStack(spacing: spacing) {
-                        ForEach(Array(0..<rows), id: \.self) { r in
-                            HStack(spacing: spacing) {
-                                ForEach(Array(0..<cols), id: \.self) { c in
-                                    let idx = r * cols + c
-                                    if idx < n {
-                                        let id = ids[idx]
-                                        CompareMemberColumn(
-                                            memberID: id,
-                                            isFocused: store.filmstripFocusID == id,             // プレビューのフォーカス
-                                            lightBackground: true,                               // 白背景向けの暗色文字
-                                            compact: true,                                       // 大レーティング行は隠す
-                                            downsampleMaxPixels: previewMaxPixels,               // 高品質ダウンサンプル
-                                            isSelected: store.filmstripPreviewSelectedIDs.contains(id)
-                                        )
-                                        .frame(width: cellW, height: cellH)
-                                        // グリッド同等の選択: クリック / Shift範囲 / ⌘トグル（ピッカーとは独立）
-                                        .onTapGesture {
-                                            let m = NSEvent.modifierFlags
-                                            if m.contains(.shift) { store.previewRangeSelect(to: id) }
-                                            else if m.contains(.command) { store.previewToggle(id) }
-                                            else { store.previewSelect(id) }
-                                        }
-                                    } else {
-                                        Color.clear.frame(width: cellW, height: cellH)
+                    // 位置ベース配置: ForEach(id) + .position。並べ替えで各 id の位置が
+                    // アニメーションで滑らかに移動する（長押し→ドラッグで持ち上げて入れ替え）。
+                    ForEach(Array(ids.enumerated()), id: \.element) { pair in
+                        let index = pair.offset
+                        let id = pair.element
+                        let lifted = reorderingID == id
+                        CompareMemberColumn(
+                            memberID: id,
+                            isFocused: store.filmstripFocusID == id,
+                            lightBackground: true,
+                            compact: true,
+                            downsampleMaxPixels: previewMaxPixels,
+                            isSelected: store.filmstripPreviewSelectedIDs.contains(id)
+                        )
+                        .frame(width: cellW, height: cellH)
+                        .overlay(alignment: .topTrailing) {
+                            if store.filmstripFocusID == id {
+                                Button {
+                                    withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                                        store.removeFromFilmstripCompare(id)
                                     }
+                                } label: {
+                                    Image(systemName: "xmark.circle.fill")
+                                        .font(.system(size: 18))
+                                        .symbolRenderingMode(.palette)
+                                        .foregroundStyle(.white, Color.black.opacity(0.55))
                                 }
+                                .buttonStyle(.plain)
+                                .padding(5)
+                                .help(String(localized: "filmstrip.remove.from.compare",
+                                             defaultValue: "Remove from comparison"))
                             }
                         }
+                        // 並べ替えドラッグ中は影だけ付けて「浮き」を表現（拡大はしない）。
+                        .shadow(color: .black.opacity(lifted ? 0.30 : 0), radius: lifted ? 14 : 0, y: lifted ? 5 : 0)
+                        .zIndex(lifted ? 2 : 1)
+                        // 掴んでいるタイルはマウスに追従、その他はスロット中心（spring で寄る）。
+                        .position((lifted ? reorderDragLocation : nil) ?? centerAt(index))
+                        // クリック選択（ピッカーとは独立）。ドラッグは並べ替え（高優先で矩形選択より先）。
+                        .onTapGesture {
+                            let m = NSEvent.modifierFlags
+                            if m.contains(.shift) { store.previewRangeSelect(to: id) }
+                            else if m.contains(.command) { store.previewToggle(id) }
+                            else { store.previewSelect(id) }
+                        }
+                        .highPriorityGesture(reorderGesture(id: id, centerAt: centerAt))
                     }
-                    .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .center)
-                    .padding(spacing)
-                    // 上下矢印ナビ用に現在の列数を store へ反映
-                    .onAppear { store.filmstripPreviewCols = cols }
-                    .onChange(of: cols) { _, newCols in store.filmstripPreviewCols = newCols }
+
+                    // 追加先スロット（メタデータバーからのドロップ中）＝次に描画される写真と同サイズ。
+                    if dragging {
+                        dropPromptOverlay(active: previewDropTargeted)
+                            .frame(width: cellW, height: cellH)
+                            .position(centerAt(n))
+                            .allowsHitTesting(false)
+                    }
 
                     // ドラッグ矩形選択（ラバーバンド）のバンド表示。
                     if previewBandActive, let s = previewBandStart, let e = previewBandCurrent {
@@ -339,17 +394,22 @@ struct FilmstripView: View {
                             .fill(Color.accentColor.opacity(0.12))
                             .overlay(Rectangle().stroke(Color.accentColor.opacity(0.5), lineWidth: 1))
                             .frame(width: max(1, rect.width), height: max(1, rect.height))
-                            .offset(x: rect.minX, y: rect.minY)
+                            .position(x: rect.midX, y: rect.midY)
                             .allowsHitTesting(false)
                     }
                 }
             }
+            .coordinateSpace(name: "previewGrid")
+            .onAppear { store.filmstripPreviewCols = cols }
+            .onChange(of: cols) { _, newCols in store.filmstripPreviewCols = newCols }
+            // 並び変化のアニメーションは各操作側で withAnimation を明示する
+            //（掴んだタイルの追従は非アニメ＝即マウス追従にするため、ここでは暗黙アニメを付けない）。
             // ドラッグ矩形選択。空白からのドラッグで範囲選択、Shift/⌘ で追加選択。
-            // セルの単クリック選択はセル側 onTapGesture が優先（minimumDistance でタップと区別）。
+            // 並べ替え中（reorderingID）は抑止。
             .gesture(
-                DragGesture(minimumDistance: 4)
+                DragGesture(minimumDistance: 12)
                     .onChanged { v in
-                        guard !ids.isEmpty else { return }
+                        guard !ids.isEmpty, reorderingID == nil else { return }
                         store.filmstripPreviewActive = true
                         if !previewBandActive {
                             previewBandActive = true
@@ -362,10 +422,9 @@ struct FilmstripView: View {
                         let band = rectFrom(previewBandStart ?? v.startLocation, v.location)
                         var hits = previewBandBase
                         for idx in 0..<n {
-                            let r = idx / cols, c = idx % cols
-                            let cr = CGRect(x: spacing + CGFloat(c) * (cellW + spacing),
-                                            y: spacing + CGFloat(r) * (cellH + spacing),
-                                            width: cellW, height: cellH)
+                            let ctr = centerAtForBand(idx, cols: cols, cellW: cellW, cellH: cellH,
+                                                      spacing: spacing, size: geo.size, rows: rows)
+                            let cr = CGRect(x: ctr.x - cellW / 2, y: ctr.y - cellH / 2, width: cellW, height: cellH)
                             if band.intersects(cr) { hits.insert(ids[idx]) }
                         }
                         store.filmstripPreviewSelectedIDs = hits
@@ -377,14 +436,123 @@ struct FilmstripView: View {
                         previewBandBase = []
                     }
             )
+            // メタデータバーのバリエーションをここへドロップして比較セットに追加。
+            // 受けは AppKit（NSDraggingDestination）。SwiftUI コンテンツの背面に敷く（ビュワー全体が
+            // ドロップを受け付ける＝掴みやすい）。促進エリアの見た目は「追加先スロット」を上のグリッドに表示。
+            .background {
+                CompareDropTargetView(
+                    isTargeted: $previewDropTargeted,
+                    currentDragID: { store.filmstripDraggingMemberID },
+                    onDropPhoto: { id in
+                        withAnimation(.spring(response: 0.32, dampingFraction: 0.82)) {
+                            store.addToFilmstripCompare(id)
+                        }
+                    },
+                    onDragEnded: { store.filmstripDraggingMemberID = nil }
+                )
+            }
+            .animation(.easeInOut(duration: 0.18), value: store.filmstripMemberDragActive)
+            .animation(.easeInOut(duration: 0.12), value: previewDropTargeted)
         }
         // 白背景に合わせて常にライト配色（アプリがダークでも文字が黒で見えるように）
         .environment(\.colorScheme, .light)
     }
 
+    /// メタデータバーのバリエーションをドラッグ中にビュワーへ出す「ここへドロップで追加」促進エリア。
+    /// active=true（カーソルがビュワー上）で強調表示。
+    @ViewBuilder
+    private func dropPromptOverlay(active: Bool) -> some View {
+        ZStack {
+            RoundedRectangle(cornerRadius: 10)
+                .fill(Color.accentColor.opacity(active ? 0.16 : 0.07))
+            RoundedRectangle(cornerRadius: 10)
+                .strokeBorder(Color.accentColor.opacity(active ? 1.0 : 0.55),
+                              style: StrokeStyle(lineWidth: active ? 3 : 2, dash: [9, 6]))
+            VStack(spacing: 8) {
+                Image(systemName: "plus.viewfinder")
+                    .font(.system(size: active ? 40 : 34, weight: .regular))
+                Text(String(localized: "filmstrip.drop.prompt",
+                            defaultValue: "Drop here to add to comparison"))
+                    .font(.callout.weight(.medium))
+            }
+            .foregroundStyle(Color.accentColor)
+            .scaleEffect(active ? 1.05 : 1.0)
+        }
+        .padding(6)
+        .allowsHitTesting(false)   // ドロップ判定は背面の AppKit ビューが担う
+    }
+
     /// 2 点から正規化した矩形を作る（ラバーバンド用）。
     private func rectFrom(_ a: CGPoint, _ b: CGPoint) -> CGRect {
         CGRect(x: min(a.x, b.x), y: min(a.y, b.y), width: abs(a.x - b.x), height: abs(a.y - b.y))
+    }
+
+    // MARK: - ビュワー内ドラッグ並べ替え
+
+    /// ドラッグでタイルを並べ替えるジェスチャ。ピッカー（selectedIDs）は変更せず、
+    /// ビュワーの表示順 (filmstripCompareOrder) のみ更新する。位置アニメーションで滑らかに移動。
+    /// 矩形選択より先に取るため呼び出し側は .highPriorityGesture で適用する。
+    /// minimumDistance>0 でタップ（選択）とは区別する。
+    private func reorderGesture(id: UInt64, centerAt: @escaping (Int) -> CGPoint) -> some Gesture {
+        DragGesture(minimumDistance: 6, coordinateSpace: .named("previewGrid"))
+            .onChanged { drag in
+                let cur = store.filmstripCompareIDs
+                guard let from = cur.firstIndex(of: id) else { return }
+                if reorderingID != id {
+                    reorderingID = id
+                    store.filmstripPreviewActive = true
+                    // 開始時のタイル中心を基準にして「中心＋移動量」で追従＝掴みズレでジャンプしない。
+                    reorderStartCenter = centerAt(from)
+                }
+                // 掴んだタイルはマウスへ即追従（アニメーションなし）。
+                let base = reorderStartCenter ?? drag.location
+                let follow = CGPoint(x: base.x + drag.translation.width,
+                                     y: base.y + drag.translation.height)
+                reorderDragLocation = follow
+                let to = nearestIndex(to: follow, count: cur.count, centerAt: centerAt)
+                if to != from {
+                    var newOrder = cur
+                    newOrder.remove(at: from)
+                    newOrder.insert(id, at: min(to, newOrder.count))
+                    // 他タイルだけ spring で寄せる（追従位置の更新は上で確定済み＝非アニメ）。
+                    withAnimation(.spring(response: 0.3, dampingFraction: 0.82)) {
+                        store.setFilmstripCompareOrder(newOrder)
+                    }
+                }
+            }
+            .onEnded { _ in
+                // 放したら最終スロットへ収める（マウス位置→中心へアニメーション）。
+                reorderStartCenter = nil
+                withAnimation(.spring(response: 0.3, dampingFraction: 0.85)) {
+                    reorderingID = nil
+                    reorderDragLocation = nil
+                }
+            }
+    }
+
+    /// 点に最も近いタイルのインデックス。
+    private func nearestIndex(to p: CGPoint, count: Int, centerAt: (Int) -> CGPoint) -> Int {
+        guard count > 0 else { return 0 }
+        var best = 0
+        var bestD = CGFloat.greatestFiniteMagnitude
+        for i in 0..<count {
+            let c = centerAt(i)
+            let d = (p.x - c.x) * (p.x - c.x) + (p.y - c.y) * (p.y - c.y)
+            if d < bestD { bestD = d; best = i }
+        }
+        return best
+    }
+
+    /// バンド選択用のタイル中心（previewArea の centerAt クロージャと同一の式。スコープ外用）。
+    private func centerAtForBand(_ i: Int, cols: Int, cellW: CGFloat, cellH: CGFloat,
+                                 spacing: CGFloat, size: CGSize, rows: Int) -> CGPoint {
+        let gridW = CGFloat(cols) * cellW + CGFloat(max(0, cols - 1)) * spacing
+        let gridH = CGFloat(rows) * cellH + CGFloat(max(0, rows - 1)) * spacing
+        let originX = (size.width - gridW) / 2
+        let originY = (size.height - gridH) / 2
+        let r = i / cols, c = i % cols
+        return CGPoint(x: originX + CGFloat(c) * (cellW + spacing) + cellW / 2,
+                       y: originY + CGFloat(r) * (cellH + spacing) + cellH / 2)
     }
 
     // MARK: - Resizable divider（プレビュー領域を上限まで拡大縮小）
@@ -482,5 +650,81 @@ private extension View {
             radius: active ? 16 : 0,
             y: active ? (towardBottom ? 8 : -8) : 0
         )
+    }
+}
+
+// MARK: - ビュワーのドロップ先（メタデータバーのバリエーション → 比較セット追加）
+//
+// プロジェクト方針に従い、ドロップ受けは SwiftUI onDrop ではなく
+// NSViewRepresentable + NSDraggingDestination で実装する。アプリ内独自タイプのみ受け付ける。
+struct CompareDropTargetView: NSViewRepresentable {
+    @Binding var isTargeted: Bool
+    /// ドラッグ中のメンバー ID をストアから取得（ペイロードは pasteboard ではなくストア経由）。
+    let currentDragID: () -> UInt64?
+    let onDropPhoto: (UInt64) -> Void
+    var onDragEnded: () -> Void = {}
+
+    func makeNSView(context: Context) -> DropView {
+        let v = DropView()
+        v.currentDragID = currentDragID
+        v.onDropPhoto = onDropPhoto
+        v.onTargetChanged = { isTargeted = $0 }
+        v.onDragEnded = onDragEnded
+        return v
+    }
+    func updateNSView(_ nsView: DropView, context: Context) {
+        nsView.currentDragID = currentDragID
+        nsView.onDropPhoto = onDropPhoto
+        nsView.onTargetChanged = { isTargeted = $0 }
+        nsView.onDragEnded = onDragEnded
+    }
+
+    final class DropView: NSView {
+        var currentDragID: (() -> UInt64?)?
+        var onDropPhoto: ((UInt64) -> Void)?
+        var onTargetChanged: ((Bool) -> Void)?
+        var onDragEnded: (() -> Void)?
+        private let dragType = NSPasteboard.PasteboardType(LibraryStore.filmstripPhotoDragType)
+
+        override init(frame: NSRect) {
+            super.init(frame: frame)
+            registerForDraggedTypes([dragType])
+        }
+        required init?(coder: NSCoder) { fatalError() }
+
+        /// 自前のメンバードラッグか。この NSView は dragType のみ登録しているため、
+        /// draggingEntered が来る時点で対象のドラッグ。ストアにペイロードがあれば受理する。
+        private func isMemberDrag(_ sender: NSDraggingInfo) -> Bool {
+            currentDragID?() != nil
+        }
+
+        override func draggingEntered(_ sender: NSDraggingInfo) -> NSDragOperation {
+            guard isMemberDrag(sender) else { return [] }
+            DispatchQueue.main.async { self.onTargetChanged?(true) }
+            return .copy
+        }
+        override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
+            isMemberDrag(sender) ? .copy : []
+        }
+        override func draggingExited(_ sender: NSDraggingInfo?) {
+            DispatchQueue.main.async { self.onTargetChanged?(false) }
+        }
+        override func prepareForDragOperation(_ sender: NSDraggingInfo) -> Bool {
+            isMemberDrag(sender)
+        }
+        override func performDragOperation(_ sender: NSDraggingInfo) -> Bool {
+            DispatchQueue.main.async { self.onTargetChanged?(false) }
+            guard let id = currentDragID?() else { return false }
+            DispatchQueue.main.async { self.onDropPhoto?(id) }
+            return true
+        }
+        // ドラッグ操作の終了（ドロップ/キャンセル問わず）。促進エリアの表示を畳む。
+        // ビュワーを通過したドラッグでは確実に呼ばれる。
+        override func draggingEnded(_ sender: NSDraggingInfo) {
+            DispatchQueue.main.async {
+                self.onTargetChanged?(false)
+                self.onDragEnded?()
+            }
+        }
     }
 }

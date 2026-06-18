@@ -92,13 +92,48 @@ struct SidebarView: View {
     @State private var rawRendered: CGImage? = nil
     @State private var isRendering = false
     @State private var showRendered = false
+    @State private var showVariationHelp = false   // フィルムストリップ：バリエーション欄の説明
 
+    /// ビュワー（プレビュー）にフォーカスがあるフィルムストリップ状態か。
+    private var isPreviewFocus: Bool { store.filmstripMode && store.filmstripPreviewActive }
+
+    /// メタデータを出す対象の写真。
+    /// ・ピッカーにフォーカス（＝ライブラリ同様）: 主選択 (selectedID = primaryID)
+    /// ・ビュワーにフォーカス: ビュワー内で注目中の 1 枚 (filmstripFocusID)
     private var selectedEntry: PhotoEntry? {
-        store.selectedID.flatMap { store.entries[$0] }
+        if isPreviewFocus {
+            let id = store.filmstripFocusID
+                ?? store.filmstripPreviewSelectedIDs.first
+                ?? store.filmstripCompareIDs.first
+            return id.flatMap { store.entries[$0] }
+        }
+        return store.selectedID.flatMap { store.entries[$0] }
+    }
+
+    /// 複数選択プレースホルダを出すか。ビュワーフォーカス時は常に注目中の 1 枚を出すため出さない。
+    private var showMultiplePlaceholder: Bool {
+        !isPreviewFocus && store.activeSelectionCount > 1
     }
 
     private var isLimitedRawPreview: Bool {
         selectedEntry?.url.pathExtension.lowercased() == "cr2"
+    }
+
+    /// バリエーション欄の操作説明（フィルムストリップ）。
+    private var variationHelpPopover: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "filmstrip.variations.label", defaultValue: "Variations"))
+                .font(.headline)
+            Text(String(localized: "filmstrip.variations.help.1",
+                        defaultValue: "Same-shot variations (RAW / JPG / retouched) of the focused photo."))
+            Text(String(localized: "filmstrip.variations.help.2",
+                        defaultValue: "Drag one onto the viewer to add it to the comparison. Clicking here does not change the picker selection."))
+        }
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(16)
+        .frame(width: 300)
     }
 
     /// 複数選択中の表示（単一写真のメタデータは出さない）。
@@ -119,8 +154,8 @@ struct SidebarView: View {
 
     var body: some View {
         Group {
-            if store.activeSelectionCount > 1 {
-                // 複数選択中は単一写真のメタデータを出さずクリアする。
+            if showMultiplePlaceholder {
+                // 複数選択中は単一写真のメタデータを出さずクリアする（ピッカーフォーカス時のみ）。
                 multipleSelectionPlaceholder(count: store.activeSelectionCount)
             } else if let entry = selectedEntry {
                 ScrollView {
@@ -180,7 +215,28 @@ struct SidebarView: View {
                                 let db = store.entries[b]?.createdDate ?? .distantPast
                                 return da < db
                             }
-                            VariationStripView(selectedID: entry.id, members: members)
+                            VStack(alignment: .leading, spacing: 0) {
+                                if store.filmstripMode {
+                                    HStack(spacing: 6) {
+                                        Text(String(localized: "filmstrip.variations.label",
+                                                    defaultValue: "Variations"))
+                                            .font(.caption).foregroundStyle(.secondary)
+                                        Button { showVariationHelp.toggle() } label: {
+                                            Image(systemName: "questionmark.circle")
+                                        }
+                                        .buttonStyle(.borderless)
+                                        .help(String(localized: "filmstrip.variations.help.button",
+                                                     defaultValue: "How to add a variation to the viewer"))
+                                        .popover(isPresented: $showVariationHelp, arrowEdge: .top) {
+                                            variationHelpPopover
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.top, 6)
+                                }
+                                VariationStripView(selectedID: entry.id, members: members)
+                            }
                         }
 
                         PosixSectionView(entry: entry)
@@ -642,6 +698,13 @@ struct VariationThumbView: View {
                 .padding(2)
         }
         .onTapGesture {
+            // フィルムストリップ中はピッカーの選択/代表を動かさず、ビュワーの注目だけ移動する。
+            // これでビュワーのメタデータバーからグループメンバー間を移動できる。
+            // 比較セットへの「追加」は従来どおりビュワーへのドラッグで行う。
+            if store.filmstripMode {
+                store.focusFilmstripVariation(entry.id)
+                return
+            }
             let now = Date()
             if let last = lastTap,
                now.timeIntervalSince(last) < NSEvent.doubleClickInterval {
@@ -653,6 +716,24 @@ struct VariationThumbView: View {
                 lastTap = now
                 store.selectEntry(entry.id)
             }
+        }
+        // ビュワー（フィルムストリップのプレビュー）へドラッグして比較セットに追加するための内部ペイロード。
+        // ドラッグできるのはフィルムストリップモード限定（ライブラリでは不可）。
+        // 独自タイプ＋ .ownProcess でアプリ内限定（テキスト欄等への漏れを防ぐ）。
+        .onDragIf(store.filmstripMode) {
+            // ペイロードはストア経由で渡す（AppKit 側で同期的に読めるようにするため）。
+            // ビュワーに「ここへドロップ」促進エリアも出る（filmstripMemberDragActive）。
+            store.filmstripDraggingMemberID = entry.id
+            // ドラッグを開始させるためのマーカー（中身は読まない／アプリ内限定）。
+            let provider = NSItemProvider()
+            provider.registerDataRepresentation(
+                forTypeIdentifier: LibraryStore.filmstripPhotoDragType,
+                visibility: .ownProcess
+            ) { completion in
+                completion(String(entry.id).data(using: .utf8), nil)
+                return nil
+            }
+            return provider
         }
         .contextMenu { variationContextMenu }
     }
@@ -1082,3 +1163,18 @@ struct LuminanceBarView: View {
     }
 }
 
+
+// MARK: - 条件付き onDrag
+//
+// `.onDrag` は無条件だと常時ドラッグ可能になってしまう。フィルムストリップ限定で
+// ドラッグソース化するため、条件付きでモディファイアを適用するヘルパー。
+extension View {
+    @ViewBuilder
+    func onDragIf(_ condition: Bool, _ provider: @escaping () -> NSItemProvider) -> some View {
+        if condition {
+            self.onDrag(provider)
+        } else {
+            self
+        }
+    }
+}
