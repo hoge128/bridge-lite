@@ -426,7 +426,7 @@ final class LibraryStore: ReindexedGroupSink {
                     phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold)
                 )
                 guard gen == scanGeneration else { return }
-                applyReindexedGroups(initialGroups, generation: gen)
+                applyRustReindexedGroups(initialGroups, list: imageList, generation: gen)
             }
 
             if primaryID == nil, let firstID = visibleIDs.first {
@@ -459,7 +459,9 @@ final class LibraryStore: ReindexedGroupSink {
                     guard gen == self.scanGeneration else { return }
                     let exifMap = await BridgeCore.fetchExifBatch(list: imageList, db: db)
                     guard gen == self.scanGeneration else { return }
-                    self.mergeExifBatch(exifMap, generation: gen)
+                    // fetchExifBatch は Rust 連番 ID キー。store ID へ remap してから merge する。
+                    let remappedExif = self.remapExifBatchToStoreIDs(exifMap, list: imageList)
+                    self.mergeExifBatch(remappedExif, generation: gen)
                 }
                 self.isExifReady = true
 
@@ -2562,7 +2564,7 @@ final class LibraryStore: ReindexedGroupSink {
             splitThresholdSecs: Int64(split),
             phashHammingThreshold: UInt32(phash)
         )
-        applyReindexedGroups(groups, generation: scanGeneration)
+        applyRustReindexedGroups(groups, list: list, generation: scanGeneration)
         settings.appliedGroupingSplitThresholdSecs = split
         settings.appliedGroupingPhashHammingThreshold = phash
     }
@@ -2626,7 +2628,8 @@ final class LibraryStore: ReindexedGroupSink {
         watcher?.stop()
         watcher = nil
         pausedWatcherEventId = nil
-        nextEntryID = 1
+        // nextEntryID はフォルダ横断で単調増加させ、写真 ID をセッション内で一意に保つ。
+        // ここで 1 に戻すと別フォルダの ID が衝突し、前フォルダの写真が誤って解決される。
         let urlsToEvict = orderedIDs.compactMap { entries[$0]?.url }
         entries = [:]
         orderedIDs = []
@@ -2704,16 +2707,39 @@ final class LibraryStore: ReindexedGroupSink {
         var ordered: [UInt64] = []
         var groups: [UInt64: [UInt64]] = [:]
 
+        // Rust スキャナはフォルダごとに 1 から振り直す連番 ID を返すため、そのまま採用すると
+        // フォルダ間で ID が衝突する（前フォルダの写真が誤って解決される原因）。ここで
+        // 単調増加する nextEntryID へ remap し、セッション内でグローバル一意な store ID にする。
+        // shotId も同じ Rust 空間のトークンなので同一マップで付け替え、メンバーと整合させる。
+        var rustToStore: [UInt64: UInt64] = [:]
+        rustToStore.reserveCapacity(scanned.count)
         for entry in scanned {
-            dict[entry.id] = entry
-            ordered.append(entry.id)
-            groups[entry.shotId, default: []].append(entry.id)
+            rustToStore[entry.id] = nextEntryID
+            nextEntryID += 1
+        }
+
+        for entry in scanned {
+            let sid = rustToStore[entry.id]!
+            let shot = rustToStore[entry.shotId] ?? sid
+            let remapped = PhotoEntry(
+                id: sid,
+                url: entry.url,
+                filename: entry.filename,
+                isRaw: entry.isRaw,
+                fileSize: entry.fileSize,
+                modifiedDate: entry.modifiedDate,
+                createdDate: entry.createdDate,
+                hasJpgPartner: entry.hasJpgPartner,
+                shotId: shot
+            )
+            dict[sid] = remapped
+            ordered.append(sid)
+            groups[shot, default: []].append(sid)
         }
 
         entries = dict
         orderedIDs = ordered
         shotGroups = groups
-        nextEntryID = (ordered.max() ?? 0) + 1
         recomputeVisible()
     }
 
@@ -3021,16 +3047,14 @@ final class LibraryStore: ReindexedGroupSink {
         }
 
         // 3. Update lastImageList and reindex shot groups.
-        //    freshList uses Rust sequential IDs (0,1,2,...); convert to store IDs via path.
+        //    freshList uses Rust sequential IDs; applyRustReindexedGroups remaps members to store IDs via path.
         lastImageList = freshList
-        let pathToStoreID = Dictionary(uniqueKeysWithValues: entries.values.map { ($0.url.path, $0.id) })
         let rawGroups = await BridgeCore.reindexShotGroups(
             list: freshList, db: db,
             splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs),
             phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold)
         )
-        let convertedGroups = convertGroupsToStoreIDs(rawGroups, freshList: freshList, pathToStoreID: pathToStoreID)
-        applyReindexedGroups(convertedGroups, generation: gen)
+        applyRustReindexedGroups(rawGroups, list: freshList, generation: gen)
 
         // 4. Fire pipelines for newly added entries only
         if !newEntries.isEmpty {
@@ -3085,28 +3109,48 @@ final class LibraryStore: ReindexedGroupSink {
         }
     }
 
-    /// Converts reindexShotGroups output (Rust sequential IDs) to LibraryStore IDs (path-based lookup).
-    private func convertGroupsToStoreIDs(
-        _ groups: [UInt64: [UInt64]],
-        freshList: BridgeCoreImageList,
-        pathToStoreID: [String: UInt64]
-    ) -> [UInt64: [UInt64]] {
-        let count = image_entry_list_count(freshList.inner)
-        var freshIDToPath: [UInt64: String] = [:]
-        freshIDToPath.reserveCapacity(Int(count))
+    /// Maps Rust sequential IDs (from `list`) to globally-unique store IDs via a path join.
+    /// Rust 連番 ID は imageList・reindexShotGroups・fetchExifBatch で共通の空間。これを
+    /// 現在の `entries`（path → store ID）と突き合わせて変換マップを作る。
+    private func rustToStoreIDMap(list: BridgeCoreImageList) -> [UInt64: UInt64] {
+        let count = image_entry_list_count(list.inner)
+        let pathToStoreID = Dictionary(
+            entries.values.map { ($0.url.path, $0.id) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var map: [UInt64: UInt64] = [:]
+        map.reserveCapacity(Int(count))
         for i in 0..<count {
-            let ffiEntry = image_entry_list_get(freshList.inner, UInt(i))
-            freshIDToPath[ffi_image_entry_id(ffiEntry)] = ffi_image_entry_path(ffiEntry).toString()
+            let ffiEntry = image_entry_list_get(list.inner, UInt(i))
+            let rustID = ffi_image_entry_id(ffiEntry)
+            let path = ffi_image_entry_path(ffiEntry).toString()
+            if let sid = pathToStoreID[path] { map[rustID] = sid }
         }
+        return map
+    }
 
-        var result: [UInt64: [UInt64]] = [:]
-        result.reserveCapacity(groups.count)
-        for (shotId, freshMemberIDs) in groups {
-            let storeIDs = freshMemberIDs.compactMap { freshID -> UInt64? in
-                guard let path = freshIDToPath[freshID] else { return nil }
-                return pathToStoreID[path]
-            }
-            if !storeIDs.isEmpty { result[shotId] = storeIDs }
+    /// Applies reindexShotGroups output (members in Rust ID space) after remapping members to
+    /// store IDs via `list`. The group KEY (shotId) is an opaque per-folder token (only used as a
+    /// `shotGroups` matching key, never to look up an entry), so it is left as-is.
+    func applyRustReindexedGroups(_ groups: [UInt64: [UInt64]], list: BridgeCoreImageList?, generation: Int) {
+        guard generation == scanGeneration, let list else { return }
+        let map = rustToStoreIDMap(list: list)
+        var converted: [UInt64: [UInt64]] = [:]
+        converted.reserveCapacity(groups.count)
+        for (shotId, rustMemberIDs) in groups {
+            let storeIDs = rustMemberIDs.compactMap { map[$0] }
+            if !storeIDs.isEmpty { converted[shotId] = storeIDs }
+        }
+        applyReindexedGroups(converted, generation: generation)
+    }
+
+    /// Remaps a Rust-ID-keyed EXIF batch (`fetchExifBatch` output) to store IDs via `list`.
+    private func remapExifBatchToStoreIDs(_ batch: [UInt64: ExifData], list: BridgeCoreImageList) -> [UInt64: ExifData] {
+        let map = rustToStoreIDMap(list: list)
+        var result: [UInt64: ExifData] = [:]
+        result.reserveCapacity(batch.count)
+        for (rustID, exif) in batch {
+            if let sid = map[rustID] { result[sid] = exif }
         }
         return result
     }
