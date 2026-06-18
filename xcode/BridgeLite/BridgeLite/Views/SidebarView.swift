@@ -674,8 +674,10 @@ struct VariationThumbView: View {
                 .frame(width: 52, height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
                 .overlay(
+                    // strokeBorder: 線をフレーム内側に全幅描画し、stroke 中央描画で
+                    // 起きる外側はみ出し（＝枠の見切れ・歪み）を防ぐ。一周を均一な太さで描く。
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                        .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
                 )
 
             let badge = entry.isRaw ? "R" : (isDev ? "DEV" : (isInd ? "IND" : "J"))
