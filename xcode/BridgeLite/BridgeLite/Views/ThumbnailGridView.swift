@@ -297,10 +297,12 @@ struct ThumbnailGridView: View {
                     }
                     .clipped()
                 }
-                .onAppear { store.gridColumnCount = cols }
+                .onAppear { store.gridColumnCount = cols; scrollToFirstSelected(proxy) }
                 .onChange(of: cols) { _, newCols in store.gridColumnCount = newCols }
                 .onChange(of: store.viewerMode)  { _, isOn in if !isOn { scrollToPrimary(proxy) } }
                 .onChange(of: store.compareMode) { _, isOn in if !isOn { scrollToPrimary(proxy) } }
+                // ライブラリ↔フィルムストリップ遷移時、選択中で最も先頭のサムネを見せる。
+                .onChange(of: store.filmstripMode) { _, _ in scrollToFirstSelected(proxy) }
                 .onReceive(store.revealPrimaryRequest) { _ in scrollToPrimary(proxy) }
             }
         }
@@ -357,10 +359,12 @@ struct ThumbnailGridView: View {
             }
             // 1 行分＋スクロールバー帯に固定（縦に伸びない＝バナーと取り合わない／バーが見切れない）。
             .frame(height: rowHeight + scrollbarBand)
-            .onAppear { store.gridColumnCount = max(1, count) }
+            .onAppear { store.gridColumnCount = max(1, count); scrollToFirstSelected(proxy) }
             .onChange(of: count) { _, c in store.gridColumnCount = max(1, c) }
             .onChange(of: store.viewerMode)  { _, isOn in if !isOn { scrollToPrimary(proxy) } }
             .onChange(of: store.compareMode) { _, isOn in if !isOn { scrollToPrimary(proxy) } }
+            // 横配列ピッカーでも、遷移時に選択中で最も先頭のサムネを水平スクロールで見せる。
+            .onChange(of: store.filmstripMode) { _, _ in scrollToFirstSelected(proxy) }
             .onReceive(store.revealPrimaryRequest) { _ in scrollToPrimary(proxy) }
         }
         .id(store.scanGeneration)
@@ -417,6 +421,17 @@ struct ThumbnailGridView: View {
     private func rubberBandRect(from start: CGPoint, to end: CGPoint) -> CGRect {
         CGRect(x: min(start.x, end.x), y: min(start.y, end.y),
                width: abs(end.x - start.x), height: abs(end.y - start.y))
+    }
+
+    /// ライブラリ↔フィルムストリップ遷移時に、選択中で最もリスト先頭のサムネイルを
+    /// グリッド/ピッカー（縦・横どちらの配列でも）に見えるようスクロールする。
+    private func scrollToFirstSelected(_ proxy: ScrollViewProxy) {
+        guard let id = store.firstSelectedVisibleID else { return }
+        DispatchQueue.main.async {
+            var t = Transaction()
+            t.disablesAnimations = true
+            withTransaction(t) { proxy.scrollTo(id, anchor: .center) }
+        }
     }
 
     private func scrollToPrimary(_ proxy: ScrollViewProxy) {

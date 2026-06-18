@@ -46,6 +46,9 @@ final class LibraryStore: ReindexedGroupSink {
     }
     private(set) var primaryID: UInt64?       // サイドバー/ビュワーで表示する「主」選択
     private var anchorID: UInt64?             // Shift+Click の始点
+    /// 選択中で最もリスト（visibleIDs）先頭にあるサムネイル。
+    /// ライブラリ↔フィルムストリップ遷移時に、グリッド/ピッカーをここへスクロールして見せる。
+    var firstSelectedVisibleID: UInt64? { visibleIDs.first(where: { selectedIDs.contains($0) }) }
     // ビュワー/比較を閉じて戻るとき、primaryID のセルが既にグリッド可視範囲へ
     // 完全に描画されているかを問い合わせるクロージャ。GridInteractionView が
     // 自分の NSView を弱参照キャプチャして差し込む（NSView は visibleRect を持つ）。
