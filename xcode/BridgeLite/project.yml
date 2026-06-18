@@ -93,8 +93,8 @@ targets:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite
-        CFBundleVersion: "20"
-        CFBundleShortVersionString: "0.5.0"
+        CFBundleVersion: "21"
+        CFBundleShortVersionString: "0.5.1"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"
         NSHumanReadableCopyright: "Copyright © 2026 hoge128. All rights reserved."
         # Finder の右クリック「このアプリケーションで開く」と Dock ドラッグで
