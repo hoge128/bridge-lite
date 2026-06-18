@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BridgeLite 0.5.1 Release Notes</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; font-size: 13px; margin: 0; padding: 12px 16px; color: #1d1d1f; }
+    h2 { font-size: 15px; margin: 0 0 8px; }
+    h3 { font-size: 12px; font-weight: 600; margin: 12px 0 4px; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+    ul { margin: 0 0 4px; padding-left: 18px; }
+    li { margin: 2px 0; }
+    .lang-divider { border: none; border-top: 1px solid #e0e0e0; margin: 16px 0; }
+  </style>
+</head>
+<body>
+
+<!-- English -->
+<h2>BridgeLite 0.5.1</h2>
+
+<p>Choosing the one frame to keep is the slow part of photography — especially after a long shoot, when you're staring at a dozen near-identical shots trying to find the sharpest eye or the moment nobody blinked. This release is all about making that decision faster and less painful: line photos up side by side, review RAW from far more cameras, and keep skimming thousands of frames without the grid ever stuttering.</p>
+
+<h3>Filmstrip — for when you can't decide between near-identical shots</h3>
+<ul>
+  <li>You've got five frames of the same moment and flipping back and forth never quite settles it. Filmstrip lets you place any <strong>2–4 photos next to each other</strong> so the small differences — focus, expression, a blink — jump out, and you can commit to your keeper</li>
+  <li>Build the comparison set right from the viewer: add, remove and rearrange as you go</li>
+  <li>A redesigned preview with optional metadata and a resizable picker (grid or single row), so you can arrange the comparison the way that suits the shot</li>
+</ul>
+
+<h3>Wider RAW support — review straight off the card, whatever you shot on</h3>
+<ul>
+  <li>If you shoot RAW, you want to cull from the real RAW, not guess from a JPG. 0.5.1 reads the embedded preview correctly from many more cameras: <strong>Apple ProRAW / iPhone DNG, Nikon Z6 III, Olympus OM-5 Mark II</strong>, and medium-format <strong>Hasselblad (3FR/FFF)</strong> and <strong>Phase One (IIQ)</strong></li>
+  <li>New file types: <strong>Leica RWL</strong> and <strong>Canon CRW</strong></li>
+  <li>When a RAW genuinely has no usable preview, you now see a clear placeholder instead of wondering whether it failed to load</li>
+</ul>
+
+<h3>Smoother scrolling — for the thousand-photo folder</h3>
+<ul>
+  <li>After an event, a trip or a day of sport, you're skimming thousands of files at speed. The thumbnail grid's rendering was reworked so it holds a steady frame rate and re-decodes far less as you scroll — nothing slows you down while you're hunting for the good ones</li>
+</ul>
+
+<h3>Flag and filter your selects — make decisions that stick</h3>
+<ul>
+  <li><strong>Pick / Reject flags</strong> (P = keep, X = cut): mark photos as you go. They're written as Adobe-compatible XMP, so your decisions follow the files into Lightroom or Bridge — no redoing the work</li>
+  <li><strong>Midnight-pivot time filter</strong>: a concert or party that runs past midnight no longer splits across two days — the whole night session stays together when you filter by time</li>
+  <li>New <strong>focal length / 35 mm-equivalent</strong> filters and metadata, plus <strong>exposure compensation (EV)</strong> in the info card, for narrowing down by how a shot was taken</li>
+</ul>
+
+<h3>Other</h3>
+<ul>
+  <li>A <strong>Keyboard Shortcuts</strong> sheet in the toolbar, now covering Filmstrip and selection-mode shortcuts</li>
+  <li>Filename search now works in Filmstrip too</li>
+  <li>Fixed: opening a thumbnail could occasionally show a photo from a previously opened folder</li>
+  <li>Viewer controls fade away after a second of stillness so nothing covers the photo (optional)</li>
+  <li>Many smaller refinements and stability fixes</li>
+</ul>
+
+<hr class="lang-divider">
+
+<!-- 日本語 -->
+<h2>BridgeLite 0.5.1</h2>
+
+<p>撮ったあと、似たような何枚もの中から「残す一枚」を選ぶ——そこが写真でいちばん時間のかかる作業です。ピントの合った目、誰も瞬きしていない瞬間を探して、十数枚をにらめっこ。今回のアップデートは、その「選ぶ」をもっと速く、もっと迷わずにすることに集中しました。写真を並べて見比べ、より多くのカメラの RAW をそのまま確認し、数千枚をスクロールしても引っかからない——そんな改善を詰め込んでいます。</p>
+
+<h3>フィルムストリップ — 似た写真で迷ったときに</h3>
+<ul>
+  <li>同じ瞬間を撮った5枚、行ったり来たりしてもなかなか決まらない。フィルムストリップは任意の<strong>2〜4枚を並べて</strong>表示し、ピント・表情・瞬きといった小さな違いをひと目で見比べて、残す一枚を決められます</li>
+  <li>比較セットはビュワーから自由に編集 — 追加・削除・並べ替えがその場で可能</li>
+  <li>メタデータ表示やサイズ可変ピッカー（グリッド／横一列）を備えたプレビューに刷新。写真に合わせて見比べ方を選べます</li>
+</ul>
+
+<h3>RAW 対応の拡充 — どのカメラで撮っても、カードからそのまま選別</h3>
+<ul>
+  <li>RAW で撮るなら、JPG で推測せず本物の RAW から選びたいもの。0.5.1 は多くのカメラの埋め込みプレビューを正しく読み込むようになりました：<strong>Apple ProRAW・iPhone DNG、Nikon Z6 III、OM-5 Mark II</strong>、中判の <strong>Hasselblad（3FR/FFF）・Phase One（IIQ）</strong></li>
+  <li>新たに <strong>Leica RWL</strong>・<strong>Canon CRW</strong> に対応</li>
+  <li>プレビューを作れない RAW は、読み込み失敗と区別できる明示的なプレースホルダを表示</li>
+</ul>
+
+<h3>高速スクロール — 数千枚のフォルダのために</h3>
+<ul>
+  <li>イベント・旅行・スポーツのあとは、数千枚を一気に流し見します。サムネイルグリッドの描画を刷新し、スクロール中の再デコードを大幅に削減。一定のフレームレートを保つので、良い一枚を探す手が止まりません</li>
+</ul>
+
+<h3>仕分けのためのフラグとフィルタ — 決めた選択を無駄にしない</h3>
+<ul>
+  <li><strong>Pick / Reject フラグ</strong>（P=採用 / X=除外）：見ながらどんどん仕分け。Adobe 互換 XMP で書き込むので、その判断は Lightroom や Bridge にそのまま引き継がれ、選び直す手間がありません</li>
+  <li><strong>Midnight 基準の時刻フィルタ</strong>：深夜をまたぐライブやパーティも、時刻で絞り込むときに二日に分かれず、ひと晩の撮影としてまとまります</li>
+  <li><strong>焦点距離 / 35mm 換算</strong>のフィルタ・メタデータ、情報カードの<strong>露出補正（EV）</strong>を追加。「どう撮ったか」で絞り込めます</li>
+</ul>
+
+<h3>その他</h3>
+<ul>
+  <li>ツールバーの<strong>キーボードショートカット一覧</strong>にフィルムストリップ／選択モードの操作を追加</li>
+  <li>フィルムストリップでも<strong>ファイル名検索</strong>が可能に</li>
+  <li>不具合修正：サムネイルを開くと前に開いたフォルダの写真が表示されることがある問題を修正</li>
+  <li>単体ビューの操作ボタンをマウス静止1秒で自動的に隠す設定（写真を覆わない）</li>
+  <li>細部の改善と安定性向上</li>
+</ul>
+
+</body>
+</html>
