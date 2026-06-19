@@ -495,7 +495,6 @@ struct ThumbnailGridView: View {
                 .onTapGesture { }
             }
             FilterBarView(selectedCategory: $selectedFilterCategory, scanStore: scanStore)
-                .padding(.horizontal, 16)
                 .padding(.vertical, 8)
         }
         // タッチを遮断するため不可視な背景を置く（glass が壊れないよう opacity を最小化）

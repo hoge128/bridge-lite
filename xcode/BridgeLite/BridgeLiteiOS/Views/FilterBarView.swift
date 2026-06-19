@@ -51,6 +51,9 @@ struct FilterBarView: View {
         ScrollViewReader { proxy in
             ScrollView(.horizontal, showsIndicators: false) {
                 chipStrip
+                    // ScrollView 自体は全幅にし、左右の余白はチップ列の内側に持たせる。
+                    // こうするとスクロール時にチップが画面端まで表示される（端で切れない）。
+                    .padding(.horizontal, 16)
                     .padding(.vertical, 4)
                     .background { ScrollViewDelayDisabler() }
             }
