@@ -2,22 +2,19 @@ import SwiftUI
 
 struct ThumbnailCellView: View {
     let group: ShotGroup
-    let entries: [UInt64: PhotoEntry]
-    let thumbnails: [UInt64: Data]
-    let ratings: [UInt64: XmpData]
-    let exifs: [UInt64: ExifData]
+    /// このセルの代表画像サムネイル（辞書全体でなく必要な1エントリのみ）
+    let thumbnailData: Data?
+    /// このセルの XMP 評価データ（辞書全体でなく必要な1エントリのみ）
+    let xmp: XmpData?
     let kind: PhotoKind
     /// nil = 2列モード（自然アスペクト比）、非 nil = 3列モード（正方形、値はセル幅）
     let squareCellSize: CGFloat?
-    let isSelected: Bool
+    /// iPhone のみ使用（accentColor 枠線）。iPad は黒オーバーレイで選択表現するため常に false。
+    var isSelected: Bool = false
     /// プレビュー（埋込 JPEG / RGB）を生成できなかった RAW。読込中シマーの代わりにプレースホルダを出す。
     var previewUnavailable: Bool = false
     let onTap: () -> Void
     let onDelete: () -> Void
-
-    private var representativeID: UInt64? { group.representativeID }
-    private var thumbnailData: Data? { representativeID.flatMap { thumbnails[$0] } }
-    private var xmp: XmpData? { representativeID.flatMap { ratings[$0] } }
 
     var body: some View {
         Button(action: onTap) {
@@ -53,6 +50,11 @@ struct ThumbnailCellView: View {
             .clipShape(RoundedRectangle(cornerRadius: 6))
             .overlay(selectionBorder(cornerRadius: 6))
         }
+    }
+
+    private func selectionBorder(cornerRadius: CGFloat) -> some View {
+        RoundedRectangle(cornerRadius: cornerRadius)
+            .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
     }
 
     @ViewBuilder
@@ -151,10 +153,6 @@ struct ThumbnailCellView: View {
             }
     }
 
-    private func selectionBorder(cornerRadius: CGFloat) -> some View {
-        RoundedRectangle(cornerRadius: cornerRadius)
-            .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
-    }
 }
 
 /// プレビュー（埋込 JPEG / RGB）を生成できなかった RAW 用のプレースホルダ。

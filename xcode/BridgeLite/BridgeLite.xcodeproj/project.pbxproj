@@ -28,6 +28,7 @@
 		153A1705C9336E2AB8DFF50B /* ExifHistogramView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8897A02D7131985030D5B46D /* ExifHistogramView.swift */; };
 		15EC68B4A95093A65194736A /* OnboardingGuideView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A99D7A009ECB59C2566D6019 /* OnboardingGuideView.swift */; };
 		18F473074BA8B73A8706C1D9 /* ExifData.swift in Sources */ = {isa = PBXBuildFile; fileRef = 35CE4E8C5B9154592AD343CB /* ExifData.swift */; };
+		1971BED6815A80C4E7314A64 /* DetailViewPhone.swift in Sources */ = {isa = PBXBuildFile; fileRef = 57AA701E408C7A7E705D5D68 /* DetailViewPhone.swift */; };
 		1B81ACFE220F94FACC9CB317 /* RecentFoldersStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = 457102D9A774F68E8EA1188D /* RecentFoldersStore.swift */; };
 		1CA3A2C4229728F0691BEAB8 /* ShotGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E644DA2225FFA58312896A06 /* ShotGroup.swift */; };
 		1E5E68B25E2EC686594106E6 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4D049A57268958B6678D2C20 /* UpdaterController.swift */; };
@@ -208,6 +209,7 @@
 		4CF92FF6CCA2E5C4746DABAA /* TabBarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TabBarView.swift; sourceTree = "<group>"; };
 		4D049A57268958B6678D2C20 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 		562FFC709A5EF19C156C3F4B /* LibraryStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LibraryStore.swift; sourceTree = "<group>"; };
+		57AA701E408C7A7E705D5D68 /* DetailViewPhone.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = DetailViewPhone.swift; sourceTree = "<group>"; };
 		5AD44FCE9AC4978AAFE434DA /* ThumbnailPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ThumbnailPipeline.swift; sourceTree = "<group>"; };
 		5F6AB0BABA5195DAD2785DD6 /* en */ = {isa = PBXFileReference; lastKnownFileType = net.daringfireball.markdown; name = en; path = en.lproj/Help.md; sourceTree = "<group>"; };
 		6259A93CEB1040679F6D1C26 /* ToolbarView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ToolbarView.swift; sourceTree = "<group>"; };
@@ -457,6 +459,7 @@
 			isa = PBXGroup;
 			children = (
 				C85D8596A0E46A5E932A65FA /* DetailView.swift */,
+				57AA701E408C7A7E705D5D68 /* DetailViewPhone.swift */,
 				8B3CDE1D435BBE68AB279C59 /* ExportSheet.swift */,
 				DA9262B1680B7331805E940E /* FilterBarView.swift */,
 				2FFF75927BE5C7FC9B2862C2 /* FilterSheetView.swift */,
@@ -683,6 +686,7 @@
 				FFBB566343EEA7BA991F4AAE /* ContentView.swift in Sources */,
 				D94D2E517C63501996A36845 /* CoreError+LocalizedError.swift in Sources */,
 				B8167BC2395FD9F9A557FD6B /* DetailView.swift in Sources */,
+				1971BED6815A80C4E7314A64 /* DetailViewPhone.swift in Sources */,
 				4E72A5090DBD0AF45203A54B /* ExifBucket.swift in Sources */,
 				18F473074BA8B73A8706C1D9 /* ExifData.swift in Sources */,
 				153A1705C9336E2AB8DFF50B /* ExifHistogramView.swift in Sources */,
@@ -1027,7 +1031,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "BridgeLiteiOS/BridgeLiteiOS-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Debug;
 		};
@@ -1108,7 +1112,7 @@
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "BridgeLiteiOS/BridgeLiteiOS-Bridging-Header.h";
 				SWIFT_VERSION = 6.0;
-				TARGETED_DEVICE_FAMILY = 1;
+				TARGETED_DEVICE_FAMILY = "1,2";
 			};
 			name = Release;
 		};

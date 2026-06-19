@@ -53,6 +53,17 @@ func presentShareSheet(urls: [URL], previewImage: UIImage? = nil, title: String?
     }
 
     let actVC = UIActivityViewController(activityItems: items, applicationActivities: nil)
+    // iPad では UIActivityViewController を popover として提示しないとクラッシュする。
+    // push ナビゲーション（ズーム遷移）でも fullScreenCover でも安全なよう常時設定する。
+    if let popover = actVC.popoverPresentationController {
+        popover.sourceView = topVC.view
+        popover.sourceRect = CGRect(
+            x: topVC.view.bounds.midX,
+            y: topVC.view.bounds.midY,
+            width: 1, height: 1
+        )
+        popover.permittedArrowDirections = []
+    }
     topVC.present(actVC, animated: true)
 }
 

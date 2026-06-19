@@ -474,7 +474,7 @@ final class ScanStore: ReindexedGroupSink {
     var autoReleaseTimeout: AutoReleaseTimeout = {
         if let raw = UserDefaults.standard.string(forKey: "ios.autoReleaseTimeout"),
            let t = AutoReleaseTimeout(rawValue: raw) { return t }
-        return .oneMinute
+        return .fiveMinutes
     }() {
         didSet {
             UserDefaults.standard.set(autoReleaseTimeout.rawValue, forKey: "ios.autoReleaseTimeout")
@@ -487,12 +487,28 @@ final class ScanStore: ReindexedGroupSink {
         }
     }
 
+    /// DetailView 表示中は自動解放を保留する。詳細画面のページング・レーティング操作は
+    /// グリッド側のリセット経路（セルタップ・スクロール）を通らないため、タイマーが
+    /// 走ったままだとセレクト作業の最中に enterAutoRelease が発火してしまう。
+    private var autoReleaseSuspended = false
+
+    func suspendAutoReleaseTimer() {
+        autoReleaseSuspended = true
+        autoReleaseTask?.cancel()
+        autoReleaseTask = nil
+    }
+
+    func resumeAutoReleaseTimer() {
+        autoReleaseSuspended = false
+        resetAutoReleaseTimer()
+    }
+
     /// スキャン完了後・ユーザー操作時に呼ぶ。設定時間無操作でウェルカム画面へ戻る。
     func resetAutoReleaseTimer() {
         autoReleaseTask?.cancel()
         autoReleaseTask = nil
         guard let nanos = autoReleaseTimeout.nanoseconds,
-              !isScanning, folderURL != nil else { return }
+              !autoReleaseSuspended, !isScanning, folderURL != nil else { return }
         autoReleaseTask = Task { [weak self] in
             do {
                 try await Task.sleep(nanoseconds: nanos)
@@ -580,6 +596,9 @@ final class ScanStore: ReindexedGroupSink {
 
     func scan(url: URL) {
         returnedFromAutoRelease = false
+        // DetailView を開いたままグリッドごと破棄された場合（フォルダ切替等）は
+        // resume が呼ばれないため、新しいスキャン開始時に保留状態を必ず解除する
+        autoReleaseSuspended = false
         folderURL = url
         BookmarkStore.save(url: url)
         scanTask?.cancel()

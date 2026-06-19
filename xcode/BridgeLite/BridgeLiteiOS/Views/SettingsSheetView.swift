@@ -1,4 +1,5 @@
 import SwiftUI
+import UIKit
 
 struct SettingsSheetView: View {
     @Bindable var scanStore: ScanStore
@@ -9,6 +10,9 @@ struct SettingsSheetView: View {
     @State private var showPhashHelp = false
     @State private var cacheSizeBytes: Int64 = 0
     @State private var cachedImageCount: Int = 0
+    // iPad は最初から大きめに開く（引き伸ばし操作を不要にする）。iPhone は従来どおり medium 始まり。
+    @State private var selectedDetent: PresentationDetent =
+        UIDevice.current.userInterfaceIdiom == .pad ? .large : .medium
     var onDismiss: () -> Void
 
     private static let byteFormatter: ByteCountFormatter = {
@@ -183,7 +187,7 @@ struct SettingsSheetView: View {
                 }
             }
         }
-        .presentationDetents([.medium, .large])
+        .presentationDetents([.medium, .large], selection: $selectedDetent)
         .onAppear {
             cacheSizeBytes = ScanStore.cacheSizeBytes()
             cachedImageCount = ScanStore.cachedThumbnailCount()

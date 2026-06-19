@@ -245,7 +245,9 @@ targets:
       base:
         SWIFT_VERSION: 6.0
         IPHONEOS_DEPLOYMENT_TARGET: "18.0"
-        TARGETED_DEVICE_FAMILY: "1"
+        # 1 = iPhone, 2 = iPad. Universal app: a single binary/target runs on both,
+        # sharing the same scheme, sources, and App Store record (same bundle id).
+        TARGETED_DEVICE_FAMILY: "1,2"
         PRODUCT_BUNDLE_IDENTIFIER: io.github.bridge-lite.ios
         PRODUCT_NAME: BridgeLite
         DEVELOPMENT_TEAM: KTQ8JQW28L
@@ -262,8 +264,8 @@ targets:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite.ios
-        CFBundleVersion: "3"
-        CFBundleShortVersionString: "0.1.4"
+        CFBundleVersion: "6"
+        CFBundleShortVersionString: "0.1.5"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer for iPhone"
         UILaunchScreen: {}
         NSPhotoLibraryAddUsageDescription: "Used to save exported photos to your Photo Library."
@@ -271,3 +273,14 @@ targets:
           - processing
         BGTaskSchedulerPermittedIdentifiers:
           - io.github.bridge-lite.ios.exifindex
+        # iPad マルチタスク（Stage Manager / Split View）必須要件。
+        # UISupportedInterfaceOrientations は iPhone 用（縦固定）、
+        # ~ipad サフィックスは iPad 用（全4方向）。
+        # これがないと App Store Connect アップロード時に Invalid bundle エラーになる。
+        UISupportedInterfaceOrientations:
+          - UIInterfaceOrientationPortrait
+        UISupportedInterfaceOrientations~ipad:
+          - UIInterfaceOrientationPortrait
+          - UIInterfaceOrientationPortraitUpsideDown
+          - UIInterfaceOrientationLandscapeLeft
+          - UIInterfaceOrientationLandscapeRight
