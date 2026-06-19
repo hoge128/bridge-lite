@@ -1,26 +1,16 @@
-Choosing the one frame to keep is the slow part of photography — especially after a long shoot, when a dozen near-identical shots all look the same. This update is about making that choice faster and easier.
-
-Filmstrip — for when you can't decide between similar shots
-Put any 2–4 photos side by side so the small differences (focus, expression, a blink) stand out, and pick your keeper with confidence.
-• Build and rearrange the comparison set right from the viewer
-• Redesigned preview with optional metadata and a resizable picker (grid or single row)
+Wider RAW support makes culling even smoother.
 
 Wider RAW support — review straight off the card
 Shoot RAW and cull from the real RAW, not a JPG. Embedded previews now read correctly from many more cameras:
-• Apple ProRAW / iPhone DNG, Nikon Z6 III, Olympus OM-5 Mark II, and medium-format Hasselblad and Phase One
-• Added Leica RWL and Canon CRW
-• RAW with no usable preview now shows a clear placeholder
+• Added Olympus ORF (incl. OM-5 Mark II), Canon CRW, and Leica RWL
+• Now supports medium-format Hasselblad (3FR/FFF) and Phase One (IIQ), Nikon Z6 III, and Apple ProRAW / iPhone DNG
+• RAW with no usable preview now shows a clear "No preview" placeholder
 
-Smoother scrolling — for the thousand-photo folder
-The thumbnail grid was reworked to hold a steady frame rate and re-decode less as you scroll, so nothing slows you down while skimming a big shoot.
-
-Flag and filter your selects — decisions that stick
-• Pick / Reject flags (P = keep, X = cut), saved as Adobe-compatible XMP so they carry into Lightroom and Bridge
-• Midnight-pivot time filter, so a session that runs past midnight stays together
-• New focal length / 35mm-equivalent filters and metadata, plus exposure compensation (EV)
+Better filtering and sorting
+• Added a time-of-day filter with a midnight pivot, so a session that runs past midnight stays together
+• Added "Date Taken" sorting (by EXIF capture time)
+• Filter category chips now extend to the edge of the screen
 
 Also
-• Keyboard Shortcuts sheet, including Filmstrip and selection-mode shortcuts
-• Filename search in Filmstrip
-• Fixed an issue where opening a thumbnail could show a photo from a previous folder
+• Fixed an issue where, after opening a different folder, a photo from the previous folder could occasionally appear
 • Various refinements and fixes

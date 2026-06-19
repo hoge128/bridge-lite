@@ -264,8 +264,8 @@ targets:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite.ios
-        CFBundleVersion: "6"
-        CFBundleShortVersionString: "0.1.5"
+        CFBundleVersion: "7"
+        CFBundleShortVersionString: "0.1.6"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer for iPhone"
         UILaunchScreen: {}
         NSPhotoLibraryAddUsageDescription: "Used to save exported photos to your Photo Library."
