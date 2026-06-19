@@ -281,6 +281,8 @@ struct DetailView: View {
                 .blur(radius: (cached == nil && isLoadingFullRes) ? 8 : 0)
                 .opacity((cached == nil && isLoadingFullRes) ? 0.6 : 1.0)
                 .animation(.easeOut(duration: 0.2), value: cached == nil)
+            } else if entry.isRaw && scanStore.isPreviewUnavailable(entry.id) {
+                UnavailablePreviewView()
             } else {
                 ProgressView()
             }
@@ -460,6 +462,9 @@ struct DetailView: View {
         if let img = await decodeFullRes(entry: entry) {
             if fullResCache.count >= 5 { fullResCache.removeFirst() }
             fullResCache.append(FullResEntry(id: entry.id, image: img))
+        } else if entry.isRaw, thumbnails[entry.id] == nil {
+            // フル解像度もサムネも得られない RAW はプレビュー不可として記録（プレースホルダ表示）。
+            scanStore.notePreviewUnavailable(id: entry.id, generation: scanStore.scanGeneration)
         }
     }
 

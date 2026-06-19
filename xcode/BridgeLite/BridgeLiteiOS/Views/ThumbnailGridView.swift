@@ -183,6 +183,7 @@ struct ThumbnailGridView: View {
                             kind: scanStore.representativeKind(for: group, xmps: ratingStore.ratings),
                             squareCellSize: cellSize,
                             isSelected: selectedGroup?.id == group.id,
+                            previewUnavailable: group.representativeID.map { scanStore.isPreviewUnavailable($0) } ?? false,
                             onTap: {
                                 scanStore.resetAutoReleaseTimer()
                                 selectedGroup = group

@@ -151,6 +151,15 @@ enum BridgeCoreConstants {
         "silkypix", "rawpower", "picktorial", "iridient", "exposure x",
     ]
 
+    // 専用 RAW デコードが必要なフォーマット（ImageIO を経由せず Rust の埋め込み JPEG
+    // 抽出 extractRawJpeg を使う）。crates/bridge-core/src/scanner.rs の RAW_EXTENSIONS から
+    // dng を除いたもの（DNG は Apple ImageIO がネイティブにデコードできるため ImageIO に任せる）。
+    // 新フォーマット追加時は Rust 側 RAW_EXTENSIONS と必ず同期すること。
+    static let proprietaryRawExtensions: Set<String> = [
+        "arw", "cr2", "cr3", "crw", "nef", "nrw", "orf", "rw2", "rwl",
+        "raf", "pef", "srw", "3fr", "fff", "iiq", "mos",
+    ]
+
     // Must stay in sync with SOFTWARE_MARKERS in crates/bridge-core/src/scanner.rs
     static let softwareFilenameMarkers: [String] = [
         "-dxo", "_dxo",

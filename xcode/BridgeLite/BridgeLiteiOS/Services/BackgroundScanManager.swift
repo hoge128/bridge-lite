@@ -177,8 +177,7 @@ private enum BackgroundThumbnailPipeline {
     private static func bgGenerateWithImageIO(url: URL) async -> CGImage? {
         return await Task.detached(priority: .utility) {
             // 独自 RAW デコーダは macOS 26 でクラッシュするため ImageIO を使わない（extractRawJpeg で処理）
-            let rawExts: Set<String> = ["arw", "cr2", "cr3", "nef", "nrw", "rw2", "orf", "pef", "raf"]
-            guard !rawExts.contains(url.pathExtension.lowercased()),
+            guard !BridgeCoreConstants.proprietaryRawExtensions.contains(url.pathExtension.lowercased()),
                   let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
 
             let opts: [CFString: Any] = [

@@ -3,7 +3,7 @@ import SwiftUI
 // MARK: - Filter category
 
 enum FilterCategory: String, CaseIterable, Identifiable {
-    case kind, rating, label, date, aperture, focal, shutter, iso, camera, lens, artist
+    case kind, rating, label, date, time, aperture, focal, shutter, iso, camera, lens, artist
     var id: String { rawValue }
 
     var icon: String {
@@ -12,6 +12,7 @@ enum FilterCategory: String, CaseIterable, Identifiable {
         case .label:    return "circle.fill"
         case .kind:     return "photo"
         case .date:     return "calendar"
+        case .time:     return "clock"
         case .camera:   return "camera"
         case .lens:     return "camera.aperture"
         case .artist:   return "person"
@@ -28,6 +29,7 @@ enum FilterCategory: String, CaseIterable, Identifiable {
         case .label:    return String(localized: "filter.category.label",    defaultValue: "Label")
         case .kind:     return String(localized: "filter.category.kind",     defaultValue: "File Type")
         case .date:     return String(localized: "filter.category.date",     defaultValue: "Date")
+        case .time:     return String(localized: "filter.category.time",     defaultValue: "Time")
         case .camera:   return String(localized: "filter.category.camera",   defaultValue: "Camera")
         case .lens:     return String(localized: "filter.category.lens",     defaultValue: "Lens")
         case .artist:   return String(localized: "filter.category.artist",   defaultValue: "Artist")
@@ -299,6 +301,8 @@ struct FilterCategoryContent: View {
             case .kind:    kindRow
             case .date:
                 IOSCalendarView(scanStore: scanStore, ratings: ratings)
+            case .time:
+                if isExifLoading { exifLoadingPlaceholder } else { timeHistogram }
             case .camera:
                 if isExifLoading { exifLoadingPlaceholder }
                 else {
@@ -358,6 +362,28 @@ struct FilterCategoryContent: View {
                           minText: $scanStore.apertureMin,
                           maxText: $scanStore.apertureMax)
             .frame(height: 100)
+    }
+
+    private var timeHistogram: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Toggle(isOn: Binding(
+                get: { scanStore.timeSpanMidnight },
+                set: { newVal in
+                    scanStore.timeSpanMidnight = newVal
+                    // モード切替で選択をクリア（表示軸の回転と実値の整合を保つ）。
+                    scanStore.timeMin = ""; scanStore.timeMax = ""
+                }
+            )) {
+                Text(String(localized: "filter.time.span_midnight", defaultValue: "Midnight pivot"))
+                    .font(.caption)
+            }
+            .tint(.accentColor)
+
+            ExifHistogramView(bars: scanStore.timeBuckets,
+                              minText: $scanStore.timeMin,
+                              maxText: $scanStore.timeMax)
+                .frame(height: 100)
+        }
     }
 
     private var ratingRow: some View {
