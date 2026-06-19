@@ -148,18 +148,9 @@ struct FolderView: View {
                     FilterPanelView()
                         .navigationSplitViewColumnWidth(min: 180, ideal: 200, max: 240)
                 } detail: {
-                    HStack(spacing: 0) {
-                        ThumbnailGridView()
-
-                        if store.showSidebar {
-                            Divider()
-                            SidebarView()
-                                .frame(minWidth: 260, idealWidth: 300, maxWidth: 360)
-                                .background(Color(.windowBackgroundColor))
-                                .transition(.move(edge: .trailing))
-                        }
-                    }
-                    .animation(.easeInOut(duration: 0.2), value: store.showSidebar)
+                    // ライブラリ/フィルムストリップ共通の detail。グリッドは常駐し、モード切替で
+                    // 破棄/再生成されない（FilmstripView 内でグリッドの上にプレビューを差し込む＝案A）。
+                    FilmstripView()
                 }
                 .toolbar {
                     ToolbarView()
@@ -174,11 +165,19 @@ struct FolderView: View {
                     Group {
                         Button("") {
                             guard !isTextFieldActive() else { return }
-                            store.selectAll()
+                            if store.filmstripMode && store.filmstripPreviewActive {
+                                store.previewSelectAll()
+                            } else {
+                                store.selectAll()
+                            }
                         }
                         .keyboardShortcut("a", modifiers: .command)
                         Button("") {
                             guard !isTextFieldActive() else { return }
+                            if store.filmstripMode && store.filmstripPreviewActive {
+                                store.previewDeselectAll()
+                                return
+                            }
                             store.deselectAll()
                         }
                         .keyboardShortcut("a", modifiers: [.command, .option])
@@ -238,6 +237,14 @@ struct FolderView: View {
         )))
         .onChange(of: store.viewerMode) { _, _ in updateToolbarVisibility() }
         .onChange(of: store.compareMode) { _, _ in updateToolbarVisibility() }
+        .onChange(of: store.currentDirectoryURL) { _, newURL in
+            // フォルダを閉じた（welcome に戻った）らフィルムストリップを解除
+            if newURL == nil { store.filmstripMode = false }
+        }
+        .onChange(of: store.filmstripMode) { _, _ in
+            // フィルムストリップへ入退場するたび、アクティブ面はピッカーから開始
+            store.filmstripPreviewActive = false
+        }
         .onAppear {
             guard spaceKeyMonitor == nil else { return }
             let s = store
@@ -246,14 +253,28 @@ struct FolderView: View {
                 // 複数ウィンドウ環境で全モニタが同じイベントを受け取って二重発火するのを防ぐ。
                 // 自分のウィンドウ宛てでなければスルー。
                 guard event.window === ref.window else { return event }
-                // Space → viewer mode
+                // Space → viewer mode（設定で入替時は compare mode）
                 if event.keyCode == 49,
                    event.modifierFlags.intersection(.deviceIndependentFlagsMask).isEmpty,
-                   !s.viewerMode, !s.compareMode,
-                   s.primaryID != nil {
-                    s.viewerMode = true
-                    if SettingsStore.shared.viewerSpaceFullscreen {
-                        ref.window?.toggleFullScreen(nil)
+                   !s.viewerMode, !s.compareMode {
+                    // フィルムストリップでプレビュー面がアクティブなら、注目中の写真を単体ビューで開く。
+                    // 前後送りはプレビューの並び（filmstripCompareIDs）で行い、比較セットは壊さない。
+                    if s.filmstripMode && s.filmstripPreviewActive {
+                        s.enterFilmstripPreviewViewer()
+                        if s.viewerMode, SettingsStore.shared.viewerSpaceFullscreen {
+                            ref.window?.toggleFullScreen(nil)
+                        }
+                        return nil
+                    }
+                    guard let pid = s.primaryID else { return event }
+                    if SettingsStore.shared.gridOpenGesture == .spaceCompare {
+                        s.compareAnchorID = pid
+                        s.compareMode = true
+                    } else {
+                        s.viewerMode = true
+                        if SettingsStore.shared.viewerSpaceFullscreen {
+                            ref.window?.toggleFullScreen(nil)
+                        }
                     }
                     return nil
                 }
@@ -274,6 +295,35 @@ struct FolderView: View {
                         return nil
                     }
                 }
+                // P / X → Pick / Reject フラグ（rating キー同様、全モードで有効）
+                if !(fr0 is NSTextView), !(fr0 is NSTextField),
+                   event.modifierFlags.intersection([.shift, .command, .control, .option]).isEmpty,
+                   let ch = event.charactersIgnoringModifiers?.lowercased() {
+                    if ch == "p" { s.applyFlag(XmpFlag.pick.rawValue); return nil }
+                    if ch == "x" { s.applyFlag(XmpFlag.reject.rawValue); return nil }
+                }
+                // F → フィルターバー（修飾なし・ライブラリ／フィルムストリップ両方）
+                // I（修飾なし）: ライブラリ＝メタデータバー / フィルムストリップ＝info card 表示切替
+                //   （ピッカー・ビュワーどちらにフォーカスがあっても有効。focus 非依存の大域ハンドラ）
+                // Shift+I: フィルムストリップのメタデータバー表示切替
+                let metaMods = event.modifierFlags.intersection([.shift, .command, .control, .option])
+                if !(fr0 is NSTextView), !(fr0 is NSTextField),
+                   !s.viewerMode, !s.compareMode,
+                   let ch = event.charactersIgnoringModifiers?.lowercased() {
+                    if ch == "f", metaMods.isEmpty {
+                        s.columnVisibility = (s.columnVisibility == .detailOnly) ? .all : .detailOnly
+                        return nil
+                    }
+                    if ch == "i" {
+                        if s.filmstripMode {
+                            if metaMods == .shift { s.filmstripShowMeta.toggle(); return nil }
+                            if metaMods.isEmpty { s.viewerShowsMeta.toggle(); return nil }
+                        } else if metaMods.isEmpty {
+                            s.showSidebar.toggle()
+                            return nil
+                        }
+                    }
+                }
                 // Arrow keys — text view がフォーカスを持っている場合はスルー
                 let fr1 = NSApp.keyWindow?.firstResponder
                 guard !(fr1 is NSTextView), !(fr1 is NSTextField),
@@ -283,6 +333,34 @@ struct FolderView: View {
                 let shift = mods.contains(.shift)
                 let cmd   = mods.contains(.command)
                 guard mods.subtracting([.shift, .command]).isEmpty else { return event }
+                // フィルムストリップのプレビューがアクティブなら、矢印はプレビューのナビゲーションへ
+                if s.filmstripMode && s.filmstripPreviewActive {
+                    guard !cmd else { return event }
+                    let dx: Int, dy: Int
+                    switch event.keyCode {
+                    case 123: dx = -1; dy = 0   // ←
+                    case 124: dx = 1;  dy = 0   // →
+                    case 126: dx = 0;  dy = -1  // ↑
+                    case 125: dx = 0;  dy = 1   // ↓
+                    default: return event
+                    }
+                    shift ? s.previewRangeNavigate(dx: dx, dy: dy) : s.previewNavigate(dx: dx, dy: dy)
+                    return nil
+                }
+                // 選択モードのピッカー: 矢印はフォーカスカーソル移動のみ（選択集合は不変）、
+                // Shift で範囲を加算。粘着選択を矢印で壊さない。
+                if s.filmstripMode && s.filmstripSelectionMode {
+                    let dir: FocusDir
+                    switch event.keyCode {
+                    case 123: if cmd { return event }; dir = .prev   // ←
+                    case 124: if cmd { return event }; dir = .next   // →
+                    case 126: dir = cmd ? .first : .up               // ↑
+                    case 125: dir = cmd ? .last : .down              // ↓
+                    default: return event
+                    }
+                    shift ? s.extendSelection(dir) : s.moveFocus(dir)
+                    return nil
+                }
                 switch event.keyCode {
                 case 123: // ←
                     guard !cmd else { return event }
@@ -327,6 +405,7 @@ private struct StatusBarView: View {
 
     var body: some View {
         @Bindable var settings = store.settings
+        @Bindable var store = store
         HStack(spacing: 8) {
             if store.isLoading {
                 Text(store.statusMessage)
@@ -368,7 +447,42 @@ private struct StatusBarView: View {
                     .lineLimit(1)
             }
 
+            // 復帰時のサムネイル全件再ロード(path B)を可視化する。
+            if store.isReloadingThumbnails {
+                ProgressView()
+                    .progressViewStyle(.circular)
+                    .controlSize(.mini)
+                Text(String(localized: "status.reloading_thumbnails",
+                            defaultValue: "Reloading thumbnails… \(store.reloadingCount)"))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+                    .monospacedDigit()
+            }
+
             Spacer()
+
+            // フィルムストリップ時のみ：ピッカーのレイアウト切替（いずれか1つだけ有効）。
+            if store.filmstripMode && store.currentDirectoryURL != nil {
+                Picker("", selection: $store.filmstripPickerLayout) {
+                    Image(systemName: "square.grid.2x2")
+                        .accessibilityLabel(Text(String(localized: "filmstrip.layout.grid",
+                                                         defaultValue: "Thumbnail grid")))
+                        .tag(FilmstripPickerLayout.grid)
+                    Image(systemName: "rectangle.split.3x1")
+                        .accessibilityLabel(Text(String(localized: "filmstrip.layout.row",
+                                                         defaultValue: "Single row")))
+                        .tag(FilmstripPickerLayout.row)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(width: 76)
+                .controlSize(.small)
+                .help(String(localized: "filmstrip.layout.help",
+                             defaultValue: "Picker layout: grid or single row"))
+
+                Divider().frame(height: 14)
+            }
 
             Image(systemName: "photo")
                 .font(.system(size: 10))

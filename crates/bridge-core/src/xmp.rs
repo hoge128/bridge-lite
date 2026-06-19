@@ -12,6 +12,14 @@ use crate::developed::DEVELOPED_SOFTWARE_KEYWORDS;
 
 const NS_CRS: &str = "http://ns.adobe.com/camera-raw-settings/1.0/";
 const NS_DXO: &str = "http://ns.dxo.com/framework/1.0/";
+/// xmpDM (Dynamic Media) — Lightroom Classic 13.2+ writes pick/reject flags here
+/// as `xmpDM:pick` (1 / 0 / -1) + `xmpDM:good` (True / False).
+const NS_XMP_DM: &str = "http://ns.adobe.com/xmp/1.0/DynamicMedia/";
+/// bridge-lite 独自名前空間。現像済みが複数あるグループでユーザーが選んだ「代表」を記録する。
+/// 他アプリは解釈しない非標準タグ。書き込みは現像済み(非RAW)のみ・専用の `set_representative` 経由。
+const NS_BRIDGE_LITE: &str = "http://ns.bridge-lite.io/1.0/";
+const BL_PREFIX: &str = "bridgelite";
+const BL_REPRESENTATIVE: &str = "Representative";
 
 #[derive(Debug, Clone, Default)]
 pub struct XmpData {
@@ -24,6 +32,9 @@ pub struct XmpData {
     /// dc:description (LangAlt, x-default) / tiff:ImageDescription fallback.
     /// Empty string on write = delete both properties (clear caption).
     pub caption:   Option<String>,
+    /// bridge-lite 独自の「代表」マーカー（bl:Representative）。読み取り専用。
+    /// 通常の write_metadata では一切触らず、`set_representative` でのみ更新する。
+    pub representative: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -161,6 +172,96 @@ pub fn write_metadata(image_path: &Path, data: &XmpData, jpg_use_sidecar: bool) 
     }
 }
 
+// ── Representative marker (bridge-lite custom tag) ────────────────────────────
+
+fn register_bridge_lite_ns() {
+    // 冪等。カスタム名前空間での property/set_property/delete_property の前に必要。
+    let _ = XmpMeta::register_namespace(NS_BRIDGE_LITE, BL_PREFIX);
+}
+
+/// bl:Representative == "True" を読む（不在/その他は false）。
+fn read_representative(meta: &XmpMeta) -> bool {
+    register_bridge_lite_ns();
+    if let Some(v) = meta.property_bool(NS_BRIDGE_LITE, BL_REPRESENTATIVE) {
+        return v.value;
+    }
+    if let Some(v) = meta.property(NS_BRIDGE_LITE, BL_REPRESENTATIVE) {
+        return v.value.eq_ignore_ascii_case("true");
+    }
+    false
+}
+
+/// 既存 XMP を保ったまま bl:Representative のみ set/delete する read-modify-write。
+/// jpg_use_sidecar / RAW 判定・btime 保存は通常の書き込み経路と同じ規約を踏襲する。
+pub fn set_representative(image_path: &Path, value: bool, jpg_use_sidecar: bool) -> io::Result<()> {
+    if crate::scanner::is_raw(image_path) || jpg_use_sidecar {
+        set_representative_sidecar(image_path, value)
+    } else {
+        set_representative_embedded(image_path, value)
+    }
+}
+
+fn apply_representative(meta: &mut XmpMeta, value: bool) -> io::Result<()> {
+    register_bridge_lite_ns();
+    if value {
+        meta.set_property_bool(NS_BRIDGE_LITE, BL_REPRESENTATIVE, &XmpValue::new(true))
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+    } else {
+        let _ = meta.delete_property(NS_BRIDGE_LITE, BL_REPRESENTATIVE);
+    }
+    Ok(())
+}
+
+fn set_representative_embedded(image_path: &Path, value: bool) -> io::Result<()> {
+    crate::btime::preserve_btime(image_path, || {
+        let mut xf = XmpFile::new()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        xf.open_file(
+            image_path,
+            OpenFileOptions::default().for_update().use_smart_handler(),
+        )
+        .or_else(|_| {
+            xf.open_file(
+                image_path,
+                OpenFileOptions::default().for_update().use_packet_scanning(),
+            )
+        })
+        .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+
+        let mut meta = xf.xmp().unwrap_or_else(|| XmpMeta::new().expect("XMP init failed"));
+        apply_representative(&mut meta, value)?;
+
+        if !xf.can_put_xmp(&meta) {
+            return Err(io::Error::new(io::ErrorKind::Other, "can_put_xmp returned false"));
+        }
+        xf.put_xmp(&meta)
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        xf.try_close()
+            .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        Ok(())
+    })
+}
+
+fn set_representative_sidecar(image_path: &Path, value: bool) -> io::Result<()> {
+    let xmp_path = sidecar_path(image_path);
+    debug_assert!(
+        xmp_path.extension().map(|e| e.eq_ignore_ascii_case("xmp")).unwrap_or(false),
+        "set_representative_sidecar: target must have .xmp extension, got {:?}", xmp_path,
+    );
+    let mut meta = if xmp_path.exists() {
+        let xml = std::fs::read_to_string(&xmp_path)?;
+        XmpMeta::from_str(&xml).unwrap_or_else(|_| XmpMeta::new().expect("XMP init failed"))
+    } else {
+        XmpMeta::new().expect("XMP init failed")
+    };
+    apply_representative(&mut meta, value)?;
+    let xml_out = meta.to_string();
+    let tmp_path = xmp_path.with_extension("xmp.tmp");
+    std::fs::write(&tmp_path, xml_out.as_bytes())?;
+    crate::btime::preserve_btime(&xmp_path, || std::fs::rename(&tmp_path, &xmp_path))?;
+    Ok(())
+}
+
 // ── Internal: shared XmpMeta ↔ XmpData helpers ───────────────────────────────
 
 /// Returns true if the XMP contains fingerprints of a RAW developer:
@@ -229,10 +330,24 @@ fn parse_xmp_data(meta: &XmpMeta) -> XmpData {
 
     if let Some(v) = meta.property_i32(xmp_ns::XMP, "Rating") {
         if v.value < 0 {
+            // Legacy Adobe Bridge convention: xmp:Rating = -1 means Reject.
             data.flag = Some(Flag::Reject);
         } else {
             data.rating = Some(v.value.clamp(0, 5) as u8);
         }
+    }
+
+    // Lightroom Classic 13.2+ flag: xmpDM:pick = 1 (Pick) / -1 (Reject) / 0 (unflagged).
+    // When present it takes priority over the legacy Rating = -1 parsed above.
+    if let Some(v) = meta.property_i32(NS_XMP_DM, "pick") {
+        data.flag = match v.value {
+            1 => Some(Flag::Pick),
+            -1 => Some(Flag::Reject),
+            _ => None, // 0 = explicitly unflagged
+        };
+    } else if let Some(v) = meta.property_bool(NS_XMP_DM, "good") {
+        // LR links pick/good; tolerate files where only `good` survived.
+        data.flag = Some(if v.value { Flag::Pick } else { Flag::Reject });
     }
 
     // photoshop:LabelColor takes priority: Bridge writes lowercase "red"/"yellow"/…
@@ -247,6 +362,7 @@ fn parse_xmp_data(meta: &XmpMeta) -> XmpData {
 
     data.developed = detect_developed(meta);
     data.caption = read_caption(meta);
+    data.representative = read_representative(meta);
 
     data
 }
@@ -275,16 +391,43 @@ fn read_caption(meta: &XmpMeta) -> Option<String> {
 }
 
 fn apply_xmp_data(meta: &mut XmpMeta, data: &XmpData) -> io::Result<()> {
-    // xmp:Rating: -1 = Reject, 0-5 = stars, absent = remove property
-    let rating_int: Option<i32> = match data.flag {
-        Some(Flag::Reject) => Some(-1),
-        _ => data.rating.map(|r| r as i32),
+    // xmp:Rating: 0-5 = stars, absent = remove property.
+    // Stars and flag are independent (Lightroom semantics). The legacy Bridge
+    // convention (Rating = -1 = Reject) is only written when no star rating
+    // exists, so a reject never destroys the star rating on disk.
+    let rating_int: Option<i32> = match (data.rating, data.flag) {
+        (Some(r), _) => Some(r as i32),
+        (None, Some(Flag::Reject)) => Some(-1),
+        (None, _) => None,
     };
     if let Some(n) = rating_int {
         meta.set_property_i32(xmp_ns::XMP, "Rating", &XmpValue::new(n))
             .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
     } else {
         let _ = meta.delete_property(xmp_ns::XMP, "Rating");
+    }
+
+    // Pick/Reject flag — Lightroom Classic 13.2+ format:
+    //   Pick   = xmpDM:pick 1  + xmpDM:good True
+    //   Reject = xmpDM:pick -1 + xmpDM:good False
+    //   unflagged = both removed (absence is LR-equivalent to pick = 0)
+    match data.flag {
+        Some(Flag::Pick) => {
+            meta.set_property_i32(NS_XMP_DM, "pick", &XmpValue::new(1))
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+            meta.set_property_bool(NS_XMP_DM, "good", &XmpValue::new(true))
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        }
+        Some(Flag::Reject) => {
+            meta.set_property_i32(NS_XMP_DM, "pick", &XmpValue::new(-1))
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+            meta.set_property_bool(NS_XMP_DM, "good", &XmpValue::new(false))
+                .map_err(|e| io::Error::new(io::ErrorKind::Other, e.debug_message))?;
+        }
+        None => {
+            let _ = meta.delete_property(NS_XMP_DM, "pick");
+            let _ = meta.delete_property(NS_XMP_DM, "good");
+        }
     }
 
     // xmp:Label + photoshop:LabelColor must be written together for Bridge compatibility.
@@ -602,7 +745,69 @@ mod tests {
         assert_eq!(data_out.flag, Some(Flag::Reject));
         assert_eq!(data_out.rating, None);
 
+        // LrC 13.2+ representation must be written alongside the legacy Rating = -1
+        let xml = std::fs::read_to_string(tmp_dir.join("reject_img.xmp")).unwrap();
+        assert!(xml.contains("pick"), "xmpDM:pick must be present: {xml}");
+        assert!(xml.contains("xmp:Rating=\"-1\"") || xml.contains(">-1<"),
+                "legacy Bridge reject (Rating -1) must be kept when no stars exist");
+
         let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn roundtrip_pick_flag() {
+        let tmp_dir = std::env::temp_dir().join("bridge_lite_xmp_pick_test");
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let fake_img = tmp_dir.join("pick_img.ARW");
+        std::fs::write(&fake_img, b"").unwrap();
+
+        let data_in = XmpData { flag: Some(Flag::Pick), rating: Some(2), ..Default::default() };
+        write_sidecar(&fake_img, &data_in).unwrap();
+        let data_out = read_sidecar(&fake_img).unwrap();
+        assert_eq!(data_out.flag, Some(Flag::Pick));
+        assert_eq!(data_out.rating, Some(2), "pick flag must not destroy stars");
+
+        // un-flag: pick/good must be removed again
+        let cleared = XmpData { flag: None, rating: Some(2), ..Default::default() };
+        write_sidecar(&fake_img, &cleared).unwrap();
+        let data_out = read_sidecar(&fake_img).unwrap();
+        assert_eq!(data_out.flag, None);
+        assert_eq!(data_out.rating, Some(2));
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn reject_with_stars_keeps_rating() {
+        let tmp_dir = std::env::temp_dir().join("bridge_lite_xmp_reject_stars_test");
+        std::fs::create_dir_all(&tmp_dir).unwrap();
+        let fake_img = tmp_dir.join("reject_stars.ARW");
+        std::fs::write(&fake_img, b"").unwrap();
+
+        let data_in = XmpData { flag: Some(Flag::Reject), rating: Some(4), ..Default::default() };
+        write_sidecar(&fake_img, &data_in).unwrap();
+        let data_out = read_sidecar(&fake_img).unwrap();
+        assert_eq!(data_out.flag, Some(Flag::Reject), "xmpDM:pick=-1 must win over Rating=4");
+        assert_eq!(data_out.rating, Some(4));
+
+        let _ = std::fs::remove_dir_all(&tmp_dir);
+    }
+
+    #[test]
+    fn reads_lightroom_xmpdm_pick() {
+        // Simulated Lightroom Classic 13.2+ sidecar fragment
+        let xml = r#"<x:xmpmeta xmlns:x="adobe:ns:meta/">
+          <rdf:RDF xmlns:rdf="http://www.w3.org/1999/02/22-rdf-syntax-ns#">
+            <rdf:Description rdf:about=""
+              xmlns:xmp="http://ns.adobe.com/xap/1.0/"
+              xmlns:xmpDM="http://ns.adobe.com/xmp/1.0/DynamicMedia/"
+              xmp:Rating="3" xmpDM:pick="1" xmpDM:good="True"/>
+          </rdf:RDF>
+        </x:xmpmeta>"#;
+        let meta = XmpMeta::from_str(xml).unwrap();
+        let data = parse_xmp_data(&meta);
+        assert_eq!(data.flag, Some(Flag::Pick));
+        assert_eq!(data.rating, Some(3));
     }
 
     #[test]

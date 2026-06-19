@@ -119,9 +119,13 @@ private struct NativeSearchField: NSViewRepresentable {
         }
 
         @objc func focusSearch(_ notification: Notification) {
-            guard let window = NSApp.keyWindow else { return }
-            if let sf = window.contentView?.findFirstSearchField() {
-                window.makeFirstResponder(sf)
+            // UI 通知は main スレッド配信。NSObject Coordinator は nonisolated のため
+            // MainActor の AppKit API アクセスを assumeIsolated で明示する。
+            MainActor.assumeIsolated {
+                guard let window = NSApp.keyWindow else { return }
+                if let sf = window.contentView?.findFirstSearchField() {
+                    window.makeFirstResponder(sf)
+                }
             }
         }
 
@@ -192,42 +196,38 @@ struct ToolbarView: ToolbarContent {
         }
 
         ToolbarItemGroup(placement: .principal) {
-            if settings.boostNoticeVisible {
-                HStack(spacing: 5) {
-                    Image(systemName: "bolt.fill")
-                        .foregroundStyle(.orange)
-                    Text("Boost Mode active")
-                        .font(.caption2)
-                        .foregroundStyle(.orange)
-                }
-                .transition(.opacity)
-            } else if let msg = store.undoMessage {
+            if let msg = store.undoMessage {
                 Text(msg)
                     .font(.caption)
                     .foregroundStyle(.orange)
                     .transition(.opacity)
+            } else if !store.viewerMode && !store.compareMode {
+                Picker("", selection: Binding(
+                    get: { store.filmstripMode },
+                    set: { store.filmstripMode = $0 }
+                )) {
+                    Text(String(localized: "Library")).tag(false)
+                    Text(String(localized: "Filmstrip")).tag(true)
+                }
+                .pickerStyle(.segmented)
+                .fixedSize()
+                .disabled(store.currentDirectoryURL == nil)
+                .help(String(localized: "filmstrip.toggle.help",
+                             defaultValue: "Switch between the library grid and filmstrip comparison"))
             }
         }
 
-        ToolbarItemGroup(placement: .primaryAction) {
-            Button(action: {
-                settings.burstMode.toggle()
-                if settings.burstMode {
-                    settings.showBoostNotice()
-                } else {
-                    settings.hideBoostNotice()
-                }
-            }) {
-                Image(systemName: settings.burstMode ? "bolt.fill" : "bolt")
-                    .foregroundStyle(settings.burstMode ? Color.orange : Color.primary)
-            }
-            .help(String(localized: "Boost Mode"))
-
-            if !store.viewerMode && !store.compareMode {
+        // グループ1: 検索 — ライブラリ／フィルムストリップで表示（ビューア/比較では非表示）。
+        // フィルムストリップでもファイル名フィルタを使えるようピッカーに適用する。
+        if !store.viewerMode && !store.compareMode {
+            ToolbarItemGroup(placement: .primaryAction) {
                 SearchFieldContainer()
             }
+        }
 
-            if !store.viewerMode && !store.compareMode {
+        // グループ2: 並び替え + 昇順降順
+        if !store.viewerMode && !store.compareMode {
+            ToolbarItemGroup(placement: .primaryAction) {
                 Menu {
                     Picker("", selection: $settings.sortKey) {
                         Text(SortKey.filename.localizedName).tag(SortKey.filename)
@@ -250,8 +250,21 @@ struct ToolbarView: ToolbarContent {
                       ? String(localized: "Ascending")
                       : String(localized: "Descending"))
                 .onChange(of: settings.sortAscending) { store.applyOrder() }
+            }
+        }
 
-                Toggle(isOn: $store.showSidebar) {
+        // グループ3: メタデータ + キーボードショートカット
+        if !store.viewerMode && !store.compareMode {
+            ToolbarItemGroup(placement: .primaryAction) {
+                // デコード処理量を「エンジン回転数」に見立てたタコメーター（設定で ON/OFF・既定 OFF）
+                if store.settings.showDecodeTachometer {
+                    DecodeTachometerView()
+                }
+                // メタデータ — ライブラリは showSidebar、フィルムストリップは専用フラグ（デフォルト OFF）
+                Toggle(isOn: store.filmstripMode
+                       ? Binding(get: { store.filmstripShowMeta },
+                                 set: { store.filmstripShowMeta = $0 })
+                       : $store.showSidebar) {
                     Label("Metadata", systemImage: "sidebar.right")
                 }
 
@@ -267,3 +280,128 @@ struct ToolbarView: ToolbarContent {
     }
 }
 
+// MARK: - Decode Tachometer
+//
+// サムネイルの実デコード処理量（枚/秒）を自動車のタコメーターに見立てて表示する。
+// アイドル時は低速、メモリ解放後に再デコードが走ると針が吹け上がる。
+// 警告灯: 発熱(thermalState) / 省電力(LowPowerMode) で点灯（スループットが OS に
+// 抑制されているサイン）。針＝アプリ自身のデコードスループット（OS 優先度の生値は
+// 公開 API が無いため、最も意味のある“どれだけ働けているか”を可視化）。
+struct DecodeTachometerView: View {
+    /// レッドゾーン（フルスケール）の 枚/秒。実機の体感に合わせて調整可。
+    private let redline: Double = 48
+    private let sampleInterval: Double = 0.3
+
+    @State private var lastTotal = 0
+    @State private var seeded = false
+    @State private var rate: Double = 0   // 平滑化済み 枚/秒
+
+    private let tick = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
+
+    private var fraction: Double { min(1, max(0, rate / redline)) }
+    // 針の回転角。-135°(=0%) 〜 +135°(=100%)。rotationEffect で高 fps 補間する。
+    private var needleAngle: Double { -135 + fraction * 270 }
+
+    private enum Warn { case none, thermal, lowPower }
+    private var warn: Warn {
+        if ProcessInfo.processInfo.isLowPowerModeEnabled { return .lowPower }
+        switch ProcessInfo.processInfo.thermalState {
+        case .serious, .critical: return .thermal
+        default: return .none
+        }
+    }
+
+    var body: some View {
+        TachoDial(angle: needleAngle, zone: zoneColor)
+            .frame(width: 22, height: 22)
+            .overlay(alignment: .topTrailing) {
+                switch warn {
+                case .thermal:
+                    Image(systemName: "thermometer.high")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(.red)
+                        .offset(x: 2, y: -2)
+                case .lowPower:
+                    Image(systemName: "bolt.slash.fill")
+                        .font(.system(size: 7, weight: .bold))
+                        .foregroundStyle(.yellow)
+                        .offset(x: 2, y: -2)
+                case .none:
+                    EmptyView()
+                }
+            }
+            .onReceive(tick) { _ in sample() }
+            .help(helpText)
+            .accessibilityLabel(Text(String(localized: "tacho.label",
+                                            defaultValue: "Thumbnail decode activity")))
+    }
+
+    private var zoneColor: Color {
+        switch fraction {
+        case ..<0.5: return .green
+        case ..<0.8: return .orange
+        default:     return .red
+        }
+    }
+
+    // 静的文言（毎ティックの ICU 生成を避ける）。
+    private let helpText = String(localized: "tacho.help",
+        defaultValue: "Thumbnail decode tachometer. Revs up while thumbnails are (re)decoded — e.g. after memory was reclaimed during idle.")
+
+    private func sample() {
+        let total = ThumbnailDecodeCache.shared.totalDecodes
+        if !seeded { lastTotal = total; seeded = true; return }
+        let delta = max(0, total - lastTotal)
+        lastTotal = total
+        let instant = Double(delta) / sampleInterval
+        // 立ち上がりは速く、減衰はやや緩やかに（針が暴れすぎないよう EMA）
+        let a = instant >= rate ? 0.6 : 0.3
+        // withAnimation で囲うと needleAngle の変化を rotationEffect が
+        // 表示リフレッシュレート（60/120fps）で補間し、サンプル間も滑らかに動く。
+        withAnimation(.easeOut(duration: sampleInterval + 0.05)) {
+            rate = rate * (1 - a) + instant * a
+            if rate < 0.05 { rate = 0 }
+        }
+    }
+}
+
+/// タコメーターの文字盤（目盛り＋ハブは静的、針は rotationEffect で高 fps 補間）。
+/// 270° スイープ・下に開口。針角は -135°(0%)〜+135°(100%)。
+private struct TachoDial: View {
+    let angle: Double   // 針の回転角(度)
+    let zone: Color
+
+    var body: some View {
+        ZStack {
+            // 目盛り＋ハブ（静的）
+            Canvas { ctx, size in
+                let c = CGPoint(x: size.width / 2, y: size.height / 2)
+                let r = min(size.width, size.height) / 2 - 1.5
+                func pt(_ deg: Double, _ rad: Double) -> CGPoint {
+                    let a = deg * .pi / 180
+                    return CGPoint(x: c.x + cos(a) * rad, y: c.y + sin(a) * rad)
+                }
+                for i in 0...4 {
+                    let f = Double(i) / 4
+                    let col: Color = f < 0.5 ? .green : (f < 0.8 ? .orange : .red)
+                    var t = Path()
+                    t.move(to: pt(135 + f * 270, r * 0.74))
+                    t.addLine(to: pt(135 + f * 270, r))
+                    ctx.stroke(t, with: .color(col.opacity(0.55)), lineWidth: 1.4)
+                }
+                ctx.fill(Path(ellipseIn: CGRect(x: c.x - 1.8, y: c.y - 1.8, width: 3.6, height: 3.6)),
+                         with: .color(zone))
+            }
+            // 針（中心から上向きに描き、rotationEffect で中心まわりに回す＝アニメ補間で滑らか）
+            GeometryReader { g in
+                let s = min(g.size.width, g.size.height)
+                Path { p in
+                    p.move(to: CGPoint(x: g.size.width / 2, y: g.size.height / 2))
+                    p.addLine(to: CGPoint(x: g.size.width / 2, y: g.size.height / 2 - s * 0.42))
+                }
+                .stroke(zone, style: StrokeStyle(lineWidth: 1.8, lineCap: .round))
+            }
+            .rotationEffect(.degrees(angle), anchor: .center)
+        }
+    }
+}

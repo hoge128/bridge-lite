@@ -8,7 +8,7 @@ struct OpenWithMenu: View {
     private var settings: SettingsStore { SettingsStore.shared }
 
     var body: some View {
-        Menu("Open With") {
+        Menu(String(localized: "Open With")) {
             let defaultApp = OpenWithService.defaultApplicationURL(for: primaryURL)
 
             if let defaultApp {
@@ -26,14 +26,14 @@ struct OpenWithMenu: View {
 
             if !favorites.isEmpty { Divider() }
 
-            Button("Add Application…") {
+            Button(String(localized: "Add Application…")) {
                 if let app = OpenWithService.presentAddApplicationPanel(),
                    !settings.favoriteApps.contains(app) {
                     settings.favoriteApps.append(app)
                 }
             }
 
-            Button("Manage Applications…") {
+            Button(String(localized: "Manage Applications…")) {
                 NotificationCenter.default.post(
                     name: .bridgeLiteOpenManageApplications, object: nil)
             }

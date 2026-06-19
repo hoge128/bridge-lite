@@ -150,11 +150,19 @@ public func ffi_xmp_developed(_ r: FfiXmpResultRef) -> Bool {
 public func ffi_xmp_caption(_ r: FfiXmpResultRef) -> RustString {
     RustString(ptr: __swift_bridge__$ffi_xmp_caption(r.ptr))
 }
+public func ffi_xmp_representative(_ r: FfiXmpResultRef) -> Bool {
+    __swift_bridge__$ffi_xmp_representative(r.ptr)
+}
 public func bridge_write_xmp<GenericToRustStr: ToRustStr>(_ db: BridgeDatabaseRef, _ path: GenericToRustStr, _ rating: Int32, _ label: UInt8, _ flag: UInt8, _ caption: GenericToRustStr, _ caption_present: Bool, _ jpg_use_sidecar: Bool) -> Bool {
     return caption.toRustStr({ captionAsRustStr in
         return path.toRustStr({ pathAsRustStr in
         __swift_bridge__$bridge_write_xmp(db.ptr, pathAsRustStr, rating, label, flag, captionAsRustStr, caption_present, jpg_use_sidecar)
     })
+    })
+}
+public func bridge_set_representative<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr, _ value: Bool, _ jpg_use_sidecar: Bool) -> Bool {
+    return path.toRustStr({ pathAsRustStr in
+        __swift_bridge__$bridge_set_representative(pathAsRustStr, value, jpg_use_sidecar)
     })
 }
 public func bridge_jpg_has_rated_embedded_xmp<GenericToRustStr: ToRustStr>(_ path: GenericToRustStr) -> Bool {

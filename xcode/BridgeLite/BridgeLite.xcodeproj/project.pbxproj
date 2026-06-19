@@ -43,6 +43,7 @@
 		2B393FBA258B56A1BD277370 /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 9A4260412EA9F57B97926BB9 /* SettingsView.swift */; };
 		2BC3C6189802029B5387B89C /* ConcurrencyLimiter.swift in Sources */ = {isa = PBXBuildFile; fileRef = F6CFC3A322DB8DB0990E38A4 /* ConcurrencyLimiter.swift */; };
 		2BE62A4FCB568FF94B43F5F6 /* RatingBarView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4CDF1FE17B52680CEA67F0A7 /* RatingBarView.swift */; };
+		2E2A21AAA682C6C01F1C3474 /* FilmstripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 402D1F1EB3AF125C074311DF /* FilmstripView.swift */; };
 		321E9F5925168E01168CF59B /* bridge-ffi.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2EBDBCEEDB3D43D9022F936A /* bridge-ffi.swift */; };
 		33C078EF4BC9AA58CA3FA762 /* AppIcon.icon in Resources */ = {isa = PBXBuildFile; fileRef = 15664F7FA303F94AF6538F3E /* AppIcon.icon */; };
 		347461394E6B6A4C59721EA9 /* ImageEntry+Convert.swift in Sources */ = {isa = PBXBuildFile; fileRef = F915BDC7A358320E54801B66 /* ImageEntry+Convert.swift */; };
@@ -137,6 +138,7 @@
 		C2B1F29F428CDBE27A663823 /* exp-images in Resources */ = {isa = PBXBuildFile; fileRef = 37867048876991648DB9CDB0 /* exp-images */; };
 		C5E75A4F20CD758BDD8C2EFC /* BridgeLiteApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A9AE63C82B29A339387CF9CB /* BridgeLiteApp.swift */; };
 		CBD8D3D6954D40D54CF4655C /* ShotGroup.swift in Sources */ = {isa = PBXBuildFile; fileRef = E644DA2225FFA58312896A06 /* ShotGroup.swift */; };
+		CBFD16AC39884E6B9E66A27B /* FilmstripView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 402D1F1EB3AF125C074311DF /* FilmstripView.swift */; };
 		CC5DC31FEF81A05E3A92399B /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */; };
 		CF8892645373D041666BB500 /* ContentView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 2C6F2DC6C51CC70CC674E5BF /* ContentView.swift */; };
 		D0246288EB437833D4CB9511 /* RAWRenderPipeline.swift in Sources */ = {isa = PBXBuildFile; fileRef = 66FAC10D47AADEDC3B802F22 /* RAWRenderPipeline.swift */; };
@@ -198,6 +200,7 @@
 		3A57A5F5562B192CC6BADBAE /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist; path = Info.plist; sourceTree = "<group>"; };
 		3E5BE7B4A12D14DE0FB2ED5F /* PairingPipeline.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PairingPipeline.swift; sourceTree = "<group>"; };
 		3FD5F39B0A7874AC5C8C83B9 /* GlassHelper.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = GlassHelper.swift; sourceTree = "<group>"; };
+		402D1F1EB3AF125C074311DF /* FilmstripView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilmstripView.swift; sourceTree = "<group>"; };
 		449E124463D6E6D28958EBE9 /* FilterPanelView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FilterPanelView.swift; sourceTree = "<group>"; };
 		457102D9A774F68E8EA1188D /* RecentFoldersStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RecentFoldersStore.swift; sourceTree = "<group>"; };
 		49A54E1E164617C20BDC0BE8 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
@@ -492,6 +495,7 @@
 				6FAA6D6FCBC572B4F19C4347 /* DateModeToggle.swift */,
 				2384ADFCC6A85641754CACC6 /* DatePresetChips.swift */,
 				8897A02D7131985030D5B46D /* ExifHistogramView.swift */,
+				402D1F1EB3AF125C074311DF /* FilmstripView.swift */,
 				449E124463D6E6D28958EBE9 /* FilterPanelView.swift */,
 				6719A1E8E79428CC067F6086 /* GroupCompareView.swift */,
 				E2E9544AD911B7B44DF245CA /* HelpView.swift */,
@@ -733,6 +737,7 @@
 				DEF30A887E4B37AD5335E2A0 /* ExifBucket.swift in Sources */,
 				8F544229F248278F9D38D074 /* ExifData.swift in Sources */,
 				89769641D4ACB137A4C7C586 /* ExifHistogramView.swift in Sources */,
+				CBFD16AC39884E6B9E66A27B /* FilmstripView.swift in Sources */,
 				46298ED8412E1E06AADF32B2 /* FilterCriteria.swift in Sources */,
 				B8D2E26E4404EF20904397E4 /* FilterPanelView.swift in Sources */,
 				E807A02B6D748E5BBE9F17CB /* FolderWatcher.swift in Sources */,
@@ -795,6 +800,7 @@
 				53CF5FAE5E379C10FB52E9EC /* ExifBucket.swift in Sources */,
 				B57152E0E49E99DE76079642 /* ExifData.swift in Sources */,
 				F14883BA8A962481D067716E /* ExifHistogramView.swift in Sources */,
+				2E2A21AAA682C6C01F1C3474 /* FilmstripView.swift in Sources */,
 				E14A6E1DAD9A416C531A398F /* FilterCriteria.swift in Sources */,
 				D8277F9B1B33A39A2265AE8C /* FilterPanelView.swift in Sources */,
 				B6DA180DE24ADC350A698CE8 /* FolderWatcher.swift in Sources */,

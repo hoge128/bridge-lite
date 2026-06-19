@@ -13,6 +13,15 @@ final class ThumbnailDecodeCache: NSObject, @unchecked Sendable {
     private let memoryPressureSource: DispatchSourceMemoryPressure
     private var baseLimitBytes: Int
 
+    // アイドル時メモリ解放: ユーザー入力（全アプリ対象）がこの秒数途絶えたら
+    // デコード済みビットマップを全解放する。各ストアの thumbnailBlobs (JPEG) は
+    // 残るため、復帰後はスクロールに応じて再デコードされるだけで損失はない。
+    // アプリ切替時の解放は LibraryStore.suspend() が担当し、ここは
+    // 「bridge-lite が前面のままユーザーが離席した」ケースを埋める。
+    private static let idleTrimThreshold: TimeInterval = 5 * 60
+    private let idleTrimTimer: DispatchSourceTimer
+    private var didIdleTrim = false
+
     // NSCache が cost 上限超過で自動 evict した回数。これが閾値を超える＝ワーキング
     // セットがキャッシュ上限を大きく超えており、再デコードが頻発している合図。
     // （removeAllObjects / removeObject では willEvictObject は呼ばれないので、
@@ -39,6 +48,9 @@ final class ThumbnailDecodeCache: NSObject, @unchecked Sendable {
         )
         memoryPressureSource = src
 
+        let idleTimer = DispatchSource.makeTimerSource(queue: .main)
+        idleTrimTimer = idleTimer
+
         super.init()
 
         cache.totalCostLimit = limit
@@ -60,6 +72,25 @@ final class ThumbnailDecodeCache: NSObject, @unchecked Sendable {
             }
         }
         src.resume()
+
+        idleTimer.schedule(deadline: .now() + 60, repeating: 60, leeway: .seconds(10))
+        idleTimer.setEventHandler { [weak self] in self?.idleTrimTick() }
+        idleTimer.resume()
+    }
+
+    /// 60 秒ごとにシステム全体の入力アイドル時間を確認し、閾値を超えたら一度だけ全解放する。
+    /// removeAllObjects は willEvictObject を呼ばないため、eviction カウント／ヒントには影響しない。
+    private func idleTrimTick() {
+        // kCGAnyInputEventType (~0): あらゆる入力イベントからの経過秒数
+        let anyInput = CGEventType(rawValue: UInt32.max) ?? .null
+        let idle = CGEventSource.secondsSinceLastEventType(.combinedSessionState, eventType: anyInput)
+        if idle >= Self.idleTrimThreshold {
+            guard !didIdleTrim else { return }
+            didIdleTrim = true
+            cache.removeAllObjects()
+        } else {
+            didIdleTrim = false
+        }
     }
 
     @MainActor func updateLimit(mb: Int) {
@@ -77,7 +108,23 @@ final class ThumbnailDecodeCache: NSObject, @unchecked Sendable {
         if let cached = cache.object(forKey: key) { return cached }
         guard let img = CGImage.fromJPEGData(blob) else { return nil }
         cache.setObject(img, forKey: key, cost: img.bytesPerRow * img.height)
+        noteDecode()   // 実デコード（キャッシュミス）のみ計上 → タコメーターの回転数源
         return img
+    }
+
+    // MARK: - デコード計測（タコメーター用）
+
+    private let decodeCountLock = NSLock()
+    private var decodeTotal: Int = 0
+
+    private func noteDecode() {
+        decodeCountLock.lock(); decodeTotal += 1; decodeCountLock.unlock()
+    }
+
+    /// 起動以降に実デコードした累計枚数。タコメーターが一定間隔の差分でレート(枚/秒)を算出する。
+    var totalDecodes: Int {
+        decodeCountLock.lock(); defer { decodeCountLock.unlock() }
+        return decodeTotal
     }
 
     func store(url: URL, image: CGImage) {
@@ -109,6 +156,10 @@ extension ThumbnailDecodeCache: NSCacheDelegate {
         evictionLock.unlock()
         guard crossed else { return }
         Task { @MainActor in
+            // 設定上限 (物理 RAM の 10%) に既に達している場合、「キャッシュを増やすと
+            // 改善する」という案内は実行不能なので出さない。
+            let maxMB = Int(ProcessInfo.processInfo.physicalMemory / 10 / (1024 * 1024) / 100) * 100
+            guard SettingsStore.shared.thumbnailCacheMB < maxMB else { return }
             HintCenter.shared.fire(.cacheThrashing)
         }
     }

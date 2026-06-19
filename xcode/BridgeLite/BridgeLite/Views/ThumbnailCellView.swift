@@ -1,22 +1,22 @@
-import AppKit
 import Combine
 import SwiftUI
 
 struct ThumbnailCellView: View {
     let entry: PhotoEntry
     @Environment(LibraryStore.self) private var store
-    @State private var isHovered = false
-    @State private var dragSource = CellDragSource()
-    @State private var dragInFlight = false
 
     // @State で自分の id 分だけ保持し、dict 全体への @Observable 依存を排除
     @State private var thumbnail: CGImage? = nil
     @State private var thumbnailOrientation: Image.Orientation = .up
     @State private var xmp: XmpData? = nil
     @State private var exif: ExifData? = nil
+    // 選択状態は body で store.selectedIDs を読まず、@State + selectionDidUpdate で
+    // 自セルだけ更新する（選択変更時に全可視セルが再評価されるのを回避）。
+    @State private var isSelected = false
+    // プレビュー生成不可（CRW・MOS 等）。読込シマーと区別してプレースホルダを出す。
+    @State private var previewUnavailable = false
 
     private var cellSize: CGFloat { store.settings.thumbnailSize }
-    private var isSelected: Bool { store.selectedIDs.contains(entry.id) }
 
     private var photoKind: PhotoKind {
         if entry.isRaw { return .raw }
@@ -68,7 +68,8 @@ struct ThumbnailCellView: View {
         ZStack {
             Color.secondary.opacity(0.08)
             VStack(spacing: 0) {
-                ThumbnailImageView(cgImage: thumbnail, orientation: thumbnailOrientation)
+                ThumbnailImageView(cgImage: thumbnail, orientation: thumbnailOrientation,
+                                   unavailable: previewUnavailable)
                     .frame(width: cellSize, height: cellSize - Self.infoStripHeight)
                 // カラーラベル帯：サムネイル画像の直下
                 Group {
@@ -87,8 +88,18 @@ struct ThumbnailCellView: View {
         .overlay(alignment: .topTrailing) {
             identifierBadge
                 .padding(4)
-                .opacity(store.filter.flatten ? 0 : (photoKind == .sooc ? (isHovered ? 1 : 0) : 1))
-                .animation(.easeInOut(duration: 0.15), value: isHovered)
+                .opacity(store.filter.flatten || photoKind == .sooc ? 0 : 1)
+        }
+        .overlay(alignment: .topLeading) {
+            if let flag = xmp?.flag {
+                Image(systemName: flag.systemImage)
+                    .font(.system(size: 9, weight: .bold))
+                    .foregroundStyle(.white)
+                    .padding(3)
+                    .background(Circle().fill(flag.color.opacity(0.9)))
+                    .padding(4)
+                    .help(flag.name)
+            }
         }
         .overlay { selectionStroke(cornerRadius: 6) }
         .onAppear { loadCell() }
@@ -104,7 +115,11 @@ struct ThumbnailCellView: View {
                 }.value
                 thumbnail = decoded
                 if isRaw { thumbnailOrientation = orient }
+                if decoded != nil { previewUnavailable = false }
             }
+        }
+        .onReceive(store.previewUnavailableDidUpdate.filter { $0 == self.entry.id }) { _ in
+            if thumbnail == nil { previewUnavailable = true }
         }
         .onReceive(store.exifDidUpdate.filter { $0 == self.entry.id }) { _ in
             exif = store.exifData[entry.id]
@@ -112,32 +127,9 @@ struct ThumbnailCellView: View {
         .onReceive(store.xmpDidUpdate.filter { $0 == self.entry.id }) { _ in
             xmp = store.xmpData[entry.id]
         }
-        .onHover { isHovered = $0 }
-        .contextMenu { cellContextMenu }
-        .overlay {
-            RightClickOverlay {
-                if !store.selectedIDs.contains(entry.id) { store.selectEntry(entry.id) }
-            }
+        .onReceive(store.selectionDidUpdate.filter { $0.contains(self.entry.id) }) { _ in
+            isSelected = store.selectedIDs.contains(entry.id)
         }
-        .background { CellDragBackingView(source: dragSource) }
-        .gesture(
-            DragGesture(minimumDistance: 4)
-                .onChanged { _ in
-                    guard !dragInFlight, let event = NSApp.currentEvent else { return }
-                    dragInFlight = true
-                    let ids = store.selectedIDs.contains(entry.id) ? store.selectedIDs : [entry.id]
-                    let scope = resolveDndScope()
-                    dragSource.urlsProvider = { self.store.urlsFor(ids: ids, scope: scope) }
-                    let img = thumbnail ?? ThumbnailDecodeCache.shared.decode(
-                        url: entry.url, blob: store.thumbnailBlobs[entry.id]
-                    )
-                    let preview = img.map {
-                        NSImage(cgImage: $0, size: NSSize(width: cellSize, height: cellSize))
-                    }
-                    dragSource.begin(event: event, cellSize: cellSize, preview: preview)
-                }
-                .onEnded { _ in dragInFlight = false }
-        )
     }
 
     // MARK: - Cell state loader
@@ -147,6 +139,9 @@ struct ThumbnailCellView: View {
         thumbnailOrientation = .up
         xmp = nil
         exif = nil
+        // 出現時に現在の選択状態へ同期（以後の変化は selectionDidUpdate で更新）
+        isSelected = store.selectedIDs.contains(entry.id)
+        previewUnavailable = store.isPreviewUnavailable(entry.id)
         let id = entry.id
         let url = entry.url
         thumbnailOrientation = entry.isRaw ? (store.thumbnailOrientations[id] ?? .up) : .up
@@ -198,198 +193,39 @@ struct ThumbnailCellView: View {
             }
     }
 
-    // MARK: - Context menu
-
-    private var deleteShortcut: KeyboardShortcut {
-        store.settings.deleteShortcutKey == .delete
-            ? KeyboardShortcut(.delete, modifiers: [])
-            : KeyboardShortcut(.delete, modifiers: .command)
-    }
-
-    @ViewBuilder
-    private var cellContextMenu: some View {
-        Button("Copy") {
-            store.triggerCopy()
-        }
-
-        Button("Show in Finder") {
-            NSWorkspace.shared.activateFileViewerSelecting([entry.url])
-        }
-
-        let targetURLs = store.selectedIDs.compactMap { store.entries[$0]?.url }
-        let primaryURL = store.entries[store.primaryID ?? entry.id]?.url ?? entry.url
-        OpenWithMenu(targetURLs: targetURLs, primaryURL: primaryURL)
-
-        Divider()
-
-        Menu("Rating") {
-            let mods = store.settings.ratingShortcutModifier.swiftUIModifiers
-            Button("No Rating") { store.triggerRating(0) }
-                .keyboardShortcut("0", modifiers: mods)
-            ForEach(1...5, id: \.self) { n in
-                Button(String(repeating: "★", count: n)) { store.triggerRating(n) }
-                    .keyboardShortcut(KeyEquivalent(Character(String(n))), modifiers: mods)
-            }
-        }
-
-        Menu("Label") {
-            let mods = store.settings.ratingShortcutModifier.swiftUIModifiers
-            Button(XmpLabel.red.name)    { store.applyLabel(XmpLabel.red.rawValue) }
-                .keyboardShortcut("6", modifiers: mods)
-            Button(XmpLabel.yellow.name) { store.applyLabel(XmpLabel.yellow.rawValue) }
-                .keyboardShortcut("7", modifiers: mods)
-            Button(XmpLabel.green.name)  { store.applyLabel(XmpLabel.green.rawValue) }
-                .keyboardShortcut("8", modifiers: mods)
-            Button(XmpLabel.blue.name)   { store.applyLabel(XmpLabel.blue.rawValue) }
-                .keyboardShortcut("9", modifiers: mods)
-            Button(XmpLabel.purple.name) { store.applyLabel(XmpLabel.purple.rawValue) }
-            Divider()
-            Button("Clear Label") {
-                store.clearLabel()
-            }
-        }
-
-        Divider()
-
-        Button(String(localized: "thumbnail.context.move_to_compare",
-                      defaultValue: "Move to Compare (Double-click)")) {
-            store.selectEntry(entry.id)
-            store.compareAnchorID = entry.id
-            store.compareMode = true
-        }
-
-        Button(String(localized: "thumbnail.context.move_to_viewer",
-                      defaultValue: "Move to Viewer")) {
-            store.selectEntry(entry.id)
-            store.viewerMode = true
-        }
-        .keyboardShortcut(.space, modifiers: [])
-
-        Divider()
-
-        Button(role: .destructive) {
-            store.triggerDelete()
-        } label: {
-            Text("Move to Trash")
-        }
-        .keyboardShortcut(deleteShortcut)
-    }
-
-    // MARK: - D&D scope
-
-    /// 設定値をベースに、⌥ キーが押されていれば逆スコープを返す。
-    private func resolveDndScope() -> GroupScopeMode {
-        let base: GroupScopeMode = store.settings.dndScopeMode == .allInGroup ? .allInGroup : .representative
-        let optionHeld = NSEvent.modifierFlags.contains(.option)
-        guard optionHeld else { return base }
-        return base == .representative ? .allInGroup : .representative
-    }
-
     private func selectionStroke(cornerRadius: CGFloat) -> some View {
-        ZStack {
-            RoundedRectangle(cornerRadius: cornerRadius)
-                .stroke(
-                    isSelected ? Color.accentColor : (isHovered ? Color.secondary.opacity(0.25) : Color.clear),
-                    lineWidth: isSelected ? 3.0 : 1.0
-                )
-            if isSelected {
-                RoundedRectangle(cornerRadius: max(0, cornerRadius - 1.5))
-                    .stroke(Color.white.opacity(0.55), lineWidth: 1.0)
-                    .padding(1.5)
+        // 選択モード中は通常の枠線ではなく、全体を半透明の青ベタ塗りで「フォーカス」を示す
+        // （通常選択と視覚的に区別する）。store.filmstripSelectionMode の購読はモード切替時
+        // （まれ）のみ再評価を起こすため、選択変更ごとの全可視セル再評価には影響しない。
+        let pickMode = store.isSelectionModeActive
+        return ZStack {
+            if pickMode {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .fill(Color.accentColor.opacity(isSelected ? 0.38 : 0.0))
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: isSelected ? 2.0 : 1.0)
+            } else {
+                RoundedRectangle(cornerRadius: cornerRadius)
+                    .stroke(
+                        isSelected ? Color.accentColor : Color.clear,
+                        lineWidth: isSelected ? 3.0 : 1.0
+                    )
+                if isSelected {
+                    RoundedRectangle(cornerRadius: max(0, cornerRadius - 1.5))
+                        .stroke(Color.white.opacity(0.55), lineWidth: 1.0)
+                        .padding(1.5)
+                }
             }
         }
         .animation(.easeInOut(duration: 0.08), value: isSelected)
     }
 }
 
-// MARK: - Drag source (AppKit layer)
-
-@MainActor
-final class CellDragSource: NSObject, NSDraggingSource {
-    var urlsProvider: (() -> [URL])?
-    weak var backingView: NSView?
-
-    nonisolated func draggingSession(_ session: NSDraggingSession,
-                                     sourceOperationMaskFor context: NSDraggingContext) -> NSDragOperation { .copy }
-
-    func begin(event: NSEvent, cellSize: CGFloat, preview: NSImage? = nil) {
-        guard let view = backingView,
-              let urls = urlsProvider?(), !urls.isEmpty else { return }
-        let dragSize = cellSize * 0.4
-        let frame = NSRect(origin: .zero, size: CGSize(width: dragSize, height: dragSize))
-        let contents = preview.map { borderedPreview($0, size: dragSize) }
-        let items = urls.map { url -> NSDraggingItem in
-            let item = NSDraggingItem(pasteboardWriter: url as NSURL)
-            item.setDraggingFrame(frame, contents: contents)
-            return item
-        }
-        view.beginDraggingSession(with: items, event: event, source: self)
-    }
-
-    private func borderedPreview(_ image: NSImage, size: CGFloat) -> NSImage {
-        let result = NSImage(size: NSSize(width: size, height: size))
-        result.lockFocus()
-        image.draw(in: NSRect(origin: .zero, size: NSSize(width: size, height: size)),
-                   from: .zero, operation: .copy, fraction: 1.0)
-        let path = NSBezierPath(roundedRect: NSRect(x: 1, y: 1, width: size - 2, height: size - 2),
-                                xRadius: 6, yRadius: 6)
-        path.lineWidth = 2
-        NSColor.white.setStroke()
-        path.stroke()
-        result.unlockFocus()
-        return result
-    }
-}
-
-@MainActor
-private final class RightClickOverlayNSView: NSView {
-    var onRightMouseDown: (() -> Void)?
-    private var isForwarding = false
-
-    // Intercept hit testing only for right-click events; pass through everything else.
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        guard !isForwarding,
-              NSApp.currentEvent?.type == .rightMouseDown else { return nil }
-        return frame.contains(point) ? self : nil
-    }
-
-    override func rightMouseDown(with event: NSEvent) {
-        onRightMouseDown?()
-        // Re-dispatch via the normal AppKit pipeline so SwiftUI's contextMenu fires.
-        // isForwarding prevents us from intercepting our own re-dispatch.
-        isForwarding = true
-        defer { isForwarding = false }
-        window?.sendEvent(event)
-    }
-}
-
-private struct RightClickOverlay: NSViewRepresentable {
-    var onRightMouseDown: () -> Void
-
-    func makeNSView(context: Context) -> RightClickOverlayNSView {
-        let v = RightClickOverlayNSView()
-        v.onRightMouseDown = onRightMouseDown
-        return v
-    }
-    func updateNSView(_ v: RightClickOverlayNSView, context: Context) {
-        v.onRightMouseDown = onRightMouseDown
-    }
-}
-
-private struct CellDragBackingView: NSViewRepresentable {
-    let source: CellDragSource
-
-    func makeNSView(context: Context) -> NSView {
-        let v = NSView()
-        source.backingView = v
-        return v
-    }
-    func updateNSView(_ v: NSView, context: Context) { source.backingView = v }
-}
-
 struct ThumbnailImageView: View {
     let cgImage: CGImage?
     var orientation: Image.Orientation = .up
+    /// プレビューを生成できない RAW。true のとき読込シマーではなく「不可」プレースホルダを出す。
+    var unavailable: Bool = false
 
     var body: some View {
         if let img = cgImage {
@@ -397,6 +233,8 @@ struct ThumbnailImageView: View {
                 .resizable()
                 .scaledToFit() // Fill ではなく Fit: タイル内で写真を見切れさせない
                 .transition(.opacity)
+        } else if unavailable {
+            UnavailablePreviewView(compact: true)
         } else {
             Rectangle()
                 .fill(Color.secondary.opacity(0.15))
@@ -406,6 +244,36 @@ struct ThumbnailImageView: View {
                         .font(.title2)
                 )
                 .shimmer()
+        }
+    }
+}
+
+/// プレビューを表示できない RAW（CIFF CRW・Leaf MOS 等）の共通プレースホルダ。
+/// グリッド（compact）・単体ビュワー・比較ビューで共有する。
+struct UnavailablePreviewView: View {
+    var compact: Bool = false
+
+    var body: some View {
+        ZStack {
+            Rectangle().fill(Color.secondary.opacity(0.12))
+            VStack(spacing: compact ? 4 : 10) {
+                Image(systemName: "photo.badge.exclamationmark")
+                    .font(.system(size: compact ? 24 : 52, weight: .light))
+                    .foregroundStyle(.secondary)
+                Text(String(localized: "preview.unavailable", defaultValue: "No preview"))
+                    .font(compact ? .caption2 : .callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                if !compact {
+                    Text(String(localized: "preview.unavailable.detail",
+                                defaultValue: "This RAW has no embedded preview to display."))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+            }
+            .padding(compact ? 4 : 12)
         }
     }
 }

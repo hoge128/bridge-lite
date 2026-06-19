@@ -1,0 +1,330 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>フィルムストリップ UI マップ — bridge-lite</title>
+<style>
+  :root {
+    --accent: #0a84ff;
+    --line: #d0d0d5;
+    --ink: #1d1d1f;
+    --muted: #6b6b70;
+    --bar: #f2f2f4;
+    --code-bg: #f4f4f6;
+  }
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Hiragino Sans", "Yu Gothic UI", system-ui, sans-serif;
+    color: var(--ink);
+    margin: 0;
+    padding: 32px;
+    background: #fafafc;
+    line-height: 1.6;
+  }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  h2 { font-size: 17px; margin: 36px 0 12px; padding-bottom: 6px; border-bottom: 2px solid var(--line); }
+  .meta { color: var(--muted); font-size: 13px; margin-bottom: 24px; }
+  .note {
+    background: #fff7e6; border: 1px solid #f0d089; border-radius: 8px;
+    padding: 10px 14px; font-size: 13px; margin: 16px 0 0;
+  }
+  code { background: var(--code-bg); border-radius: 4px; padding: 1px 5px; font-size: 12px;
+         font-family: "SF Mono", Menlo, monospace; }
+
+  /* ---- mockup window ---- */
+  .window {
+    max-width: 860px; border: 1px solid var(--line); border-radius: 12px; overflow: hidden;
+    box-shadow: 0 8px 30px rgba(0,0,0,.10); background: #fff; margin-top: 8px;
+  }
+  .label {
+    position: absolute; top: 4px; left: 6px; font-size: 10.5px; font-weight: 700;
+    color: var(--accent); background: rgba(10,132,255,.10);
+    padding: 1px 6px; border-radius: 5px; letter-spacing: .02em;
+  }
+  .sublabel { font-size: 9.5px; color: var(--muted); font-weight: 400; }
+  .region { position: relative; }
+
+  /* toolbar */
+  .toolbar {
+    display: flex; align-items: center; gap: 10px; padding: 12px 14px 12px 14px;
+    background: linear-gradient(#fbfbfd,#f1f1f4); border-bottom: 1px solid var(--line);
+    min-height: 52px;
+  }
+  .tb-left { color: var(--muted); font-size: 12px; }
+  .tb-center { flex: 1; display: flex; justify-content: center; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 8px; overflow: hidden; font-size: 12px; }
+  .seg span { padding: 4px 12px; background: #fff; }
+  .seg span.on { background: var(--accent); color: #fff; }
+  .pill { display:inline-flex; align-items:center; gap:8px; background:#fff; border:1px solid var(--line);
+          border-radius: 8px; padding: 4px 10px; font-size: 12px; }
+  .pill .div { width:1px; height:14px; background:var(--line); }
+
+  /* main row */
+  .main { display: flex; min-height: 360px; }
+  .filterbar {
+    width: 130px; border-right: 1px solid var(--line); background: #fbfbfd; padding: 26px 10px 10px;
+    font-size: 11px; color: var(--muted);
+  }
+  .filterbar .row { height: 9px; background: #e7e7ec; border-radius: 3px; margin: 7px 4px; }
+  .center { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+  .metabar {
+    width: 150px; border-left: 1px dashed #b9b9c2; background: #fbfbfd; padding: 26px 10px 10px;
+    font-size: 11px; color: var(--muted);
+  }
+  .metabar .row { height: 9px; background: #e7e7ec; border-radius: 3px; margin: 7px 4px; }
+  .optional-tag { font-size:9px; color:#a06b00; background:#fff3d6; border-radius:4px; padding:1px 5px; }
+
+  /* pane headers (ビュワー / ピッカー) */
+  .pane-head {
+    display:flex; align-items:center; gap:8px;
+    padding: 24px 14px 8px; background: var(--bar); border-bottom: 1px solid var(--line);
+    font-size: 13px;
+  }
+  .pane-head b { font-size: 13px; }
+  .pane-head.inactive b { color: var(--muted); }
+  .pane-head .dot { width:10px; height:10px; border-radius:50%; background:#bcbcc4; flex:none; }
+  .pane-head .dot.on { background: var(--accent); }
+  .count { font-size: 11px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+  /* elevation : アクティブ面が手前に浮く（境界＝下/上辺へ向けた影） */
+  .viewer-card { position: relative; }
+  .viewer-card.active { z-index: 2; box-shadow: 0 9px 16px -5px rgba(0,0,0,.22); }
+  .picker-wrap { position: relative; }
+  .picker-wrap.active { z-index: 2; box-shadow: 0 -9px 16px -5px rgba(0,0,0,.22); }
+
+  /* preview area (white) — 全選択をフィット表示 */
+  .preview {
+    flex: 1; background: #ffffff; padding: 28px 16px 14px; display: grid;
+    grid-template-columns: repeat(4, 1fr); grid-auto-rows: 1fr; gap: 10px; min-height: 170px;
+  }
+  .cell {
+    border: 1px solid #e2e2e6; border-radius: 8px; display: flex; flex-direction: column;
+    overflow: hidden; background: #fff;
+  }
+  .cell.focused { border: 2px solid var(--accent); }
+  .cell .img {
+    flex: 1; background: repeating-linear-gradient(45deg,#eef0f3,#eef0f3 10px,#e6e9ee 10px,#e6e9ee 20px);
+    display: flex; align-items: center; justify-content: center; color: #aab; font-size: 11px; position: relative;
+  }
+  .cell .badge { position:absolute; top:6px; right:6px; font-size:9px; background:#e9912b; color:#fff;
+                 padding:1px 5px; border-radius:4px; }
+  .cell .fname { font-size: 11px; text-align: center; padding: 4px; color: #1d1d1f; }
+  .cell .stars { text-align: center; color: #c8a200; font-size: 13px; padding-bottom: 5px; letter-spacing: 2px; }
+
+  /* resize divider — ピッカー／ビュワーから完全分離した独立帯（窓背景の隙間に横バーを浮かせる） */
+  .resize {
+    height: 20px; background: #ececef;
+    display: flex; align-items: center; justify-content: center; cursor: row-resize; position: relative;
+  }
+  .resize .handle { width: 40px; height: 5px; border-radius: 3px; background: #b6b6be; }
+
+  /* picker */
+  .picker { height: 110px; background: #fff; padding: 12px 14px 10px; }
+  .grid { display: grid; grid-template-columns: repeat(10, 1fr); gap: 8px; }
+  .grid .t { aspect-ratio: 1; background: #e7e7ec; border-radius: 4px; }
+  .grid .t.sel { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  /* status bar */
+  .status {
+    display:flex; align-items:center; justify-content:space-between;
+    padding: 22px 14px 8px; background: var(--bar); border-top: 1px solid var(--line);
+    font-size: 11px; color: var(--muted);
+  }
+  .slider { width: 110px; height: 4px; background: #d4d4da; border-radius: 3px; position: relative; }
+  .slider::after { content:""; position:absolute; left:60%; top:-3px; width:10px; height:10px; border-radius:50%; background:#fff; border:1px solid #b6b6be; }
+
+  /* tables */
+  table { border-collapse: collapse; width: 100%; max-width: 860px; font-size: 13px; margin-top: 6px; }
+  th, td { border: 1px solid var(--line); padding: 7px 10px; text-align: left; vertical-align: top; }
+  th { background: var(--bar); font-weight: 700; }
+  tr:nth-child(even) td { background: #fcfcfd; }
+  .changelog li { font-size: 13px; margin-bottom: 4px; }
+</style>
+</head>
+<body>
+
+<h1>フィルムストリップ UI マップ</h1>
+<div class="meta">bridge-lite / macOS · 最終更新 2026-06-16 · 呼称はチーム内コミュニケーション用の共通語彙</div>
+
+<div class="note">
+  📌 この HTML は <b>生きたリファレンス</b>です。フィルムストリップ画面の構造が大きく変わった場合は、
+  下部の「変更履歴」に追記し、図と表を更新します。
+</div>
+
+<h2>画面イメージ（フィルムストリップモード）</h2>
+<div class="window">
+
+  <!-- toolbar -->
+  <div class="region toolbar">
+    <span class="label">ツールバー <span class="sublabel">ToolbarView</span></span>
+    <div class="tb-left">📁 Open ⤺ Undo</div>
+    <div class="tb-center">
+      <span class="seg" title="モード切替トグル / .principal の Picker">
+        <span>ライブラリ</span><span class="on">フィルムストリップ</span>
+      </span>
+    </div>
+    <div class="pill" title="並び替え + 昇順降順">並び替え▾ <span class="div"></span> ↑</div>
+    <div class="pill" title="メタデータトグル / ショートカット">◫ <span class="div"></span> ⌨</div>
+  </div>
+
+  <!-- main -->
+  <div class="main">
+
+    <!-- filter bar -->
+    <div class="region filterbar">
+      <span class="label">フィルターバー <span class="sublabel">FilterPanelView</span></span>
+      <div class="row" style="width:80%"></div>
+      <div class="row" style="width:60%"></div>
+      <div class="row" style="width:70%"></div>
+      <div class="row" style="width:50%"></div>
+    </div>
+
+    <!-- center column -->
+    <div class="center">
+
+      <!-- viewer card = ヘッダー＋プレビュー（この図ではアクティブ＝奥行きで浮く） -->
+      <div class="region viewer-card active">
+        <span class="label">ビュワー（アクティブ＝浮く） <span class="sublabel">viewerHeader + previewArea</span></span>
+
+        <!-- viewer header -->
+        <div class="pane-head" title="FilmstripView.viewerHeader · クリックでフォーカス">
+          <span class="dot on" title="フォーカスあり＝青塗り"></span>
+          <b>ビュワー</b>
+          <span style="flex:1"></span>
+          <span class="count">8 / 20</span>
+        </div>
+
+        <!-- preview area : 全選択をフィット表示（サムネイル） -->
+        <div class="preview">
+          <div class="cell focused" title="プレビューセル / CompareMemberColumn（thumbnailOnly・フォーカス＝青枠）">
+            <div class="img">image <span class="badge">RAW</span></div><div class="fname">DSCF6100</div>
+          </div>
+          <div class="cell"><div class="img">image</div><div class="fname">DSCF6101</div></div>
+          <div class="cell"><div class="img">image</div><div class="fname">DSCF6102</div></div>
+          <div class="cell"><div class="img">image</div><div class="fname">DSCF6103</div></div>
+          <div class="cell"><div class="img">image</div><div class="fname">DSCF6104</div></div>
+          <div class="cell"><div class="img">image</div><div class="fname">DSCF6105</div></div>
+          <div class="cell"><div class="img">image</div><div class="fname">DSCF6106</div></div>
+          <div class="cell"><div class="img">image</div><div class="fname">DSCF6107</div></div>
+        </div>
+      </div>
+
+      <!-- resize divider = ビュワー／ピッカー境界 -->
+      <div class="region resize" title="リサイズ仕切り（ビュワー／ピッカー境界）">
+        <span class="label" style="top:-1px">リサイズ仕切り（独立帯） <span class="sublabel">resizeDivider</span></span>
+        <div class="handle" title="横バーのハンドル。ピッカー／ビュワーから分離。限界はマウスカーソル ▲▼/▲/▼ で表現"></div>
+      </div>
+
+      <!-- picker = ヘッダー＋グリッド（この図では非アクティブ＝フラット） -->
+      <div class="region picker-wrap">
+        <span class="label">ピッカー（非アクティブ＝フラット） <span class="sublabel">pickerHeader + ThumbnailGridView</span></span>
+
+        <!-- picker header -->
+        <div class="pane-head inactive" title="FilmstripView.pickerHeader · クリックでフォーカス">
+          <span class="dot" title="フォーカスなし＝灰"></span>
+          <b>ピッカー</b>
+          <span style="flex:1"></span>
+          <span class="count" title="store.visibleIDs.count（フィルタ済み＝表示中の総数）">120 photos</span>
+        </div>
+
+        <!-- picker grid -->
+        <div class="picker">
+          <div class="grid">
+            <div class="t"></div><div class="t sel"></div><div class="t"></div><div class="t sel"></div>
+            <div class="t"></div><div class="t"></div><div class="t"></div><div class="t"></div>
+            <div class="t"></div><div class="t"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- metadata bar -->
+    <div class="region metabar">
+      <span class="label">メタデータバー <span class="sublabel">SidebarView</span></span>
+      <div style="margin-bottom:6px"><span class="optional-tag">任意 / 既定OFF</span></div>
+      <div class="row" style="width:90%"></div>
+      <div class="row" style="width:70%"></div>
+      <div class="row" style="width:85%"></div>
+      <div class="row" style="width:60%"></div>
+    </div>
+  </div>
+
+  <!-- status bar -->
+  <div class="region status">
+    <span class="label">ステータスバー <span class="sublabel">StatusBarView</span></span>
+    <span>120 items, 3 selected</span>
+    <span style="display:inline-flex;align-items:center;gap:10px">
+      <span class="seg" title="ピッカーのレイアウト切替（フィルムストリップ時のみ・排他）">
+        <span class="on" title="サムネイルグリッド（既定）">▦</span><span title="横一列">▭</span>
+      </span>
+      📷 <span class="slider" style="display:inline-block;vertical-align:middle"></span> 📷
+    </span>
+  </div>
+
+</div>
+
+<h2>要素名 ↔ コード対応</h2>
+<table>
+  <thead><tr><th>呼称</th><th>コード</th><th>役割</th></tr></thead>
+  <tbody>
+    <tr><td>ツールバー</td><td><code>ToolbarView</code></td><td>最上部のツールバー</td></tr>
+    <tr><td>モード切替トグル</td><td><code>.principal</code> の <code>Picker</code></td><td>ライブラリ ⇆ フィルムストリップ</td></tr>
+    <tr><td>フィルターバー</td><td><code>FilterPanelView</code></td><td>左の絞り込み（フィルムストリップでも表示可）</td></tr>
+    <tr><td>ビュワーヘッダー</td><td><code>FilmstripView.viewerHeader</code></td><td>◯（フォーカスドット）＋「ビュワー」＋比較中件数「N / 20」＋上限超過ヒント。クリックでビュワーにフォーカス。ヘッダー＋プレビューで 1 枚のカード</td></tr>
+    <tr><td>ピッカーヘッダー</td><td><code>FilmstripView.pickerHeader</code></td><td>◯（フォーカスドット）＋「ピッカー」＋<b>表示中サムネイルの総数</b>（<code>store.visibleIDs.count</code>＝フィルタ済み）。クリックでピッカーにフォーカス</td></tr>
+    <tr><td>フォーカスドット ◯</td><td><code>FilmstripView.paneDot</code></td><td>各ヘッダー先頭。<b>アクティブ＝青塗り（accentColor）／非アクティブ＝灰</b></td></tr>
+    <tr><td>プレビュー領域</td><td><code>FilmstripView.previewArea</code></td><td>白背景・選択中の<b>全枚数（最大20）を領域内にフィット表示</b>（スクロールなし）</td></tr>
+    <tr><td>プレビューセル</td><td><code>CompareMemberColumn</code><br>(<code>compact + downsampleMaxPixels:2048</code>)</td><td><b>高品質ダウンサンプル画像</b>＋ファイル名＋種別バッジ＋フォーカス/選択枠＋★Nバッジ。クリック=選択（Shift範囲/⌘トグル）、<b>空白からのドラッグで矩形選択（ラバーバンド・Shift/⌘で追加）</b>、独立した操作面</td></tr>
+    <tr><td>空状態プレースホルダ</td><td><code>filmstrip.empty</code></td><td>未選択時の「比較する写真を選択」表示</td></tr>
+    <tr><td>リサイズ仕切り</td><td><code>FilmstripView.resizeDivider</code></td><td><b>ピッカー／ビュワーのどちらにも属さない独立帯</b>（背景なし＝窓背景が透ける余白に横バーを浮かせる）。ドラッグ（<code>.global</code> 座標で 1:1）で <code>pickerHeight</code>（グリッド高さ）を拡縮。可動方向の限界は<b>標準カーソル（<code>resizeUpDown</code>／<code>resizeUp</code>／<code>resizeDown</code>）</b>で表現</td></tr>
+    <tr><td>ピッカー（サムネイルグリッド）</td><td><code>ThumbnailGridView</code></td><td>下部・写真を選ぶグリッド（identity 維持のため外側 VStack 最下段に固定）</td></tr>
+    <tr><td>メタデータバー</td><td><code>SidebarView</code></td><td>右・任意表示（デフォルト OFF）</td></tr>
+    <tr><td>ステータスバー</td><td><code>StatusBarView</code></td><td>最下部・件数＋（フィルムストリップ時）ピッカーのレイアウト排他トグル＋サムネサイズスライダ</td></tr>
+    <tr><td>ピッカー レイアウトトグル</td><td><code>StatusBarView</code> 内 <code>Picker(.segmented)</code></td><td>サムネサイズの左。<b>グリッド ▦ / 横一列 ▭</b> をいずれか1つだけ選択。フィルムストリップ時のみ表示</td></tr>
+  </tbody>
+</table>
+
+<h2>状態（呼称 ↔ フラグ）</h2>
+<table>
+  <thead><tr><th>呼称</th><th>フラグ／値</th><th>意味</th></tr></thead>
+  <tbody>
+    <tr><td>フィルムストリップ表示中</td><td><code>store.filmstripMode</code></td><td>このビューの ON/OFF</td></tr>
+    <tr><td>メタデータバー表示</td><td><code>store.filmstripShowMeta</code></td><td>右バーの表示（デフォルト OFF）。ショートカット <code>Shift+I</code></td></tr>
+    <tr><td>info card 表示</td><td><code>store.viewerShowsMeta</code></td><td>プレビュー上の情報カード（<code>ViewerMetaOverlay</code>）。フィルムストリップでは <b>plain <code>I</code></b> でトグル（ピッカー/ビュワーどちらのフォーカスでも有効）</td></tr>
+    <tr><td>比較対象</td><td><code>store.selectedIDs</code></td><td>選択中（表示順の先頭 <code>maxCompare</code>=20 枚をプレビュー）</td></tr>
+    <tr><td>ピッカーのフォーカス</td><td><code>store.primaryID</code></td><td>ピッカー内の主選択（メタデータ対象）</td></tr>
+    <tr><td>プレビューのフォーカス</td><td><code>store.filmstripFocusID</code></td><td>プレビュー領域内の濃い青枠（primary）。<b>ピッカーとは独立</b></td></tr>
+    <tr><td>プレビューの複数選択</td><td><code>store.filmstripPreviewSelectedIDs</code></td><td>プレビュー内の選択集合。⌘A 全選択・Shift＋クリック/矢印で範囲・⌘クリックでトグル。0–9・P/X はこの集合に適用（コピー/削除は対象外）</td></tr>
+    <tr><td>アクティブ面</td><td><code>store.filmstripPreviewActive</code></td><td>true=ビュワー / false=ピッカー。<b>アクティブ側を奥行き（elevation＝影）で手前に浮かせ</b>、ヘッダーの◯で示す（青=アクティブ/灰=非アクティブ）。灰色減光・青いフォーカス枠/線は廃止。切替＝プレビューセル/ピッカーgrid のクリック、または各ヘッダーのクリック。<b>ビュワーは空白領域をクリックしてもフォーカス（アクティブ面）を保持</b>し、空クリックはグリッド同様に選択解除（<code>previewDeselectAll</code>）</td></tr>
+    <tr><td>ピッカー高さ</td><td><code>pickerHeight</code> (140–600)</td><td>リサイズ仕切りの現在値</td></tr>
+    <tr><td>ピッカーのレイアウト</td><td><code>store.filmstripPickerLayout</code> (.grid / .row)</td><td>ステータスバーの排他トグルで切替。<code>.grid</code>=通常グリッド（既定）／<code>.row</code>=横一列（<code>ThumbnailGridView</code> が <code>LazyHGrid</code> 1行＋水平スクロールで描画。操作層は columns=全件数で単一行整合）。<b>横一列時はグリッド領域を 1 行分（<code>thumbnailSize+16</code>）に固定し、それ以上は伸ばせない（リサイズ分割線も非表示）。バナー（フラット化等）はその上に自然な高さで積まれ、ヘッダーと被らない</b></td></tr>
+  </tbody>
+</table>
+
+<h2>変更履歴</h2>
+<ul class="changelog">
+  <li><b>2026-06-16 (20)</b> — フィルムストリップで <b>plain <code>I</code> が info card（<code>viewerShowsMeta</code>）の表示/非表示トグル</b>になるよう修正（以前は無効だった）。ピッカー/ビュワーどちらにフォーカスがあっても有効（focus 非依存の大域キーハンドラ）。<code>Shift+I</code> はメタデータバー表示のまま。</li>
+  <li><b>2026-06-16 (19)</b> — メタデータバー（<code>SidebarView</code>）を<b>複数選択中はクリア</b>（単一写真のメタデータを出さず「N枚を選択中」表示）。判定はアクティブ選択集合 <code>activeSelectionCount</code>（ライブラリ＝<code>selectedIDs</code> / フィルムストリッププレビュー＝<code>filmstripPreviewSelectedIDs</code>）。i18n: <code>sidebar.multiple_selected</code>。</li>
+  <li><b>2026-06-16 (18)</b> — フィルムストリップでプレビュー面がアクティブのとき、<b>Space で「注目中の写真（<code>filmstripFocusID</code>）」の単体ビューを開く</b>ように修正（従来は常にピッカーの <code>primaryID</code>＝最初に選んだ写真を開いていた）。単体ビューの<b>前後送り（←/→）はプレビューの並び <code>filmstripCompareIDs</code></b> で行い、比較セット（<code>selectedIDs</code>）は壊さない（<code>enterFilmstripPreviewViewer</code> / <code>advanceViewerWithinMembers</code>）。ピッカー面アクティブ時・非フィルムストリップ時は従来どおり <code>primaryID</code>。</li>
+  <li><b>2026-06-16 (17)</b> — 横一列ピッカーの<b>水平スクロールバーがステータスバーに被って見切れる不具合を修正</b>。<code>singleRowGrid</code> の <code>ScrollView</code> 高さを「1行＋スクロールバー帯（14pt）」にし、バーが 1 行の下に収まるようにした。</li>
+  <li><b>2026-06-16 (16)</b> — 横一列ピッカーで<b>フラット化等のバナーがピッカーヘッダーと被る不具合を修正</b>。グリッド領域を 1 行分の高さに固定（<code>singleRowGrid</code> の <code>ScrollView</code> を <code>rowHeight</code> 固定＋body の ZStack を内容フィット）し、ピッカー区画を「バナー＋1行」の内容高さにフィットさせる（高さ固定値で見込まず、バナーは上に積まれる）。</li>
+  <li><b>2026-06-16 (15)</b> — フィルムストリップで<b>ビューアの裏にピッカー/グリッドの当たり判定が残る不具合を修正</b>。SwiftUI <code>ScrollView</code> に埋め込んだ AppKit 操作層（<code>GridInteractionNSView</code>・<code>contentHeight</code> 全面サイズ）はビューポート外でもヒットテストが残り、ピッカーをスクロールすると隠れた部分がビューア領域に被ってクリックを横取りしていた。<code>hitTest</code> を override し<b>可視範囲外は素通り</b>させて解消（水平スクロールの横一列にも有効）。</li>
+  <li><b>2026-06-16 (14)</b> — サムネイルグリッド／ピッカー（グリッド表示）の<b>左右余白からドラッグできない不具合を修正</b>。<code>LazyVGrid</code> の中央寄せで生じる余白が col0 セルとして誤判定され、ファイルドラッグが始まっていた。操作層に実際の左インセット（<code>leadingInset</code>）を渡し、余白を「セル外＝ラバーバンド可／クリックで選択解除」に正しく扱うよう修正。</li>
+  <li><b>2026-06-16 (13)</b> — ビュワー（プレビュー）に<b>ドラッグ矩形選択（ラバーバンド）</b>を追加。空白からのドラッグで範囲選択、Shift/⌘ で追加選択。プレビューは小規模・非スクロールのため SwiftUI <code>DragGesture</code> で実装（セル単クリックは <code>minimumDistance</code> でタップと区別し従来どおり）。</li>
+  <li><b>2026-06-16 (12)</b> — ビュワー（プレビュー）の<b>空白領域クリックでもフォーカス（アクティブ面）を失わない</b>ように。背景クリックは <code>filmstripPreviewActive=true</code> を保持しつつ、グリッド同様に選択解除（<code>previewDeselectAll</code>）。セルのクリック/Shift範囲/⌘トグルは従来どおり（セル側 onTapGesture 優先）。</li>
+  <li><b>2026-06-16 (11)</b> — ステータスバー（フィルムストリップ時）にピッカーの<b>レイアウト排他トグル</b>を追加（サムネサイズの左）。<b>グリッド ▦（既定）／横一列 ▭</b>。横一列は <code>ThumbnailGridView</code> の <code>LazyHGrid</code> 1行＋水平スクロールで描画し、操作層（<code>GridInteractionView</code>）は columns=全件数で単一行として整合。<b>横一列時はピッカー高さを「サムネ高さ＋マージン」に固定（それ以上伸ばせない・リサイズ分割線は非表示）</b>。状態は <code>store.filmstripPickerLayout</code>。i18n: <code>filmstrip.layout.grid/row/help</code>。</li>
+  <li><b>2026-06-16 (10)</b> — リサイズカーソルを自作三角から<b>標準 <code>NSCursor</code>（<code>resizeUpDown</code>／<code>resizeUp</code>／<code>resizeDown</code>）に変更</b>（システムのカーソルサイズ/コントラスト設定に自動追従）。可動方向で出し分ける挙動（中間＝上下／下限＝上のみ／上限＝下のみ）は維持。</li>
+  <li><b>2026-06-16 (9)</b> — リサイズ仕切りのハンドルを<b>横バー（カプセル）に戻し</b>、仕切りを<b>ピッカー／ビュワーのどちらにも属さない独立帯</b>として描画（背景を敷かず窓背景が透ける余白に横バーを浮かせて完全分離）。可動方向の限界表示はマウスカーソル（▲▼／▲／▼）に一本化（ハンドル上の白抜き三角は廃止）。</li>
+  <li><b>2026-06-16 (8)</b> — リサイズ仕切りの<b>マウスカーソルを VSCode 風の三角リサイズカーソル</b>（自前 <code>NSCursor</code>・黒塗り＋白フチ）に変更。可動方向に応じて出し分け：両方可＝<b>▲▼</b>／下限（プレビュー最大）＝<b>▲</b>のみ／上限（グリッド最大）＝<b>▼</b>のみ。ホバー時・ドラッグ中の両方で限界をまたぐと方向が切り替わる。仕切り内の ▲▼ ハンドル（塗り/白抜き）は従来どおり。</li>
+  <li><b>2026-06-16 (7)</b> — リサイズ仕切りのドラッグ座標空間を <code>.local</code>→<code>.global</code> に変更し移動量を 1:1 に（仕切り自身の移動による歪みを解消）。ハンドルを<b>上下三角</b>化し、<b>限界方向は白抜き三角</b>で「これ以上動かせない」ことを表示。ドラッグ中のリサイズカーソルを <code>push/pop</code> で追従（帯から外れても維持）。ビュワーヘッダー上辺に区切り線を追加し標準ツールバーとの結合を解消。</li>
+  <li><b>2026-06-16 (6)</b> — ビュワー／ピッカーに<b>ヘッダー</b>を新設（<code>viewerHeader</code> / <code>pickerHeader</code>）。各先頭に<b>フォーカスドット◯</b>（アクティブ＝青塗り／非アクティブ＝灰）を表示し、ピッカーヘッダーに<b>表示中の総数</b>（<code>store.visibleIDs.count</code>）を表示。フォーカス分離の表現を<b>灰色減光・青いフォーカス枠/線から「奥行き（elevation）＋◯」へ全面刷新</b>（アクティブ面が手前に浮く）。リサイズ仕切りはビュワーカードとピッカーヘッダーの境界に。ヘッダークリックでもフォーカス切替可。</li>
+  <li><b>2026-06-16 (5)</b> — 非アクティブ面の減光を「背景のみ」に変更（写真の上には被せず色味を保つ）。プレビューは背景色を白→グレー、ピッカーは背景にグレーを敷く。フィルムストリップのメタデータバー表示ショートカットを <code>Shift+I</code> に変更（ライブラリは従来どおり <code>I</code>。plain i はビュワー詳細表示と分離）。</li>
+  <li><b>2026-06-16 (4)</b> — プレビュー領域をピッカーと独立した操作面に。グリッド同等の選択（⌘A・Shift範囲・⌘トグル・矢印ナビ）＋レーティング/フラグ（0–9, P/X）をプレビュー選択に適用。アクティブ面をクリックで切替し非アクティブ側を灰色減光。プレビュー画像を高品質ダウンサンプル（~2048px）に。</li>
+  <li><b>2026-06-16 (3)</b> — プレビュー領域とピッカーのフォーカスを分離（<code>store.filmstripFocusID</code> 新設）。プレビューのクリックはプレビュー内フォーカスのみ更新し、ピッカーの選択（比較セット）は崩さない。</li>
+  <li><b>2026-06-16 (2)</b> — ヘッダーのモード名タイトル廃止。最大枚数 4→20。プレビューを「全枚数フィット表示（スクロールなし・サムネイルのみ）」に変更し、多数枚でも安全に（フル解像度ロードを止め IOSurface/メモリを保護）。</li>
+  <li><b>2026-06-16</b> — 初版。フィルムストリップを NavigationSplitView の detail 化（フィルター／ステータスバー併存）、プレビュー白背景化、リサイズ仕切り、メタデータバー（既定OFF）を反映。</li>
+</ul>
+
+</body>
+</html>

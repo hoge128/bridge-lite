@@ -39,8 +39,7 @@ enum ThumbnailService {
 
     private static func generateWithImageIO(url: URL, maxPixels: Int, mode: ThumbnailQualityMode = .quality) -> CGImage? {
         let ext = url.pathExtension.lowercased()
-        let proprietaryRaw = Set(["arw","cr2","cr3","nef","nrw","rw2","orf","pef","raf"])
-        if proprietaryRaw.contains(ext) { return nil }
+        if BridgeCoreConstants.proprietaryRawExtensions.contains(ext) { return nil }
 
         guard let src = CGImageSourceCreateWithURL(url as CFURL, nil) else { return nil }
 

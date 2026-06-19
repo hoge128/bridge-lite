@@ -67,6 +67,14 @@ struct SettingsView: View {
                     guard old != new else { return }
                     showRestartAlert = true
                 }
+                Toggle(isOn: $settings.showDecodeTachometer) {
+                    Text(String(localized: "settings.show_tachometer",
+                                defaultValue: "Show decode tachometer in toolbar"))
+                }
+                Text(String(localized: "settings.show_tachometer.note",
+                            defaultValue: "A small gauge that revs up while thumbnails are decoded (e.g. when they come back after idle)."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Section {
                 Picker(String(localized: "settings.shortcut.rating_keys", defaultValue: "Rating / Label Keys"),
@@ -97,6 +105,29 @@ struct SettingsView: View {
                     .foregroundStyle(.secondary)
             } header: {
                 Text(String(localized: "settings.shortcut.section", defaultValue: "Keyboard Shortcuts"))
+            }
+            Section {
+                Toggle(isOn: $settings.viewerAutoHideControls) {
+                    Text(String(localized: "settings.viewer_auto_hide_controls",
+                                defaultValue: "Auto-hide viewer buttons"))
+                }
+                Text(String(localized: "settings.viewer_auto_hide_controls.note",
+                            defaultValue: "Hides the buttons at the top of the single-image viewer after 1 second without mouse movement. Move the mouse to show them again."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                Picker(String(localized: "settings.open_gesture", defaultValue: "Open from grid"),
+                       selection: $settings.gridOpenGesture) {
+                    ForEach(GridOpenGestureMode.allCases) { mode in
+                        Text(mode.localizedName).tag(mode)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+                Text(String(localized: "settings.open_gesture.note",
+                            defaultValue: "Choose which view opens when you press Space or double-click a thumbnail."))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text(String(localized: "settings.viewer.section", defaultValue: "Viewer"))
             }
             Section {
                 scopeGrid

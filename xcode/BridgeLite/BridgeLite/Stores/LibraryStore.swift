@@ -3,6 +3,15 @@ import Combine
 import SwiftUI
 import UniformTypeIdentifiers
 
+/// フィルムストリップのピッカー（下グリッド）レイアウト。
+enum FilmstripPickerLayout: Hashable {
+    case grid   // 通常のサムネイルグリッド（デフォルト）
+    case row    // 横一列（水平スクロール）
+}
+
+/// 選択モードのフォーカスカーソル移動方向（矢印キー）。
+enum FocusDir { case next, prev, up, down, first, last }
+
 @Observable @MainActor
 final class LibraryStore: ReindexedGroupSink {
     // エントリ一覧
@@ -26,15 +35,51 @@ final class LibraryStore: ReindexedGroupSink {
     private var phashPipeline = PHashPipeline()
 
     // UI 状態 — 選択
-    private(set) var selectedIDs: Set<UInt64> = []
+    private(set) var selectedIDs: Set<UInt64> = [] {
+        didSet {
+            // 選択状態が変わった id（旧⊕新）だけを通知。各サムネイルセルは自分の id を
+            // 購読して @State isSelected を更新するため、選択変更で全可視セルが再評価
+            // されない（body 内で store.selectedIDs を読まなくなる）。
+            let changed = oldValue.symmetricDifference(selectedIDs)
+            if !changed.isEmpty { selectionDidUpdate.send(changed) }
+        }
+    }
     private(set) var primaryID: UInt64?       // サイドバー/ビュワーで表示する「主」選択
     private var anchorID: UInt64?             // Shift+Click の始点
+    /// 選択中で最もリスト（visibleIDs）先頭にあるサムネイル。
+    /// ライブラリ↔フィルムストリップ遷移時に、グリッド/ピッカーをここへスクロールして見せる。
+    var firstSelectedVisibleID: UInt64? { visibleIDs.first(where: { selectedIDs.contains($0) }) }
+    // ビュワー/比較を閉じて戻るとき、primaryID のセルが既にグリッド可視範囲へ
+    // 完全に描画されているかを問い合わせるクロージャ。GridInteractionView が
+    // 自分の NSView を弱参照キャプチャして差し込む（NSView は visibleRect を持つ）。
+    // observation を起こさないよう @ObservationIgnored。
+    @ObservationIgnored var isPrimaryCellVisible: ((UInt64) -> Bool)?
     var selectedID: UInt64? { primaryID }     // ViewerView 互換
 
     var columnVisibility: NavigationSplitViewVisibility = .all
     var viewerMode: Bool = false
     var viewerShowsMeta: Bool = false
     var compareMode: Bool = false
+    // フィルムストリップ（任意の2〜4枚を並べて比較する独立ビュー）。
+    // 永続化しない transient フラグ。ViewMode(.all/.daily) とは別概念。
+    var filmstripMode: Bool = false
+    // フィルムストリップ専用のメタデータバー表示（ライブラリの showSidebar とは独立、デフォルト OFF）。
+    var filmstripShowMeta: Bool = false
+    // フィルムストリップのプレビュー領域内フォーカス。ピッカーの primaryID/selectedIDs とは独立。
+    var filmstripFocusID: UInt64? = nil
+    // フィルムストリップ プレビュー操作面（ピッカーとは独立した選択システム）
+    var filmstripPreviewActive: Bool = false           // アクティブ面（false=ピッカー / true=プレビュー）
+    var filmstripPreviewSelectedIDs: Set<UInt64> = []
+    var filmstripPreviewAnchor: UInt64? = nil
+    var filmstripPreviewCols: Int = 1                   // 上下矢印ナビ用に FilmstripView が反映
+    // フィルムストリップのピッカー（下グリッド）レイアウト。grid=通常グリッド / row=横一列。
+    var filmstripPickerLayout: FilmstripPickerLayout = .grid
+    // フィルムストリップ ピッカーの「選択モード」。ON のとき単クリック＝粘着トグル選択
+    // （セル外クリックで解除しない／ダブルクリック起動は無効／再クリックで解除）。
+    // 集合は selectedIDs を流用する（＝比較プレビューを直接キュレーションする）。transient。
+    var filmstripSelectionMode: Bool = false
+    /// 選択モードが実効中か。同じグリッドはライブラリでも使うため、フィルムストリップ時のみ有効。
+    var isSelectionModeActive: Bool { filmstripMode && filmstripSelectionMode }
     var compareAnchorID: UInt64? = nil
     // When ViewerView is entered from CompareMode, restricts arrow-key navigation to this list.
     var viewerCompareGroupMembers: [UInt64]? = nil
@@ -50,6 +95,11 @@ final class LibraryStore: ReindexedGroupSink {
     private(set) var ratingCounts: [Int: Int] = [0:0, 1:0, 2:0, 3:0, 4:0, 5:0]
     var statusMessage: String = ""
     var isLoading: Bool = false
+    /// フィルタ適用をデバウンス中（結果未反映）。グリッドのシマー表示に使う。
+    private(set) var isFilterPending: Bool = false
+    /// アプリ復帰時のサムネイル全件再ロード(path B)の進行中フラグ＋対象件数（ステータスバー表示用）。
+    private(set) var isReloadingThumbnails: Bool = false
+    private(set) var reloadingCount: Int = 0
     var depthExceeded: Bool = false
 
     enum ScanPhase { case idle, scanning, loading }
@@ -81,6 +131,7 @@ final class LibraryStore: ReindexedGroupSink {
     private var pendingXmp: [UInt64: XmpData] = [:]
     private var metaFlushTask: Task<Void, Never>?
     private var pendingRecomputeTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingFilterApplyTask: Task<Void, Never>?
     @ObservationIgnored private var pendingAggregatesTask: Task<Void, Never>?
 
     // Pipeline stage cache — @ObservationIgnored で UI 観測を回避
@@ -100,6 +151,17 @@ final class LibraryStore: ReindexedGroupSink {
     let thumbnailDidUpdate = PassthroughSubject<UInt64, Never>()
     let exifDidUpdate = PassthroughSubject<UInt64, Never>()
     let xmpDidUpdate = PassthroughSubject<UInt64, Never>()
+    // プレビューを生成できなかった RAW（CIFF CRW・Leaf MOS 等）。グリッド/ビュワー/比較で
+    // 「読込中シマー」ではなく「プレビュー不可」プレースホルダを出すために記録する。
+    // selectionDidUpdate 同様、変化した id のみ通知してセルの全再評価を避ける。
+    private(set) var previewUnavailableIDs: Set<UInt64> = []
+    let previewUnavailableDidUpdate = PassthroughSubject<UInt64, Never>()
+    // 選択変更時に「状態が変わった id 群」を通知（per-cell @State 更新用）。
+    let selectionDidUpdate = PassthroughSubject<Set<UInt64>, Never>()
+    // フィルタの Reset / 個別 Clear / 適用、および並べ替えで visibleIDs を再構成したあとに発火。
+    // グリッドはこれを受けて、フォーカス中サムネイル(primaryID)が画面外なら可視範囲へ戻す
+    // （既に見えていれば動かさない＝scrollToPrimary の可視判定に委ねる）。
+    let revealPrimaryRequest = PassthroughSubject<Void, Never>()
 
     // フォルダ切替時にキャンセルする fire-and-forget タスク
     private var exifLoadTask: Task<Void, Never>?
@@ -131,17 +193,22 @@ final class LibraryStore: ReindexedGroupSink {
     }
 
     private func setupUndoNotifications() {
-        func subscribe(_ name: NSNotification.Name, handler: @escaping (Notification) -> Void) -> NSObjectProtocol {
+        // using: は @Sendable クロージャ。queue: .main 配信なので本体は MainActor 上で動く。
+        func subscribe(_ name: NSNotification.Name, handler: @escaping @Sendable (Notification) -> Void) -> NSObjectProtocol {
             NotificationCenter.default.addObserver(forName: name, object: undoManager, queue: .main, using: handler)
         }
         undoObservers = [
             subscribe(.NSUndoManagerDidUndoChange) { [weak self] _ in
-                guard let self else { return }
-                self.undoVersion &+= 1
-                let name = self.undoManager.redoActionName
-                if !name.isEmpty { self.showUndoMessage(String(localized: "Undid: \(name)")) }
+                MainActor.assumeIsolated {
+                    guard let self else { return }
+                    self.undoVersion &+= 1
+                    let name = self.undoManager.redoActionName
+                    if !name.isEmpty { self.showUndoMessage(String(localized: "Undid: \(name)")) }
+                }
             },
-            subscribe(.NSUndoManagerDidCloseUndoGroup) { [weak self] _ in self?.undoVersion &+= 1 }
+            subscribe(.NSUndoManagerDidCloseUndoGroup) { [weak self] _ in
+                MainActor.assumeIsolated { self?.undoVersion &+= 1 }
+            }
         ]
     }
 
@@ -170,6 +237,13 @@ final class LibraryStore: ReindexedGroupSink {
     func resetFilter() {
         preSearchFlatten = nil
         filter.reset()
+        revealPrimaryRequest.send()
+    }
+
+    /// フィルタパネルの個別 Clear ボタンから呼ばれる。
+    /// グリッドが選択中サムネイルへスクロールを戻すためのシグナル。
+    func noteFilterSectionCleared() {
+        revealPrimaryRequest.send()
     }
 
     func requestOpenFolder() {
@@ -357,7 +431,7 @@ final class LibraryStore: ReindexedGroupSink {
                     phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold)
                 )
                 guard gen == scanGeneration else { return }
-                applyReindexedGroups(initialGroups, generation: gen)
+                applyRustReindexedGroups(initialGroups, list: imageList, generation: gen)
             }
 
             if primaryID == nil, let firstID = visibleIDs.first {
@@ -390,7 +464,9 @@ final class LibraryStore: ReindexedGroupSink {
                     guard gen == self.scanGeneration else { return }
                     let exifMap = await BridgeCore.fetchExifBatch(list: imageList, db: db)
                     guard gen == self.scanGeneration else { return }
-                    self.mergeExifBatch(exifMap, generation: gen)
+                    // fetchExifBatch は Rust 連番 ID キー。store ID へ remap してから merge する。
+                    let remappedExif = self.remapExifBatchToStoreIDs(exifMap, list: imageList)
+                    self.mergeExifBatch(remappedExif, generation: gen)
                 }
                 self.isExifReady = true
 
@@ -460,6 +536,16 @@ final class LibraryStore: ReindexedGroupSink {
     }
 
     // MARK: - サムネイル進捗
+
+    func isPreviewUnavailable(_ id: UInt64) -> Bool { previewUnavailableIDs.contains(id) }
+
+    /// プレビュー（埋込 JPEG / RGB）を取り出せなかった RAW を記録する。
+    /// グリッド/ビュワー/比較が「プレビュー不可」プレースホルダへ切り替えるためのフラグ。
+    func notePreviewUnavailable(id: UInt64, generation: Int) {
+        guard generation == scanGeneration else { return }
+        guard previewUnavailableIDs.insert(id).inserted else { return }
+        previewUnavailableDidUpdate.send(id)
+    }
 
     /// サムネイル生成の試行完了を記録（成功・失敗問わず呼ぶこと）。
     /// scanPhase == .loading のときのみカウントし、resume() 時の二重カウントを防ぐ。
@@ -532,12 +618,55 @@ final class LibraryStore: ReindexedGroupSink {
         selectedIDs = []
         primaryID = nil
         anchorID = nil
+        filmstripDroppedIDs = []   // フィルムストリップの「ドロップ追加分」も一緒にクリア
     }
 
-    func rubberBandSelect(_ ids: Set<UInt64>) {
-        selectedIDs = ids
-        primaryID = ids.isEmpty ? nil : visibleIDs.first(where: { ids.contains($0) })
+    func rubberBandSelect(_ ids: Set<UInt64>, additiveBase: Set<UInt64>? = nil) {
+        let final = additiveBase.map { $0.union(ids) } ?? ids
+        selectedIDs = final
+        primaryID = final.isEmpty ? nil : visibleIDs.first(where: { final.contains($0) })
         anchorID = primaryID
+    }
+
+    /// 選択モードの Shift 範囲：anchor〜target の範囲を既存選択に「加算」する（置換しない）。
+    func rangeSelectAdditive(to id: UInt64) {
+        guard let anchor = anchorID,
+              let a = visibleIDs.firstIndex(of: anchor),
+              let t = visibleIDs.firstIndex(of: id) else {
+            toggleSelect(id); return
+        }
+        let lo = min(a, t), hi = max(a, t)
+        selectedIDs.formUnion(visibleIDs[lo...hi])
+        primaryID = id
+        anchorID = id
+    }
+
+    /// 選択モードのフォーカスカーソル移動。選択集合 (selectedIDs) は変えず primaryID だけ動かす。
+    func moveFocus(_ dir: FocusDir) {
+        guard let i = focusTargetIndex(dir) else { return }
+        primaryID = visibleIDs[i]
+        revealPrimaryRequest.send()
+    }
+
+    /// 選択モードの Shift+矢印：フォーカス移動先まで範囲を加算選択する。
+    func extendSelection(_ dir: FocusDir) {
+        guard let i = focusTargetIndex(dir) else { return }
+        rangeSelectAdditive(to: visibleIDs[i])
+        revealPrimaryRequest.send()
+    }
+
+    private func focusTargetIndex(_ dir: FocusDir) -> Int? {
+        guard !visibleIDs.isEmpty else { return nil }
+        guard let id = primaryID, let idx = visibleIDs.firstIndex(of: id) else { return 0 }
+        let last = visibleIDs.count - 1
+        switch dir {
+        case .next:  return min(last, idx + 1)
+        case .prev:  return max(0, idx - 1)
+        case .up:    return max(0, idx - gridColumnCount)
+        case .down:  return min(last, idx + gridColumnCount)
+        case .first: return 0
+        case .last:  return last
+        }
     }
 
     func navigateNext() {
@@ -560,7 +689,7 @@ final class LibraryStore: ReindexedGroupSink {
     func navigateViewerNext() {
         if let members = viewerCompareGroupMembers {
             guard let id = primaryID, let idx = members.firstIndex(of: id), idx + 1 < members.count else { return }
-            selectEntry(members[idx + 1])
+            advanceViewerWithinMembers(to: members[idx + 1])
         } else {
             navigateNext()
         }
@@ -569,10 +698,66 @@ final class LibraryStore: ReindexedGroupSink {
     func navigateViewerPrev() {
         if let members = viewerCompareGroupMembers {
             guard let id = primaryID, let idx = members.firstIndex(of: id), idx > 0 else { return }
-            selectEntry(members[idx - 1])
+            advanceViewerWithinMembers(to: members[idx - 1])
         } else {
             navigatePrev()
         }
+    }
+
+    /// viewerCompareGroupMembers での前後送り。フィルムストリップ由来のときは比較セット
+    /// (selectedIDs) を壊さず primaryID とプレビューのフォーカス/選択だけ更新する。
+    private func advanceViewerWithinMembers(to id: UInt64) {
+        if filmstripMode {
+            setFilmstripViewerPrimary(id)
+        } else {
+            selectEntry(id)
+        }
+    }
+
+    /// メタデータバーのバリエーションをクリックしたとき、ビュワーの「注目中の1枚」だけ移す。
+    /// ピッカーの選択/代表 (selectedIDs / primaryID) は一切変更しない（コロコロ防止）。
+    /// これによりビュワーのメタデータバーからグループメンバー間を移動できる。
+    func focusFilmstripVariation(_ id: UInt64) {
+        filmstripDraggingMemberID = nil   // 取りこぼしたドラッグ状態の保険クリア
+        guard entries[id] != nil else { return }
+        filmstripPreviewActive = true
+        filmstripFocusID = id
+        filmstripPreviewSelectedIDs = [id]
+        filmstripPreviewAnchor = id
+    }
+
+    /// ビュワーのフォーカスタイルの×ボタン：その1枚だけビュワー（比較セット）から外し、
+    /// ピッカーのフォーカス/選択も解除する（selectedIDs から除外し primaryID を移す）。
+    func removeFromFilmstripCompare(_ id: UInt64) {
+        filmstripDroppedIDs.removeAll { $0 == id }
+        if selectedIDs.contains(id) {
+            selectedIDs.remove(id)
+            if primaryID == id { primaryID = selectedIDs.first }
+            if anchorID == id { anchorID = primaryID }
+        }
+        filmstripPreviewSelectedIDs.remove(id)
+        if filmstripFocusID == id {
+            filmstripFocusID = filmstripCompareIDs.first
+        }
+    }
+
+    /// フィルムストリップのプレビュー由来ビュワーで「表示中の1枚」を切り替える。
+    /// 比較セット (selectedIDs) は保持し、primaryID とプレビューのフォーカス/選択を同期する。
+    private func setFilmstripViewerPrimary(_ id: UInt64) {
+        primaryID = id
+        filmstripFocusID = id
+        filmstripPreviewSelectedIDs = [id]
+        filmstripPreviewAnchor = id
+    }
+
+    /// プレビュー面で注目中の写真を単体ビュワーで開く。前後送りはプレビューの並びで行う。
+    func enterFilmstripPreviewViewer() {
+        let target = filmstripFocusID ?? filmstripPreviewSelectedIDs.first ?? filmstripCompareIDs.first
+        guard let id = target else { return }
+        primaryID = id
+        filmstripFocusID = id
+        viewerCompareGroupMembers = filmstripCompareIDs   // 前後送りをプレビューの並びに限定
+        viewerMode = true
     }
 
     func navigateUp() {
@@ -641,6 +826,150 @@ final class LibraryStore: ReindexedGroupSink {
     func rangeNavigateLast() {
         guard !visibleIDs.isEmpty else { return }
         rangeSelect(to: visibleIDs[visibleIDs.count - 1])
+    }
+
+    // MARK: - フィルムストリップ プレビュー選択（ピッカーとは独立した操作面）
+
+    static let filmstripMaxCompare = 20
+    /// メタデータバーのバリエーション → ビュワーへのアプリ内ドラッグで使う独自ペイロード型。
+    static let filmstripPhotoDragType = "io.github.bridge-lite.photo-id"
+
+    /// メタデータバーのバリエーションからビュワーへドラッグして「明示追加」した写真。
+    /// 同一グループの隠れメンバー（visibleIDs に出ない RAW/JPG/現像など）も保持できる。transient。
+    private(set) var filmstripDroppedIDs: [UInt64] = []
+    /// メタデータバーからドラッグ中のメンバー ID（アプリ内ドラッグのペイロードをストア経由で渡す）。
+    /// SwiftUI .onDrag の独自タイプは AppKit 側で同期取得しづらいため、ペイロードはここで保持する。
+    var filmstripDraggingMemberID: UInt64? = nil
+    /// ドラッグ中か。true の間、ビュワーに「ここへドロップ」促進エリアを出す。
+    var filmstripMemberDragActive: Bool { filmstripDraggingMemberID != nil }
+    /// ビュワー内でドラッグして決めた明示的な並び順（空＝ライブラリ/既定順）。transient。
+    private(set) var filmstripCompareOrder: [UInt64] = []
+    /// 既定（ライブラリ）順から並べ替えているか。リセットボタンの活性判定に使う。
+    var filmstripHasCustomOrder: Bool { !filmstripCompareOrder.isEmpty }
+
+    /// プレビューに並べる比較対象：可視の選択 ＋ ドロップで明示追加した分（重複排除・上限 maxCompare）。
+    /// ユーザーが並べ替えていれば filmstripCompareOrder を被せる（新規メンバーは末尾に追加）。
+    var filmstripCompareIDs: [UInt64] {
+        var base = visibleIDs.filter { selectedIDs.contains($0) }
+        for id in filmstripDroppedIDs where entries[id] != nil && !base.contains(id) {
+            base.append(id)
+        }
+        base = Array(base.prefix(Self.filmstripMaxCompare))
+        guard !filmstripCompareOrder.isEmpty else { return base }
+        let set = Set(base)
+        var ordered = filmstripCompareOrder.filter { set.contains($0) }
+        for id in base where !ordered.contains(id) { ordered.append(id) }
+        return ordered
+    }
+
+    /// ビュワーのドラッグ並べ替えで新しい順序を確定する。
+    func setFilmstripCompareOrder(_ order: [UInt64]) { filmstripCompareOrder = order }
+    /// 並び順をライブラリ/既定順へ戻す（リセットボタン）。
+    func resetFilmstripCompareOrder() { filmstripCompareOrder = [] }
+
+    /// バリエーションをビュワーへドロップしたとき呼ぶ：比較セットへ追加し、その1枚へフォーカス。
+    /// ピッカーの選択 (selectedIDs) は変更しない（＝代表を動かさない）。
+    /// 同名ファイルが既に比較セットにある場合は追加しない（同じ写真の比較はしない）。
+    func addToFilmstripCompare(_ id: UInt64) {
+        filmstripDraggingMemberID = nil
+        guard let entry = entries[id] else { return }
+        // 同名ファイルが既にビュワーにあるなら追加しない（重複比較を避ける）。
+        let name = entry.filename.lowercased()
+        let existingNames = Set(filmstripCompareIDs.compactMap { entries[$0]?.filename.lowercased() })
+        if existingNames.contains(name) {
+            // 既にある同名の1枚へフォーカスだけ移す。
+            if let same = filmstripCompareIDs.first(where: { entries[$0]?.filename.lowercased() == name }) {
+                filmstripFocusID = same
+            }
+            return
+        }
+        if !filmstripDroppedIDs.contains(id) {
+            filmstripDroppedIDs.append(id)
+            let maxN = Self.filmstripMaxCompare
+            if filmstripDroppedIDs.count > maxN {
+                filmstripDroppedIDs.removeFirst(filmstripDroppedIDs.count - maxN)
+            }
+        }
+        filmstripFocusID = id
+    }
+
+    /// レーティング/フラグ等の対象集合。プレビューがアクティブなら preview 選択を使う（グリッド時は selectedIDs と同値）。
+    private var effectiveSelectedIDs: Set<UInt64> {
+        (filmstripMode && filmstripPreviewActive) ? filmstripPreviewSelectedIDs : selectedIDs
+    }
+
+    /// アクティブな選択集合の件数。メタデータバーは複数選択時に情報をクリアする判定に使う。
+    var activeSelectionCount: Int { effectiveSelectedIDs.count }
+
+    func previewSelect(_ id: UInt64) {
+        // ビュワーに並ぶ写真以外は無視（×ボタンでの除去直後に同タップが届いても
+        // 除去済み id を再フォーカスしないための保険）。
+        guard filmstripCompareIDs.contains(id) else { return }
+        filmstripPreviewActive = true
+        filmstripPreviewSelectedIDs = [id]
+        filmstripFocusID = id
+        filmstripPreviewAnchor = id
+    }
+
+    func previewToggle(_ id: UInt64) {
+        filmstripPreviewActive = true
+        if filmstripPreviewSelectedIDs.contains(id) {
+            filmstripPreviewSelectedIDs.remove(id)
+            if filmstripFocusID == id { filmstripFocusID = filmstripPreviewSelectedIDs.first }
+        } else {
+            filmstripPreviewSelectedIDs.insert(id)
+            filmstripFocusID = id
+            filmstripPreviewAnchor = id
+        }
+    }
+
+    func previewRangeSelect(to id: UInt64) {
+        filmstripPreviewActive = true
+        let ids = filmstripCompareIDs
+        guard let anchor = filmstripPreviewAnchor,
+              let a = ids.firstIndex(of: anchor),
+              let t = ids.firstIndex(of: id) else { previewSelect(id); return }
+        let lo = min(a, t), hi = max(a, t)
+        filmstripPreviewSelectedIDs = Set(ids[lo...hi])
+        filmstripFocusID = id
+    }
+
+    func previewSelectAll() {
+        filmstripPreviewActive = true
+        let ids = filmstripCompareIDs
+        filmstripPreviewSelectedIDs = Set(ids)
+        filmstripFocusID = ids.last
+        filmstripPreviewAnchor = ids.first
+    }
+
+    func previewDeselectAll() {
+        filmstripPreviewSelectedIDs = []
+        filmstripFocusID = nil
+        filmstripPreviewAnchor = nil
+    }
+
+    /// dx=±1 横移動 / dy=±1 縦移動（列数 filmstripPreviewCols 基準）。
+    private func previewMoveTarget(dx: Int, dy: Int) -> UInt64? {
+        let ids = filmstripCompareIDs
+        guard !ids.isEmpty else { return nil }
+        let cols = max(1, filmstripPreviewCols)
+        guard let cur = filmstripFocusID, let idx = ids.firstIndex(of: cur) else { return ids.first }
+        let next = min(max(idx + dx + dy * cols, 0), ids.count - 1)
+        return ids[next]
+    }
+
+    func previewNavigate(dx: Int, dy: Int) {
+        filmstripPreviewActive = true
+        guard let target = previewMoveTarget(dx: dx, dy: dy) else { return }
+        filmstripPreviewSelectedIDs = [target]
+        filmstripFocusID = target
+        filmstripPreviewAnchor = target
+    }
+
+    func previewRangeNavigate(dx: Int, dy: Int) {
+        filmstripPreviewActive = true
+        guard let target = previewMoveTarget(dx: dx, dy: dy) else { return }
+        previewRangeSelect(to: target)
     }
 
     func cyclePairVariant(reverse: Bool) {
@@ -1031,6 +1360,7 @@ final class LibraryStore: ReindexedGroupSink {
     // MARK: - 一括評価トリガー
 
     func triggerRating(_ stars: Int) {
+        let selectedIDs = effectiveSelectedIDs   // フィルムストリップのプレビューがアクティブなら preview 選択を対象
         guard !selectedIDs.isEmpty else { return }
         if settings.jpgWriteMode == .embed && !settings.hasShownJpgEmbedWarning {
             let hasJpg = selectedIDs.contains { id in
@@ -1072,6 +1402,7 @@ final class LibraryStore: ReindexedGroupSink {
     }
 
     func applyRating(_ stars: Int) {
+        let selectedIDs = effectiveSelectedIDs
         guard !selectedIDs.isEmpty, let db = database else { return }
         var allTargets: [(entry: PhotoEntry, old: Int?)] = []
         var writeList:  [(entry: PhotoEntry, xmp: XmpData)] = []
@@ -1121,6 +1452,7 @@ final class LibraryStore: ReindexedGroupSink {
     }
 
     func applyLabel(_ labelRaw: UInt8) {
+        let selectedIDs = effectiveSelectedIDs
         guard !selectedIDs.isEmpty, let db = database,
               let label = XmpLabel(rawValue: labelRaw) else { return }
         let pivot = primaryID.flatMap { xmpData[$0]?.label }
@@ -1195,6 +1527,57 @@ final class LibraryStore: ReindexedGroupSink {
                 guard target.entries[te.id] != nil else { continue }
                 var current = target.xmpData[te.id] ?? XmpData()
                 current.label = old
+                target.xmpData[te.id] = current
+                target.xmpDidUpdate.send(te.id)
+                let x = current; let url = te.url
+                Task { _ = await BridgeCore.writeXmp(url: url, xmp: x, db: db, jpgWriteMode: target.settings.jpgWriteMode) }
+            }
+            target.recomputeVisible()
+        }
+        let mode = settings.jpgWriteMode
+        let policy = settings.jpgSidecarConflictPolicy
+        Task {
+            for (te, x) in writeList {
+                _ = await BridgeCore.writeXmp(url: te.url, xmp: x, db: db, jpgWriteMode: mode)
+            }
+            if mode == .sidecar {
+                await self.checkAndHandleEmbedConflict(writeList: writeList, db: db, policy: policy)
+            }
+            self.undoManager.endUndoGrouping()
+        }
+    }
+
+    /// Pick/Reject フラグをトグル適用する。primary が既に同じフラグなら解除（ラベルと同じピボット方式）。
+    func applyFlag(_ flagRaw: UInt8) {
+        let selectedIDs = effectiveSelectedIDs
+        guard !selectedIDs.isEmpty, let db = database,
+              let flag = XmpFlag(rawValue: flagRaw) else { return }
+        let pivot = primaryID.flatMap { xmpData[$0]?.flag }
+        let newFlag: XmpFlag? = pivot == flag ? nil : flag
+        var allTargets: [(entry: PhotoEntry, old: XmpFlag?)] = []
+        var writeList:  [(entry: PhotoEntry, xmp: XmpData)] = []
+        for id in selectedIDs {
+            guard let entry = entries[id] else { continue }
+            let targets: [UInt64] = filter.flatten ? [id] : groupTargets(for: id, entry: entry)
+            for targetID in targets {
+                guard let te = entries[targetID] else { continue }
+                allTargets.append((entry: te, old: xmpData[targetID]?.flag))
+                var current = xmpData[targetID] ?? XmpData()
+                current.flag = newFlag
+                xmpData[targetID] = current
+                xmpDidUpdate.send(targetID)
+                writeList.append((te, current))
+            }
+        }
+        recomputeVisible()
+        undoManager.beginUndoGrouping()
+        undoManager.setActionName(String(localized: "Flag Change"))
+        undoManager.registerUndo(withTarget: self) { [allTargets] target in
+            guard let db = target.database else { return }
+            for (te, old) in allTargets {
+                guard target.entries[te.id] != nil else { continue }
+                var current = target.xmpData[te.id] ?? XmpData()
+                current.flag = old
                 target.xmpData[te.id] = current
                 target.xmpDidUpdate.send(te.id)
                 let x = current; let url = te.url
@@ -1499,10 +1882,16 @@ final class LibraryStore: ReindexedGroupSink {
             }
 
             let iso      = LibraryStore.buildISOBuckets(ids: filtered(.iso), exifData: exifSnap)
-            let focal    = LibraryStore.buildFocalBuckets(ids: filtered(.focal), exifData: exifSnap)
+            let focal    = LibraryStore.buildFocalBuckets(ids: filtered(.focal), exifData: exifSnap,
+                                                          value: { $0.focalLengthMm })
+            let focal35  = LibraryStore.buildFocalBuckets(ids: filtered(.focal35), exifData: exifSnap,
+                                                          value: { $0.focalLength35mmEffective.map(Double.init) })
             let shutter  = LibraryStore.buildShutterBuckets(ids: filtered(.shutter), exifData: exifSnap)
             let aperture = LibraryStore.buildApertureBuckets(ids: filtered(.aperture), exifData: exifSnap)
             let date     = LibraryStore.buildDateBuckets(ids: filtered(.date), precomputedDates: precomputedDates)
+            let timeOfDay = LibraryStore.buildTimeOfDayBuckets(ids: filtered(.timeOfDay),
+                                                               precomputedDates: precomputedDates, entries: entrySnap,
+                                                               spanMidnight: filterSnap.timeSpanMidnight)
             let lum      = LibraryStore.buildLuminanceBuckets(ids: filtered(.luminance), luminanceScores: lumSnap)
             let (ppd, di) = LibraryStore.buildCalendarData(filteredIDs: filtered(.date), allIDs: allIDs,
                                                            precomputedDates: precomputedDates, entries: entrySnap)
@@ -1513,9 +1902,11 @@ final class LibraryStore: ReindexedGroupSink {
                 guard let self, gen == self.scanGeneration else { return }
                 self.isoBuckets      = iso
                 self.focalBuckets    = focal
+                self.focal35Buckets  = focal35
                 self.shutterBuckets  = shutter
                 self.apertureBuckets = aperture
                 self.dateBuckets     = date
+                self.timeBuckets     = timeOfDay
                 self.luminanceBuckets = lum
                 if ppd != self.photosPerDay { self.photosPerDay = ppd }
                 if di != self.datasetInterval { self.datasetInterval = di }
@@ -1539,6 +1930,8 @@ final class LibraryStore: ReindexedGroupSink {
             old.isoMax       != new.isoMax       ||
             old.focalMin     != new.focalMin     ||
             old.focalMax     != new.focalMax     ||
+            old.focal35Min   != new.focal35Min   ||
+            old.focal35Max   != new.focal35Max   ||
             old.shutterMin   != new.shutterMin   ||
             old.shutterMax   != new.shutterMax   ||
             old.apertureMin  != new.apertureMin  ||
@@ -1550,11 +1943,39 @@ final class LibraryStore: ReindexedGroupSink {
         return FilterChangeShape(repsAffected: repsAffected, isTextInput: isTextInput)
     }
 
-    // filter.didSet から呼ばれる。PR1 では shape を計算するのみで挙動は従来と同一。
-    // 後続 PR で shape / isTextInput を利用して dirty フラグや coalesce を制御する。
+    // filter.didSet から呼ばれる。変更種別に応じてパイプラインの再計算範囲とタイミングを変える。
     private func onFilterChanged(from old: FilterCriteria) {
-        _ = classifyFilterChange(from: old, to: filter)
-        recomputeVisible()
+        let shape = classifyFilterChange(from: old, to: filter)
+        if shape.repsAffected {
+            // flatten / filterKinds の変化は代表選定(S1)から作り直す必要がある（即時）。
+            pendingFilterApplyTask?.cancel(); pendingFilterApplyTask = nil
+            isFilterPending = false
+            recomputeVisible()
+            // 代表集合が入れ替わりフォーカスが画面外へ出ることがあるため可視範囲へ戻す。
+            revealPrimaryRequest.send()
+        } else {
+            // ヒストグラム範囲・レーティング等の単純フィルタ。
+            // 操作感を最優先し、重い再計算(S2 以降)はデバウンスして非同期適用する。
+            // ドラッグのジェスチャ更新を main スレッドでブロックしないのでハンドルが追従する。
+            // 結果が出るまでは isFilterPending=true でグリッドにシマーを流す。
+            mark(filtered: true)
+            isFilterPending = true
+            scheduleFilterApply()
+        }
+    }
+
+    /// 単純フィルタ変更のデバウンス適用。連続操作中は最後の1回だけ走らせる。
+    private func scheduleFilterApply(coalesceMs: Int = 200) {
+        pendingFilterApplyTask?.cancel()
+        pendingFilterApplyTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(coalesceMs))
+            guard let self, !Task.isCancelled else { return }
+            self.pendingFilterApplyTask = nil
+            self.runDirtyStages()
+            self.isFilterPending = false
+            // フィルタ適用で件数・順序が変わるため、フォーカスが画面外なら可視範囲へ戻す。
+            self.revealPrimaryRequest.send()
+        }
     }
 
     private func scheduleRecomputeVisible(coalesceMs: Int = 400) {
@@ -1580,6 +2001,8 @@ final class LibraryStore: ReindexedGroupSink {
         // reps / filtered / aggregates の再計算は不要。
         mark(sorted: true)
         runDirtyStages()
+        // 並べ替えでフォーカス中サムネイルの位置が変わるため、画面外なら可視範囲へ戻す。
+        revealPrimaryRequest.send()
     }
 
     private func filteredIDs(using customFilter: FilterCriteria) -> [UInt64] {
@@ -1644,10 +2067,12 @@ final class LibraryStore: ReindexedGroupSink {
     private(set) var availableLenses: [String] = []
     private(set) var availableArtists: [String] = []
     private(set) var isoBuckets: [ExifBucket] = []
-    private(set) var focalBuckets: [ExifBucket] = []
+    private(set) var focalBuckets: [ExifBucket] = []      // レンズ実焦点距離
+    private(set) var focal35Buckets: [ExifBucket] = []    // 35mm換算焦点距離
     private(set) var shutterBuckets: [ExifBucket] = []
     private(set) var apertureBuckets: [ExifBucket] = []
     private(set) var dateBuckets: [ExifBucket] = []
+    private(set) var timeBuckets: [ExifBucket] = []       // 時刻（日付無視・24h）
     private(set) var luminanceBuckets: [ExifBucket] = []
     private(set) var photosPerDay: [Date: Int] = [:]      // startOfDay → count (カレンダー表示用)
     private(set) var datasetInterval: DateInterval?       // 全エントリの最古〜最新撮影日
@@ -1703,14 +2128,14 @@ final class LibraryStore: ReindexedGroupSink {
         return f
     }()
 
-    private nonisolated(unsafe) static let isoDateFormatter: DateFormatter = {
+    private nonisolated static let isoDateFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "yyyy-MM-dd"
         return f
     }()
 
-    private nonisolated(unsafe) static let monthLabelFormatter: DateFormatter = {
+    private nonisolated static let monthLabelFormatter: DateFormatter = {
         let f = DateFormatter()
         f.locale = Locale(identifier: "en_US_POSIX")
         f.dateFormat = "MMM"
@@ -1719,7 +2144,7 @@ final class LibraryStore: ReindexedGroupSink {
 
     // MARK: - Aggregate cache
 
-    private enum HistogramAxis { case iso, focal, shutter, aperture, date, luminance }
+    private enum HistogramAxis { case iso, focal, focal35, shutter, aperture, date, timeOfDay, luminance }
 
     private nonisolated static func filteredIDsExcluding(
         _ axis: HistogramAxis,
@@ -1734,9 +2159,11 @@ final class LibraryStore: ReindexedGroupSink {
         switch axis {
         case .iso:       f.isoMin = "";       f.isoMax = ""
         case .focal:     f.focalMin = "";     f.focalMax = ""
+        case .focal35:   f.focal35Min = "";   f.focal35Max = ""
         case .shutter:   f.shutterMin = "";   f.shutterMax = ""
         case .aperture:  f.apertureMin = "";  f.apertureMax = ""
         case .date:      f.dateMin = "";      f.dateMax = "";    f.dateAllowList = []
+        case .timeOfDay: f.timeMin = "";      f.timeMax = ""
         case .luminance: f.luminanceMin = ""; f.luminanceMax = ""
         }
         guard f.isActive else { return reps }
@@ -1798,7 +2225,12 @@ final class LibraryStore: ReindexedGroupSink {
         }
     }
 
-    private nonisolated static func buildFocalBuckets(ids: [UInt64], exifData: [UInt64: ExifData]) -> [ExifBucket] {
+    /// 焦点距離ヒストグラム。`value` でレンズ実焦点距離と 35mm 換算を切り替える。
+    private nonisolated static func buildFocalBuckets(
+        ids: [UInt64],
+        exifData: [UInt64: ExifData],
+        value: (ExifData) -> Double?
+    ) -> [ExifBucket] {
         typealias Spec = (label: String, upTo: Double, minText: String, maxText: String)
         let specs: [Spec] = [
             ("≤24",   24,       "",    "24"),
@@ -1811,7 +2243,7 @@ final class LibraryStore: ReindexedGroupSink {
         ]
         var counts = Array(repeating: 0, count: specs.count)
         for id in ids {
-            guard let mm = exifData[id]?.effectiveFocalMm else { continue }
+            guard let exif = exifData[id], let mm = value(exif) else { continue }
             for (i, spec) in specs.enumerated() { if mm <= spec.upTo { counts[i] += 1; break } }
         }
         return specs.enumerated().map { i, spec in
@@ -1949,6 +2381,40 @@ final class LibraryStore: ReindexedGroupSink {
         return specs.enumerated().map { i, spec in
             ExifBucket(label: spec.label, count: counts[i], minText: spec.minText, maxText: spec.maxText,
                        lowerBound: i == 0 ? -.infinity : specs[i - 1].upTo, upperBound: spec.upTo)
+        }
+    }
+
+    /// 時刻ヒストグラム（日付無視・24h・各 1 時間）。撮影時刻（EXIF→作成日時フォールバック）の「時」で集計。
+    /// 通常: 0..23（両端は開区間＝全選択でフィルタ無効）。
+    /// spanMidnight: 原点を 12 時に回し 12,13,…,23,0,…,11 の順（深夜が中央）。実時刻境界を持たせ、
+    ///   22→2 のような日跨ぎ選択を 1 ドラッグで作れるようにする（matches 側が lo>hi を OR 判定）。
+    private nonisolated static func buildTimeOfDayBuckets(
+        ids: [UInt64],
+        precomputedDates: [UInt64: Date],
+        entries: [UInt64: PhotoEntry],
+        spanMidnight: Bool
+    ) -> [ExifBucket] {
+        var counts = Array(repeating: 0, count: 24)   // index = hour
+        for id in ids {
+            let d = precomputedDates[id] ?? entries[id]?.createdDate ?? .distantPast
+            guard d != .distantPast else { continue }
+            counts[max(0, min(23, Int(FilterCriteria.hourOfDay(d))))] += 1
+        }
+        func bucket(hour: Int, openLower: Bool, openUpper: Bool) -> ExifBucket {
+            ExifBucket(
+                label: hour % 3 == 0 ? "\(hour)" : "",          // 3 時間ごとにラベル
+                count: counts[hour],
+                minText: openLower ? "" : "\(hour)",
+                maxText: openUpper ? "" : "\(hour + 1)",
+                lowerBound: Double(hour),
+                upperBound: Double(hour + 1)
+            )
+        }
+        if spanMidnight {
+            // 回転表示。端を開区間にせず実時刻境界（全選択は matches の lo==hi で全一致扱い）。
+            return (0..<24).map { d in bucket(hour: (12 + d) % 24, openLower: false, openUpper: false) }
+        } else {
+            return (0..<24).map { h in bucket(hour: h, openLower: h == 0, openUpper: h == 23) }
         }
     }
 
@@ -2103,7 +2569,7 @@ final class LibraryStore: ReindexedGroupSink {
             splitThresholdSecs: Int64(split),
             phashHammingThreshold: UInt32(phash)
         )
-        applyReindexedGroups(groups, generation: scanGeneration)
+        applyRustReindexedGroups(groups, list: list, generation: scanGeneration)
         settings.appliedGroupingSplitThresholdSecs = split
         settings.appliedGroupingPhashHammingThreshold = phash
     }
@@ -2148,8 +2614,15 @@ final class LibraryStore: ReindexedGroupSink {
         let entriesToLoad = orderedIDs.compactMap { entries[$0] }
         let capturedPhash = phashPipeline
         let gen = scanGeneration
+        // imageList を渡して初回スキャンと同じ「SQLite 一括プリフェッチ」経路を使う。
+        // これが無いと loadOne が 1 枚ずつ個別 SQLite クエリになり、復帰が著しく遅くなる。
+        let capturedList = lastImageList
+        // path B（アプリ切替復帰）の全件再ロード。進行中はステータスバーに件数を表示する。
+        isReloadingThumbnails = true
+        reloadingCount = entriesToLoad.count
         Task {
-            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash, generation: gen)
+            await ThumbnailPipeline.loadAll(entries: entriesToLoad, store: self, db: db, phashPipeline: capturedPhash, generation: gen, imageList: capturedList)
+            isReloadingThumbnails = false
         }
     }
 
@@ -2160,13 +2633,18 @@ final class LibraryStore: ReindexedGroupSink {
         watcher?.stop()
         watcher = nil
         pausedWatcherEventId = nil
-        nextEntryID = 1
+        // nextEntryID はフォルダ横断で単調増加させ、写真 ID をセッション内で一意に保つ。
+        // ここで 1 に戻すと別フォルダの ID が衝突し、前フォルダの写真が誤って解決される。
         let urlsToEvict = orderedIDs.compactMap { entries[$0]?.url }
         entries = [:]
         orderedIDs = []
         shotGroups = [:]
         thumbnailBlobs = [:]
         thumbnailOrientations = [:]
+        previewUnavailableIDs = []
+        filmstripDroppedIDs = []
+        filmstripDraggingMemberID = nil
+        filmstripCompareOrder = []
         luminanceScores = [:]
         ThumbnailDecodeCache.shared.evict(urls: urlsToEvict)
         exifData = [:]
@@ -2217,9 +2695,11 @@ final class LibraryStore: ReindexedGroupSink {
         availableArtists    = []
         isoBuckets          = []
         focalBuckets        = []
+        focal35Buckets      = []
         shutterBuckets      = []
         apertureBuckets     = []
         dateBuckets         = []
+        timeBuckets         = []
         luminanceBuckets    = []
         photosPerDay        = [:]
         datasetInterval     = nil
@@ -2232,16 +2712,39 @@ final class LibraryStore: ReindexedGroupSink {
         var ordered: [UInt64] = []
         var groups: [UInt64: [UInt64]] = [:]
 
+        // Rust スキャナはフォルダごとに 1 から振り直す連番 ID を返すため、そのまま採用すると
+        // フォルダ間で ID が衝突する（前フォルダの写真が誤って解決される原因）。ここで
+        // 単調増加する nextEntryID へ remap し、セッション内でグローバル一意な store ID にする。
+        // shotId も同じ Rust 空間のトークンなので同一マップで付け替え、メンバーと整合させる。
+        var rustToStore: [UInt64: UInt64] = [:]
+        rustToStore.reserveCapacity(scanned.count)
         for entry in scanned {
-            dict[entry.id] = entry
-            ordered.append(entry.id)
-            groups[entry.shotId, default: []].append(entry.id)
+            rustToStore[entry.id] = nextEntryID
+            nextEntryID += 1
+        }
+
+        for entry in scanned {
+            let sid = rustToStore[entry.id]!
+            let shot = rustToStore[entry.shotId] ?? sid
+            let remapped = PhotoEntry(
+                id: sid,
+                url: entry.url,
+                filename: entry.filename,
+                isRaw: entry.isRaw,
+                fileSize: entry.fileSize,
+                modifiedDate: entry.modifiedDate,
+                createdDate: entry.createdDate,
+                hasJpgPartner: entry.hasJpgPartner,
+                shotId: shot
+            )
+            dict[sid] = remapped
+            ordered.append(sid)
+            groups[shot, default: []].append(sid)
         }
 
         entries = dict
         orderedIDs = ordered
         shotGroups = groups
-        nextEntryID = (ordered.max() ?? 0) + 1
         recomputeVisible()
     }
 
@@ -2264,6 +2767,68 @@ final class LibraryStore: ReindexedGroupSink {
     private func isIndeterminateMember(_ id: UInt64) -> Bool {
         guard let exif = exifData[id] else { return false }
         return (exif.make ?? "").isEmpty && (exif.model ?? "").isEmpty
+    }
+
+    // MARK: - 現像済みの代表選出（複数現像済みグループ向け）
+
+    /// 現像済みメンバー群から代表を1つ選ぶ。bl:Representative マーカー付きを優先し、
+    /// 無ければ（デフォルト方針）作成日時が最新のものを採用する。
+    private func pickRepresentative(among devs: [UInt64], entries: [UInt64: PhotoEntry]) -> UInt64? {
+        guard !devs.isEmpty else { return nil }
+        let marked = devs.filter { xmpData[$0]?.representative == true }
+        let pool = marked.isEmpty ? devs : marked
+        return pool.max {
+            (entries[$0]?.createdDate ?? .distantPast) < (entries[$1]?.createdDate ?? .distantPast)
+        } ?? pool.first
+    }
+
+    /// 指定 ID と同じショットグループ内の現像済み（非RAW）メンバー一覧。
+    func developedMembers(inGroupOf id: UInt64) -> [UInt64] {
+        guard let entry = entries[id], let members = shotGroups[entry.shotId] else { return [] }
+        let groupMinDate = members.compactMap { entries[$0]?.createdDate }.min()
+        return members.filter { entries[$0]?.isRaw == false && isDevelopedMember($0, groupMinDate: groupMinDate) }
+    }
+
+    /// 「この画像を代表にする」を提示してよいか。現像済み かつ グループ内に現像済みが2枚以上。
+    func canMakeRepresentative(_ id: UInt64) -> Bool {
+        let devs = developedMembers(inGroupOf: id)
+        return devs.count >= 2 && devs.contains(id)
+    }
+
+    /// 指定 ID が現在そのグループの（現像済み）代表か。
+    func isCurrentRepresentative(_ id: UInt64) -> Bool {
+        let devs = developedMembers(inGroupOf: id)
+        guard devs.contains(id) else { return false }
+        return pickRepresentative(among: devs, entries: entries) == id
+    }
+
+    /// 指定 ID をグループの代表に設定する。当該現像済みへ bl:Representative=true、
+    /// 同グループの他の現像済みは false にして XMP に書き込む（jpgWriteMode 継承）。
+    func makeRepresentative(_ id: UInt64) {
+        let devs = developedMembers(inGroupOf: id)
+        guard devs.count >= 2, devs.contains(id) else { return }
+        let mode = settings.jpgWriteMode
+
+        // 変更が必要なファイルだけを抽出しつつ、メモリ状態は楽観的に更新。
+        var writes: [(url: URL, value: Bool)] = []
+        for mid in devs {
+            let newVal = (mid == id)
+            let oldVal = xmpData[mid]?.representative ?? false
+            if newVal != oldVal, let url = entries[mid]?.url {
+                writes.append((url, newVal))
+            }
+            var x = xmpData[mid] ?? XmpData()
+            x.representative = newVal
+            xmpData[mid] = x
+        }
+        recomputeVisible()
+
+        guard !writes.isEmpty else { return }
+        Task.detached(priority: .utility) {
+            for w in writes {
+                _ = await BridgeCore.setRepresentative(url: w.url, value: w.value, jpgWriteMode: mode)
+            }
+        }
     }
 
     private func computeRepresentativesForKinds(
@@ -2298,7 +2863,7 @@ final class LibraryStore: ReindexedGroupSink {
 
             // 現像済み: developed かつ SOOC が同グループに存在する場合のみ
             if kinds.contains(.developed), !devMembers.isEmpty, !soocMembers.isEmpty {
-                reps.insert(devMembers[0])
+                reps.insert(pickRepresentative(among: devMembers, entries: entries) ?? devMembers[0])
             // カメラ出力: SOOC が存在するグループ
             } else if kinds.contains(.sooc), !soocMembers.isEmpty {
                 reps.insert(soocMembers[0])
@@ -2350,7 +2915,8 @@ final class LibraryStore: ReindexedGroupSink {
                 }()
                 return suffixHit || xmpHit || exifHit || tsHit
             }
-            if let rep = devs.first { reps.insert(rep); continue }
+            // 複数の現像済みがある場合: bl:Representative マーカー付きを優先、無ければ作成日時が最新。
+            if let rep = pickRepresentative(among: devs, entries: entries) { reps.insert(rep); continue }
 
             // Tier 2: JPEG (non-RAW)
             let jpgs = members.filter { entries[$0]?.isRaw == false }
@@ -2486,16 +3052,14 @@ final class LibraryStore: ReindexedGroupSink {
         }
 
         // 3. Update lastImageList and reindex shot groups.
-        //    freshList uses Rust sequential IDs (0,1,2,...); convert to store IDs via path.
+        //    freshList uses Rust sequential IDs; applyRustReindexedGroups remaps members to store IDs via path.
         lastImageList = freshList
-        let pathToStoreID = Dictionary(uniqueKeysWithValues: entries.values.map { ($0.url.path, $0.id) })
         let rawGroups = await BridgeCore.reindexShotGroups(
             list: freshList, db: db,
             splitThresholdSecs: Int64(settings.groupingSplitThresholdSecs),
             phashHammingThreshold: UInt32(settings.groupingPhashHammingThreshold)
         )
-        let convertedGroups = convertGroupsToStoreIDs(rawGroups, freshList: freshList, pathToStoreID: pathToStoreID)
-        applyReindexedGroups(convertedGroups, generation: gen)
+        applyRustReindexedGroups(rawGroups, list: freshList, generation: gen)
 
         // 4. Fire pipelines for newly added entries only
         if !newEntries.isEmpty {
@@ -2550,28 +3114,48 @@ final class LibraryStore: ReindexedGroupSink {
         }
     }
 
-    /// Converts reindexShotGroups output (Rust sequential IDs) to LibraryStore IDs (path-based lookup).
-    private func convertGroupsToStoreIDs(
-        _ groups: [UInt64: [UInt64]],
-        freshList: BridgeCoreImageList,
-        pathToStoreID: [String: UInt64]
-    ) -> [UInt64: [UInt64]] {
-        let count = image_entry_list_count(freshList.inner)
-        var freshIDToPath: [UInt64: String] = [:]
-        freshIDToPath.reserveCapacity(Int(count))
+    /// Maps Rust sequential IDs (from `list`) to globally-unique store IDs via a path join.
+    /// Rust 連番 ID は imageList・reindexShotGroups・fetchExifBatch で共通の空間。これを
+    /// 現在の `entries`（path → store ID）と突き合わせて変換マップを作る。
+    private func rustToStoreIDMap(list: BridgeCoreImageList) -> [UInt64: UInt64] {
+        let count = image_entry_list_count(list.inner)
+        let pathToStoreID = Dictionary(
+            entries.values.map { ($0.url.path, $0.id) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        var map: [UInt64: UInt64] = [:]
+        map.reserveCapacity(Int(count))
         for i in 0..<count {
-            let ffiEntry = image_entry_list_get(freshList.inner, UInt(i))
-            freshIDToPath[ffi_image_entry_id(ffiEntry)] = ffi_image_entry_path(ffiEntry).toString()
+            let ffiEntry = image_entry_list_get(list.inner, UInt(i))
+            let rustID = ffi_image_entry_id(ffiEntry)
+            let path = ffi_image_entry_path(ffiEntry).toString()
+            if let sid = pathToStoreID[path] { map[rustID] = sid }
         }
+        return map
+    }
 
-        var result: [UInt64: [UInt64]] = [:]
-        result.reserveCapacity(groups.count)
-        for (shotId, freshMemberIDs) in groups {
-            let storeIDs = freshMemberIDs.compactMap { freshID -> UInt64? in
-                guard let path = freshIDToPath[freshID] else { return nil }
-                return pathToStoreID[path]
-            }
-            if !storeIDs.isEmpty { result[shotId] = storeIDs }
+    /// Applies reindexShotGroups output (members in Rust ID space) after remapping members to
+    /// store IDs via `list`. The group KEY (shotId) is an opaque per-folder token (only used as a
+    /// `shotGroups` matching key, never to look up an entry), so it is left as-is.
+    func applyRustReindexedGroups(_ groups: [UInt64: [UInt64]], list: BridgeCoreImageList?, generation: Int) {
+        guard generation == scanGeneration, let list else { return }
+        let map = rustToStoreIDMap(list: list)
+        var converted: [UInt64: [UInt64]] = [:]
+        converted.reserveCapacity(groups.count)
+        for (shotId, rustMemberIDs) in groups {
+            let storeIDs = rustMemberIDs.compactMap { map[$0] }
+            if !storeIDs.isEmpty { converted[shotId] = storeIDs }
+        }
+        applyReindexedGroups(converted, generation: generation)
+    }
+
+    /// Remaps a Rust-ID-keyed EXIF batch (`fetchExifBatch` output) to store IDs via `list`.
+    private func remapExifBatchToStoreIDs(_ batch: [UInt64: ExifData], list: BridgeCoreImageList) -> [UInt64: ExifData] {
+        let map = rustToStoreIDMap(list: list)
+        var result: [UInt64: ExifData] = [:]
+        result.reserveCapacity(batch.count)
+        for (rustID, exif) in batch {
+            if let sid = map[rustID] { result[sid] = exif }
         }
         return result
     }

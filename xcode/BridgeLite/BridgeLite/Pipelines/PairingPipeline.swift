@@ -2,7 +2,10 @@ import Foundation
 
 @MainActor
 protocol ReindexedGroupSink: AnyObject, Sendable {
-    func applyReindexedGroups(_ groups: [UInt64: [UInt64]], generation: Int)
+    /// Applies reindexShotGroups output (members keyed by Rust sequential IDs) to the store,
+    /// remapping Rust IDs to globally-unique store IDs via `list` (path join). Pass the same
+    /// `list` that produced `groups`.
+    func applyRustReindexedGroups(_ groups: [UInt64: [UInt64]], list: BridgeCoreImageList?, generation: Int)
 }
 
 actor PairingPipeline {
@@ -34,6 +37,6 @@ actor PairingPipeline {
 
         guard let list else { return }
         let groups = await BridgeCore.reindexShotGroups(list: list, db: db, splitThresholdSecs: splitThresholdSecs, phashHammingThreshold: phashHammingThreshold)
-        await store.applyReindexedGroups(groups, generation: generation)
+        await store.applyRustReindexedGroups(groups, list: list, generation: generation)
     }
 }

@@ -16,6 +16,10 @@ struct ViewerView: View {
     @State private var magnifyMonitor: Any?
     @State private var clickMonitor: Any?
     @State private var windowRef = WindowRef()
+    // 上部ボタンの自動非表示（マウス静止 1 秒で非表示、動かすと再表示）
+    @State private var controlsVisible = true
+    @State private var controlsIdle = ControlsIdleState()
+    @State private var isPointerOverControls = false
 
     private var selectedEntry: PhotoEntry? {
         store.selectedID.flatMap { store.entries[$0] }
@@ -35,7 +39,7 @@ struct ViewerView: View {
     }
 
     private var hasRatingOrLabel: Bool {
-        (xmp?.rating ?? 0) > 0 || xmp?.label != nil
+        (xmp?.rating ?? 0) > 0 || xmp?.label != nil || xmp?.flag != nil
     }
 
     private var displayPair: (CGImage, Image.Orientation)? {
@@ -58,6 +62,8 @@ struct ViewerView: View {
                     .scaledToFit()
                     .blur(radius: isLoadingFullRes ? 24 : 0)
                     .opacity(isLoadingFullRes ? 0.35 : 1.0)
+            } else if let entry = selectedEntry, entry.isRaw, store.isPreviewUnavailable(entry.id) {
+                UnavailablePreviewView()
             } else {
                 Image(systemName: "photo")
                     .font(.system(size: 80))
@@ -99,6 +105,10 @@ struct ViewerView: View {
                     }
                     .padding()
                 }
+                .opacity(controlsVisible ? 1 : 0)
+                .allowsHitTesting(controlsVisible)
+                .animation(.easeInOut(duration: 0.2), value: controlsVisible)
+                .onHover { isPointerOverControls = $0 }
                 Spacer()
 
                 HStack(alignment: .bottom) {
@@ -114,6 +124,13 @@ struct ViewerView: View {
             }
         }
         .contextMenu { viewerContextMenu }
+        .onContinuousHover { phase in
+            guard SettingsStore.shared.viewerAutoHideControls else { return }
+            guard case .active = phase else { return }
+            controlsIdle.lastMove = Date()
+            if !controlsVisible { controlsVisible = true }
+            ensureControlsHideLoop()
+        }
         .animation(.easeInOut(duration: 0.15), value: store.viewerShowsMeta)
         .background(WindowAccessor(window: Binding(
             get: { windowRef.window },
@@ -122,6 +139,10 @@ struct ViewerView: View {
         .onAppear {
             xmp = store.selectedID.flatMap { store.xmpData[$0] }
             store.viewerShowsMeta = hasRatingOrLabel
+            if SettingsStore.shared.viewerAutoHideControls {
+                controlsIdle.lastMove = Date()
+                ensureControlsHideLoop()
+            }
             let s = store
             let z = zoom
             let ref = windowRef
@@ -201,17 +222,20 @@ struct ViewerView: View {
             if let m = scrollMonitor  { NSEvent.removeMonitor(m); scrollMonitor  = nil }
             if let m = magnifyMonitor { NSEvent.removeMonitor(m); magnifyMonitor = nil }
             if let m = clickMonitor   { NSEvent.removeMonitor(m); clickMonitor   = nil }
+            controlsIdle.hideTask?.cancel()
+            controlsIdle.hideTask = nil
             store.viewerCompareGroupMembers = nil
         }
         .onReceive(store.xmpDidUpdate) { id in
             guard id == store.selectedID else { return }
             let newXmp = store.xmpData[id]
             xmp = newXmp
-            if (newXmp?.rating ?? 0) > 0 || newXmp?.label != nil {
+            if (newXmp?.rating ?? 0) > 0 || newXmp?.label != nil || newXmp?.flag != nil {
                 store.viewerShowsMeta = true
             }
         }
         .task(id: store.selectedID) {
+            let gen = store.scanGeneration
             xmp = store.selectedID.flatMap { store.xmpData[$0] }
             fullRes = nil
             rawRendered = nil
@@ -221,7 +245,15 @@ struct ViewerView: View {
                   let entry = store.entries[id] else { return }
             isLoadingFullRes = true
             defer { isLoadingFullRes = false }
-            fullRes = await loadFullRes(entry: entry)
+            let loaded = await loadFullRes(entry: entry)
+            // フォルダ切替（世代変化）や選択変更が await 中に割り込んだら、前フォルダの
+            // 画像で現在表示を上書きしない。ID 一意化と二重の安全策。
+            guard gen == store.scanGeneration, store.selectedID == id else { return }
+            fullRes = loaded
+            // フル解像度もサムネも得られない RAW はプレビュー不可として記録（プレースホルダ表示）。
+            if fullRes == nil, entry.isRaw, thumbnail == nil {
+                store.notePreviewUnavailable(id: entry.id, generation: store.scanGeneration)
+            }
         }
     }
 
@@ -276,6 +308,12 @@ struct ViewerView: View {
                 Button(String(localized: "Clear Label")) {
                     store.clearLabel()
                 }
+            }
+            Menu(String(localized: "Flag")) {
+                Button(XmpFlag.pick.name)   { store.applyFlag(XmpFlag.pick.rawValue) }
+                    .keyboardShortcut("p", modifiers: [])
+                Button(XmpFlag.reject.name) { store.applyFlag(XmpFlag.reject.rawValue) }
+                    .keyboardShortcut("x", modifiers: [])
             }
 
             Divider()
@@ -342,6 +380,26 @@ struct ViewerView: View {
         }
     }
 
+    /// マウス静止 1 秒で上部ボタンを隠す監視ループ。
+    /// onContinuousHover は移動のたびに高頻度で呼ばれるため、Task の作り直しではなく
+    /// 参照型 ControlsIdleState 上の lastMove を更新し、単一ループが期限を再計算する。
+    private func ensureControlsHideLoop() {
+        guard controlsIdle.hideTask == nil else { return }
+        let idle = controlsIdle
+        controlsIdle.hideTask = Task { @MainActor in
+            defer { idle.hideTask = nil }
+            while !Task.isCancelled {
+                let remaining = 1.0 - Date().timeIntervalSince(idle.lastMove)
+                if remaining <= 0 {
+                    // ボタン上にカーソルが乗っている間は隠さない（次の移動で再判定）
+                    if !isPointerOverControls { controlsVisible = false }
+                    return
+                }
+                try? await Task.sleep(for: .seconds(remaining))
+            }
+        }
+    }
+
     private func loadFullRes(entry: PhotoEntry) async -> (CGImage, Image.Orientation)? {
         if entry.isRaw,
            let data = await BridgeCore.extractRawJpeg(url: entry.url, quality: .full) {
@@ -354,7 +412,18 @@ struct ViewerView: View {
     }
 }
 
+// 自動非表示用の可変状態ホルダー。@State の値型だと onContinuousHover の高頻度書き込みが
+// ビュー無効化を誘発しうるため、参照型に逃がして body 再評価を避ける。
+@MainActor
+final class ControlsIdleState {
+    var lastMove = Date()
+    var hideTask: Task<Void, Never>?
+}
+
 // Returns cursor position relative to the window content view center (SwiftUI coordinate: Y-down).
+// NSEvent モニタ（MainActor 文脈）から呼ばれるため @MainActor。assumeIsolated だと非Sendable な
+// `event` を別ドメインへ送ることになり data race 警告が出るので、関数自体を MainActor に置く。
+@MainActor
 private func viewerCursorFromCenter(_ event: NSEvent) -> CGPoint {
     guard let window = event.window, let cv = window.contentView else { return .zero }
     let loc = event.locationInWindow
@@ -363,7 +432,8 @@ private func viewerCursorFromCenter(_ event: NSEvent) -> CGPoint {
 
 // MARK: - Metadata overlay
 
-private struct ViewerMetaOverlay: View {
+// 比較ビュー（GroupCompareView）からも再利用するため internal 公開。
+struct ViewerMetaOverlay: View {
     let entry: PhotoEntry
     let exif: ExifData?
     let xmp: XmpData?
@@ -379,6 +449,46 @@ private struct ViewerMetaOverlay: View {
         xmp?.label?.color.opacity(0.45) ?? Color(white: 0.08, opacity: 0.72)
     }
 
+    // MARK: - Pick / Reject フラグの装飾（背景色はラベル専用なので塗らない）
+
+    // 枠線色: フラグなしは既存の白 0.12。Pick=緑、Reject=明るい赤で「枠＋レジェンド」表現。
+    private var flagBorderColor: Color {
+        switch xmp?.flag {
+        case .pick:   return XmpFlag.pick.color.opacity(0.95)
+        case .reject: return XmpFlag.reject.color
+        default:      return Color.white.opacity(0.12)
+        }
+    }
+
+    private var flagBorderWidth: CGFloat {
+        switch xmp?.flag {
+        case .reject: return 2     // Reject は太枠で警告感
+        case .pick:   return 1.5
+        default:      return 1
+        }
+    }
+
+    // 枠線の上に重ねるレジェンドタブ（"PICK" / "✕ REJECT"）
+    @ViewBuilder
+    private func flagLegendTab(_ flag: XmpFlag) -> some View {
+        HStack(spacing: 3) {
+            if flag == .reject {
+                Image(systemName: "xmark")
+                    .font(.system(size: 8, weight: .heavy))
+            }
+            Text(flag.name)
+                .font(.system(size: 9, weight: .bold, design: .monospaced))
+                .textCase(.uppercase)
+        }
+        .foregroundStyle(.white)
+        .padding(.horizontal, 5)
+        .padding(.vertical, 1)
+        .background(
+            Capsule().fill(flag == .reject ? XmpFlag.reject.color : XmpFlag.pick.color.opacity(0.95))
+        )
+        .overlay(Capsule().stroke(Color.white.opacity(0.25), lineWidth: 0.5))
+    }
+
     // Tier 1 – Exposure
     private var fText: String? { exif?.fnumber }
     private var ssText: String? {
@@ -388,11 +498,22 @@ private struct ViewerMetaOverlay: View {
     private var isoText: String? { exif?.iso.map { "ISO \($0)" } }
     private var hasTier1: Bool { fText != nil || ssText != nil || isoText != nil }
 
-    // Tier 2 – Focal length (35mm equiv preferred)
+    // Tier 2 – Focal length: 35mm換算を A、レンズ実焦点距離を B として "A (B)" 表記。
+    // 片方しか取れない場合はその値のみ、両者が同値（フルサイズ等）なら 1 つに畳む。
+    // 35mm換算が記録値でなく Make から算出した補完値のときは先頭に "≈" を付ける。
     private var focalText: String? {
-        guard let mm = exif?.effectiveFocalMm else { return nil }
-        let v = mm == mm.rounded() ? "\(Int(mm))" : String(format: "%.1f", mm)
-        return "\(v) mm"
+        func fmt(_ mm: Double) -> String {
+            mm == mm.rounded() ? "\(Int(mm))" : String(format: "%.1f", mm)
+        }
+        let equiv = exif?.focalLength35mmEffective.map(Double.init)
+        let lens  = exif?.focalLengthMm
+        let approx = exif?.focalLength35mmIsComputed == true ? "≈" : ""
+        switch (equiv, lens) {
+        case let (e?, l?) where e != l: return "\(approx)\(fmt(e)) mm (\(fmt(l)) mm)"
+        case let (e?, _):               return "\(approx)\(fmt(e)) mm"
+        case let (nil, l?):             return "\(fmt(l)) mm"
+        case (nil, nil):                return nil
+        }
     }
 
     // Tier 3 – Camera / Lens
@@ -467,6 +588,10 @@ private struct ViewerMetaOverlay: View {
                                             dragRating = max(0, min(5, dragStartRating + delta))
                                         }
                                         .onEnded { value in
+                                            // 比較ビューでは複数カードが同時表示されるため、
+                                            // applyRating の対象を自カードの entry に固定する。
+                                            // ビューアでは選択中＝この entry なので無害。
+                                            store.selectEntry(entry.id)
                                             let dx = value.translation.width
                                             let dy = value.translation.height
                                             if abs(dx) < 4 && abs(dy) < 4 {
@@ -551,9 +676,23 @@ private struct ViewerMetaOverlay: View {
         .padding(.horizontal, 9)
         .padding(.vertical, 6)
         .background(bgColor, in: RoundedRectangle(cornerRadius: 7))
+        // Reject はカード全体を僅かに減光して「除外候補」を示す（背景の塗りつぶしはしない）
+        .overlay {
+            if xmp?.flag == .reject {
+                RoundedRectangle(cornerRadius: 7).fill(Color.black.opacity(0.18))
+            }
+        }
         .overlay(
             RoundedRectangle(cornerRadius: 7)
-                .stroke(Color.white.opacity(0.12), lineWidth: 1)
+                .stroke(flagBorderColor, lineWidth: flagBorderWidth)
         )
+        // Pick / Reject のレジェンドタブを枠線の上に重ねる
+        .overlay(alignment: .topLeading) {
+            if let flag = xmp?.flag {
+                flagLegendTab(flag)
+                    .padding(.leading, 10)
+                    .offset(y: -8)
+            }
+        }
     }
 }

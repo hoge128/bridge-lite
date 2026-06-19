@@ -48,9 +48,11 @@ fi
 # ── 2. Build bridge-ffi ───────────────────────────────────────────────────────
 echo "  Compiling bridge-ffi …"
 cd "$REPO_ROOT"
-# Match Xcode project deployment target so libbridge_ffi.a and the Swift app
-# are linked at the same macOS version (avoids 127 "built for newer macOS" warnings).
-export MACOSX_DEPLOYMENT_TARGET="26.0"
+# Match Xcode project deployment target (project.yml: macOS 14.0) so libbridge_ffi.a
+# and the Swift app are linked at the same macOS version. Must equal the app's
+# MACOSX_DEPLOYMENT_TARGET, otherwise the linker emits
+# "object file was built for newer macOS version (X) than being linked (14.0)".
+export MACOSX_DEPLOYMENT_TARGET="14.0"
 if [ "$PROFILE" = "release" ]; then
     cargo build -p bridge-ffi --release --target "$TARGET"
     LIB_SRC="$REPO_ROOT/target/$TARGET/release/libbridge_ffi.a"

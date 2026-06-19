@@ -67,12 +67,14 @@ enum AutoReleaseTimeout: String, CaseIterable, Identifiable {
 
 enum IOSSortKey: String, CaseIterable {
     case filename
+    case captureDate
     case modifiedDate
     case createdDate
 
     var localizedName: String {
         switch self {
         case .filename:     return String(localized: "Filename")
+        case .captureDate:  return String(localized: "sort.captureDate", defaultValue: "Date Taken")
         case .modifiedDate: return String(localized: "Date Modified")
         case .createdDate:  return String(localized: "Date Created")
         }
@@ -91,6 +93,9 @@ final class ScanStore: ReindexedGroupSink {
     var groups: [ShotGroup] = []
     var thumbnails: [UInt64: Data] = [:]
     var exifs: [UInt64: ExifData] = [:]
+    /// プレビュー（埋込 JPEG / RGB）を生成できなかった RAW（CIFF CRW・Leaf MOS 等）。
+    /// 読込中シマーではなく「プレビュー不可」プレースホルダを出すために記録する。
+    private(set) var previewUnavailableIDs: Set<UInt64> = []
     var isScanning = false
     var isExifReady = false
     var scanError: String?
@@ -164,6 +169,11 @@ final class ScanStore: ReindexedGroupSink {
     var dateMax: String = ""
     var dateMode: DateMode = .range
     var dateAllowList: Set<String> = []   // ISO yyyy-MM-dd (multi モード時のみ)
+    // 時刻フィルタ（日付無視・24h）。EXIF 撮影時刻の「時」を 0.0〜24.0 で表す文字列。空 = 無効。
+    var timeMin: String = ""
+    var timeMax: String = ""
+    // 時刻ヒストグラムの原点を 12 時に回し（12→11）日跨ぎ選択を可能にする表示モード（述語では未使用）。
+    var timeSpanMidnight: Bool = false
 
     var isFilterActive: Bool {
         !filterRatings.isEmpty || !filterLabels.isEmpty || !filterKinds.isEmpty || filterCameraOnly ||
@@ -172,6 +182,7 @@ final class ScanStore: ReindexedGroupSink {
         !focalMin.isEmpty || !focalMax.isEmpty ||
         !shutterMin.isEmpty || !shutterMax.isEmpty ||
         !apertureMin.isEmpty || !apertureMax.isEmpty ||
+        !timeMin.isEmpty || !timeMax.isEmpty ||
         !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty
     }
 
@@ -273,6 +284,37 @@ final class ScanStore: ReindexedGroupSink {
         }
     }
 
+    /// 撮影時刻ヒストグラム（0..24 時の 24 バケット）。timeSpanMidnight = true のとき
+    /// 表示軸を 12 時間回転（12→11）し、深夜帯を中央に集めて日跨ぎ選択を 1 ドラッグで行えるようにする。
+    var timeBuckets: [ExifBucket] {
+        var counts = Array(repeating: 0, count: 24)   // index = hour
+        for (id, entry) in entries {
+            guard let d = Self.photoDate(exif: exifs[id], entry: entry) else { continue }
+            counts[max(0, min(23, Int(Self.hourOfDay(d))))] += 1
+        }
+        func bucket(hour: Int, openLower: Bool, openUpper: Bool) -> ExifBucket {
+            ExifBucket(
+                label: hour % 3 == 0 ? "\(hour)" : "",   // 3 時間ごとにラベル
+                count: counts[hour],
+                minText: openLower ? "" : "\(hour)",
+                maxText: openUpper ? "" : "\(hour + 1)",
+                lowerBound: Double(hour),
+                upperBound: Double(hour + 1)
+            )
+        }
+        if timeSpanMidnight {
+            return (0..<24).map { d in bucket(hour: (12 + d) % 24, openLower: false, openUpper: false) }
+        } else {
+            return (0..<24).map { h in bucket(hour: h, openLower: h == 0, openUpper: h == 23) }
+        }
+    }
+
+    /// 日付の「時刻のみ」を 0.0〜24.0 の連続値で返す（分・秒を端数に含める）。ローカル時刻基準。
+    static func hourOfDay(_ date: Date) -> Double {
+        let c = Calendar.current.dateComponents([.hour, .minute, .second], from: date)
+        return Double(c.hour ?? 0) + Double(c.minute ?? 0) / 60 + Double(c.second ?? 0) / 3600
+    }
+
     // MARK: - Filter toggle helpers
 
     func toggleRating(_ v: Int)    { filterRatings.toggle(v) }
@@ -294,6 +336,7 @@ final class ScanStore: ReindexedGroupSink {
         case .focal:    focalMin = ""; focalMax = ""
         case .shutter:  shutterMin = ""; shutterMax = ""
         case .aperture: apertureMin = ""; apertureMax = ""
+        case .time:     timeMin = ""; timeMax = ""
         case .date:     dateMin = ""; dateMax = ""; dateAllowList = []
         }
     }
@@ -305,6 +348,7 @@ final class ScanStore: ReindexedGroupSink {
         focalMin = ""; focalMax = ""
         shutterMin = ""; shutterMax = ""
         apertureMin = ""; apertureMax = ""
+        timeMin = ""; timeMax = ""
         dateMin = ""; dateMax = ""; dateAllowList = []
     }
 
@@ -320,6 +364,7 @@ final class ScanStore: ReindexedGroupSink {
         case .focal:    return !focalMin.isEmpty || !focalMax.isEmpty
         case .shutter:  return !shutterMin.isEmpty || !shutterMax.isEmpty
         case .aperture: return !apertureMin.isEmpty || !apertureMax.isEmpty
+        case .time:     return !timeMin.isEmpty || !timeMax.isEmpty
         case .date:     return !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty
         }
     }
@@ -404,6 +449,10 @@ final class ScanStore: ReindexedGroupSink {
     private var scanTask: Task<Void, Never>?
     private var phashPipeline = PHashPipeline()
     private(set) var scanGeneration: Int = 0
+    /// 写真 ID をセッション内でグローバル一意に保つための単調増加カウンタ。
+    /// フォルダ横断で増加させ続ける（reset 系で 1 に戻さない）。1 に戻すと別フォルダの
+    /// Rust 連番 ID と衝突し、前フォルダの写真が誤って解決される。
+    private var nextEntryID: UInt64 = 1
     private var pairingPipeline = PairingPipeline()
     private var lastImageList: BridgeCoreImageList?
     private var folderMonitor: (any DispatchSourceFileSystemObject)?
@@ -480,6 +529,7 @@ final class ScanStore: ReindexedGroupSink {
         groups = []
         thumbnails = [:]
         exifs = [:]
+        previewUnavailableIDs = []
         scanTotalCount = 0
         scanLoadedCount = 0
         exifIndexProgress = 0
@@ -608,6 +658,7 @@ final class ScanStore: ReindexedGroupSink {
         groups = []
         thumbnails = [:]
         exifs = [:]
+        previewUnavailableIDs = []
         scanTotalCount = 0
         scanLoadedCount = 0
         db = nil
@@ -625,6 +676,7 @@ final class ScanStore: ReindexedGroupSink {
         groups = []
         thumbnails = [:]
         exifs = [:]
+        previewUnavailableIDs = []
         scanTotalCount = 0
         scanLoadedCount = 0
         exifIndexProgress = 0
@@ -645,13 +697,38 @@ final class ScanStore: ReindexedGroupSink {
             let (scannedEntries, imageList, _, _) = try await BridgeCore.scanDirectory(url: url, db: db)
             guard gen == scanGeneration else { return }
 
-            let entryDict = Dictionary(uniqueKeysWithValues: scannedEntries.map { ($0.id, $0) })
+            // Rust スキャナはフォルダごとに 1 から振り直す連番 ID を返すため、そのまま使うと
+            // フォルダ間で ID が衝突し、前フォルダの写真が誤って解決される。ここで単調増加する
+            // nextEntryID へ remap し、セッション内でグローバル一意な store ID にする。
+            // shotId も同じ Rust 空間のトークンなので同一マップで付け替え、メンバーと整合させる。
+            var rustToStore: [UInt64: UInt64] = [:]
+            rustToStore.reserveCapacity(scannedEntries.count)
+            for entry in scannedEntries {
+                rustToStore[entry.id] = nextEntryID
+                nextEntryID += 1
+            }
+            var entryDict: [UInt64: PhotoEntry] = [:]
+            var remappedEntries: [PhotoEntry] = []
+            entryDict.reserveCapacity(scannedEntries.count)
+            remappedEntries.reserveCapacity(scannedEntries.count)
+            for entry in scannedEntries {
+                let sid = rustToStore[entry.id]!
+                let shot = rustToStore[entry.shotId] ?? sid
+                let remapped = PhotoEntry(
+                    id: sid, url: entry.url, filename: entry.filename, isRaw: entry.isRaw,
+                    fileSize: entry.fileSize, modifiedDate: entry.modifiedDate,
+                    createdDate: entry.createdDate, hasJpgPartner: entry.hasJpgPartner, shotId: shot)
+                entryDict[sid] = remapped
+                remappedEntries.append(remapped)
+            }
             self.entries = entryDict
             scanTotalCount = scannedEntries.count
 
             // 初期グルーピング（EXIF 未索引のためステム名ベース。カメラ直出し RAW+JPEG には十分）
-            let shotMap = await BridgeCore.reindexShotGroups(list: imageList, db: db)
+            let rustShotMap = await BridgeCore.reindexShotGroups(list: imageList, db: db)
             guard gen == scanGeneration else { return }
+            // reindexShotGroups は Rust ID 空間で返るため store ID へ変換してからグルーピング。
+            let shotMap = convertGroups(rustShotMap, map: rustToStore)
             self.groups = buildGroups(from: shotMap, entries: entryDict)
             lastImageList = imageList
 
@@ -695,10 +772,19 @@ final class ScanStore: ReindexedGroupSink {
                 // 終わった場合でも「準備中」バナーを消すために使う）
                 exifIndexTaskDone = true
 
-                let map = await BridgeCore.fetchExifBatch(list: capturedList, db: db)
+                let rustMap = await BridgeCore.fetchExifBatch(list: capturedList, db: db)
                 guard gen == self.scanGeneration else { return }
+                // fetchExifBatch は Rust ID 空間で返るため store ID へ変換してから適用。
+                var map: [UInt64: ExifData] = [:]
+                map.reserveCapacity(rustMap.count)
+                for (rustID, exif) in rustMap {
+                    if let sid = rustToStore[rustID] { map[sid] = exif }
+                }
                 self.exifs = map
                 self.isExifReady = true
+                // 撮影日時ソート選択中は、EXIF が揃った時点で並べ替えを反映する
+                // （EXIF 未取得時は作成日時フォールバックで並んでいるため）。
+                if self.sortKey == .captureDate { self.applySort() }
 
                 await capturedPairing.noteExifReady(list: capturedList, db: db, store: self, splitThresholdSecs: 2, phashHammingThreshold: 15, generation: gen)
                 guard gen == self.scanGeneration else { return }
@@ -706,7 +792,8 @@ final class ScanStore: ReindexedGroupSink {
             }
 
             // キャッシュ済みサムネイルのみ即時表示（未キャッシュは各セルがオンデマンドで取得）
-            await loadCachedThumbnails(entries: scannedEntries, imageList: imageList, db: db)
+            // store ID に remap 済みのエントリを渡す（thumbnails は store ID キーで保持するため）。
+            await loadCachedThumbnails(entries: remappedEntries, imageList: imageList, db: db)
             guard gen == scanGeneration else { return }
 
             // DB に保存済みの pHash を使ってショットグループを再計算する。
@@ -715,7 +802,8 @@ final class ScanStore: ReindexedGroupSink {
             guard gen == scanGeneration else { return }
 
             // 未キャッシュのサムネイル生成を exifTask と並行して開始し、両方完了後に isScanning = false にする。
-            let capturedEntries = scannedEntries
+            // store ID に remap 済みのエントリを使う（thumbnails / previewUnavailableIDs は store ID キー）。
+            let capturedEntries = remappedEntries
             let thumbnailTask = Task { [weak self] in
                 guard let self,
                       let db = self.db,
@@ -742,6 +830,9 @@ final class ScanStore: ReindexedGroupSink {
                         guard gen == self.scanGeneration else { break }
                         if let jpeg, self.thumbnails[id] == nil {
                             self.thumbnails[id] = jpeg
+                        } else if jpeg == nil, self.entries[id]?.isRaw == true {
+                            // 埋込プレビューを取り出せない RAW はプレースホルダ表示にする。
+                            self.notePreviewUnavailable(id: id, generation: gen)
                         }
                         if cursor < uncached.count {
                             let entry = uncached[cursor]; cursor += 1
@@ -768,14 +859,56 @@ final class ScanStore: ReindexedGroupSink {
         }
     }
 
-    func applyReindexedGroups(_ map: [UInt64: [UInt64]], generation: Int) {
+    /// reindexShotGroups の出力（Rust 連番 ID キー）を `list`（path 結合）で store ID に変換して適用する。
+    /// 写真 ID 一意化に伴い、Rust 空間で返るグループ結果は必ずこの変換を経てから store へ反映する。
+    func applyRustReindexedGroups(_ groups: [UInt64: [UInt64]], list: BridgeCoreImageList?, generation: Int) {
+        guard generation == scanGeneration, let list else { return }
+        let map = rustToStoreIDMap(list: list)
+        applyReindexedGroups(convertGroups(groups, map: map), generation: generation)
+    }
+
+    /// store ID 空間のグループ（[shotId(store): [memberID(store)]]）を store へ反映する。
+    private func applyReindexedGroups(_ groups: [UInt64: [UInt64]], generation: Int) {
         guard generation == scanGeneration else { return }
-        for (shotId, memberIDs) in map {
+        for (shotId, memberIDs) in groups {
             for mid in memberIDs {
                 if var e = entries[mid] { e.shotId = shotId; entries[mid] = e }
             }
         }
-        self.groups = buildGroups(from: map, entries: entries)
+        self.groups = buildGroups(from: groups, entries: entries)
+    }
+
+    /// グループ辞書（[shotId: [memberID]]）のキー・メンバーを `map` で別 ID 空間へ変換する。
+    /// 解決できないメンバーは除外し、メンバーが空になったグループは捨てる。
+    private func convertGroups(_ groups: [UInt64: [UInt64]], map: [UInt64: UInt64]) -> [UInt64: [UInt64]] {
+        var converted: [UInt64: [UInt64]] = [:]
+        converted.reserveCapacity(groups.count)
+        for (shotId, members) in groups {
+            let sid = map[shotId] ?? shotId
+            let storeMembers = members.compactMap { map[$0] }
+            if !storeMembers.isEmpty { converted[sid] = storeMembers }
+        }
+        return converted
+    }
+
+    /// Rust 連番 ID → store ID の対応表を path 結合で構築する。
+    /// 現在の `entries`（store ID キー）から path→store ID を引き、`list` の各エントリの
+    /// Rust ID と path を突き合わせる。
+    private func rustToStoreIDMap(list: BridgeCoreImageList) -> [UInt64: UInt64] {
+        let pathToStoreID = Dictionary(
+            entries.values.map { ($0.url.path, $0.id) },
+            uniquingKeysWith: { first, _ in first }
+        )
+        let count = image_entry_list_count(list.inner)
+        var map: [UInt64: UInt64] = [:]
+        map.reserveCapacity(Int(count))
+        for i in 0..<count {
+            let ffiEntry = image_entry_list_get(list.inner, i)
+            let rustID = ffi_image_entry_id(ffiEntry)
+            let path = ffi_image_entry_path(ffiEntry).toString()
+            if let sid = pathToStoreID[path] { map[rustID] = sid }
+        }
+        return map
     }
 
     private func buildGroups(from map: [UInt64: [UInt64]], entries: [UInt64: PhotoEntry]) -> [ShotGroup] {
@@ -794,6 +927,11 @@ final class ScanStore: ReindexedGroupSink {
                 let fnA = entA?.filename ?? ""
                 let fnB = entB?.filename ?? ""
                 return sortAscending ? fnA < fnB : fnA > fnB
+            case .captureDate:
+                // EXIF 撮影日時で並べ替え。無ければ作成日時にフォールバック（photoDate と同方針）。
+                let dA = entA.flatMap { Self.photoDate(exif: exifs[a.representativeID ?? 0], entry: $0) } ?? .distantPast
+                let dB = entB.flatMap { Self.photoDate(exif: exifs[b.representativeID ?? 0], entry: $0) } ?? .distantPast
+                return sortAscending ? dA < dB : dA > dB
             case .modifiedDate:
                 let dA = entA?.modifiedDate ?? .distantPast
                 let dB = entB?.modifiedDate ?? .distantPast
@@ -820,7 +958,20 @@ final class ScanStore: ReindexedGroupSink {
         groups = []
         thumbnails = [:]
         exifs = [:]
+        previewUnavailableIDs = []
         folderURL = nil
+    }
+
+    // MARK: - Preview unavailable
+
+    func isPreviewUnavailable(_ id: UInt64) -> Bool { previewUnavailableIDs.contains(id) }
+
+    /// プレビュー（埋込 JPEG / RGB）もフル解像度も取り出せなかった RAW を記録する。
+    /// グリッド／単体ビューが「プレビュー不可」プレースホルダへ切り替えるためのフラグ。
+    /// generation ガードでフォルダ切替時に旧スキャン世代の遅延結果が新世代を汚さないようにする。
+    func notePreviewUnavailable(id: UInt64, generation: Int) {
+        guard generation == scanGeneration else { return }
+        previewUnavailableIDs.insert(id)
     }
 
     /// 指定エントリの EXIF をオンデマンドで取得しキャッシュに書き込む。
@@ -896,10 +1047,14 @@ final class ScanStore: ReindexedGroupSink {
 
         let mode = thumbnailQualityMode
         let pipeline: PHashPipeline? = enablePhashGrouping ? phashPipeline : nil
-        if let jpeg = try? await onDemandLimiter.run({
+        let jpeg = try? await onDemandLimiter.run({
             await ThumbnailService.generate(for: entry, db: db, phashPipeline: pipeline, mode: mode, writeBuffer: writeBuffer)
-        }) {
+        })
+        if let jpeg {
             thumbnails[entry.id] = jpeg
+        } else if entry.isRaw {
+            // 埋込プレビューを取り出せない RAW（CRW・MOS 等）はプレースホルダ表示にする。
+            notePreviewUnavailable(id: entry.id, generation: scanGeneration)
         }
     }
 
@@ -1118,7 +1273,8 @@ final class ScanStore: ReindexedGroupSink {
         let otherFiltersActive = !filterLabels.isEmpty || !filterKinds.isEmpty || filterCameraOnly ||
             !filterCameras.isEmpty || !filterLenses.isEmpty || !filterArtists.isEmpty ||
             !isoMin.isEmpty || !isoMax.isEmpty || !focalMin.isEmpty || !focalMax.isEmpty ||
-            !shutterMin.isEmpty || !shutterMax.isEmpty || !apertureMin.isEmpty || !apertureMax.isEmpty
+            !shutterMin.isEmpty || !shutterMax.isEmpty || !apertureMin.isEmpty || !apertureMax.isEmpty ||
+            !timeMin.isEmpty || !timeMax.isEmpty
         let dateFiltersActive = !dateMin.isEmpty || !dateMax.isEmpty || !dateAllowList.isEmpty
         let anyActive = otherFiltersActive ||
             (!skipRating && !filterRatings.isEmpty) ||
@@ -1171,6 +1327,27 @@ final class ScanStore: ReindexedGroupSink {
                 guard let f = exif?.fnumberValue else { return nil }
                 if let min = Double(apertureMin), f <= min { return nil }
                 if let max = Double(apertureMax), f > max  { return nil }
+            }
+            if !timeMin.isEmpty || !timeMax.isEmpty {
+                // 日付を無視し、撮影時刻(EXIF→作成日時)の「時」(0..<24) を円環の弧で判定。
+                //   lo<hi: 通常区間 [lo,hi) ／ lo>hi: 日跨ぎ（hour>=lo または hour<hi）／ lo==hi: 全周
+                //   片方のみ: 半開区間。撮影時刻が無ければ作成日時にフォールバック（日付フィルタと同方針）。
+                guard let entry = entries[repID] else { return nil }
+                if let date = Self.photoDate(exif: exif, entry: entry) {
+                    let hour = Self.hourOfDay(date)
+                    switch (Double(timeMin), Double(timeMax)) {
+                    case let (lo?, hi?):
+                        if lo < hi { if hour < lo || hour >= hi { return nil } }
+                        else if lo > hi { if !(hour >= lo || hour < hi) { return nil } }
+                        // lo == hi は全周のため常に一致
+                    case let (lo?, nil):
+                        if hour < lo { return nil }
+                    case let (nil, hi?):
+                        if hour >= hi { return nil }
+                    case (nil, nil):
+                        break
+                    }
+                }
             }
             if !skipDate {
                 let isoFmt = Self.isoDateFormatter

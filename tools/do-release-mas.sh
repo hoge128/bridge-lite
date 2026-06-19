@@ -7,14 +7,14 @@
 # 自動実行:
 #   1. MAS バージョン更新 (project.yml の BridgeLiteMAS セクション + xcodegen)
 #   2. Rust ライブラリ release ビルド (build-rust-xcframework.sh --release)
-#   3. fastlane deliver でメタデータ（日英）+ スクショを ASC へ投入
-#   4. git commit + push + タグ作成 (mas/v<version>)
+#   3. git commit + push + タグ作成 (mas/v<version>)
 #
 # 手動操作が必要な箇所（スクリプトが一時停止して案内します）:
 #   - App Store リリースノート作成 (docs/appstore/releases/mac/<version>.md)
 #   - fastlane/metadata/{ja,en-US}/release_notes.txt の更新
 #   - Xcode で BridgeLiteMAS スキームを選択して ⌘B（ビルド確認）
 #   - Xcode で Archive → Distribute App → App Store Connect → Upload（.pkg）
+#   - ASC へのメタデータ/スクショ投入（fastlane deliver 等。このスクリプトでは行わない）
 #
 # Direct(DMG/Sparkle) 版のリリースは tools/do-release.sh（こちらとは別系統）。
 
@@ -54,7 +54,7 @@ echo -e "\n${BOLD}BridgeLite (Mac App Store) v${VERSION} リリースを開始�
 echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
 
 # ─── STEP 1: MAS バージョン更新 ───────────────────────────────
-step "STEP 1/5: MAS バージョン更新 (project.yml の BridgeLiteMAS セクション)"
+step "STEP 1/4: MAS バージョン更新 (project.yml の BridgeLiteMAS セクション)"
 
 MAS_CURRENT_VERSION=$(python3 -c "
 import re
@@ -130,17 +130,17 @@ pause "  fastlane の What's New を更新してください（ASC に反映さ�
   ついでに description / keywords / promotional_text に変更があれば更新。"
 
 # ─── STEP 2: Rust ライブラリ release ビルド ──────────────────
-step "STEP 2/5: Rust ライブラリ release ビルド (build-rust-xcframework.sh --release)"
+step "STEP 2/4: Rust ライブラリ release ビルド (build-rust-xcframework.sh --release)"
 "$TOOLS/build-rust-xcframework.sh" --release
 ok "libbridge_ffi.a (macOS) を release ビルドしました"
 
 # ─── STEP 3: Xcode ビルド確認 ─────────────────────────────────
-step "STEP 3/5: Xcode ビルド確認（手動）"
+step "STEP 3/4: Xcode ビルド確認（手動）"
 pause "  Xcode でスキームを ${BOLD}BridgeLiteMAS${NC}${YELLOW} に切り替え、
   ${BOLD}My Mac${NC}${YELLOW} を選択して ${BOLD}⌘B${NC}${YELLOW} を押し、ビルドが通ることを確認してください。"
 
 # ─── STEP 4: Archive → App Store Connect Upload ──────────────
-step "STEP 4/5: Xcode Archive → App Store Connect Upload（手動・.pkg）"
+step "STEP 4/4: Xcode Archive → App Store Connect Upload（手動・.pkg）"
 pause "  Xcode で以下を実行（スキーム: BridgeLiteMAS）:
 
   ${BOLD}Product → Archive${NC}${YELLOW}
@@ -152,29 +152,10 @@ pause "  Xcode で以下を実行（スキーム: BridgeLiteMAS）:
   ※ App Sandbox + Apple Distribution 署名で書き出されます。
   ※ 完了後 App Store Connect の TestFlight/ビルド一覧に処理中で表示されます。"
 
-# ─── STEP 5: fastlane deliver（メタデータ + スクショ投入） ─────
-step "STEP 5/5: fastlane deliver（メタデータ日英 + スクショを ASC へ投入）"
-if ! command -v fastlane &>/dev/null; then
-    warn "fastlane が見つかりません。インストール: ${BOLD}brew install fastlane${NC}${YELLOW} または ${BOLD}gem install fastlane${NC}"
-    warn "fastlane なしでも、ASC の Web UI からメタデータ/スクショを手動投入できます。"
-    pause "  fastlane を入れて手動で 'fastlane deliver' を実行するか、ASC で手動投入してから Enter。"
-else
-    # 認証: App Store Connect API キー（推奨）。
-    #   ASC_API_KEY_JSON に fastlane 形式の JSON（key_id/issuer_id/key を含む）を指すと非対話。
-    #   未設定なら deliver が Apple ID で対話的に認証（2FA 入力あり）。
-    DELIVER_ARGS=()
-    if [[ -n "${ASC_API_KEY_JSON:-}" && -f "${ASC_API_KEY_JSON}" ]]; then
-        DELIVER_ARGS+=(--api_key_path "${ASC_API_KEY_JSON}")
-        ok "ASC API キーで認証します: ${ASC_API_KEY_JSON}"
-    else
-        warn "ASC_API_KEY_JSON 未設定。Apple ID で対話的に認証します（2FA 入力が必要な場合あり）。"
-        warn "非対話にするには App Store Connect API キーの JSON を ASC_API_KEY_JSON に設定してください。"
-    fi
-    pause "  メタデータ（fastlane/metadata 日英）とスクショ（fastlane/screenshots/{en-US,ja}）を
-  ASC へ投入します。内容を確認してから Enter（中止は Ctrl-C）。"
-    (cd "$REPO_ROOT" && fastlane deliver "${DELIVER_ARGS[@]}")
-    ok "fastlane deliver 完了（バイナリは Xcode 側でアップロード済み）"
-fi
+# ─── ASC メタデータ/スクショ投入は手動運用 ───────────────────
+# fastlane deliver はこのスクリプトでは行わない。バイナリは STEP 4 で Xcode から
+# アップロード済み。メタデータ/スクショは ASC Web もしくは別途 `fastlane deliver`
+# （fastlane/metadata 日英・fastlane/screenshots）で各自投入する。
 
 # ─── git commit + push + tag ─────────────────────────────────
 step "master ブランチに記録 + タグ作成"

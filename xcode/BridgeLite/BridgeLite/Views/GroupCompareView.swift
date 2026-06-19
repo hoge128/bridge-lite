@@ -92,10 +92,14 @@ struct GroupCompareView: View {
                     if navMode == .memberFirst { navigatePrev() } else { navigateMemberPrev() }
                 }
                 .keyboardShortcut(.tab, modifiers: [.control, .shift])
+                // i: 各メンバーの info カード表示をトグル（ビューアと同一ショートカット）
+                Button("") { store.viewerShowsMeta.toggle() }
+                    .keyboardShortcut("i", modifiers: [])
             }
             .opacity(0)
             .allowsHitTesting(false)
         }
+        .animation(.easeInOut(duration: 0.15), value: store.viewerShowsMeta)
         .onAppear {
             resolveRepAndFocus()
         }
@@ -287,10 +291,25 @@ struct GroupCompareView: View {
 
 // MARK: - Column
 
-private struct CompareMemberColumn: View {
+struct CompareMemberColumn: View {
     let memberID: UInt64
     let isFocused: Bool
+    /// フィルムストリップ用: 背景が白（明るい）前提で文字・枠色を反転する。比較ビューは false のまま。
+    var lightBackground: Bool = false
+    /// フィルムストリップ用: 大レーティング行を隠し、現在のレーティングは小バッジで表示するコンパクト表示。比較ビューは false。
+    var compact: Bool = false
+    /// 指定時、フル解像度ではなく maxPixels へ高品質ダウンサンプルしてロード（多数枚でもメモリ安全）。nil=フル解像度（比較ビュー）。
+    var downsampleMaxPixels: Int? = nil
+    /// プレビューの複数選択ハイライト（isFocused の濃い枠とは別の中間ハイライト）。
+    var isSelected: Bool = false
     @Environment(LibraryStore.self) private var store
+
+    // 背景に応じた前景色（compare=黒背景→白系 / filmstrip=白背景→暗系）
+    private var captionColor: Color { lightBackground ? .primary : .white }
+    private var emptyStrokeColor: Color { lightBackground ? Color.black.opacity(0.15) : Color.white.opacity(0.12) }
+    private var emptyStarColor: Color { lightBackground ? Color.black.opacity(0.22) : Color.white.opacity(0.3) }
+    private var clearRatingColor: Color { lightBackground ? Color.black.opacity(0.22) : Color.white.opacity(0.2) }
+    private var placeholderFill: Color { lightBackground ? Color.black.opacity(0.05) : Color.white.opacity(0.05) }
     @State private var previewImage: (CGImage, Image.Orientation)?
     @State private var isLoadingPreview = false
     @State private var rawRendered: (CGImage, Image.Orientation)?
@@ -336,16 +355,27 @@ private struct CompareMemberColumn: View {
         VStack(spacing: 6) {
             imageArea
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .overlay(alignment: .bottomLeading) {
+                    if store.viewerShowsMeta, let entry {
+                        ViewerMetaOverlay(entry: entry, exif: exif, xmp: xmp) {
+                            store.viewerShowsMeta = false
+                        }
+                        .padding(8)
+                        .transition(.opacity)
+                    }
+                }
 
             Text(entry?.filename ?? "")
                 .font(.callout)
-                .foregroundStyle(.white)
+                .foregroundStyle(captionColor)
                 .lineLimit(1)
                 .truncationMode(.middle)
                 .frame(maxWidth: .infinity)
                 .padding(.horizontal, 4)
 
-            ratingRow
+            if !compact {
+                ratingRow
+            }
         }
         .contextMenu { compareContextMenu }
         .task(id: memberID) {
@@ -353,9 +383,18 @@ private struct CompareMemberColumn: View {
             rawRendered = nil
             showRendered = false
             guard let entry = store.entries[memberID] else { return }
+            // ダウンサンプル指定時は高品質ダウンサンプルのみ（RAW現像はしない・メモリ安全）。
+            if let maxPx = downsampleMaxPixels {
+                isLoadingPreview = true
+                previewImage = await loadDownsampled(entry: entry, maxPixels: maxPx)
+                isLoadingPreview = false
+                markUnavailableIfNeeded(entry)
+                return
+            }
             isLoadingPreview = true
             previewImage = await loadPreview(entry: entry)
             isLoadingPreview = false
+            markUnavailableIfNeeded(entry)
             // Auto-render for RAW: show embedded first, then replace.
             // Skip for formats with no full-res JPEG (e.g. CR2) since CIRAWFilter will return nil.
             if entry.isRaw,
@@ -383,6 +422,23 @@ private struct CompareMemberColumn: View {
                 NSWorkspace.shared.activateFileViewerSelecting([entry.url])
             }
             OpenWithMenu(targetURLs: [entry.url], primaryURL: entry.url)
+
+            if store.canMakeRepresentative(memberID) {
+                Divider()
+                Button {
+                    store.makeRepresentative(memberID)
+                } label: {
+                    if store.isCurrentRepresentative(memberID) {
+                        Label(String(localized: "representative.make",
+                                     defaultValue: "Make This the Representative"),
+                              systemImage: "checkmark")
+                    } else {
+                        Text(String(localized: "representative.make",
+                                    defaultValue: "Make This the Representative"))
+                    }
+                }
+                .disabled(store.isCurrentRepresentative(memberID))
+            }
 
             Divider()
 
@@ -429,6 +485,15 @@ private struct CompareMemberColumn: View {
 
             Divider()
 
+            Button(store.viewerShowsMeta
+                   ? String(localized: "viewer.context.hide_details", defaultValue: "Hide Details")
+                   : String(localized: "viewer.context.show_details", defaultValue: "Show Details")) {
+                store.viewerShowsMeta.toggle()
+            }
+            .keyboardShortcut("i", modifiers: [])
+
+            Divider()
+
             Button(String(localized: "compare.context.back_to_grid",
                           defaultValue: "Back to Grid")) {
                 store.selectEntry(memberID)
@@ -467,6 +532,23 @@ private struct CompareMemberColumn: View {
         return await LargeImageDecoder.decodeFromURL(entry.url)
     }
 
+    /// 高品質ダウンサンプル（フル解像度の等倍は読まない・同時実行は limiter で直列化＝メモリ安全）。
+    private func loadDownsampled(entry: PhotoEntry, maxPixels: Int) async -> (CGImage, Image.Orientation)? {
+        if entry.isRaw {
+            guard let data = await BridgeCore.extractRawJpeg(url: entry.url, quality: .preview) else { return nil }
+            let orient = store.thumbnailOrientations[entry.id] ?? .up
+            return await LargeImageDecoder.decodeDownsampledData(data, orientation: orient, maxPixels: maxPixels)
+        }
+        return await LargeImageDecoder.decodeDownsampledURL(entry.url, maxPixels: maxPixels)
+    }
+
+    /// プレビューもサムネも得られない RAW を「プレビュー不可」として記録する。
+    private func markUnavailableIfNeeded(_ entry: PhotoEntry) {
+        if previewImage == nil, entry.isRaw, thumbnail == nil {
+            store.notePreviewUnavailable(id: memberID, generation: store.scanGeneration)
+        }
+    }
+
     private var imageArea: some View {
         ZStack(alignment: .topTrailing) {
             Group {
@@ -477,9 +559,12 @@ private struct CompareMemberColumn: View {
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .blur(radius: isLoadingPreview && previewImage == nil ? 8 : 0)
                         .animation(.easeOut(duration: 0.2), value: previewImage == nil)
+                } else if let entry = entry, entry.isRaw, store.isPreviewUnavailable(entry.id) {
+                    UnavailablePreviewView(compact: compact)
+                        .frame(maxWidth: .infinity, maxHeight: .infinity)
                 } else {
                     Rectangle()
-                        .fill(Color.white.opacity(0.05))
+                        .fill(placeholderFill)
                         .frame(maxWidth: .infinity, maxHeight: .infinity)
                         .overlay(
                             Image(systemName: "photo")
@@ -490,11 +575,44 @@ private struct CompareMemberColumn: View {
             }
             .clipShape(RoundedRectangle(cornerRadius: 8))
             .overlay {
+                // フォーカス=濃い枠 / 選択=中間ハイライト / それ以外=既定枠
                 RoundedRectangle(cornerRadius: 8)
                     .stroke(
-                        isFocused ? Color.accentColor : Color.white.opacity(0.12),
-                        lineWidth: isFocused ? 2.5 : 1
+                        isFocused ? Color.accentColor
+                            : (isSelected ? Color.accentColor.opacity(0.6) : emptyStrokeColor),
+                        lineWidth: isFocused ? 2.5 : (isSelected ? 2 : 1)
                     )
+            }
+            // コンパクト表示（フィルムストリップ）: 評価★N（背景＝ラベル色）＋左にフラグアイコン
+            .overlay(alignment: .bottomTrailing) {
+                if compact {
+                    let rating = xmp?.rating ?? 0
+                    let label = xmp?.label
+                    let flag = xmp?.flag
+                    if rating > 0 || label != nil || flag != nil {
+                        HStack(spacing: 4) {
+                            // フラグ: 評価バッジの左側
+                            if let flag {
+                                Image(systemName: flag.systemImage)
+                                    .font(.system(size: 10, weight: .bold))
+                                    .foregroundStyle(flag.color)
+                                    .padding(3)
+                                    .background(.black.opacity(0.5), in: Circle())
+                            }
+                            // 評価: ★N（背景＝ラベル色）。評価0でもラベルがあれば、透明の「★0」で
+                            // 高さ・幅を ★1〜5 と完全に同寸に保ったバッジを表示。
+                            if rating > 0 || label != nil {
+                                Text(rating > 0 ? "★\(rating)" : "★0")
+                                    .font(.system(size: 10, weight: .semibold))
+                                    .foregroundStyle(rating > 0 ? Color.white : Color.clear)
+                                    .padding(.horizontal, 5)
+                                    .padding(.vertical, 2)
+                                    .background(label?.color ?? Color.black.opacity(0.55), in: Capsule())
+                            }
+                        }
+                        .padding(6)
+                    }
+                }
             }
 
             // Top-trailing: file kind badge
@@ -596,7 +714,7 @@ private struct CompareMemberColumn: View {
             Button { applyRating(0) } label: {
                 Image(systemName: "xmark.circle.fill")
                     .font(.system(size: 15))
-                    .foregroundStyle((xmp?.rating ?? 0) > 0 ? Color.red.opacity(0.75) : Color.white.opacity(0.2))
+                    .foregroundStyle((xmp?.rating ?? 0) > 0 ? Color.red.opacity(0.75) : clearRatingColor)
             }
             .buttonStyle(.plain)
 
@@ -605,7 +723,7 @@ private struct CompareMemberColumn: View {
                 Button { applyRating(n) } label: {
                     Image(systemName: filled ? "star.fill" : "star")
                         .font(.system(size: 22))
-                        .foregroundStyle(filled ? Color.yellow : Color.white.opacity(0.3))
+                        .foregroundStyle(filled ? Color.yellow : emptyStarColor)
                 }
                 .buttonStyle(.plain)
             }

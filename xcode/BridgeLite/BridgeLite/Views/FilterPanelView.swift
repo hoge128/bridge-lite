@@ -10,11 +10,15 @@ struct FilterPanelView: View {
     @State private var lensExpanded = true
     @State private var ratingExpanded = true
     @State private var labelExpanded = true
+    @State private var flagExpanded = true
     @State private var isoExpanded = true
     @State private var focalExpanded = true
+    @State private var focal35Expanded = true
     @State private var shutterExpanded = true
     @State private var apertureExpanded = true
     @State private var dateExpanded = true
+    @State private var timeOfDayExpanded = true
+    @State private var showTimeHelp = false
     @State private var luminanceExpanded = true
 
     // MARK: - Body
@@ -108,10 +112,14 @@ struct FilterPanelView: View {
             .help(help)
             Spacer()
             if isActive {
-                Button(String(localized: "filter.clear", defaultValue: "Clear"), action: onClear)
-                    .buttonStyle(.plain)
-                    .font(.caption2)
-                    .foregroundStyle(.red)
+                Button(String(localized: "filter.clear", defaultValue: "Clear")) {
+                    onClear()
+                    // クリアで表示件数が増えても、選択中サムネイルが画面内に残るようスクロールを復元
+                    store.noteFilterSectionCleared()
+                }
+                .buttonStyle(.plain)
+                .font(.caption2)
+                .foregroundStyle(.red)
             }
         }
     }
@@ -384,6 +392,41 @@ struct FilterPanelView: View {
                 }
             }
 
+        case .flag:
+            GroupBox {
+                DisclosureGroup(isExpanded: $flagExpanded) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(XmpFlag.allCases, id: \.rawValue) { flag in
+                            Toggle(isOn: Binding(
+                                get: { filter.wrappedValue.filterFlags.contains(flag) },
+                                set: { on in
+                                    var f = filter.wrappedValue
+                                    if on { f.filterFlags.insert(flag) } else { f.filterFlags.remove(flag) }
+                                    filter.wrappedValue = f
+                                }
+                            )) {
+                                HStack(spacing: 4) {
+                                    Image(systemName: flag.systemImage)
+                                        .font(.caption2)
+                                        .foregroundStyle(flag.color)
+                                    Text(flag.name).font(.caption)
+                                }
+                            }
+                            .toggleStyle(.checkbox)
+                        }
+                    }
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.top, 4)
+                } label: {
+                    sectionLabel("Flag", isExpanded: $flagExpanded,
+                                 help: String(localized: "filter.flag.help",
+                                              defaultValue: "Show only flagged photos (Pick / Reject). Nothing checked = show all"),
+                                 isActive: filter.wrappedValue.isFlagActive) {
+                        var f = filter.wrappedValue; f.clearFlag(); filter.wrappedValue = f
+                    }
+                }
+            }
+
         case .iso:
             GroupBox {
                 DisclosureGroup(isExpanded: $isoExpanded) {
@@ -402,10 +445,25 @@ struct FilterPanelView: View {
                 DisclosureGroup(isExpanded: $focalExpanded) {
                     ExifHistogramView(bars: store.focalBuckets, isLoading: store.isLoading, minText: filter.focalMin, maxText: filter.focalMax)
                 } label: {
-                    sectionLabel("Focal Length", isExpanded: $focalExpanded,
-                                 help: "Filter by focal length (35mm equiv). Click bars to select range",
+                    sectionLabel("filter.section.focal_lens", isExpanded: $focalExpanded,
+                                 help: String(localized: "filter.focal_lens.help",
+                                              defaultValue: "Filter by actual lens focal length. Click bars to select range"),
                                  isActive: filter.wrappedValue.isFocalActive) {
                         var f = filter.wrappedValue; f.clearFocal(); filter.wrappedValue = f
+                    }
+                }
+            }
+
+        case .focal35:
+            GroupBox {
+                DisclosureGroup(isExpanded: $focal35Expanded) {
+                    ExifHistogramView(bars: store.focal35Buckets, isLoading: store.isLoading, minText: filter.focal35Min, maxText: filter.focal35Max)
+                } label: {
+                    sectionLabel("filter.section.focal_35mm", isExpanded: $focal35Expanded,
+                                 help: String(localized: "filter.focal_35mm.help",
+                                              defaultValue: "Filter by 35mm-equivalent focal length (EXIF 0xA405). Photos without the tag are not affected"),
+                                 isActive: filter.wrappedValue.isFocal35Active) {
+                        var f = filter.wrappedValue; f.clearFocal35(); filter.wrappedValue = f
                     }
                 }
             }
@@ -446,6 +504,55 @@ struct FilterPanelView: View {
                                  help: "Filter by shooting date. Click presets or tap calendar days to select a range or individual dates.",
                                  isActive: filter.wrappedValue.isDateActive) {
                         var f = filter.wrappedValue; f.clearDate(); filter.wrappedValue = f
+                    }
+                }
+            }
+
+        case .timeOfDay:
+            GroupBox {
+                DisclosureGroup(isExpanded: $timeOfDayExpanded) {
+                    VStack(alignment: .leading, spacing: 6) {
+                        HStack(spacing: 4) {
+                            Toggle(isOn: Binding(
+                                get: { filter.wrappedValue.timeSpanMidnight },
+                                set: { newVal in
+                                    var f = filter.wrappedValue
+                                    f.timeSpanMidnight = newVal
+                                    f.clearTime()   // モード切替で選択をクリア（表示の整合のため）
+                                    filter.wrappedValue = f
+                                }
+                            )) {
+                                Text(String(localized: "filter.time.span_midnight",
+                                            defaultValue: "Midnight pivot"))
+                                    .font(.caption2)
+                            }
+                            .toggleStyle(.checkbox)
+                            .controlSize(.mini)
+
+                            Button { showTimeHelp.toggle() } label: {
+                                Image(systemName: "questionmark.circle")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                            }
+                            .buttonStyle(.plain)
+                            .popover(isPresented: $showTimeHelp, arrowEdge: .bottom) {
+                                Text(String(localized: "filter.time.span_midnight.help",
+                                            defaultValue: "Puts midnight at the center of the axis (12 → 11) so you can pick a time range that crosses midnight in a single drag. Use it to filter photos shot overnight — e.g. dusk-to-dawn night scenes, concerts or parties that ran past midnight, New Year countdowns, or astrophotography (say 22:00–02:00)."))
+                                    .font(.caption)
+                                    .fixedSize(horizontal: false, vertical: true)
+                                    .padding(12)
+                                    .frame(width: 240)
+                            }
+                            Spacer()
+                        }
+                        ExifHistogramView(bars: store.timeBuckets, isLoading: store.isLoading, minText: filter.timeMin, maxText: filter.timeMax)
+                    }
+                } label: {
+                    sectionLabel("filter.section.time_of_day", isExpanded: $timeOfDayExpanded,
+                                 help: String(localized: "filter.help.time_of_day",
+                                              defaultValue: "Filter by time of day (EXIF capture time, 24h, date ignored). Select e.g. morning hours."),
+                                 isActive: filter.wrappedValue.isTimeActive) {
+                        var f = filter.wrappedValue; f.clearTime(); filter.wrappedValue = f
                     }
                 }
             }

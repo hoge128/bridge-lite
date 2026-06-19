@@ -7,6 +7,10 @@ struct ExifHistogramView: View {
     @Binding var maxText: String
 
     @State private var activeHandle: ActiveHandle? = nil
+    // ドラッグ中のハンドル位置（バケット index）。ローカル @State で駆動し store には触れないので、
+    // この View だけが再描画されハンドルがマウスに即追従する。確定(onEnded)時に store へ反映。
+    @State private var dragLeft: Int? = nil
+    @State private var dragRight: Int? = nil
 
     private enum ActiveHandle {
         case left
@@ -27,6 +31,10 @@ struct ExifHistogramView: View {
         guard !maxText.isEmpty else { return bars.count - 1 }
         return bars.lastIndex(where: { $0.maxText == maxText }) ?? bars.count - 1
     }
+
+    // ドラッグ中はローカル状態、非ドラッグ時は store 由来。描画・判定はこちらを使う。
+    private var effLeftIndex: Int { dragLeft ?? leftIndex }
+    private var effRightIndex: Int { dragRight ?? rightIndex }
 
     private func barIndex(for x: CGFloat, width: CGFloat) -> Int {
         max(0, min(bars.count - 1, Int(x / width * CGFloat(bars.count))))
@@ -65,8 +73,8 @@ struct ExifHistogramView: View {
                         let n = bars.count
                         guard n > 0, maxCount > 0 else { return }
                         let barW = size.width / CGFloat(n)
-                        let lIdx = leftIndex
-                        let rIdx = rightIndex
+                        let lIdx = effLeftIndex
+                        let rIdx = effRightIndex
                         let lx = CGFloat(lIdx) * barW
                         let rx = CGFloat(rIdx + 1) * barW
 
@@ -134,12 +142,14 @@ struct ExifHistogramView: View {
                                 let barW = w / CGFloat(bars.count)
 
                                 if activeHandle == nil {
-                                    let lIdx = leftIndex
-                                    let rIdx = rightIndex
+                                    let lIdx = effLeftIndex
+                                    let rIdx = effRightIndex
                                     let lx = CGFloat(lIdx) * barW
                                     let rx = CGFloat(rIdx + 1) * barW
                                     let handleZone = max(barW * 0.5, 28)
 
+                                    dragLeft = lIdx
+                                    dragRight = rIdx
                                     if abs(x - lx) < handleZone {
                                         activeHandle = .left
                                     } else if abs(x - rx) < handleZone {
@@ -153,24 +163,37 @@ struct ExifHistogramView: View {
                                     }
                                 }
 
+                                // ドラッグ中はローカル @State のみ更新（store には触れない）。
+                                // → この View だけが再描画されハンドルがマウスに即追従する。
                                 switch activeHandle {
                                 case .left:
-                                    let idx = barIndex(for: x, width: w)
-                                    minText = bars[min(idx, rightIndex)].minText
+                                    dragLeft = min(barIndex(for: x, width: w), dragRight ?? rightIndex)
                                 case .right:
-                                    let idx = barIndex(for: x, width: w)
-                                    maxText = bars[max(idx, leftIndex)].maxText
+                                    dragRight = max(barIndex(for: x, width: w), dragLeft ?? leftIndex)
                                 case .box(let startLeft, let startRight, let startX):
                                     let delta = Int(((x - startX) / barW).rounded())
                                     let width = startRight - startLeft
                                     let newLeft = max(0, min(bars.count - 1 - width, startLeft + delta))
-                                    minText = bars[newLeft].minText
-                                    maxText = bars[newLeft + width].maxText
+                                    dragLeft = newLeft
+                                    dragRight = newLeft + width
                                 case nil:
                                     break
                                 }
                             }
-                            .onEnded { _ in activeHandle = nil }
+                            .onEnded { _ in
+                                // 確定時に一度だけ store.filter へ反映（フィルタ適用は離した後・シマー後）。
+                                if let l = dragLeft {
+                                    let v = bars[l].minText
+                                    if v != minText { minText = v }
+                                }
+                                if let r = dragRight {
+                                    let v = bars[r].maxText
+                                    if v != maxText { maxText = v }
+                                }
+                                activeHandle = nil
+                                dragLeft = nil
+                                dragRight = nil
+                            }
                     )
                 } else {
                     RoundedRectangle(cornerRadius: 4)
@@ -187,7 +210,7 @@ struct ExifHistogramView: View {
                     Text(bars[i].label)
                         .font(.system(size: 7))
                         .foregroundStyle(
-                            !hasData || i < leftIndex || i > rightIndex
+                            !hasData || i < effLeftIndex || i > effRightIndex
                             ? AnyShapeStyle(.tertiary)
                             : AnyShapeStyle(.secondary)
                         )

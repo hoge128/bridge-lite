@@ -347,6 +347,7 @@ struct ThumbnailGridView: View {
                             // iPhone: v0.1.4 と同じ accentColor 枠線で選択を表現。
                             // iPad は黒オーバーレイ（dimmedGroupID）で表現するため常に false。
                             isSelected: !isPad && selectedGroup?.id == group.id,
+                            previewUnavailable: repID.map { scanStore.isPreviewUnavailable($0) } ?? false,
                             onTap: {
                                 scanStore.resetAutoReleaseTimer()
                                 // iPhone のみ: iPad は simultaneousGesture で処理。

@@ -166,6 +166,11 @@ else
         --title "BridgeLite ${VERSION}" \
         --notes "$NOTES_BODY"
     ok "GitHub Releases に mac/v${VERSION} を公開しました"
+    # gh release create は public(既定ブランチ=gh-pages)上にタグをサーバ側で作成するため、
+    # ローカルにはタグが入らない。ここで取得しておき、後段で private(origin) にも反映する。
+    git -C "$REPO_ROOT" fetch public "refs/tags/mac/v${VERSION}:refs/tags/mac/v${VERSION}" 2>/dev/null \
+        && ok "タグ mac/v${VERSION} をローカルへ取得しました" \
+        || warn "タグ mac/v${VERSION} のローカル取得に失敗（private への反映はスキップされます）"
 fi
 
 # ─── master ブランチに commit & push ─────────────────────────
@@ -183,7 +188,11 @@ git -C "$REPO_ROOT" add \
 git -C "$REPO_ROOT" commit -m "release: mac/v${VERSION}" || true
 git -C "$REPO_ROOT" push origin master
 git -C "$REPO_ROOT" push public master
-git -C "$REPO_ROOT" push origin "mac/v${VERSION}" 2>/dev/null || warn "タグ mac/v${VERSION} は origin に既に存在します（スキップ）"
+# タグを private(origin) にも反映（gh が作った public のタグを上で fetch 済み）。
+git -C "$REPO_ROOT" push origin "mac/v${VERSION}" 2>/dev/null \
+    && ok "タグ mac/v${VERSION} を origin(private) に反映しました" \
+    || warn "タグ mac/v${VERSION} の origin への push をスキップ（ローカル未取得 or 既存）"
+# public 側は gh release create で作成済みのため通常はスキップされる。
 git -C "$REPO_ROOT" push public "mac/v${VERSION}" 2>/dev/null || warn "タグ mac/v${VERSION} は public に既に存在します（スキップ）"
 ok "master ブランチを push しました"
 

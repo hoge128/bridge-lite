@@ -92,18 +92,72 @@ struct SidebarView: View {
     @State private var rawRendered: CGImage? = nil
     @State private var isRendering = false
     @State private var showRendered = false
+    @State private var showVariationHelp = false   // フィルムストリップ：バリエーション欄の説明
 
+    /// ビュワー（プレビュー）にフォーカスがあるフィルムストリップ状態か。
+    private var isPreviewFocus: Bool { store.filmstripMode && store.filmstripPreviewActive }
+
+    /// メタデータを出す対象の写真。
+    /// ・ピッカーにフォーカス（＝ライブラリ同様）: 主選択 (selectedID = primaryID)
+    /// ・ビュワーにフォーカス: ビュワー内で注目中の 1 枚 (filmstripFocusID)
     private var selectedEntry: PhotoEntry? {
-        store.selectedID.flatMap { store.entries[$0] }
+        if isPreviewFocus {
+            let id = store.filmstripFocusID
+                ?? store.filmstripPreviewSelectedIDs.first
+                ?? store.filmstripCompareIDs.first
+            return id.flatMap { store.entries[$0] }
+        }
+        return store.selectedID.flatMap { store.entries[$0] }
+    }
+
+    /// 複数選択プレースホルダを出すか。ビュワーフォーカス時は常に注目中の 1 枚を出すため出さない。
+    private var showMultiplePlaceholder: Bool {
+        !isPreviewFocus && store.activeSelectionCount > 1
     }
 
     private var isLimitedRawPreview: Bool {
         selectedEntry?.url.pathExtension.lowercased() == "cr2"
     }
 
+    /// バリエーション欄の操作説明（フィルムストリップ）。
+    private var variationHelpPopover: some View {
+        VStack(alignment: .leading, spacing: 8) {
+            Text(String(localized: "filmstrip.variations.label", defaultValue: "Variations"))
+                .font(.headline)
+            Text(String(localized: "filmstrip.variations.help.1",
+                        defaultValue: "Same-shot variations (RAW / JPG / retouched) of the focused photo."))
+            Text(String(localized: "filmstrip.variations.help.2",
+                        defaultValue: "Drag one onto the viewer to add it to the comparison. Clicking here does not change the picker selection."))
+        }
+        .font(.callout)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+        .padding(16)
+        .frame(width: 300)
+    }
+
+    /// 複数選択中の表示（単一写真のメタデータは出さない）。
+    @ViewBuilder
+    private func multipleSelectionPlaceholder(count: Int) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "photo.on.rectangle.angled")
+                .font(.system(size: 32))
+                .foregroundStyle(.tertiary)
+            Text(String(localized: "sidebar.multiple_selected",
+                        defaultValue: "\(count) photos selected"))
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
     var body: some View {
         Group {
-            if let entry = selectedEntry {
+            if showMultiplePlaceholder {
+                // 複数選択中は単一写真のメタデータを出さずクリアする（ピッカーフォーカス時のみ）。
+                multipleSelectionPlaceholder(count: store.activeSelectionCount)
+            } else if let entry = selectedEntry {
                 ScrollView {
                     VStack(alignment: .leading, spacing: 0) {
                         let displayPreview: CGImage? = (showRendered ? rawRendered : nil) ?? highResPreview ?? store.thumbnailImage(for: entry.id)
@@ -161,7 +215,28 @@ struct SidebarView: View {
                                 let db = store.entries[b]?.createdDate ?? .distantPast
                                 return da < db
                             }
-                            VariationStripView(selectedID: entry.id, members: members)
+                            VStack(alignment: .leading, spacing: 0) {
+                                if store.filmstripMode {
+                                    HStack(spacing: 6) {
+                                        Text(String(localized: "filmstrip.variations.label",
+                                                    defaultValue: "Variations"))
+                                            .font(.caption).foregroundStyle(.secondary)
+                                        Button { showVariationHelp.toggle() } label: {
+                                            Image(systemName: "questionmark.circle")
+                                        }
+                                        .buttonStyle(.borderless)
+                                        .help(String(localized: "filmstrip.variations.help.button",
+                                                     defaultValue: "How to add a variation to the viewer"))
+                                        .popover(isPresented: $showVariationHelp, arrowEdge: .top) {
+                                            variationHelpPopover
+                                        }
+                                        Spacer()
+                                    }
+                                    .padding(.horizontal, 8)
+                                    .padding(.top, 6)
+                                }
+                                VariationStripView(selectedID: entry.id, members: members)
+                            }
                         }
 
                         PosixSectionView(entry: entry)
@@ -441,13 +516,44 @@ struct ExifQuickBar: View {
     }
     private var fText: String { exif?.fnumber ?? "--" }
 
+    private static func fmtMm(_ mm: Double) -> String {
+        mm == mm.rounded() ? "\(Int(mm))mm" : String(format: "%.1fmm", mm)
+    }
+    // 記録値が無く Make から算出した補完値のときは "≈" を付ける
+    private var focal35Text: String {
+        guard let mm = exif?.focalLength35mmEffective else { return "--" }
+        let approx = exif?.focalLength35mmIsComputed == true ? "≈" : ""
+        return "\(approx)\(mm)mm"
+    }
+    private var focalLensText: String {
+        exif?.focalLengthMm.map(Self.fmtMm) ?? "--"
+    }
+    // "+1.0 EV" → "+1.0"（ラベル側に EV と書くため単位を省く）
+    private var evText: String {
+        guard let s = exif?.exposureBias else { return "--" }
+        return s.components(separatedBy: " ").first ?? s
+    }
+
     var body: some View {
-        HStack(spacing: 0) {
-            cell(label: "ISO", value: isoText, hasValue: exif?.iso != nil)
-            separator
-            cell(label: "SS", value: ssText, hasValue: exif?.exposureTime != nil)
-            separator
-            cell(label: "F", value: fText, hasValue: exif?.fnumber != nil)
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                cell(label: "ISO", value: isoText, hasValue: exif?.iso != nil)
+                separator
+                cell(label: "SS", value: ssText, hasValue: exif?.exposureTime != nil)
+                separator
+                cell(label: "F", value: fText, hasValue: exif?.fnumber != nil)
+            }
+            Rectangle()
+                .fill(Color.secondary.opacity(0.2))
+                .frame(height: 0.5)
+                .padding(.horizontal, 2)
+            HStack(spacing: 0) {
+                cell(label: "35mm", value: focal35Text, hasValue: exif?.focalLength35mmEffective != nil)
+                separator
+                cell(label: "Lens", value: focalLensText, hasValue: exif?.focalLengthMm != nil)
+                separator
+                cell(label: "EV", value: evText, hasValue: exif?.exposureBias != nil)
+            }
         }
         .frame(maxWidth: .infinity)
         .padding(.horizontal, 8)
@@ -568,8 +674,10 @@ struct VariationThumbView: View {
                 .frame(width: 52, height: 52)
                 .clipShape(RoundedRectangle(cornerRadius: 4))
                 .overlay(
+                    // strokeBorder: 線をフレーム内側に全幅描画し、stroke 中央描画で
+                    // 起きる外側はみ出し（＝枠の見切れ・歪み）を防ぐ。一周を均一な太さで描く。
                     RoundedRectangle(cornerRadius: 4)
-                        .stroke(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
+                        .strokeBorder(isSelected ? Color.accentColor : Color.clear, lineWidth: 2)
                 )
 
             let badge = entry.isRaw ? "R" : (isDev ? "DEV" : (isInd ? "IND" : "J"))
@@ -592,6 +700,13 @@ struct VariationThumbView: View {
                 .padding(2)
         }
         .onTapGesture {
+            // フィルムストリップ中はピッカーの選択/代表を動かさず、ビュワーの注目だけ移動する。
+            // これでビュワーのメタデータバーからグループメンバー間を移動できる。
+            // 比較セットへの「追加」は従来どおりビュワーへのドラッグで行う。
+            if store.filmstripMode {
+                store.focusFilmstripVariation(entry.id)
+                return
+            }
             let now = Date()
             if let last = lastTap,
                now.timeIntervalSince(last) < NSEvent.doubleClickInterval {
@@ -604,6 +719,24 @@ struct VariationThumbView: View {
                 store.selectEntry(entry.id)
             }
         }
+        // ビュワー（フィルムストリップのプレビュー）へドラッグして比較セットに追加するための内部ペイロード。
+        // ドラッグできるのはフィルムストリップモード限定（ライブラリでは不可）。
+        // 独自タイプ＋ .ownProcess でアプリ内限定（テキスト欄等への漏れを防ぐ）。
+        .onDragIf(store.filmstripMode) {
+            // ペイロードはストア経由で渡す（AppKit 側で同期的に読めるようにするため）。
+            // ビュワーに「ここへドロップ」促進エリアも出る（filmstripMemberDragActive）。
+            store.filmstripDraggingMemberID = entry.id
+            // ドラッグを開始させるためのマーカー（中身は読まない／アプリ内限定）。
+            let provider = NSItemProvider()
+            provider.registerDataRepresentation(
+                forTypeIdentifier: LibraryStore.filmstripPhotoDragType,
+                visibility: .ownProcess
+            ) { completion in
+                completion(String(entry.id).data(using: .utf8), nil)
+                return nil
+            }
+            return provider
+        }
         .contextMenu { variationContextMenu }
     }
 
@@ -614,6 +747,23 @@ struct VariationThumbView: View {
         }
 
         OpenWithMenu(targetURLs: [entry.url], primaryURL: entry.url)
+
+        if store.canMakeRepresentative(entry.id) {
+            Divider()
+            Button {
+                store.makeRepresentative(entry.id)
+            } label: {
+                if store.isCurrentRepresentative(entry.id) {
+                    Label(String(localized: "representative.make",
+                                 defaultValue: "Make This the Representative"),
+                          systemImage: "checkmark")
+                } else {
+                    Text(String(localized: "representative.make",
+                                defaultValue: "Make This the Representative"))
+                }
+            }
+            .disabled(store.isCurrentRepresentative(entry.id))
+        }
 
         Divider()
 
@@ -763,8 +913,10 @@ struct ExifSectionView: View {
                     if let fl = exif.focalLength {
                         MetaRow(key: "Focal", value: fl)
                     }
-                    if let fl35 = exif.focalLength35mm {
-                        MetaRow(key: "Focal (35mm)", value: "\(fl35) mm")
+                    if let fl35 = exif.focalLength35mmEffective {
+                        // 記録値が無く Make から算出した補完値のときは "≈" を付ける
+                        let approx = exif.focalLength35mmIsComputed ? "≈" : ""
+                        MetaRow(key: "Focal (35mm)", value: "\(approx)\(fl35) mm")
                     }
                     if let ev = exif.exposureBias {
                         MetaRow(key: "Exp. Bias", value: ev)
@@ -888,6 +1040,30 @@ struct XmpSectionView: View {
                     }
                 }
 
+                // Pick / Reject フラグ（P / X キーと同じトグル挙動）
+                HStack(spacing: 10) {
+                    ForEach(XmpFlag.allCases, id: \.rawValue) { flag in
+                        let isOn = xmp?.flag == flag
+                        HStack(spacing: 4) {
+                            Image(systemName: flag.systemImage)
+                                .font(.system(size: 12, weight: .semibold))
+                            Text(flag.name)
+                                .font(.caption)
+                        }
+                        .foregroundStyle(isOn ? Color.white : flag.color)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 3)
+                        .background(
+                            Capsule().fill(isOn ? flag.color : flag.color.opacity(0.12))
+                        )
+                        .contentShape(Capsule())
+                        .onTapGesture { store.applyFlag(flag.rawValue) }
+                        .help(flag == .pick
+                              ? String(localized: "flag.pick.help",   defaultValue: "Pick (P)")
+                              : String(localized: "flag.reject.help", defaultValue: "Reject (X)"))
+                    }
+                }
+
                 Divider()
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -989,3 +1165,18 @@ struct LuminanceBarView: View {
     }
 }
 
+
+// MARK: - 条件付き onDrag
+//
+// `.onDrag` は無条件だと常時ドラッグ可能になってしまう。フィルムストリップ限定で
+// ドラッグソース化するため、条件付きでモディファイアを適用するヘルパー。
+extension View {
+    @ViewBuilder
+    func onDragIf(_ condition: Bool, _ provider: @escaping () -> NSItemProvider) -> some View {
+        if condition {
+            self.onDrag(provider)
+        } else {
+            self
+        }
+    }
+}

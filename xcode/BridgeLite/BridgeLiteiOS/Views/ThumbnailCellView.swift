@@ -11,6 +11,8 @@ struct ThumbnailCellView: View {
     let squareCellSize: CGFloat?
     /// iPhone のみ使用（accentColor 枠線）。iPad は黒オーバーレイで選択表現するため常に false。
     var isSelected: Bool = false
+    /// プレビュー（埋込 JPEG / RGB）を生成できなかった RAW。読込中シマーの代わりにプレースホルダを出す。
+    var previewUnavailable: Bool = false
     let onTap: () -> Void
     let onDelete: () -> Void
 
@@ -72,6 +74,9 @@ struct ThumbnailCellView: View {
                 .resizable()
                 .scaledToFill()
                 .frame(width: size, height: size)
+        } else if previewUnavailable {
+            UnavailablePreviewView(compact: true)
+                .frame(width: size, height: size)
         } else {
             Color(.systemGray5)
                 .frame(width: size, height: size)
@@ -85,6 +90,10 @@ struct ThumbnailCellView: View {
             Image(uiImage: uiImage)
                 .resizable()
                 .scaledToFit()
+                .frame(maxWidth: .infinity)
+        } else if previewUnavailable {
+            UnavailablePreviewView(compact: true)
+                .aspectRatio(3/2, contentMode: .fit)
                 .frame(maxWidth: .infinity)
         } else {
             Color(.systemGray5)
@@ -144,4 +153,35 @@ struct ThumbnailCellView: View {
             }
     }
 
+}
+
+/// プレビュー（埋込 JPEG / RGB）を生成できなかった RAW 用のプレースホルダ。
+/// 永遠の読込中シマーと区別して「プレビュー不可」を明示する。グリッド（compact）と
+/// 単体ビュー（非 compact）で共用する。
+struct UnavailablePreviewView: View {
+    var compact: Bool = false
+
+    var body: some View {
+        ZStack {
+            Color(.systemGray5)
+            VStack(spacing: compact ? 4 : 10) {
+                Image(systemName: "photo.badge.exclamationmark")
+                    .font(.system(size: compact ? 24 : 52, weight: .light))
+                    .foregroundStyle(.secondary)
+                Text(String(localized: "preview.unavailable", defaultValue: "No preview"))
+                    .font(compact ? .caption2 : .callout)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                if !compact {
+                    Text(String(localized: "preview.unavailable.detail",
+                                defaultValue: "This RAW has no embedded preview to display."))
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                        .multilineTextAlignment(.center)
+                        .padding(.horizontal, 24)
+                }
+            }
+            .padding(compact ? 4 : 12)
+        }
+    }
 }

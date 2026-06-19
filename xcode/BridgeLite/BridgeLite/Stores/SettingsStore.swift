@@ -3,8 +3,8 @@ import Foundation
 import SwiftUI
 
 enum FilterSection: String, CaseIterable, Codable, Identifiable {
-    case fileType, camera, artist, lens, rating, label
-    case iso, focal, shutter, aperture, date, luminance
+    case fileType, camera, artist, lens, rating, label, flag
+    case iso, focal, focal35, shutter, aperture, date, timeOfDay, luminance
 
     var id: String { rawValue }
 
@@ -16,11 +16,17 @@ enum FilterSection: String, CaseIterable, Codable, Identifiable {
         case .lens:       return String(localized: "Lens")
         case .rating:     return String(localized: "Rating")
         case .label:      return String(localized: "Label")
+        case .flag:       return String(localized: "Flag")
         case .iso:        return String(localized: "ISO")
-        case .focal:      return String(localized: "Focal Length")
+        case .focal:      return String(localized: "filter.section.focal_lens",
+                                        defaultValue: "Focal Length (Lens)")
+        case .focal35:    return String(localized: "filter.section.focal_35mm",
+                                        defaultValue: "Focal Length (35mm)")
         case .shutter:    return String(localized: "Shutter")
         case .aperture:   return String(localized: "Aperture")
         case .date:       return String(localized: "Date")
+        case .timeOfDay:  return String(localized: "filter.section.time_of_day",
+                                        defaultValue: "Time of Day")
         case .luminance:  return String(localized: "Luminance")
         }
     }
@@ -79,6 +85,25 @@ enum RatingShortcutModifier: String, CaseIterable, Identifiable {
         case .none:    return []
         case .command: return .command
         case .control: return .control
+        }
+    }
+}
+
+/// サムネイルグリッドからビューを開く操作の割り当て。
+enum GridOpenGestureMode: String, CaseIterable, Identifiable {
+    case spaceViewer   // 既定: Space → 単体ビュー / ダブルクリック → 比較ビュー
+    case spaceCompare  // 入替: Space → 比較ビュー / ダブルクリック → 単体ビュー
+
+    var id: String { rawValue }
+
+    var localizedName: String {
+        switch self {
+        case .spaceViewer:
+            return String(localized: "open_gesture.space_viewer",
+                          defaultValue: "Space → Viewer / Double-click → Compare")
+        case .spaceCompare:
+            return String(localized: "open_gesture.space_compare",
+                          defaultValue: "Space → Compare / Double-click → Viewer")
         }
     }
 }
@@ -203,6 +228,11 @@ final class SettingsStore {
     var showHints: Bool = UserDefaults.standard.object(forKey: "showHints") as? Bool ?? true {
         didSet { UserDefaults.standard.set(showHints, forKey: "showHints") }
     }
+
+    /// ツールバーのデコード・タコメーター表示（既定 OFF）。
+    var showDecodeTachometer: Bool = UserDefaults.standard.bool(forKey: "showDecodeTachometer") {
+        didSet { UserDefaults.standard.set(showDecodeTachometer, forKey: "showDecodeTachometer") }
+    }
     // [BETA DISABLED] UserDefaults を読まず常に .all で起動する。
     // 再有効化時は下記に戻す:
     // (UserDefaults.standard.string(forKey: "viewMode").flatMap(ViewMode.init(rawValue:))) ?? .all
@@ -238,6 +268,14 @@ final class SettingsStore {
     var viewerSpaceFullscreen: Bool = (UserDefaults.standard.object(forKey: "viewerSpaceFullscreen") as? Bool) ?? false {
         didSet { UserDefaults.standard.set(viewerSpaceFullscreen, forKey: "viewerSpaceFullscreen") }
     }
+    /// 単体ビューの上部ボタンをマウス静止 1 秒で自動非表示にする（マウスを動かすと再表示）。
+    var viewerAutoHideControls: Bool = bool("viewerAutoHideControls", default: true) {
+        didSet { UserDefaults.standard.set(viewerAutoHideControls, forKey: "viewerAutoHideControls") }
+    }
+    var gridOpenGesture: GridOpenGestureMode = (UserDefaults.standard.string(forKey: "gridOpenGesture")
+                                                .flatMap(GridOpenGestureMode.init(rawValue:))) ?? .spaceViewer {
+        didSet { UserDefaults.standard.set(gridOpenGesture.rawValue, forKey: "gridOpenGesture") }
+    }
     var calendarMaxMonths: Int = {
         let v = UserDefaults.standard.integer(forKey: "calendarMaxMonths")
         return v > 0 ? v : 5
@@ -249,7 +287,15 @@ final class SettingsStore {
               let saved = try? JSONDecoder().decode([FilterSection].self, from: data),
               !saved.isEmpty else { return FilterSection.allCases }
         var result = saved.filter { FilterSection.allCases.contains($0) }
-        for s in FilterSection.allCases where !result.contains(s) { result.append(s) }
+        // 保存済み並び順に無い新セクションは、allCases 上の直前セクションの後ろに挿入する
+        // （例: 後から追加された .flag は .label の直後に並ぶ）。
+        for (i, s) in FilterSection.allCases.enumerated() where !result.contains(s) {
+            if i > 0, let idx = result.firstIndex(of: FilterSection.allCases[i - 1]) {
+                result.insert(s, at: idx + 1)
+            } else {
+                result.append(s)
+            }
+        }
         return result
     }() {
         didSet {
