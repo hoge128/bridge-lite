@@ -46,9 +46,9 @@ struct RatingBarView: View {
             .padding(.vertical, 8)
             .adaptiveGlass(cornerRadius: 20)
 
-            // カラーラベル
-            HStack(spacing: 10) {
-                labelButton(nil, color: Color(.systemGray4), name: String(localized: "filter.none", defaultValue: "None"))
+            // カラーラベル（「ラベルなし」ボタンは廃止＝選択中ラベルを再タップで解除）
+            // 星(frame 36 / spacing 6)と同一メトリクスにして、星 i の真下にラベル i が揃うようにする。
+            HStack(spacing: 6) {
                 ForEach(XmpLabel.allCases, id: \.self) { label in
                     labelButton(label, color: label.color, name: label.name)
                 }
@@ -101,6 +101,8 @@ struct RatingBarView: View {
                         .stroke(Color.white.opacity(isSelected ? 1 : 0), lineWidth: 2.5)
                 )
                 .shadow(color: isSelected ? color.opacity(0.6) : .clear, radius: 4)
+                // 星(36pt フレーム)と縦位置・行高・横ストライドを揃える。
+                .frame(width: 36, height: 36)
         }
         .buttonStyle(.plain)
     }
