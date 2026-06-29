@@ -1,6 +1,6 @@
 # フィルタパイプライン再設計
 
-最終更新: 2026-05-11
+最終更新: 2026-06-30
 
 ## 背景・動機
 
@@ -265,6 +265,64 @@ aggregates（S5）は現在同期実行で、フィルタ変更のたびに N �
 現在 `filteredIDsExcluding` を 6 回呼んでいる（= `filter.matches` を 6 回フルスキャン）。1 ループで 6 軸を同時判定する「axis-aware predicate」に書き換える。
 
 PR6 の後で性能計測して効果が見えてから判断。
+
+---
+
+### 完了: PR-snap (2026-06-30) - 離散トグルの即時適用
+
+`onFilterChanged(from:)` を 3 分岐に変更（クリック感度改善のため）:
+
+- `repsAffected`（flatten / filterKinds 変化）→ 従来どおり即時 `recomputeVisible()`
+- `isTextInput`（スライダー/テキスト）→ `scheduleFilterApply()`（200ms デバウンス）
+- それ以外＝**離散トグル（レーティング/ラベル等のチップ）→ デバウンス無しで即時 `runDirtyStages()`**
+
+**重要**: この即時適用は **main スレッド同期**実行のまま。下記「PR8」で非同期＋シマー方式に置き換える前提の暫定対応。小〜中規模ライブラリでは即応するが、大規模では同期 O(n) で固まる。
+
+---
+
+## UX 設計目標: 「コントロール即応 + 結果は非同期 + シマー表示」（PR8 / 未実施）
+
+> ユーザー要望（2026-06-30）: **フィルタ操作（コントロール）自体は即座に描画されるべき。結果（フィルタ対象の画像が出るまで）は数秒かかってよい。その待ち時間をシマーアニメーションで表現したい。**
+
+### 現状はこの設計になっていない（要点）
+
+- 結果に直結する重い段 **S2 filtered / S2.5 ratingCounts / S3 sorted** は `runDirtyStages()` 内で **main スレッド同期実行**（`runDirtyStages()` のコメント「S1〜S4 は同期実行、S5 のみ Task.detached」）。
+- そのため計算中は main がブロックされ、**フィルタチップ自身の再描画もシマー（`ThumbnailGridView` の `.shimmer(when: store.isFilterPending)`）も止まる**。
+- `isFilterPending` のシマーは実質、連続入力の 200ms デバウンス区間しかカバーしておらず、**本当の計算時間中は出ていない**。
+- 既存ドキュメントの PR6 は **S5 aggregates のみ**の非同期化であり、S2/S2.5/S3（＝結果そのもの）の非同期化はカバーしていない。本節がそれを補う。
+
+### 望ましいフロー
+
+1. **コントロール操作（main・即時・軽量）**: `filter` 更新 ＋ `isFilterPending = true` だけを同期実行。チップのハイライトとシマー開始が即描画される。
+2. **結果計算（バックグラウンド）**: reps（必要時）/ filtered / ratingCounts / sorted をスナップショット入力で `Task.detached` 計算。数秒かかっても UI は固まらない。
+3. **反映（MainActor）**: `visibleIDs` / `ratingCounts` を反映し `isFilterPending = false`。シマー停止・画像表示。
+
+### 実装方針（既存パターンの横展開）
+
+同ファイルの **`runStageAggregates()`（S5）が既にこの形**（`exifSnap`/`entrySnap`/`filterSnap`/`lumSnap` をスナップ → `Task.detached` → `scanGeneration` (gen) ガード付きで `MainActor.run` 反映）。これを filtered/sorted/ratingCounts 段にも適用すればよく、新しい仕組みは不要。
+
+- **新メソッド** 例: `runFilterStagesAsync()` を追加し、`onFilterChanged` の非 repsAffected 分岐から呼ぶ。
+- **スナップショット**: 計算入力（`entries` / `exifData` / `xmpData` / `luminanceScores` / `cachedRepsOrdered` / `filter` / `settings.sortKey` / `sortAscending`）を `Sendable` ローカルに束ねて detached に渡す（計算中 read-only）。
+- **キャンセル**: 新しいフィルタ変更が来たら in-flight を破棄。既存 `pendingFilterApplyTask` を流用し、反映前に `Task.isCancelled` と `gen == scanGeneration` を二重チェック。
+- **デバウンス整理**: 離散トグル＝デバウンス無しで即 detached 起動、連続入力（スライダー/テキスト）＝従来 200ms デバウンス後に detached 起動。どちらも `isFilterPending` で待ち時間をシマー表示。
+- **repsAffected の扱い**: S1（代表選定）も重いので、理想的には同様に非同期化。ただし S1 は `shotGroups`/`entries` 依存で invalidate が絡むため、まず S2/S2.5/S3 の非同期化を先行し、S1 は段階導入を検討。
+
+### 並行性の注意
+
+- ステージ群は現状 `@MainActor` の store プロパティを直接読む。detached 化に伴い「読む値は全てローカル snapshot」へ徹底する（途中で store を触らない）。
+- `filter.matches` は `entry`/`exif`/`xmp`/`luminance` を引数で受けるので、ID→メタの辞書をスナップに含めれば純粋関数として detached 実行可能。
+- 反映は必ず MainActor。`visibleIDs` 差分代入（`if next != visibleIDs`）は維持して不要な再描画を避ける。
+
+### 受け入れ基準（このプロジェクト着手時）
+
+- 数万件規模でレーティング/ラベル/種別チップを連打しても **チップのハイライトが即描画**され、グリッドに**シマーが流れ続ける**こと（main がブロックされない）。
+- 計算完了後に画像が差し替わり、シマーが止まること。
+- 連打時に古い結果が最終結果を上書きしないこと（gen ガード）。
+- スライダー/テキストは従来どおりデバウンスが効くこと。
+
+### この設計と PR-snap の関係
+
+PR8 を実装する際は、PR-snap の「離散トグル即時 `runDirtyStages()`（同期）」を**この非同期方式に置き換える**（PR8 が上位互換）。シマーは `isFilterPending` を流用。
 
 ---
 

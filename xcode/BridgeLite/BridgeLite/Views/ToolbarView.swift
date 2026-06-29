@@ -1,3 +1,4 @@
+import AppKit
 import SwiftUI
 
 // MARK: - Liquid Glass style view mode picker
@@ -295,6 +296,7 @@ struct DecodeTachometerView: View {
     @State private var lastTotal = 0
     @State private var seeded = false
     @State private var rate: Double = 0   // 平滑化済み 枚/秒
+    @State private var isActive = true    // アプリがフォアグラウンドか
 
     private let tick = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
 
@@ -330,7 +332,17 @@ struct DecodeTachometerView: View {
                     EmptyView()
                 }
             }
-            .onReceive(tick) { _ in sample() }
+            .onReceive(tick) { _ in if isActive { sample() } }
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSApplication.didBecomeActiveNotification)) { _ in
+                // 背面中の total 増分でアクティブ復帰時に針が暴れないよう再シードする。
+                seeded = false
+                isActive = true
+            }
+            .onReceive(NotificationCenter.default.publisher(
+                for: NSApplication.didResignActiveNotification)) { _ in
+                isActive = false
+            }
             .help(helpText)
             .accessibilityLabel(Text(String(localized: "tacho.label",
                                             defaultValue: "Thumbnail decode activity")))
@@ -353,6 +365,8 @@ struct DecodeTachometerView: View {
         if !seeded { lastTotal = total; seeded = true; return }
         let delta = max(0, total - lastTotal)
         lastTotal = total
+        // 完全アイドル（デコードも針もゼロ）なら withAnimation を呼ばず無駄なトランザクションを避ける。
+        if delta == 0 && rate == 0 { return }
         let instant = Double(delta) / sampleInterval
         // 立ち上がりは速く、減衰はやや緩やかに（針が暴れすぎないよう EMA）
         let a = instant >= rate ? 0.6 : 0.3

@@ -503,8 +503,13 @@ private final class GridInteractionNSView: NSView {
     private var rubberBandBase: Set<UInt64> = []   // 選択モードのラバーバンド加算の起点選択
     private var suppressMouseUp = false
     private var lastClick: (id: UInt64, timestamp: TimeInterval)?
+    private var lastMenuPoint: CGPoint = .zero   // 共有シートの anchor（右クリック位置）
 
-    override var isFlipped: Bool { true }
+    // AppKit はドラッグ開始時 beginDraggingSession 内で dispatch_apply を使い
+    // バックグラウンドキューから NSViewGetTransformToAncestor → isFlipped を読む。
+    // @MainActor 隔離のままだと main 以外で呼ばれ swift_task_checkIsolated が発火して
+    // クラッシュするため nonisolated 化する（定数を返すだけで隔離状態に触れない）。
+    nonisolated override var isFlipped: Bool { true }
     override var acceptsFirstResponder: Bool { true }
 
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
@@ -689,7 +694,8 @@ private final class GridInteractionNSView: NSView {
         }
         let ids = store.selectedIDs
         let scope = resolveDndScope(store: store, flags: event.modifierFlags)
-        let urls = store.urlsFor(ids: ids, scope: scope)
+        // RAW 等と一緒に存在する XMP サイドカーも同梱する（コピー/共有と挙動を揃える）。
+        let urls = store.appendingSidecars(store.urlsFor(ids: ids, scope: scope))
         // スタックプレビュー用に先頭最大5枚のサムネを集める（先頭=ドラッグ中のセル、以降は可視順）
         var previewIDs: [UInt64] = [id]
         for vid in store.visibleIDs where vid != id && ids.contains(vid) {
@@ -746,6 +752,7 @@ private final class GridInteractionNSView: NSView {
     private func showContextMenu(for event: NSEvent) {
         guard let store else { return }
         let point = convert(event.locationInWindow, from: nil)
+        lastMenuPoint = point
         guard let id = cellID(at: point), let entry = store.entries[id] else {
             // 選択モードはセル外の操作で選択を解除しない。
             if !store.isSelectionModeActive { store.deselectAll() }
@@ -770,6 +777,12 @@ private final class GridInteractionNSView: NSView {
         let openWith = NSMenuItem(title: String(localized: "Open With"), action: nil, keyEquivalent: "")
         openWith.submenu = makeOpenWithMenu(targetURLs: targetURLs, primaryURL: primaryURL)
         menu.addItem(openWith)
+
+        // 共有（AirDrop/メール/メッセージ等）。XMP サイドカーも一緒に共有する。
+        let shareURLs = store.appendingSidecars(targetURLs)
+        menu.addItem(actionItem(String(localized: "Share"),
+                                action: #selector(shareSelection(_:)),
+                                representedObject: shareURLs as NSArray))
         menu.addItem(.separator())
 
         let rating = NSMenuItem(title: String(localized: "Rating"), action: nil, keyEquivalent: "")
@@ -952,6 +965,16 @@ private final class GridInteractionNSView: NSView {
     @objc private func openWith(_ sender: NSMenuItem) {
         guard let action = sender.representedObject as? OpenWithAction else { return }
         OpenWithService.open(action.targetURLs, with: action.appURL)
+    }
+
+    @objc private func shareSelection(_ sender: NSMenuItem) {
+        guard let urls = sender.representedObject as? [URL], !urls.isEmpty else { return }
+        let picker = NSSharingServicePicker(items: urls)
+        // ゼロサイズ矩形だと show(relativeTo:) が退化矩形を無視して既定位置
+        // （スクロール済み巨大ビューの原点付近＝可視外）に出てしまうため、
+        // 右クリック位置に小さな非ゼロ矩形を置いてアンカーする。
+        let rect = NSRect(x: lastMenuPoint.x - 1, y: lastMenuPoint.y - 1, width: 2, height: 2)
+        picker.show(relativeTo: rect, of: self, preferredEdge: .minY)
     }
 
     @objc private func addOpenWithApplication() {

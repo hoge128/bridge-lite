@@ -3054,6 +3054,22 @@
         }
       }
     },
+    "Share" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Share"
+          }
+        },
+        "ja" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "共有"
+          }
+        }
+      }
+    },
     "Show every file individually. Disables grouping and replaces the kind filter with an extension filter.": {
       "extractionState": "stale",
       "localizations": {

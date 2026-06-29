@@ -1250,8 +1250,24 @@ final class LibraryStore: ReindexedGroupSink {
             }
         }
 
+        let urlsWithSidecars = appendingSidecars(urls)
         NSPasteboard.general.clearContents()
-        NSPasteboard.general.writeObjects(urls as [NSURL])
+        NSPasteboard.general.writeObjects(urlsWithSidecars as [NSURL])
+    }
+
+    /// 与えた写真 URL 群に、存在する XMP サイドカー（stem-only: photo.ARW → photo.xmp）を
+    /// 重複なく追加して返す。コピー・ドラッグ・共有のエクスポート経路で共有する。
+    /// JPG が embed モードで XMP 内蔵の場合は `.xmp` が存在しないため fileExists で自然にスキップ。
+    func appendingSidecars(_ urls: [URL]) -> [URL] {
+        var result = urls
+        var seen = Set(urls)
+        for url in urls {
+            let xmp = url.deletingPathExtension().appendingPathExtension("xmp")
+            if seen.insert(xmp).inserted, FileManager.default.fileExists(atPath: xmp.path) {
+                result.append(xmp)
+            }
+        }
+        return result
     }
 
     /// D&D の urlsProvider に渡す URL 配列を scope に従って生成する。
@@ -1953,14 +1969,22 @@ final class LibraryStore: ReindexedGroupSink {
             recomputeVisible()
             // 代表集合が入れ替わりフォーカスが画面外へ出ることがあるため可視範囲へ戻す。
             revealPrimaryRequest.send()
-        } else {
-            // ヒストグラム範囲・レーティング等の単純フィルタ。
+        } else if shape.isTextInput {
+            // 連続入力（ヒストグラムのスライダードラッグ・テキスト検索）。
             // 操作感を最優先し、重い再計算(S2 以降)はデバウンスして非同期適用する。
             // ドラッグのジェスチャ更新を main スレッドでブロックしないのでハンドルが追従する。
             // 結果が出るまでは isFilterPending=true でグリッドにシマーを流す。
             mark(filtered: true)
             isFilterPending = true
             scheduleFilterApply()
+        } else {
+            // 離散トグル（レーティング/ラベル等のチップ）はデバウンスせず即時適用し、
+            // クリック反応を一拍遅れさせない。連続発火しないので coalesce 不要。
+            pendingFilterApplyTask?.cancel(); pendingFilterApplyTask = nil
+            mark(filtered: true)
+            runDirtyStages()
+            isFilterPending = false
+            revealPrimaryRequest.send()
         }
     }
 
