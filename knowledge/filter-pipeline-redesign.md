@@ -276,11 +276,27 @@ PR6 の後で性能計測して効果が見えてから判断。
 - `isTextInput`（スライダー/テキスト）→ `scheduleFilterApply()`（200ms デバウンス）
 - それ以外＝**離散トグル（レーティング/ラベル等のチップ）→ デバウンス無しで即時 `runDirtyStages()`**
 
-**重要**: この即時適用は **main スレッド同期**実行のまま。下記「PR8」で非同期＋シマー方式に置き換える前提の暫定対応。小〜中規模ライブラリでは即応するが、大規模では同期 O(n) で固まる。
+**重要**: この即時適用は **main スレッド同期**実行のまま。下記「PR8」で非同期＋シマー方式に置き換える前提の暫定対応だった。**→ 2026-06-30 に PR8 を実装し、この同期即時適用は `scheduleFilterApplyAsync` ベースの非同期方式に置き換え済み（下記 PR8 節を参照）。**
 
 ---
 
-## UX 設計目標: 「コントロール即応 + 結果は非同期 + シマー表示」（PR8 / 未実施）
+## UX 設計目標: 「コントロール即応 + 結果は非同期 + シマー表示」（PR8 / ✅ 実装済み 2026-06-30）
+
+> 実装サマリ（2026-06-30）: 下記設計のとおり `LibraryStore` に実装済み。
+> - `runFilterStagesAsync(applyGen:)` を追加。S2 filtered / S2.5 ratingCounts / S3 sorted を
+>   `Task.detached(.userInitiated)` でバックグラウンド計算し、`scanGeneration` + `filterApplyGeneration`
+>   の二重ガードで反映。`isFilterPending` でシマー表示。
+> - `scheduleFilterApplyAsync(debounceMs:)` に置換（旧 `scheduleFilterApply` は削除）。
+>   離散トグル/repsAffected=0ms、連続入力(スライダー/テキスト)=200ms。
+> - 純粋 static `sortIDs(...)` / `computeRatingCounts(...)` を追加し同期・非同期パスで共有
+>   （`compareIDs` は `sortIDs` に統合）。`.exifDate` ソートは MainActor で `photoDate` 事前解決。
+> - stale 上書き防止: `recomputeVisible()` 冒頭で in-flight をキャンセル＋世代 bump、`reset()` でも同様。
+> - 注意（既存挙動踏襲）: `filter.matches` の日付述語は共有 static DateFormatter を使い off-main 実行される。
+>   既存の aggregates パス（`filteredIDsExcluding`）も同様に off-main で matches を呼んでおり、本変更は
+>   その前例に倣う（DateFormatter の format/parse は macOS 10.9+ でスレッドセーフ）。将来 PR5
+>   (CompiledFilter) でパース済み述語に置換すればこの依存自体が消える。
+>
+> 以下は設計の経緯・詳細（参照用）。
 
 > ユーザー要望（2026-06-30）: **フィルタ操作（コントロール）自体は即座に描画されるべき。結果（フィルタ対象の画像が出るまで）は数秒かかってよい。その待ち時間をシマーアニメーションで表現したい。**
 
@@ -323,6 +339,68 @@ PR6 の後で性能計測して効果が見えてから判断。
 ### この設計と PR-snap の関係
 
 PR8 を実装する際は、PR-snap の「離散トグル即時 `runDirtyStages()`（同期）」を**この非同期方式に置き換える**（PR8 が上位互換）。シマーは `isFilterPending` を流用。
+
+---
+
+## View 層: FilterPanelView の再描画コスト削減（✅ 2026-06-30）
+
+PR8（データ非同期化）後も「チェックボックスのクリックで描画が遅い」が残った。原因はデータではなく
+`FilterPanelView` の SwiftUI 再描画コスト（main 同期）。対応済み:
+
+- **ルートの `.background(.ultraThinMaterial)` を削除**（最大の主犯）。縦長パネル全面のライブブラーが
+  クリックごとに GPU 再合成されていた。`FilterPanelView` は NavigationSplitView の sidebar 列で OS が
+  既に背景を提供するため不要（CLAUDE.md の SidebarView material 禁止と同種）。
+- **各セクションを独立 `View` struct に分割**（`FileTypeFilterSection` … `LuminanceFilterSection`、
+  共有 `FilterSectionLabel`）。`@State expanded` を各 struct へ移設。これで非同期 aggregates 更新
+  （`ratingCounts`/`isoBuckets…`/`availableCameras…`）が**該当セクションのみ**を再描画する
+  （旧モノリシック body は全体を作り直していた）。
+
+**Fix C（✅ 2026-06-30・最重要だった）: ExifHistogramView を Equatable スキップ化**
+Fix A+B 後も体感遅延が残った。原因は 7 個の `ExifHistogramView`（Canvas + GeometryReader +
+DragGesture + ラベル ForEach と重い body）が、各セクション body が `store.filter` を読むため
+**フィルタ変更のたびに 7 連続で再評価**されること。対応:
+- `ExifHistogramView` の `@Binding minText/maxText` を **プレーン `String` + 確定時 `onCommit` クロージャ**へ変更。
+  これで本 View は `@Observable`/`Binding` を一切読まない。ドラッグ確定（onEnded）でのみ `onCommit` を呼ぶ。
+- `ExifHistogramView: Equatable`（`bars`/`minText`/`maxText`/`isLoading` で比較、クロージャは除外）。
+  `ExifBucket: Equatable` も付与。
+- 7 呼び出し側に `.equatable()` を適用。→ 無関係なフィルタ変更時、入力不変の histogram は **body 再評価をスキップ**。
+
+**Fix D（✅ 2026-06-30・Codex 診断による本丸）: isFilterPending のしきい値ゲート化**
+Codex の root-cause レビューで、チェックボックス体感遅延の主因は **`isFilterPending=true` がクリック毎に
+グリッド全面シマー（`ThumbnailGridView.swift:78` の `.shimmer(when:)`）を起動**し、巨大グリッドへの
+オーバーレイ mount + `repeatForever` アニメ start/stop がメインスレッドでチェック描画と競合することと判明。
+対応（`LibraryStore.swift`）:
+- `onFilterChanged` では **isFilterPending を即時 true にしない**。
+- `scheduleFilterApplyAsync` に `pendingShimmerTask` を追加。`shimmerThresholdMs`(=100ms) 経過しても
+  適用が終わっていない場合のみ `isFilterPending=true`。高速クリック（compute<100ms）ではシマーを
+  一切出さない＝グリッドのシマー churn が起きず即応。
+- 適用完了／`recomputeVisible`／`reset` で `pendingShimmerTask` をキャンセル。`isFilterPending=false` は
+  既に false なら通知しない（`if isFilterPending { … }`）でグリッドの無駄な再評価を回避。
+
+**Fix E（✅ 2026-06-30・Codex 診断 → ユーザー要望で再設計）: ヒストグラムを 3 層に分離**
+ドラッグ中 `dragLeft/dragRight`(@State) が毎フレーム変わり `ExifHistogramView.body` が再評価され、
+重い曲線（Catmull-Rom + ネスト `drawLayer`）と軸ラベル（N×`minimumScaleFactor`）が毎フレーム再描画。
+ユーザー方針: **選択バー（ハンドル）はマウス即追従／曲線はドラッグ中リアルタイム不要／更新中はシマー**。
+`ExifHistogramView` を 3 層に分離:
+- **`HistogramCurve: View, Equatable`**（曲線本体）— `bars`/`leftIndex`/`rightIndex`（コミット済み）で比較し
+  `.equatable()`。ドラッグ中は入力不変で **再描画スキップ＝静的**。Catmull-Rom/`drawLayer` はドラッグ中走らない。
+- **更新中シマー** — `activeHandle != nil`（ドラッグ中）のとき曲線の上に `.shimmer()` を重ね「更新中」を表示。
+- **`HistogramHandles: View`**（選択バー）— ライブ `effLeftIndex/effRightIndex` で毎フレーム描画。曲線を
+  含まず縦線＋ピンのみで軽量＝マウス即追従。
+- ラベル行 `HistogramLabelRow`（コミット済み index・`.equatable()`）も維持。
+- 形状/曲線ヘルパーは `HistogramPin` enum と `hist*` ファイルスコープ関数へ移動し曲線/ハンドル層で共有。
+- UX: 曲線と軸ラベルはドラッグ確定（離した）時に更新。ドラッグ中はシマー＋ライブのハンドルで操作感を担保。
+- カーソル（`HistogramInteractive`、フィルムストリップのリサイズ帯と同方式の push/pop＋set）:
+  - 選択バーの矩形（ハンドル±ゾーン／ボックス内）にいる時だけ形を変える。それ以外は arrow（`.onContinuousHover` で位置判定）。
+  - ハンドルは動ける方向で出し分け: 両方 `resizeLeftRight` / 左端 `resizeRight` / 右端 `resizeLeft`（動けない方向の△なし）。ドラッグ中も端到達で差し替え。
+  - ボックス内（領域ごと移動可能）はホバー `openHand`／移動中 `closedHand`。全範囲で移動不可なら arrow。
+  - ドラッグ中は適用範囲を accent（青）の半透明矩形でライブ表示（eff* に追従）。`import AppKit` 追加。
+
+**残課題（任意）**: `filter` は値型の単一 property のため、各セクション body（GroupBox + ラベルの
+isXxxActive + Toggle の get）はいずれの filter 変更でも再評価される（観測は property 単位）。重い
+histogram body は Fix C、グリッドシマーは Fix D、ヒストグラムのドラッグは Fix E で解消済み。さらに
+削るなら Codex 推奨の **FilterCriteria の観測粒度分割**（セクション毎に別 observable／@Observable
+サブモデル）。Fix E で体感が残る場合に着手。
 
 ---
 

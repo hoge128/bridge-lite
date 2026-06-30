@@ -132,6 +132,8 @@ final class LibraryStore: ReindexedGroupSink {
     private var metaFlushTask: Task<Void, Never>?
     private var pendingRecomputeTask: Task<Void, Never>?
     @ObservationIgnored private var pendingFilterApplyTask: Task<Void, Never>?
+    @ObservationIgnored private var pendingShimmerTask: Task<Void, Never>?  // しきい値超過時のみシマー点灯
+    @ObservationIgnored private var filterApplyGeneration: UInt64 = 0  // 古い非同期フィルタ適用を破棄するための世代
     @ObservationIgnored private var pendingAggregatesTask: Task<Void, Never>?
 
     // Pipeline stage cache — @ObservationIgnored で UI 観測を回避
@@ -1819,24 +1821,37 @@ final class LibraryStore: ReindexedGroupSink {
     // filterRatings だけを無視するため、星フィルタの ON/OFF に関わらず件数は不変。
     private func runStageRatingCounts() {
         guard dirty.ratingCounts else { return }
+        let counts = Self.computeRatingCounts(pool: cachedRepsOrdered, filter: filter,
+                                              entries: entries, exif: exifData,
+                                              xmp: xmpData, lum: luminanceScores)
+        if counts != ratingCounts { ratingCounts = counts }
+        dirty.ratingCounts = false
+    }
+
+    /// 星フィルタ以外の条件で絞った母集団から星別件数を集計する純粋関数（ファセットカウント）。
+    /// 同期パス（runStageRatingCounts）と非同期パス（runFilterStagesAsync）で共有する。
+    nonisolated static func computeRatingCounts(
+        pool: [UInt64], filter: FilterCriteria,
+        entries: [UInt64: PhotoEntry], exif: [UInt64: ExifData],
+        xmp: [UInt64: XmpData], lum: [UInt64: Int]
+    ) -> [Int: Int] {
         var f = filter
         f.filterRatings = []
-        let pool: [UInt64]
+        let scoped: [UInt64]
         if !f.isActive {
-            pool = cachedRepsOrdered
+            scoped = pool
         } else {
-            pool = cachedRepsOrdered.filter { id in
+            scoped = pool.filter { id in
                 guard let entry = entries[id] else { return false }
-                return f.matches(entry: entry, exif: exifData[id], xmp: xmpData[id], luminance: luminanceScores[id])
+                return f.matches(entry: entry, exif: exif[id], xmp: xmp[id], luminance: lum[id])
             }
         }
         var counts: [Int: Int] = [0:0, 1:0, 2:0, 3:0, 4:0, 5:0]
-        for id in pool {
-            let r = max(0, min(5, xmpData[id]?.rating ?? 0))
+        for id in scoped {
+            let r = max(0, min(5, xmp[id]?.rating ?? 0))
             counts[r, default: 0] += 1
         }
-        if counts != ratingCounts { ratingCounts = counts }
-        dirty.ratingCounts = false
+        return counts
     }
 
     // S3: フィルタ済みエントリをソートして visibleIDs に反映する。
@@ -1959,47 +1974,114 @@ final class LibraryStore: ReindexedGroupSink {
         return FilterChangeShape(repsAffected: repsAffected, isTextInput: isTextInput)
     }
 
+    /// シマー点灯までのしきい値。適用がこれより速く終わればシマーは出さない。
+    private static let shimmerThresholdMs = 100
+
     // filter.didSet から呼ばれる。変更種別に応じてパイプラインの再計算範囲とタイミングを変える。
+    //
+    // 設計（PR8）: コントロール操作は即応・結果は非同期。重い S2/S2.5/S3 はバックグラウンドで
+    // 計算し、完了時に MainActor で反映する（runFilterStagesAsync）。
+    // isFilterPending（グリッド全面シマー）は**クリック時に即時 true にしない**。適用が
+    // shimmerThresholdMs を超えて続く場合のみ点灯する（高速クリックでグリッド全面のシマー
+    // mount/アニメがメインスレッドでチェック描画と競合するのを防ぐ）。
     private func onFilterChanged(from old: FilterCriteria) {
         let shape = classifyFilterChange(from: old, to: filter)
         if shape.repsAffected {
-            // flatten / filterKinds の変化は代表選定(S1)から作り直す必要がある（即時）。
-            pendingFilterApplyTask?.cancel(); pendingFilterApplyTask = nil
-            isFilterPending = false
-            recomputeVisible()
-            // 代表集合が入れ替わりフォーカスが画面外へ出ることがあるため可視範囲へ戻す。
-            revealPrimaryRequest.send()
+            // flatten / filterKinds の変化は代表選定(S1)から作り直す。S1 は runFilterStagesAsync
+            // 冒頭で同期実行され、S2 以降が非同期になる。
+            mark(reps: true)
+            scheduleFilterApplyAsync(debounceMs: 0)
         } else if shape.isTextInput {
-            // 連続入力（ヒストグラムのスライダードラッグ・テキスト検索）。
-            // 操作感を最優先し、重い再計算(S2 以降)はデバウンスして非同期適用する。
-            // ドラッグのジェスチャ更新を main スレッドでブロックしないのでハンドルが追従する。
-            // 結果が出るまでは isFilterPending=true でグリッドにシマーを流す。
+            // 連続入力（ヒストグラムのスライダードラッグ・テキスト検索）は 200ms デバウンス。
             mark(filtered: true)
-            isFilterPending = true
-            scheduleFilterApply()
+            scheduleFilterApplyAsync(debounceMs: 200)
         } else {
-            // 離散トグル（レーティング/ラベル等のチップ）はデバウンスせず即時適用し、
-            // クリック反応を一拍遅れさせない。連続発火しないので coalesce 不要。
-            pendingFilterApplyTask?.cancel(); pendingFilterApplyTask = nil
+            // 離散トグル（レーティング/ラベル等のチップ）はデバウンスせず即時起動。
             mark(filtered: true)
-            runDirtyStages()
-            isFilterPending = false
-            revealPrimaryRequest.send()
+            scheduleFilterApplyAsync(debounceMs: 0)
         }
     }
 
-    /// 単純フィルタ変更のデバウンス適用。連続操作中は最後の1回だけ走らせる。
-    private func scheduleFilterApply(coalesceMs: Int = 200) {
+    /// フィルタ適用をスケジュールする。debounceMs>0 のときだけ間引く。
+    /// filterApplyGeneration で連打・割り込みによる古い適用を破棄する。
+    /// シマーは shimmerThresholdMs を超えた場合のみ点灯（高速クリックでは出さない）。
+    private func scheduleFilterApplyAsync(debounceMs: Int) {
         pendingFilterApplyTask?.cancel()
-        pendingFilterApplyTask = Task { @MainActor [weak self] in
-            try? await Task.sleep(for: .milliseconds(coalesceMs))
-            guard let self, !Task.isCancelled else { return }
-            self.pendingFilterApplyTask = nil
-            self.runDirtyStages()
-            self.isFilterPending = false
-            // フィルタ適用で件数・順序が変わるため、フォーカスが画面外なら可視範囲へ戻す。
-            self.revealPrimaryRequest.send()
+        pendingShimmerTask?.cancel()
+        filterApplyGeneration &+= 1
+        let applyGen = filterApplyGeneration
+
+        // しきい値ゲート: 一定時間内に適用が終わればシマーを出さない。
+        pendingShimmerTask = Task { @MainActor [weak self] in
+            try? await Task.sleep(for: .milliseconds(LibraryStore.shimmerThresholdMs))
+            guard let self, !Task.isCancelled, applyGen == self.filterApplyGeneration else { return }
+            self.isFilterPending = true
         }
+
+        pendingFilterApplyTask = Task { @MainActor [weak self] in
+            guard let self else { return }
+            if debounceMs > 0 {
+                try? await Task.sleep(for: .milliseconds(debounceMs))
+                guard !Task.isCancelled, applyGen == self.filterApplyGeneration else { return }
+            }
+            await self.runFilterStagesAsync(applyGen: applyGen)
+            if applyGen == self.filterApplyGeneration {
+                self.pendingShimmerTask?.cancel()
+                self.pendingShimmerTask = nil
+                self.pendingFilterApplyTask = nil
+            }
+        }
+    }
+
+    /// S2 filtered / S2.5 ratingCounts / S3 sorted をバックグラウンドで計算し、
+    /// 完了時に MainActor で反映する。入力は全て値型スナップショットで渡し、detached 内では
+    /// store を一切触らない。反映直前に scanGeneration と filterApplyGeneration を二重に照合する。
+    @MainActor
+    private func runFilterStagesAsync(applyGen: UInt64) async {
+        runStageReps()  // 通常 no-op（dirty.reps が立っているときだけ同期で代表選定を再計算）
+        // ── スナップショット（MainActor）──
+        let pool   = cachedRepsOrdered
+        let f      = filter
+        let eSnap  = entries
+        let xSnap  = exifData
+        let xmSnap = xmpData
+        let lSnap  = luminanceScores
+        let key    = settings.sortKey
+        let asc    = settings.sortAscending
+        var dates: [UInt64: Date] = [:]
+        if key == .exifDate {
+            dates.reserveCapacity(pool.count)
+            for id in pool { dates[id] = photoDate(for: id) }
+        }
+        let gen = scanGeneration
+
+        let (filtered, counts, sorted) = await Task.detached(priority: .userInitiated) {
+            () -> ([UInt64], [Int: Int], [UInt64]) in
+            let filtered: [UInt64] = f.isActive ? pool.filter { id in
+                guard let e = eSnap[id] else { return false }
+                return f.matches(entry: e, exif: xSnap[id], xmp: xmSnap[id], luminance: lSnap[id])
+            } : pool
+            let counts = LibraryStore.computeRatingCounts(pool: pool, filter: f, entries: eSnap,
+                                                          exif: xSnap, xmp: xmSnap, lum: lSnap)
+            let sorted = LibraryStore.sortIDs(filtered, key: key, asc: asc,
+                                              entries: eSnap, xmp: xmSnap, dates: dates)
+            return (filtered, counts, sorted)
+        }.value
+
+        // フォルダ切替（gen）・新しいフィルタ適用や同期再計算（applyGen）・キャンセルを照合
+        guard !Task.isCancelled, gen == scanGeneration, applyGen == filterApplyGeneration else { return }
+        cachedFiltered = filtered
+        if sorted != visibleIDs { visibleIDs = sorted }
+        if counts != ratingCounts { ratingCounts = counts }
+        dirty.filtered = false
+        dirty.ratingCounts = false
+        dirty.sorted = false
+        runStageDaily()        // 軽量・main（visibleIDs + photoDate キャッシュ）
+        runStageAggregates()   // 内部で Task.detached（ヒストグラム）
+        // 既に false のときは @Observable の無駄な通知（＝グリッド再評価）を避ける。
+        if isFilterPending { isFilterPending = false }
+        // フィルタ適用で件数・順序が変わるため、フォーカスが画面外なら可視範囲へ戻す。
+        revealPrimaryRequest.send()
     }
 
     private func scheduleRecomputeVisible(coalesceMs: Int = 400) {
@@ -2016,8 +2098,16 @@ final class LibraryStore: ReindexedGroupSink {
     // 呼び出し元 21 か所は当面このまま。後続 PR で各呼び出し元を
     // 適切な mark(...) + runDirtyStages() に最適化していく。
     private func recomputeVisible() {
+        // 同期フル再計算。in-flight の非同期フィルタ適用を無効化（世代を進める）して、
+        // 後から古い結果が visibleIDs を上書きするのを防ぐ。シマーも確実に解除する。
+        pendingFilterApplyTask?.cancel()
+        pendingFilterApplyTask = nil
+        pendingShimmerTask?.cancel()
+        pendingShimmerTask = nil
+        filterApplyGeneration &+= 1
         dirty = PipelineDirty()
         runDirtyStages()
+        if isFilterPending { isFilterPending = false }
     }
 
     func applyOrder() {
@@ -2048,40 +2138,47 @@ final class LibraryStore: ReindexedGroupSink {
 
     private func sortedIDs(_ ids: [UInt64]) -> [UInt64] {
         let key = settings.sortKey
-        let asc = settings.sortAscending
+        var dates: [UInt64: Date] = [:]
+        if key == .exifDate {
+            dates.reserveCapacity(ids.count)
+            for id in ids { dates[id] = photoDate(for: id) }
+        }
+        return Self.sortIDs(ids, key: key, asc: settings.sortAscending,
+                            entries: entries, xmp: xmpData, dates: dates)
+    }
+
+    /// ID 配列をソートする純粋関数。`.exifDate` キーは事前解決済み `dates`（DateFormatter は
+    /// スレッド非安全のため MainActor で解決）を使う。同期/非同期どちらのパスでも共有する。
+    nonisolated static func sortIDs(
+        _ ids: [UInt64], key: SortKey, asc: Bool,
+        entries: [UInt64: PhotoEntry], xmp: [UInt64: XmpData], dates: [UInt64: Date]
+    ) -> [UInt64] {
+        func compare(_ a: UInt64, _ b: UInt64) -> ComparisonResult {
+            switch key {
+            case .filename:
+                return (entries[a]?.filename ?? "").compare(entries[b]?.filename ?? "")
+            case .createdDate:
+                return (entries[a]?.createdDate ?? .distantPast).compare(entries[b]?.createdDate ?? .distantPast)
+            case .modifiedDate:
+                return (entries[a]?.modifiedDate ?? .distantPast).compare(entries[b]?.modifiedDate ?? .distantPast)
+            case .fileSize:
+                let sa = entries[a]?.fileSize ?? 0
+                let sb = entries[b]?.fileSize ?? 0
+                return sa == sb ? .orderedSame : (sa < sb ? .orderedAscending : .orderedDescending)
+            case .rating:
+                let ra = xmp[a]?.rating ?? 0
+                let rb = xmp[b]?.rating ?? 0
+                return ra == rb ? .orderedSame : (ra < rb ? .orderedAscending : .orderedDescending)
+            case .exifDate:
+                return (dates[a] ?? .distantPast).compare(dates[b] ?? .distantPast)
+            }
+        }
         return ids.sorted { a, b in
-            let cmp = compareIDs(a, b, key: key)
+            let cmp = compare(a, b)
             if cmp != .orderedSame {
                 return asc ? cmp == .orderedAscending : cmp == .orderedDescending
             }
-            let an = entries[a]?.filename ?? ""
-            let bn = entries[b]?.filename ?? ""
-            return an < bn
-        }
-    }
-
-    private func compareIDs(_ a: UInt64, _ b: UInt64, key: SortKey) -> ComparisonResult {
-        switch key {
-        case .filename:
-            return (entries[a]?.filename ?? "").compare(entries[b]?.filename ?? "")
-        case .createdDate:
-            let da = entries[a]?.createdDate ?? .distantPast
-            let db = entries[b]?.createdDate ?? .distantPast
-            return da.compare(db)
-        case .modifiedDate:
-            let da = entries[a]?.modifiedDate ?? .distantPast
-            let db = entries[b]?.modifiedDate ?? .distantPast
-            return da.compare(db)
-        case .fileSize:
-            let sa = entries[a]?.fileSize ?? 0
-            let sb = entries[b]?.fileSize ?? 0
-            return sa == sb ? .orderedSame : (sa < sb ? .orderedAscending : .orderedDescending)
-        case .rating:
-            let ra = xmpData[a]?.rating ?? 0
-            let rb = xmpData[b]?.rating ?? 0
-            return ra == rb ? .orderedSame : (ra < rb ? .orderedAscending : .orderedDescending)
-        case .exifDate:
-            return photoDate(for: a).compare(photoDate(for: b))
+            return (entries[a]?.filename ?? "") < (entries[b]?.filename ?? "")
         }
     }
 
@@ -2689,6 +2786,13 @@ final class LibraryStore: ReindexedGroupSink {
         pendingRecomputeTask = nil
         pendingAggregatesTask?.cancel()
         pendingAggregatesTask = nil
+        // filter.reset() が onFilterChanged 経由でスケジュールした適用も含めて停止する。
+        pendingFilterApplyTask?.cancel()
+        pendingFilterApplyTask = nil
+        pendingShimmerTask?.cancel()
+        pendingShimmerTask = nil
+        filterApplyGeneration &+= 1
+        isFilterPending = false
         exifLoadTask?.cancel()
         exifLoadTask = nil
         thumbnailLoadTask?.cancel()

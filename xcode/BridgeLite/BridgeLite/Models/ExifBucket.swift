@@ -1,4 +1,4 @@
-struct ExifBucket {
+struct ExifBucket: Equatable {
     let label: String
     let count: Int
     let minText: String
