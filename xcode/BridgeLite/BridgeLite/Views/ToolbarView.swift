@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import SwiftUI
 
 // MARK: - Liquid Glass style view mode picker
@@ -296,9 +297,11 @@ struct DecodeTachometerView: View {
     @State private var lastTotal = 0
     @State private var seeded = false
     @State private var rate: Double = 0   // 平滑化済み 枚/秒
-    @State private var isActive = true    // アプリがフォアグラウンドか
 
-    private let tick = Timer.publish(every: 0.3, on: .main, in: .common).autoconnect()
+    // Connectable な Timer（autoconnect しない）。connect() で発火開始、cancel() で**タイマー自体が停止**する。
+    // 非アクティブ時に接続を切ることで 0.3 秒ごとの発火を完全に止め、App Nap を妨げない。
+    private let tick = Timer.publish(every: 0.3, on: .main, in: .common)
+    @State private var tickConnection: Cancellable?
 
     private var fraction: Double { min(1, max(0, rate / redline)) }
     // 針の回転角。-135°(=0%) 〜 +135°(=100%)。rotationEffect で高 fps 補間する。
@@ -332,16 +335,18 @@ struct DecodeTachometerView: View {
                     EmptyView()
                 }
             }
-            .onReceive(tick) { _ in if isActive { sample() } }
+            .onReceive(tick) { _ in sample() }
+            .onAppear { if NSApp?.isActive ?? true { connectTick() } }
+            .onDisappear { disconnectTick() }
             .onReceive(NotificationCenter.default.publisher(
                 for: NSApplication.didBecomeActiveNotification)) { _ in
                 // 背面中の total 増分でアクティブ復帰時に針が暴れないよう再シードする。
                 seeded = false
-                isActive = true
+                connectTick()
             }
             .onReceive(NotificationCenter.default.publisher(
                 for: NSApplication.didResignActiveNotification)) { _ in
-                isActive = false
+                disconnectTick()
             }
             .help(helpText)
             .accessibilityLabel(Text(String(localized: "tacho.label",
@@ -359,6 +364,16 @@ struct DecodeTachometerView: View {
     // 静的文言（毎ティックの ICU 生成を避ける）。
     private let helpText = String(localized: "tacho.help",
         defaultValue: "Thumbnail decode tachometer. Revs up while thumbnails are (re)decoded — e.g. after memory was reclaimed during idle.")
+
+    private func connectTick() {
+        guard tickConnection == nil else { return }
+        tickConnection = tick.connect()
+    }
+
+    private func disconnectTick() {
+        tickConnection?.cancel()
+        tickConnection = nil
+    }
 
     private func sample() {
         let total = ThumbnailDecodeCache.shared.totalDecodes

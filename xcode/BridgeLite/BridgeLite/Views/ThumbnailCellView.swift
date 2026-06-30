@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import SwiftUI
 
@@ -61,7 +62,9 @@ struct ThumbnailCellView: View {
         .padding(.top, 2)
         .padding(.bottom, 6)
         .frame(width: cellSize, height: Self.infoStripHeight - 4, alignment: .topLeading)
-        .background(.ultraThinMaterial)
+        // per-cell の .ultraThinMaterial（ライブ vibrancy）はグリッド全体で数十枚になり、
+        // Mission Control 等のウィンドウ合成を重くするため不透明の適応色に置換（ブラー無し）。
+        .background(Color(nsColor: .windowBackgroundColor))
     }
 
     private var strictBody: some View {
@@ -182,7 +185,8 @@ struct ThumbnailCellView: View {
             .background {
                 switch kind {
                 case .sooc:
-                    RoundedRectangle(cornerRadius: 3).fill(.ultraThinMaterial)
+                    // material（ライブ vibrancy）を避け、適応色の半透明ソリッドで代替。
+                    RoundedRectangle(cornerRadius: 3).fill(Color(nsColor: .windowBackgroundColor).opacity(0.85))
                 case .raw:
                     RoundedRectangle(cornerRadius: 3).fill(Color.orange.opacity(0.8))
                 case .developed:
