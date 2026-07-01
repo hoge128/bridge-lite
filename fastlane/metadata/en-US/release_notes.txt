@@ -1,16 +1,19 @@
-Wider RAW support makes culling even smoother.
+A stability and speed release.
 
-Wider RAW support — review straight off the card
-Shoot RAW and cull from the real RAW, not a JPG. Embedded previews now read correctly from many more cameras:
-• Added Olympus ORF (incl. OM-5 Mark II), Canon CRW, and Leica RWL
-• Now supports medium-format Hasselblad (3FR/FFF) and Phase One (IIQ), Nikon Z6 III, and Apple ProRAW / iPhone DNG
-• RAW with no usable preview now shows a clear "No preview" placeholder
+Fixed: crash when dragging photos
+• Dragging a photo out of BridgeLite (to Finder, Mail, or another app) could crash the app on some Macs. This is fixed
 
-Better filtering and sorting
-• Added a time-of-day filter with a midnight pivot, so a session that runs past midnight stays together
-• Added "Date Taken" sorting (by EXIF capture time)
-• Filter category chips now extend to the edge of the screen
+Share straight from the grid
+• Right-click any photo and choose Share to send it to any app or service — no need to drag out to Finder first
+• Copying, dragging, or sharing a photo now brings its XMP sidecar along automatically, so ratings, labels, and captions travel with the file
+
+Filtering that keeps up with you
+• Toggling a rating or label filter now highlights instantly, even on large libraries — the actual re-filtering runs in the background with a shimmer showing it's still working
+• Smoother dragging on the ISO / aperture / shutter speed / focal length histograms
+
+Smoother Mission Control
+• Fixed a stutter when entering Mission Control or switching spaces with BridgeLite open, most noticeable on large libraries
+• Background animations and diagnostic timers now pause while BridgeLite isn't active, reducing idle load
 
 Also
-• Fixed an issue where, after opening a different folder, a photo from the previous folder could occasionally appear
-• Various refinements and fixes
+• Various refinements and stability fixes

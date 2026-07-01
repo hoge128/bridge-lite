@@ -187,8 +187,8 @@ targets:
         CFBundleName: BridgeLite
         CFBundleDisplayName: BridgeLite
         CFBundleIdentifier: io.github.bridge-lite.ios
-        CFBundleVersion: "3"
-        CFBundleShortVersionString: "0.5.1"
+        CFBundleVersion: "4"
+        CFBundleShortVersionString: "0.5.2"
         NSHumanReadableDescription: "Lightweight RAW+JPG image viewer"
         NSHumanReadableCopyright: "Copyright © 2026 Tsuyoshi Ito. All rights reserved."
         # No SU* (Sparkle) keys: Mac App Store updates are handled by the App Store.
