@@ -22,7 +22,7 @@ checksum = "843867be96c8daad0d758b57df9392b6d8d271134fce549de6ce169ff98a92af"
 
 [[package]]
 name = "bridge-core"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "chrono",
  "jpeg-encoder",
@@ -40,7 +40,7 @@ dependencies = [
 
 [[package]]
 name = "bridge-ffi"
-version = "0.5.1"
+version = "0.5.2"
 dependencies = [
  "bridge-core",
  "rusqlite",
