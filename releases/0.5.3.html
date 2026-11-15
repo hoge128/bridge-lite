@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>BridgeLite 0.5.3 Release Notes</title>
+  <style>
+    body { font-family: -apple-system, sans-serif; font-size: 13px; margin: 0; padding: 12px 16px; color: #1d1d1f; }
+    h2 { font-size: 15px; margin: 0 0 8px; }
+    h3 { font-size: 12px; font-weight: 600; margin: 12px 0 4px; color: #555; text-transform: uppercase; letter-spacing: 0.04em; }
+    ul { margin: 0 0 4px; padding-left: 18px; }
+    li { margin: 2px 0; }
+    .lang-divider { border: none; border-top: 1px solid #e0e0e0; margin: 16px 0; }
+  </style>
+</head>
+<body>
+
+<!-- English -->
+<h2>BridgeLite 0.5.3</h2>
+
+<p>Check focus and exposure without leaving BridgeLite. Hold <strong>F</strong> to see what's in focus, hold <strong>J</strong> to see blown highlights and crushed shadows. Both work in the single-photo view, the filmstrip, and compare view, so you can pick the sharpest, best-exposed frame from a burst before you open anything in Lightroom.</p>
+
+<h3>Focus peaking: hold F</h3>
+<ul>
+  <li>Hold <strong>F</strong> to outline the in-focus edges. Colors show how strong the focus is: blue = soft, green = good, yellow (blinking) = sharpest</li>
+  <li>Detection runs at full resolution, so you can judge critical focus even when zoomed out. The overlay follows zoom and pan</li>
+  <li>Release the key and the overlay disappears. Nothing is computed while you aren't holding it</li>
+</ul>
+
+<h3>Highlight &amp; shadow clipping: hold J</h3>
+<ul>
+  <li>Hold <strong>J</strong> (the same key as Lightroom) to show blown highlights in red and crushed shadows in blue</li>
+  <li>The indicator shows a luminance histogram and the percentage of clipped pixels</li>
+  <li>The RGB histogram in the metadata panel now has Lightroom-style triangle buttons that turn the clipping overlay on and off</li>
+</ul>
+
+<h3>Compare a burst side by side</h3>
+<ul>
+  <li>Peaking and clipping also work in the <strong>filmstrip</strong> and <strong>compare view</strong>. They apply to every photo on screen at once, so you can tell which frame of a burst nailed focus at a glance</li>
+  <li>Prefer to keep it on? Right-click a photo and choose <strong>Show Focus Peaking</strong> or <strong>Show Highlight / Shadow Clipping</strong>. It stays on as you move between photos, and <strong>Esc</strong> turns it off</li>
+  <li>Analysis is cached, so returning to a photo you already checked is near-instant</li>
+</ul>
+
+<h3>Easier to learn</h3>
+<ul>
+  <li>Hover over buttons in the toolbar, filter bar, metadata bar, filmstrip, and status bar to see what they do</li>
+  <li>The filmstrip picker now opens as a single row by default and remembers the layout you chose</li>
+  <li>Moving the selection with the arrow keys now scrolls the grid to keep it in view</li>
+</ul>
+
+<h3>Better grouping</h3>
+<ul>
+  <li>Fixed: shooting date and camera name were not read from <strong>Canon CR3</strong> and <strong>Olympus ORF</strong> files, so those shots could fail to group correctly</li>
+  <li>Lightroom exports with numbered suffixes (for example <code>DSC01234-2.jpg</code>) are now grouped with the original shot</li>
+</ul>
+
+<h3>Faster and lighter</h3>
+<ul>
+  <li>Background scanning now runs at lower priority, so other apps stay responsive while a large folder loads</li>
+  <li>Fixed a delay when pressing <strong>Esc</strong> to return to the grid after browsing quickly through RAW files</li>
+  <li>Thumbnails you can see now reload first when you switch back to BridgeLite</li>
+</ul>
+
+<h3>Changes</h3>
+<ul>
+  <li>The shortcut to show or hide the filter bar is now <strong>⌥⌘F</strong> in both the library and the filmstrip (previously F / ⌃⌘S)</li>
+  <li>Removed the decode tachometer from the toolbar. It was a developer diagnostic that didn't help with choosing photos</li>
+</ul>
+
+<hr class="lang-divider">
+
+<!-- 日本語 -->
+<h2>BridgeLite 0.5.3</h2>
+
+<p>ピントと露出を BridgeLite の中で確かめられるようになりました。<strong>F</strong> を長押しすると合焦部分が、<strong>J</strong> を長押しすると白飛び・黒つぶれが表示されます。単体ビュー・フィルムストリップ・比較ビューのどこでも使えるので、連写の中からいちばんシャープで露出の良い一枚を、Lightroom を開く前に選べます。</p>
+
+<h3>ピーキング：F 長押し</h3>
+<ul>
+  <li><strong>F</strong> を押している間、ピントが合っている輪郭を色付きで表示します。色は合焦の強さを表します（青 = 弱、緑 = 中、黄の点滅 = 強）</li>
+  <li>判定はフル解像度で行うため、縮小表示のままでも厳密なピントを確認できます。ズームやパンにも追従します</li>
+  <li>キーを離すと表示は消えます。押していない間は何も計算しません</li>
+</ul>
+
+<h3>白飛び・黒つぶれ：J 長押し</h3>
+<ul>
+  <li><strong>J</strong>（Lightroom と同じキー）を押している間、白飛びを赤、黒つぶれを青で表示します</li>
+  <li>インジケータに輝度ヒストグラムとクリップ率を表示します</li>
+  <li>メタデータパネルの RGB ヒストグラムに、Lightroom と同じ三角ボタンを追加しました。白飛び・黒つぶれ表示をオン/オフできます</li>
+</ul>
+
+<h3>連写を並べて見比べる</h3>
+<ul>
+  <li>ピーキングと白飛び・黒つぶれは <strong>フィルムストリップ</strong> と <strong>比較ビュー</strong> でも使えます。画面に並んだ全員にまとめて重なるので、連写のどれにピントが来ているかが一目で分かります</li>
+  <li>表示したままにしたいときは、写真を右クリックして <strong>「ピーキングを表示」/「白飛び・黒つぶれを表示」</strong> を選びます。写真を切り替えても表示は保たれ、<strong>Esc</strong> で消せます</li>
+  <li>解析結果をキャッシュするので、一度確認した写真に戻ったときはほぼ即座に表示されます</li>
+</ul>
+
+<h3>迷わず使えるように</h3>
+<ul>
+  <li>ツールバー・フィルターバー・メタデータバー・フィルムストリップ・ステータスバーのボタンにマウスを重ねると説明が出るようになりました</li>
+  <li>フィルムストリップのピッカーは横一列で開くのを既定にし、選んだ並べ方を次回起動にも引き継ぎます</li>
+  <li>矢印キーで選択を移動したとき、グリッドが追従してスクロールするようになりました</li>
+</ul>
+
+<h3>グルーピングの改善</h3>
+<ul>
+  <li><strong>Canon CR3</strong> と <strong>Olympus ORF</strong> で撮影日時とカメラ名が読めず、正しくグループにまとまらないことがある問題を修正しました</li>
+  <li>Lightroom で書き出した連番付きのファイル（例: <code>DSC01234-2.jpg</code>）を、元の写真と同じショットとしてまとめるようになりました</li>
+</ul>
+
+<h3>より速く、より軽く</h3>
+<ul>
+  <li>バックグラウンドスキャンの優先度を下げ、大きなフォルダの読み込み中も他のアプリが重くならないようにしました</li>
+  <li>RAW を素早く送ったあと <strong>Esc</strong> でグリッドに戻る際に反応が遅れる問題を修正しました</li>
+  <li>BridgeLite に戻ってきたとき、画面に見えているサムネイルから先に読み込み直すようにしました</li>
+</ul>
+
+<h3>変更点</h3>
+<ul>
+  <li>フィルターバーの表示切替のショートカットを、ライブラリ・フィルムストリップとも <strong>⌥⌘F</strong> に統一しました（従来は F / ⌃⌘S）</li>
+  <li>ツールバーのデコード・タコメーターを廃止しました。写真選びには役立たない開発者向けの計器だったためです</li>
+</ul>
+
+</body>
+</html>
